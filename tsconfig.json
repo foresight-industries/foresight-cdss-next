@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./apps/foresight-cdss-next-e2e"
+    },
+    {
+      "path": "./apps/foresight-cdss-next"
+    }
+  ]
+}
