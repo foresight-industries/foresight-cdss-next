@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, X, Mail, UserPlus } from 'lucide-react';
+import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, X, Mail, UserPlus, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -58,6 +58,16 @@ export default function SettingsPage() {
     sendWelcomeEmail: true
   });
 
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<{index: number; name: string; email: string; role: string; status: string} | null>(null);
+  const [editForm, setEditForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'PA Coordinator',
+    status: 'Active'
+  });
+
   const [automationSettings, setAutomationSettings] = useState({
     autoApprovalThreshold: 90,
     requireReviewThreshold: 70,
@@ -76,6 +86,12 @@ export default function SettingsPage() {
     weeklyReports: true,
     dailyDigest: false
   });
+
+  const [teamMembers, setTeamMembers] = useState([
+    { name: 'Jane Doe', email: 'jane@foresight.health', role: 'Administrator', status: 'Active' },
+    { name: 'John Smith', email: 'john@foresight.health', role: 'PA Coordinator', status: 'Active' },
+    { name: 'Sarah Wilson', email: 'sarah@foresight.health', role: 'PA Reviewer', status: 'Pending' }
+  ]);
 
   const [integrationStatus] = useState({
     cmm: { connected: true, lastSync: '2 minutes ago', status: 'healthy' },
@@ -119,6 +135,51 @@ export default function SettingsPage() {
 
   const handleInviteFormChange = (key: string, value: any) => {
     setInviteForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleEditUser = (index: number) => {
+    const user = teamMembers[index];
+    const [firstName, lastName] = user.name.split(' ');
+    
+    setEditingUser({ index, ...user });
+    setEditForm({
+      firstName: firstName || '',
+      lastName: lastName || '',
+      email: user.email,
+      role: user.role,
+      status: user.status
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEditUser = () => {
+    if (!editingUser || !editForm.email || !editForm.firstName || !editForm.lastName) return;
+    
+    const updatedMembers = [...teamMembers];
+    updatedMembers[editingUser.index] = {
+      name: `${editForm.firstName} ${editForm.lastName}`,
+      email: editForm.email,
+      role: editForm.role,
+      status: editForm.status
+    };
+    
+    setTeamMembers(updatedMembers);
+    setShowEditModal(false);
+    setEditingUser(null);
+    setEditForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      role: 'PA Coordinator',
+      status: 'Active'
+    });
+    
+    // Show success message (in real app, this would be a toast notification)
+    alert(`User ${editForm.firstName} ${editForm.lastName} updated successfully`);
+  };
+
+  const handleEditFormChange = (key: string, value: any) => {
+    setEditForm(prev => ({ ...prev, [key]: value }));
   };
 
   const renderAutomationSettings = () => (
@@ -438,11 +499,7 @@ export default function SettingsPage() {
           </Button>
         </div>
         <div className="space-y-3">
-          {[
-            { name: 'Jane Doe', email: 'jane@foresight.health', role: 'Administrator', status: 'Active' },
-            { name: 'John Smith', email: 'john@foresight.health', role: 'PA Coordinator', status: 'Active' },
-            { name: 'Sarah Wilson', email: 'sarah@foresight.health', role: 'PA Reviewer', status: 'Pending' }
-          ].map((user, index) => (
+          {teamMembers.map((user, index) => (
             <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
               <div>
                 <p className="font-medium text-gray-900">{user.name}</p>
@@ -455,7 +512,10 @@ export default function SettingsPage() {
                 }>
                   {user.status}
                 </Badge>
-                <Button variant="ghost" size="sm">Edit</Button>
+                <Button variant="ghost" size="sm" onClick={() => handleEditUser(index)}>
+                  <Edit className="w-4 h-4 mr-1" />
+                  Edit
+                </Button>
               </div>
             </div>
           ))}
@@ -682,6 +742,108 @@ export default function SettingsPage() {
                 >
                   <Mail className="w-4 h-4 mr-2" />
                   Send Invitation
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Edit className="w-5 h-5 mr-2 text-blue-600" />
+                Edit Team Member
+              </h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                    <input
+                      type="text"
+                      value={editForm.firstName}
+                      onChange={(e) => handleEditFormChange('firstName', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Jane"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      value={editForm.lastName}
+                      onChange={(e) => handleEditFormChange('lastName', e.target.value)}
+                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => handleEditFormChange('email', e.target.value)}
+                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="jane.doe@company.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    value={editForm.role}
+                    onChange={(e) => handleEditFormChange('role', e.target.value)}
+                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="PA Coordinator">PA Coordinator</option>
+                    <option value="PA Reviewer">PA Reviewer</option>
+                    <option value="Administrator">Administrator</option>
+                    <option value="Read Only">Read Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={editForm.status}
+                    onChange={(e) => handleEditFormChange('status', e.target.value)}
+                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Suspended">Suspended</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveEditUser}
+                  disabled={!editForm.email || !editForm.firstName || !editForm.lastName}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
                 </Button>
               </div>
             </div>
