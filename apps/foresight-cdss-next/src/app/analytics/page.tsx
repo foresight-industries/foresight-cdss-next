@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Users, Clock, Target, BarChart3 } from 'lucide-react';
-import { useDashboardMetrics, useStatusDistribution } from '@/hooks/use-dashboard-data';
+import {
+  // useDashboardMetrics,
+  useStatusDistribution
+} from '@/hooks/use-dashboard-data';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -43,8 +46,8 @@ const payerPerformance = [
 
 export default function AnalyticsPage() {
   const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>(timeRanges[1]); // 30 days default
-  
-  const { data: metrics } = useDashboardMetrics();
+
+  // const { data: metrics } = useDashboardMetrics();
   const { data: distribution } = useStatusDistribution();
 
   return (
@@ -57,14 +60,14 @@ export default function AnalyticsPage() {
             Performance insights and trends for PA automation
           </p>
         </div>
-        
+
         {/* Time Range Selector */}
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
           {timeRanges.map((range) => (
             <Button
               key={range.value}
-              variant={selectedTimeRange.value === range.value ? "default" : "outline"}
+              variant={selectedTimeRange.value === range.value ? "primary" : "ghost"}
               size="sm"
               onClick={() => setSelectedTimeRange(range)}
             >
@@ -152,14 +155,14 @@ export default function AnalyticsPage() {
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
                     <div className="w-32 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full" 
+                      <div
+                        className="bg-blue-600 h-2 rounded-full"
                         style={{ width: `${(item.avgTime / item.target) * 100}%` }}
                       ></div>
                     </div>
                     <span className="text-sm font-medium">{item.avgTime}h</span>
                   </div>
-                  <Badge variant="secondary" className="text-xs">
+                  <Badge variant="default" className="text-xs">
                     Target: {item.target}h
                   </Badge>
                 </div>
@@ -179,12 +182,12 @@ export default function AnalyticsPage() {
                   <span className="text-gray-900">{item.automation}% automated</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div 
-                    className="bg-green-500 h-2 rounded-full relative" 
+                  <div
+                    className="bg-green-500 h-2 rounded-full relative"
                     style={{ width: `${item.automation}%` }}
                   >
-                    <div 
-                      className="bg-red-400 h-2 rounded-r-full absolute right-0" 
+                    <div
+                      className="bg-red-400 h-2 rounded-r-full absolute right-0"
                       style={{ width: `${(item.manual / item.automation) * 100}%` }}
                     ></div>
                   </div>
@@ -217,9 +220,9 @@ export default function AnalyticsPage() {
                     <div className="flex items-center space-x-2">
                       <span className="text-gray-900">{payer.approvalRate}%</span>
                       <div className="w-16 bg-gray-200 rounded-full h-1.5">
-                        <div 
+                        <div
                           className={`h-1.5 rounded-full ${
-                            payer.approvalRate >= 90 ? 'bg-green-500' : 
+                            payer.approvalRate >= 90 ? 'bg-green-500' :
                             payer.approvalRate >= 80 ? 'bg-yellow-500' : 'bg-red-500'
                           }`}
                           style={{ width: `${payer.approvalRate}%` }}
@@ -230,15 +233,15 @@ export default function AnalyticsPage() {
                   <td className="py-4 px-4 text-gray-600">{payer.avgTime}</td>
                   <td className="py-4 px-4 text-gray-600">{payer.volume} PAs</td>
                   <td className="py-4 px-4">
-                    <Badge 
-                      variant="secondary"
+                    <Badge
+                      variant="default"
                       className={
                         payer.approvalRate >= 90 ? 'bg-green-100 text-green-800' :
                         payer.approvalRate >= 80 ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }
                     >
-                      {payer.approvalRate >= 90 ? 'Excellent' : 
+                      {payer.approvalRate >= 90 ? 'Excellent' :
                        payer.approvalRate >= 80 ? 'Good' : 'Needs Attention'}
                     </Badge>
                   </td>
@@ -271,24 +274,24 @@ export default function AnalyticsPage() {
               <p className="text-sm text-gray-600">Denied</p>
             </div>
           </div>
-          
+
           {/* Status distribution bar */}
           <div className="mt-6">
             <div className="w-full bg-gray-200 rounded-full h-4 flex overflow-hidden">
-              <div 
-                className="bg-yellow-500" 
+              <div
+                className="bg-yellow-500"
                 style={{ width: `${(distribution.needsReview / distribution.total) * 100}%` }}
               ></div>
-              <div 
-                className="bg-blue-500" 
+              <div
+                className="bg-blue-500"
                 style={{ width: `${(distribution.autoProcessing / distribution.total) * 100}%` }}
               ></div>
-              <div 
-                className="bg-green-500" 
+              <div
+                className="bg-green-500"
                 style={{ width: `${(distribution.autoApproved / distribution.total) * 100}%` }}
               ></div>
-              <div 
-                className="bg-red-500" 
+              <div
+                className="bg-red-500"
                 style={{ width: `${(distribution.denied / distribution.total) * 100}%` }}
               ></div>
             </div>

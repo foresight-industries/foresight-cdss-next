@@ -94,7 +94,7 @@ export default function BulkOperationsPage() {
     const diffMs = end.getTime() - start.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
-    
+
     if (diffHours > 0) {
       return `${diffHours}h ${diffMins % 60}m`;
     }
@@ -102,16 +102,16 @@ export default function BulkOperationsPage() {
   };
 
   const handlePauseResume = (id: string, currentStatus: string) => {
-    setOperations(prev => prev.map(op => 
-      op.id === id 
+    setOperations(prev => prev.map(op =>
+      op.id === id
         ? { ...op, status: currentStatus === 'running' ? 'paused' : 'running' as any }
         : op
     ));
   };
 
   const handleCancel = (id: string) => {
-    setOperations(prev => prev.map(op => 
-      op.id === id 
+    setOperations(prev => prev.map(op =>
+      op.id === id
         ? { ...op, status: 'failed' as any }
         : op
     ));
@@ -129,7 +129,7 @@ export default function BulkOperationsPage() {
       processedItems: 0,
       startedAt: new Date().toISOString()
     };
-    
+
     setOperations(prev => [newOp, ...prev]);
     setShowNewOperation(false);
   };
@@ -144,7 +144,7 @@ export default function BulkOperationsPage() {
             Manage large-scale PA processing and data operations
           </p>
         </div>
-        
+
         <Button onClick={() => setShowNewOperation(true)}>
           <Play className="w-4 h-4 mr-2" />
           New Operation
@@ -194,8 +194,8 @@ export default function BulkOperationsPage() {
             <div>
               <p className="text-sm font-medium text-gray-600">Error Rate</p>
               <p className="text-3xl font-bold text-red-600">
-                {operations.length > 0 
-                  ? ((operations.reduce((sum, op) => sum + (op.errorCount || 0), 0) / 
+                {operations.length > 0
+                  ? ((operations.reduce((sum, op) => sum + (op.errorCount || 0), 0) /
                      operations.reduce((sum, op) => sum + op.processedItems, 1)) * 100).toFixed(1)
                   : 0}%
               </p>
@@ -212,7 +212,7 @@ export default function BulkOperationsPage() {
             <h3 className="text-lg font-semibold text-gray-900">Create New Operation</h3>
             <Button variant="ghost" onClick={() => setShowNewOperation(false)}>×</Button>
           </div>
-          
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Operation Type</label>
@@ -297,7 +297,7 @@ export default function BulkOperationsPage() {
             )}
 
             <div className="flex justify-end space-x-3">
-              <Button variant="outline" onClick={() => setShowNewOperation(false)}>
+              <Button variant="ghost" onClick={() => setShowNewOperation(false)}>
                 Cancel
               </Button>
               <Button onClick={startNewOperation}>
@@ -313,12 +313,12 @@ export default function BulkOperationsPage() {
         <div className="p-6 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">Recent Operations</h2>
         </div>
-        
+
         <div className="divide-y divide-gray-200">
           {operations.map((operation) => {
             const TypeIcon = operationTypeConfig[operation.type].icon;
             const StatusIcon = statusConfig[operation.status].icon;
-            
+
             return (
               <div key={operation.id} className="p-6">
                 <div className="flex items-start justify-between">
@@ -326,7 +326,7 @@ export default function BulkOperationsPage() {
                     <div className="p-2 rounded-lg bg-gray-50">
                       <TypeIcon className="w-5 h-5 text-gray-600" />
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-3 mb-2">
                         <h3 className="font-semibold text-gray-900">{operation.name}</h3>
@@ -338,9 +338,9 @@ export default function BulkOperationsPage() {
                           {operation.status}
                         </Badge>
                       </div>
-                      
+
                       <p className="text-sm text-gray-600 mb-3">{operation.description}</p>
-                      
+
                       {operation.status === 'running' && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
@@ -350,7 +350,7 @@ export default function BulkOperationsPage() {
                             <span className="text-gray-600">{operation.progress}%</span>
                           </div>
                           <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div 
+                            <div
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${operation.progress}%` }}
                             ></div>
@@ -362,7 +362,7 @@ export default function BulkOperationsPage() {
                           )}
                         </div>
                       )}
-                      
+
                       <div className="flex items-center space-x-4 text-sm text-gray-500 mt-2">
                         <span>Started: {formatDate(operation.startedAt)}</span>
                         {operation.status === 'completed' && (
@@ -376,32 +376,32 @@ export default function BulkOperationsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Actions */}
                   <div className="flex items-center space-x-2 ml-4">
                     {operation.status === 'running' && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => handlePauseResume(operation.id, operation.status)}
                       >
                         <Pause className="w-4 h-4" />
                       </Button>
                     )}
-                    
+
                     {operation.status === 'paused' && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => handlePauseResume(operation.id, operation.status)}
                       >
                         <Play className="w-4 h-4" />
                       </Button>
                     )}
-                    
+
                     {['running', 'paused'].includes(operation.status) && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => handleCancel(operation.id)}
                         className="text-red-600 hover:text-red-700"
@@ -409,9 +409,9 @@ export default function BulkOperationsPage() {
                         Cancel
                       </Button>
                     )}
-                    
+
                     {operation.status === 'completed' && (
-                      <Button variant="outline" size="sm">
+                      <Button variant="ghost" size="sm">
                         <Download className="w-4 h-4 mr-1" />
                         Download
                       </Button>

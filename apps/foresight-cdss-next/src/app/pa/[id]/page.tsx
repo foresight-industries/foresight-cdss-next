@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, Clock, User, Building2, Pills, FileText, AlertCircle, CheckCircle, XCircle, Download, Edit, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Clock, User, Building2, Pill, FileText, AlertCircle, CheckCircle, XCircle, Download, Edit, MessageSquare } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -109,7 +109,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
             <p className="text-gray-600">{mockPAData.patient.name} • {mockPAData.medication.name}</p>
           </div>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <StatusIcon className="w-5 h-5" />
@@ -117,7 +117,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
               {statusConfig[mockPAData.status].label}
             </Badge>
           </div>
-          <Badge variant="secondary" className={
+          <Badge variant="auto-processing" className={
             mockPAData.confidence >= 90 ? 'bg-green-100 text-green-800' :
             mockPAData.confidence >= 70 ? 'bg-yellow-100 text-yellow-800' :
             'bg-red-100 text-red-800'
@@ -129,15 +129,15 @@ export default function PADetailPage({ params }: PADetailPageProps) {
 
       {/* Quick Actions */}
       <div className="flex space-x-3">
-        <Button variant="outline" size="sm">
+        <Button variant="ghost" size="sm">
           <Download className="w-4 h-4 mr-2" />
           Export PDF
         </Button>
-        <Button variant="outline" size="sm">
+        <Button variant="ghost" size="sm">
           <Edit className="w-4 h-4 mr-2" />
           Edit Details
         </Button>
-        <Button variant="outline" size="sm">
+        <Button variant="ghost" size="sm">
           <MessageSquare className="w-4 h-4 mr-2" />
           Add Note
         </Button>
@@ -199,7 +199,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
                 <p className="text-sm text-gray-600">Conditions</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {mockPAData.patient.conditions.map((condition, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
+                    <Badge key={index} variant="auto-processing" className="text-xs">
                       {condition}
                     </Badge>
                   ))}
@@ -216,7 +216,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
           {/* Medication Information */}
           <Card className="p-6">
             <div className="flex items-center mb-4">
-              <Pills className="w-5 h-5 text-gray-400 mr-2" />
+              <Pill className="w-5 h-5 text-gray-400 mr-2" />
               <h3 className="text-lg font-semibold text-gray-900">Medication Details</h3>
             </div>
             <div className="space-y-3">
@@ -317,7 +317,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
               <Card key={index} className="p-6">
                 <div className="flex justify-between items-start mb-3">
                   <h4 className="font-medium text-gray-900">{item.question}</h4>
-                  <Badge variant="secondary" className={
+                  <Badge variant="auto-processing" className={
                     item.confidence >= 95 ? 'bg-green-100 text-green-800' :
                     item.confidence >= 85 ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
@@ -365,7 +365,7 @@ export default function PADetailPage({ params }: PADetailPageProps) {
             <div className="text-center py-8">
               <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">No documents uploaded yet</p>
-              <Button variant="outline" className="mt-4">
+              <Button variant="ghost" className="mt-4">
                 <Download className="w-4 h-4 mr-2" />
                 Upload Document
               </Button>
