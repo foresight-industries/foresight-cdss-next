@@ -10,7 +10,6 @@ const navigation = [
   { name: 'Dashboard', href: '/' },
   { name: 'PA Queue', href: '/queue' },
   { name: 'Analytics', href: '/analytics' },
-  { name: 'Bulk Operations', href: '/bulk-ops' },
   { name: 'Settings', href: '/settings' },
 ];
 
@@ -45,6 +44,12 @@ export function NavHeader() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  onClick={() => {
+                    // Scroll to top when switching tabs
+                    setTimeout(() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }, 100);
+                  }}
                   className={cn(
                     'text-sm font-medium py-2 border-b-2 transition-colors',
                     isActive

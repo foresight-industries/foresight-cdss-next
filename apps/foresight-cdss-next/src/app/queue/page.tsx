@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive } from 'lucide-react';
-import Link from 'next/link';
+import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, Play, Zap } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 // import { useRecentActivity } from '@/hooks/use-dashboard-data';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ const statusConfig = {
 } as const;
 
 export default function QueuePage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState<QueueFilters>({
     status: 'all',
@@ -32,6 +33,7 @@ export default function QueuePage() {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [showBatchModal, setShowBatchModal] = useState(false);
 
   // Mock data for demonstration
   const mockQueueData = [
@@ -204,7 +206,7 @@ export default function QueuePage() {
     // Handle different actions
     switch (action) {
       case 'view':
-        window.location.href = `/pa/${paId}`;
+        router.push(`/pa/${paId}`);
         break;
       case 'edit':
         alert(`Edit PA ${paId} - This would open the edit modal`);
@@ -245,6 +247,10 @@ export default function QueuePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="secondary" size="sm" onClick={() => setShowBatchModal(true)}>
+            <Zap className="w-4 h-4 mr-2" />
+            Batch Process
+          </Button>
           <Button variant="primary" size="sm">
             <Download className="w-4 h-4 mr-2" />
             Export
@@ -385,16 +391,18 @@ export default function QueuePage() {
                 {filteredData.map((item) => {
                   const StatusIcon = statusConfig[item.status].icon;
                   return (
-                    <tr key={item.id} className="hover:bg-gray-50 cursor-pointer">
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() => router.push(`/pa/${item.id}`)}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Link href={`/pa/${item.id}`} className="block">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900 hover:text-blue-600">
-                              {item.id}
-                            </div>
-                            <div className="text-sm text-gray-500">{item.attempt}</div>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                            {item.id}
                           </div>
-                        </Link>
+                          <div className="text-sm text-gray-500">{item.attempt}</div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -441,28 +449,40 @@ export default function QueuePage() {
                           {openDropdown === item.id && (
                             <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
                               <button
-                                onClick={() => handleAction('view', item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAction('view', item.id);
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
                               </button>
                               <button
-                                onClick={() => handleAction('edit', item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAction('edit', item.id);
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit PA
                               </button>
                               <button
-                                onClick={() => handleAction('documents', item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAction('documents', item.id);
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <FileText className="w-4 h-4 mr-2" />
                                 View Documents
                               </button>
                               <button
-                                onClick={() => handleAction('notes', item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAction('notes', item.id);
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                               >
                                 <MessageSquare className="w-4 h-4 mr-2" />
@@ -470,7 +490,10 @@ export default function QueuePage() {
                               </button>
                               <hr className="my-1" />
                               <button
-                                onClick={() => handleAction('archive', item.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAction('archive', item.id);
+                                }}
                                 className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                               >
                                 <Archive className="w-4 h-4 mr-2" />
@@ -510,6 +533,79 @@ export default function QueuePage() {
           </div>
         )}
       </Card>
+
+      {/* Batch Processing Modal */}
+      {showBatchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+            <div className="flex justify-between items-center p-6 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <Zap className="w-5 h-5 mr-2 text-blue-600" />
+                Batch Process PAs
+              </h3>
+              <button
+                onClick={() => setShowBatchModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Processing Criteria</label>
+                  <select className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option>Current filtered results ({filteredData.length} PAs)</option>
+                    <option>All pending PAs</option>
+                    <option>High confidence PAs (≥90%)</option>
+                    <option>PAs older than 24 hours</option>
+                    <option>Specific payer PAs</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" id="autoApprove" defaultChecked className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                  <label htmlFor="autoApprove" className="text-sm text-gray-700">Auto-approve eligible PAs</label>
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <input type="checkbox" id="sendNotifications" className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                  <label htmlFor="sendNotifications" className="text-sm text-gray-700">Send notifications on completion</label>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                  <div className="flex items-start">
+                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                    <div className="text-sm text-blue-800">
+                      This will process {filteredData.length} PAs based on your current filters. 
+                      High-confidence PAs (≥90%) will be automatically approved.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowBatchModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    alert(`Starting batch processing of ${filteredData.length} PAs...`);
+                    setShowBatchModal(false);
+                  }}
+                >
+                  <Play className="w-4 h-4 mr-2" />
+                  Start Processing
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
