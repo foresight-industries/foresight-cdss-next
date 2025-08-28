@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
@@ -17,17 +18,18 @@ export function NavHeader() {
   const pathname = usePathname();
 
   return (
-    <div className="bg-white border-b border-gray-200 shadow-sm">
+    <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40">
       <div className="px-6 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2.5">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-              <rect x="3" y="3" width="7" height="7" rx="1.5" fill="#0066cc" />
-              <rect x="14" y="3" width="7" height="7" rx="1.5" fill="#06b6d4" />
-              <rect x="3" y="14" width="7" height="7" rx="1.5" fill="#06b6d4" />
-              <rect x="14" y="14" width="7" height="7" rx="1.5" fill="#0066cc" />
-            </svg>
+            <Image
+              src="/android-chrome-192x192.png"
+              alt="Foresight Logo"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             <span className="text-xl font-semibold text-blue-600">
               Foresight PA Automation
             </span>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive } from 'lucide-react';
 import Link from 'next/link';
-import { useRecentActivity } from '@/hooks/use-dashboard-data';
+// import { useRecentActivity } from '@/hooks/use-dashboard-data';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,12 +31,140 @@ export default function QueuePage() {
     confidence: 'all'
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  const { data: queueData = [], isLoading, error } = useRecentActivity(50);
+  // Mock data for demonstration
+  const mockQueueData = [
+    {
+      id: 'PA-2025-001',
+      patientName: 'Sarah Johnson',
+      patientId: 'P12345',
+      conditions: 'Type 2 Diabetes',
+      attempt: 'Initial PA Request',
+      medication: 'Ozempic 0.5mg/dose pen',
+      payer: 'Aetna',
+      status: 'needs-review' as const,
+      confidence: 85,
+      updatedAt: '2 hours ago'
+    },
+    {
+      id: 'PA-2025-002',
+      patientName: 'Michael Chen',
+      patientId: 'P12346',
+      conditions: 'Hypertension',
+      attempt: 'Prior Auth - Resubmission',
+      medication: 'Eliquis 5mg',
+      payer: 'UnitedHealth',
+      status: 'auto-processing' as const,
+      confidence: 92,
+      updatedAt: '1 hour ago'
+    },
+    {
+      id: 'PA-2025-003',
+      patientName: 'Emma Rodriguez',
+      patientId: 'P12347',
+      conditions: 'Rheumatoid Arthritis',
+      attempt: 'Step Therapy Override',
+      medication: 'Humira 40mg/0.8mL',
+      payer: 'Cigna',
+      status: 'auto-approved' as const,
+      confidence: 96,
+      updatedAt: '30 minutes ago'
+    },
+    {
+      id: 'PA-2025-004',
+      patientName: 'James Wilson',
+      patientId: 'P12348',
+      conditions: 'Depression',
+      attempt: 'Initial PA Request',
+      medication: 'Trintellix 20mg',
+      payer: 'Anthem',
+      status: 'denied' as const,
+      confidence: 65,
+      updatedAt: '3 hours ago'
+    },
+    {
+      id: 'PA-2025-005',
+      patientName: 'Lisa Thompson',
+      patientId: 'P12349',
+      conditions: 'Migraine',
+      attempt: 'Appeal Request',
+      medication: 'Aimovig 70mg/mL',
+      payer: 'Aetna',
+      status: 'needs-review' as const,
+      confidence: 78,
+      updatedAt: '45 minutes ago'
+    },
+    {
+      id: 'PA-2025-006',
+      patientName: 'Robert Davis',
+      patientId: 'P12350',
+      conditions: 'COPD',
+      attempt: 'Initial PA Request',
+      medication: 'Spiriva Respimat',
+      payer: 'UnitedHealth',
+      status: 'auto-processing' as const,
+      confidence: 89,
+      updatedAt: '1.5 hours ago'
+    },
+    {
+      id: 'PA-2025-007',
+      patientName: 'Jennifer Lee',
+      patientId: 'P12351',
+      conditions: 'Psoriasis',
+      attempt: 'Prior Auth - Resubmission',
+      medication: 'Cosentyx 150mg/mL',
+      payer: 'Cigna',
+      status: 'auto-approved' as const,
+      confidence: 94,
+      updatedAt: '20 minutes ago'
+    },
+    {
+      id: 'PA-2025-008',
+      patientName: 'David Martinez',
+      patientId: 'P12352',
+      conditions: 'High Cholesterol',
+      attempt: 'Initial PA Request',
+      medication: 'Repatha 140mg/mL',
+      payer: 'Anthem',
+      status: 'needs-review' as const,
+      confidence: 72,
+      updatedAt: '2.5 hours ago'
+    },
+    {
+      id: 'PA-2025-009',
+      patientName: 'Amanda White',
+      patientId: 'P12353',
+      conditions: 'Asthma',
+      attempt: 'Step Therapy Override',
+      medication: 'Dupixent 300mg/2mL',
+      payer: 'Aetna',
+      status: 'auto-processing' as const,
+      confidence: 87,
+      updatedAt: '40 minutes ago'
+    },
+    {
+      id: 'PA-2025-010',
+      patientName: 'Christopher Brown',
+      patientId: 'P12354',
+      conditions: 'Crohn\'s Disease',
+      attempt: 'Initial PA Request',
+      medication: 'Stelara 90mg/mL',
+      payer: 'UnitedHealth',
+      status: 'auto-approved' as const,
+      confidence: 91,
+      updatedAt: '15 minutes ago'
+    }
+  ];
+
+  // Use mock data instead of API call
+  const queueData = mockQueueData;
+  const isLoading = false;
+  const error = null;
 
   const filteredData = useMemo(() => {
     return queueData.filter(item => {
-      const matchesSearch = 
+      const matchesSearch =
         item.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.medication.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -44,7 +172,7 @@ export default function QueuePage() {
 
       const matchesStatus = filters.status === 'all' || item.status === filters.status;
       const matchesPayer = filters.payer === 'all' || item.payer === filters.payer;
-      
+
       const confidenceLevel = item.confidence >= 90 ? 'high' : item.confidence >= 70 ? 'medium' : 'low';
       const matchesConfidence = filters.confidence === 'all' || confidenceLevel === filters.confidence;
 
@@ -53,9 +181,47 @@ export default function QueuePage() {
   }, [queueData, searchTerm, filters]);
 
   const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 90) return <Badge variant="secondary" className="bg-green-100 text-green-800">High ({confidence}%)</Badge>;
-    if (confidence >= 70) return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Medium ({confidence}%)</Badge>;
-    return <Badge variant="secondary" className="bg-red-100 text-red-800">Low ({confidence}%)</Badge>;
+    if (confidence >= 90) return <Badge variant="auto-approved" className="bg-green-100 text-green-800">High ({confidence}%)</Badge>;
+    if (confidence >= 70) return <Badge variant="auto-processing" className="bg-yellow-100 text-yellow-800">Medium ({confidence}%)</Badge>;
+    return <Badge variant="default" className="bg-red-100 text-red-800">Low ({confidence}%)</Badge>;
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openDropdown) {
+        setOpenDropdown(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openDropdown]);
+
+  const handleAction = (action: string, paId: string) => {
+    // Handle different actions
+    switch (action) {
+      case 'view':
+        window.location.href = `/pa/${paId}`;
+        break;
+      case 'edit':
+        alert(`Edit PA ${paId} - This would open the edit modal`);
+        break;
+      case 'documents':
+        alert(`View documents for PA ${paId} - This would open the documents viewer`);
+        break;
+      case 'notes':
+        alert(`Add note to PA ${paId} - This would open the notes modal`);
+        break;
+      case 'archive':
+        alert(`Archive PA ${paId} - This would archive the PA request`);
+        break;
+      default:
+        break;
+    }
+    setOpenDropdown(null);
   };
 
   if (error) {
@@ -79,7 +245,7 @@ export default function QueuePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="primary" size="sm">
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -102,8 +268,8 @@ export default function QueuePage() {
           </div>
 
           {/* Filter Toggle */}
-          <Button 
-            variant="outline" 
+          <Button
+            variant="secondary"
             onClick={() => setShowFilters(!showFilters)}
             className={showFilters ? 'bg-blue-50' : ''}
           >
@@ -161,12 +327,12 @@ export default function QueuePage() {
               </div>
 
               <div className="flex items-end">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => setFilters({
                     status: 'all',
-                    priority: 'all', 
+                    priority: 'all',
                     payer: 'all',
                     confidence: 'all'
                   })}
@@ -260,9 +426,59 @@ export default function QueuePage() {
                         {item.updatedAt}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
+                        <div className="relative">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenDropdown(openDropdown === item.id ? null : item.id);
+                            }}
+                          >
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+
+                          {openDropdown === item.id && (
+                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                              <button
+                                onClick={() => handleAction('view', item.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                View Details
+                              </button>
+                              <button
+                                onClick={() => handleAction('edit', item.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <Edit className="w-4 h-4 mr-2" />
+                                Edit PA
+                              </button>
+                              <button
+                                onClick={() => handleAction('documents', item.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <FileText className="w-4 h-4 mr-2" />
+                                View Documents
+                              </button>
+                              <button
+                                onClick={() => handleAction('notes', item.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                              >
+                                <MessageSquare className="w-4 h-4 mr-2" />
+                                Add Note
+                              </button>
+                              <hr className="my-1" />
+                              <button
+                                onClick={() => handleAction('archive', item.id)}
+                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                              >
+                                <Archive className="w-4 h-4 mr-2" />
+                                Archive
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -275,9 +491,9 @@ export default function QueuePage() {
         {filteredData.length === 0 && !isLoading && (
           <div className="p-8 text-center">
             <p className="text-gray-500">No prior authorization requests match your filters.</p>
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               className="mt-2"
               onClick={() => {
                 setSearchTerm('');

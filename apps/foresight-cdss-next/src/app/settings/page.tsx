@@ -118,7 +118,7 @@ export default function SettingsPage() {
   const handleInviteUser = () => {
     // In real implementation, this would call API to send invitation
     console.log('Inviting user:', inviteForm);
-    
+
     // Reset form and close modal
     setInviteForm({
       email: '',
@@ -128,7 +128,7 @@ export default function SettingsPage() {
       sendWelcomeEmail: true
     });
     setShowInviteModal(false);
-    
+
     // Show success message (in real app, this would be a toast notification)
     alert(`Invitation sent to ${inviteForm.email}`);
   };
@@ -140,7 +140,7 @@ export default function SettingsPage() {
   const handleEditUser = (index: number) => {
     const user = teamMembers[index];
     const [firstName, lastName] = user.name.split(' ');
-    
+
     setEditingUser({ index, ...user });
     setEditForm({
       firstName: firstName || '',
@@ -154,7 +154,7 @@ export default function SettingsPage() {
 
   const handleSaveEditUser = () => {
     if (!editingUser || !editForm.email || !editForm.firstName || !editForm.lastName) return;
-    
+
     const updatedMembers = [...teamMembers];
     updatedMembers[editingUser.index] = {
       name: `${editForm.firstName} ${editForm.lastName}`,
@@ -162,7 +162,7 @@ export default function SettingsPage() {
       role: editForm.role,
       status: editForm.status
     };
-    
+
     setTeamMembers(updatedMembers);
     setShowEditModal(false);
     setEditingUser(null);
@@ -173,7 +173,7 @@ export default function SettingsPage() {
       role: 'PA Coordinator',
       status: 'Active'
     });
-    
+
     // Show success message (in real app, this would be a toast notification)
     alert(`User ${editForm.firstName} ${editForm.lastName} updated successfully`);
   };
@@ -366,7 +366,7 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge variant={integration.status === 'healthy' ? 'success' : 'destructive'} className={
+                <Badge variant={integration.status === 'healthy' ? "auto-approved" : "denied"} className={
                   integration.status === 'healthy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }>
                   {integration.status === 'healthy' ? (
@@ -381,7 +381,7 @@ export default function SettingsPage() {
                     </>
                   )}
                 </Badge>
-                <Button variant="outline" size="sm">
+                <Button variant="secondary" size="sm">
                   Configure
                 </Button>
               </div>
@@ -412,7 +412,7 @@ export default function SettingsPage() {
                 className="flex-1 border border-gray-300 rounded-md py-2 px-3"
                 readOnly
               />
-              <Button variant="outline" size="sm">Regenerate</Button>
+              <Button variant="secondary" size="sm">Regenerate</Button>
             </div>
           </div>
         </div>
@@ -506,8 +506,8 @@ export default function SettingsPage() {
                 <p className="text-sm text-gray-500">{user.email}</p>
               </div>
               <div className="flex items-center space-x-3">
-                <Badge variant="secondary">{user.role}</Badge>
-                <Badge variant={user.status === 'Active' ? 'success' : 'secondary'} className={
+                <Badge variant="needs-review">{user.role}</Badge>
+                <Badge variant={user.status === 'Active' ? "auto-approved" : "default"} className={
                   user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                 }>
                   {user.status}
@@ -538,7 +538,7 @@ export default function SettingsPage() {
             <tbody className="divide-y">
               {[
                 'View Dashboard',
-                'View PA Queue', 
+                'View PA Queue',
                 'Edit PA Details',
                 'Approve PAs',
                 'Deny PAs',
@@ -603,7 +603,7 @@ export default function SettingsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
           <p className="text-gray-600">Manage your PA automation system configuration</p>
         </div>
-        
+
         {hasChanges && (
           <Button onClick={handleSave} className="flex items-center">
             <Save className="w-4 h-4 mr-2" />
@@ -663,7 +663,7 @@ export default function SettingsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
@@ -731,7 +731,7 @@ export default function SettingsPage() {
 
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <Button
-                  variant="outline"
+                  variant="primary"
                   onClick={() => setShowInviteModal(false)}
                 >
                   Cancel
@@ -765,7 +765,7 @@ export default function SettingsPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
+
             <div className="p-6">
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
@@ -833,7 +833,7 @@ export default function SettingsPage() {
 
               <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
                 <Button
-                  variant="outline"
+                  variant="primary"
                   onClick={() => setShowEditModal(false)}
                 >
                   Cancel
