@@ -4,9 +4,17 @@
   "private": true,
   "dependencies": {
     "@sentry/nextjs": "^10",
+    "@supabase/supabase-js": "^2.50.0",
+    "@tanstack/react-query": "^5.62.14",
+    "@tanstack/react-query-devtools": "^5.62.14",
     "@vercel/analytics": "^1.5.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "lucide-react": "^0.468.0",
     "next": "~15.2.4",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "tailwind-merge": "^3.3.1",
+    "zustand": "^5.0.2"
   }
 }
