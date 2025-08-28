@@ -2,7 +2,6 @@
   "name": "@foresight-cdss-next/source",
   "version": "0.0.0",
   "license": "MIT",
-  "scripts": {},
   "private": true,
   "dependencies": {
     "next": "~15.2.4",
@@ -21,6 +20,7 @@
     "@nx/js": "21.4.1",
     "@nx/next": "21.4.1",
     "@nx/workspace": "21.4.1",
+    "@nxlv/python": "^21.2.0",
     "@swc-node/register": "~1.9.1",
     "@swc/cli": "~0.6.0",
     "@swc/core": "~1.5.7",
@@ -57,5 +57,6 @@
   },
   "workspaces": [
     "apps/*"
-  ]
+  ],
+  "packageManager": "yarn@4.9.4"
 }
