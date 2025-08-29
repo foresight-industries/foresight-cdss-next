@@ -1940,6 +1940,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/foresight-cdss-next@workspace:apps/foresight-cdss-next"
   dependencies:
+    "@google/generative-ai": "npm:^0.24.1"
     "@hookform/resolvers": "npm:^5.2.1"
     "@radix-ui/react-alert-dialog": "npm:^1.1.15"
     "@radix-ui/react-avatar": "npm:^1.1.10"
@@ -2036,6 +2037,13 @@ __metadata:
     typescript-eslint: "npm:^8.29.0"
   languageName: unknown
   linkType: soft
+
+"@google/generative-ai@npm:^0.24.1":
+  version: 0.24.1
+  resolution: "@google/generative-ai@npm:0.24.1"
+  checksum: 10c0/8da77fc648b04fc2ecef53e75230e2ee67a8fd29a34b6b8874e77a7332b2a1e4b51d44dd9eb604fb063ed8ea46d293aac5b1e2a955ae2435e2582a265f2cb80d
+  languageName: node
+  linkType: hard
 
 "@hookform/resolvers@npm:^5.2.1":
   version: 5.2.1

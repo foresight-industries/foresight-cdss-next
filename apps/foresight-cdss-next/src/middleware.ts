@@ -6,9 +6,13 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
       cookies: {
         getAll() {
@@ -39,15 +43,15 @@ export async function middleware(request: NextRequest) {
 
   const url = request.nextUrl.clone()
   const isAuthPage = url.pathname === '/login'
-  const isPublicPath = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password'
+  const isPublicPath = url.pathname === '/login' || url.pathname === '/signup' || url.pathname === '/forgot-password' || url.pathname === '/reset-password'
 
-  // Redirect to login if not authenticated and not on a public path
+  // Redirect to the login page if not authenticated and not on a public path
   if (!session && !isPublicPath) {
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // Redirect to dashboard if authenticated and on auth page
+  // Redirect to dashboard if authenticated and on an auth page
   if (session && isAuthPage) {
     url.pathname = '/'
     return NextResponse.redirect(url)

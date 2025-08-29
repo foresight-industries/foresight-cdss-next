@@ -10,7 +10,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   
   // Don't show nav on auth pages
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/confirm-email';
   
   if (loading) {
     return (
