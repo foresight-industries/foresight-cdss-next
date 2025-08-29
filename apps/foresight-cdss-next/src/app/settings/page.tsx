@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
@@ -54,7 +54,7 @@ const settingsSections: SettingsSection[] = [
   }
 ];
 
-export default function SettingsPage() {
+function SettingsPageContent() {
   const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState('automation');
   const [hasChanges, setHasChanges] = useState(false);
@@ -858,5 +858,45 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// Loading fallback component
+function SettingsLoading() {
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+          <p className="text-gray-600 dark:text-gray-400">Loading settings...</p>
+        </div>
+      </div>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:w-64">
+          <Card className="p-4">
+            <div className="animate-pulse space-y-2">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+              ))}
+            </div>
+          </Card>
+        </div>
+        <div className="flex-1">
+          <div className="animate-pulse space-y-6">
+            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+            <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main exported component with Suspense boundary
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={<SettingsLoading />}>
+      <SettingsPageContent />
+    </Suspense>
   );
 }
