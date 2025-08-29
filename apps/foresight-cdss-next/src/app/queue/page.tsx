@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, Play, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 // import { useRecentActivity } from '@/hooks/use-dashboard-data';
@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,7 +40,6 @@ export default function QueuePage() {
     confidence: 'all'
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
   const [batchCriteria, setBatchCriteria] = useState('current');
   const [autoApprove, setAutoApprove] = useState(true);
@@ -199,19 +199,6 @@ export default function QueuePage() {
     return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100">Low ({confidence}%)</Badge>;
   };
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openDropdown) {
-        setOpenDropdown(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [openDropdown]);
 
   const handleAction = (action: string, paId: string) => {
     // Handle different actions
@@ -234,7 +221,6 @@ export default function QueuePage() {
       default:
         break;
     }
-    setOpenDropdown(null);
   };
 
   if (error) {
@@ -450,74 +436,67 @@ export default function QueuePage() {
                         {item.updatedAt}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
-                        <div className="relative">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setOpenDropdown(openDropdown === item.id ? null : item.id);
-                            }}
-                          >
-                            <MoreHorizontal className="w-4 h-4" />
-                          </Button>
-
-                          {openDropdown === item.id && (
-                            <div className="absolute right-0 mt-1 w-48 bg-popover rounded-md shadow-md border border-border py-1 z-50">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction('view', item.id);
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
-                              >
-                                <Eye className="w-4 h-4 mr-2" />
-                                View Details
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction('edit', item.id);
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
-                              >
-                                <Edit className="w-4 h-4 mr-2" />
-                                Edit PA
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction('documents', item.id);
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
-                              >
-                                <FileText className="w-4 h-4 mr-2" />
-                                View Documents
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction('notes', item.id);
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
-                              >
-                                <MessageSquare className="w-4 h-4 mr-2" />
-                                Add Note
-                              </button>
-                              <div className="my-1 h-px bg-border" />
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAction('archive', item.id);
-                                }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
-                              >
-                                <Archive className="w-4 h-4 mr-2" />
-                                Archive
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('view', item.id);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('edit', item.id);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit PA
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('documents', item.id);
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              View Documents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('notes', item.id);
+                              }}
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Add Note
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction('archive', item.id);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Archive className="w-4 h-4 mr-2" />
+                              Archive
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   );

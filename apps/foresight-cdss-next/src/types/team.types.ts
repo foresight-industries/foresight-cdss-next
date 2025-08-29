@@ -8,10 +8,10 @@ export interface Team {
   slug: string;
   description: string | null;
   logo_url: string | null;
-  settings: Record<string, any>;
-  plan_type: PlanType;
-  created_at: string;
-  updated_at: string;
+  settings: Record<string, any> | null;
+  plan_type: PlanType | null;
+  created_at: string | null;
+  updated_at: string | null;
 }
 
 export interface TeamMember {
@@ -25,12 +25,12 @@ export interface TeamMember {
   joined_at: string | null;
   created_at: string;
   updated_at: string;
-  // Joined data from user_profiles
+  // Joined data from user_profile
   user_profile?: {
     email: string | null;
     first_name: string | null;
     last_name: string | null;
-  };
+  } | null;
 }
 
 export interface TeamInvitation {

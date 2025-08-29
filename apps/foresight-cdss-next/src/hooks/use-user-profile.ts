@@ -1,94 +1,90 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/providers/auth-provider';
 import { createClient } from '@/lib/supabase/client';
 import type { UserProfile, UserProfileUpdate } from '@/types/profile.types';
 import { Tables } from "@/lib/supabase";
 
+async function fetchUserProfile(userId: string): Promise<UserProfile> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from(Tables.USER_PROFILE)
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) throw error;
+
+  // Ensure timezone has a default value if null
+  return {
+    ...data,
+    timezone: data.timezone || 'America/New_York'
+  };
+}
+
+async function updateUserProfileFn(params: { userId: string; updates: UserProfileUpdate }): Promise<UserProfile> {
+  const { userId, updates } = params;
+  const supabase = createClient();
+  
+  const { data, error } = await supabase
+    .from(Tables.USER_PROFILE)
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  // Ensure timezone has a default value if null
+  return {
+    ...data,
+    timezone: data.timezone || 'America/New_York'
+  };
+}
+
 export function useUserProfile() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!user) {
-        setProfile(null);
-        setLoading(false);
-        return;
-      }
+  const {
+    data: profile,
+    isLoading: loading,
+    error: queryError
+  } = useQuery({
+    queryKey: ['userProfile', user?.id],
+    queryFn: () => fetchUserProfile(user!.id),
+    enabled: !!user,
+    staleTime: 10 * 60 * 1000,
+    retry: 2
+  });
 
-      try {
-        const supabase = createClient();
-        const { data, error } = await supabase
-          .from(Tables.USER_PROFILE)
-          .select('*')
-          .eq('id', user.id)
-          .single();
+  const error = queryError?.message || null;
 
-        if (error) {
-          setError(error.message);
-        } else {
-          // Ensure timezone has a default value if null
-          const profileWithDefaults = {
-            ...data,
-            timezone: data.timezone || 'America/New_York'
-          };
-          setProfile(profileWithDefaults);
-        }
-      } catch (err) {
-        setError('Failed to fetch profile');
-        console.error('Error fetching profile:', err);
-        throw err;
-      } finally {
-        setLoading(false);
-      }
+  const updateProfileMutation = useMutation({
+    mutationFn: (updates: UserProfileUpdate) =>
+      updateUserProfileFn({ userId: user!.id, updates }),
+    onSuccess: (updatedProfile) => {
+      queryClient.setQueryData(['userProfile', user?.id], updatedProfile);
     }
-
-    fetchProfile();
-  }, [user]);
-
-  const updateProfile = async (updates: UserProfileUpdate): Promise<boolean> => {
-    if (!user || !profile) return false;
-
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from(Tables.USER_PROFILE)
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id)
-        .select()
-        .single();
-
-      if (error) {
-        setError(error.message);
-        return false;
-      }
-
-      // Ensure timezone has a default value if null
-      const profileWithDefaults = {
-        ...data,
-        timezone: data.timezone || 'America/New_York'
-      };
-      setProfile(profileWithDefaults);
-      return true;
-    } catch (err) {
-      setError('Failed to update profile');
-      console.error('Error updating profile:', err);
-      return false;
-    }
-  };
+  });
 
   return {
-    profile,
+    profile: profile || null,
     loading,
     error,
-    updateProfile,
+    updateProfile: async (updates: UserProfileUpdate): Promise<boolean> => {
+      if (!user) return false;
+      try {
+        await updateProfileMutation.mutateAsync(updates);
+        return true;
+      } catch {
+        return false;
+      }
+    },
     hasRole: (role: string) => profile?.role === role,
     isAdmin: profile?.role === 'admin',
     isCoordinator: profile?.role === 'coordinator'
