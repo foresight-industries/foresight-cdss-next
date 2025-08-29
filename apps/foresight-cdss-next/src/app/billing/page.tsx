@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CreditCard, Download, Calendar, AlertCircle, CheckCircle, Plus, Edit, Receipt } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,22 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 export default function BillingPage() {
   const [showAddCardModal, setShowAddCardModal] = useState(false);
+  const [showChangePlanModal, setShowChangePlanModal] = useState(false);
+  const [showEditCardModal, setShowEditCardModal] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>('professional');
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [newCardForm, setNewCardForm] = useState({
+    cardNumber: '',
+    expiryDate: '',
+    cvv: '',
+    name: '',
+    billingAddress: '',
+    city: '',
+    state: '',
+    zipCode: ''
+  });
+  const [editCardForm, setEditCardForm] = useState({
     cardNumber: '',
     expiryDate: '',
     cvv: '',
@@ -101,6 +116,51 @@ export default function BillingPage() {
     averageMonthly: 856
   };
 
+  const availablePlans = [
+    {
+      id: 'starter',
+      name: 'Starter',
+      price: '$99',
+      billingPeriod: 'month',
+      features: [
+        'Up to 250 PA requests/month',
+        'Basic analytics',
+        'Email support',
+        'Standard processing'
+      ],
+      recommended: false
+    },
+    {
+      id: 'professional',
+      name: 'Professional',
+      price: '$299',
+      billingPeriod: 'month',
+      features: [
+        'Up to 1,000 PA requests/month',
+        'Advanced analytics',
+        'Priority support',
+        'API access',
+        'Custom integrations'
+      ],
+      recommended: true
+    },
+    {
+      id: 'enterprise',
+      name: 'Enterprise',
+      price: 'Custom',
+      billingPeriod: '',
+      features: [
+        'Unlimited PA requests',
+        'Real-time analytics',
+        'Dedicated support team',
+        'Custom API limits',
+        'White-label options',
+        'SLA guarantee'
+      ],
+      recommended: false
+    }
+  ];
+
   const handleAddCard = () => {
     // In real implementation, this would process the payment method
     console.log('Adding payment method:', newCardForm);
@@ -120,6 +180,61 @@ export default function BillingPage() {
 
   const handleCardFormChange = (key: string, value: string) => {
     setNewCardForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleEditCardFormChange = (key: string, value: string) => {
+    setEditCardForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleChangePlan = () => {
+    // In real implementation, this would update the subscription
+    console.log('Changing plan to:', selectedPlan);
+    const newPlan = availablePlans.find(p => p.id === selectedPlan);
+    if (newPlan) {
+      alert(`Plan changed to ${newPlan.name}. Your next billing cycle will reflect the new pricing.`);
+      setShowChangePlanModal(false);
+    }
+  };
+
+  const handleEditCard = (cardId: string) => {
+    const card = paymentMethods.find(m => m.id === cardId);
+    if (card) {
+      setEditingCardId(cardId);
+      // Pre-fill with masked data
+      setEditCardForm({
+        cardNumber: `•••• •••• •••• ${card.last4}`,
+        expiryDate: card.expiryDate,
+        cvv: '',
+        name: 'Jane Doe', // In real app, this would come from the card data
+        billingAddress: '123 Main Street',
+        city: 'New York',
+        state: 'NY',
+        zipCode: '10001'
+      });
+      setShowEditCardModal(true);
+    }
+  };
+
+  const handleUpdateCard = () => {
+    console.log('Updating card:', editingCardId, editCardForm);
+    setEditCardForm({
+      cardNumber: '',
+      expiryDate: '',
+      cvv: '',
+      name: '',
+      billingAddress: '',
+      city: '',
+      state: '',
+      zipCode: ''
+    });
+    setShowEditCardModal(false);
+    alert('Payment method updated successfully!');
+  };
+
+  const handleCancelSubscription = () => {
+    console.log('Cancelling subscription');
+    setShowCancelModal(false);
+    alert('Your subscription will be cancelled at the end of your current billing period. You will continue to have access until February 15, 2025.');
   };
 
   return (
@@ -153,7 +268,7 @@ export default function BillingPage() {
                 </div>
                 <p className="text-lg text-muted-foreground mt-1">{currentPlan.price}</p>
               </div>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" onClick={() => setShowChangePlanModal(true)}>
                 <Edit className="w-4 h-4 mr-2" />
                 Change Plan
               </Button>
@@ -294,7 +409,7 @@ export default function BillingPage() {
                       {method.isDefault && (
                         <Badge variant="secondary" className="text-xs">Default</Badge>
                       )}
-                      <Button variant="ghost" size="sm">
+                      <Button variant="ghost" size="sm" onClick={() => handleEditCard(method.id)}>
                         <Edit className="w-3 h-3" />
                       </Button>
                     </div>
@@ -316,7 +431,7 @@ export default function BillingPage() {
                 <Calendar className="w-4 h-4 mr-2" />
                 Update Billing Date
               </Button>
-              <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700">
+              <Button variant="outline" className="w-full justify-start text-red-600 hover:text-red-700" onClick={() => setShowCancelModal(true)}>
                 <AlertCircle className="w-4 h-4 mr-2" />
                 Cancel Subscription
               </Button>
@@ -330,7 +445,7 @@ export default function BillingPage() {
               <p className="text-muted-foreground">
                 Have questions about your billing? Our support team is here to help.
               </p>
-              <Button variant="outline" size="sm" className="w-full">
+              <Button variant="outline" size="sm" className="w-full" onClick={() => window.open('mailto:support@have-foresight.com?subject=Billing Support Request', '_blank')}>
                 Contact Support
               </Button>
             </div>
@@ -452,6 +567,270 @@ export default function BillingPage() {
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Card
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Plan Modal */}
+      <Dialog open={showChangePlanModal} onOpenChange={setShowChangePlanModal}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Change Subscription Plan</DialogTitle>
+            <DialogDescription>
+              Select a new plan that best fits your needs. Changes will take effect at the beginning of your next billing cycle.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+            {availablePlans.map((plan) => (
+              <Card
+                key={plan.id}
+                className={`relative cursor-pointer transition-all ${
+                  selectedPlan === plan.id 
+                    ? 'ring-2 ring-primary' 
+                    : 'hover:shadow-lg'
+                }`}
+                onClick={() => setSelectedPlan(plan.id)}
+              >
+                <CardContent className="p-6">
+                  {plan.recommended && (
+                    <Badge className="absolute -top-3 left-4 bg-primary">
+                      Recommended
+                    </Badge>
+                  )}
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">{plan.name}</h3>
+                    <div className={`w-5 h-5 rounded-full border-2 ${
+                      selectedPlan === plan.id
+                        ? 'bg-primary border-primary'
+                        : 'border-gray-300'
+                    }`}>
+                      {selectedPlan === plan.id && (
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <span className="text-3xl font-bold">{plan.price}</span>
+                    {plan.billingPeriod && (
+                      <span className="text-muted-foreground">/{plan.billingPeriod}</span>
+                    )}
+                  </div>
+
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-start text-sm">
+                        <CheckCircle className="w-4 h-4 mr-2 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-muted-foreground">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {plan.id === 'professional' && (
+                    <Badge variant="secondary" className="w-full justify-center">
+                      Current Plan
+                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-4">
+            <div className="flex-1 text-sm text-muted-foreground">
+              {selectedPlan !== 'professional' && (
+                <p>
+                  {selectedPlan === 'enterprise' 
+                    ? 'Our team will contact you to discuss custom pricing'
+                    : 'You will be charged at the start of your next billing cycle'}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowChangePlanModal(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleChangePlan}
+                disabled={selectedPlan === 'professional'}
+              >
+                {selectedPlan === 'enterprise' ? 'Contact Sales' : 'Confirm Change'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Payment Method Modal */}
+      <Dialog open={showEditCardModal} onOpenChange={setShowEditCardModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Edit className="w-5 h-5 mr-2 text-primary" />
+              Edit Payment Method
+            </DialogTitle>
+            <DialogDescription>
+              Update your payment method information.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editCardNumber">Card Number</Label>
+              <Input
+                id="editCardNumber"
+                placeholder="1234 5678 9012 3456"
+                value={editCardForm.cardNumber}
+                onChange={(e) => handleEditCardFormChange('cardNumber', e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="editExpiryDate">Expiry Date</Label>
+                <Input
+                  id="editExpiryDate"
+                  placeholder="MM/YY"
+                  value={editCardForm.expiryDate}
+                  onChange={(e) => handleEditCardFormChange('expiryDate', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editCvv">CVV</Label>
+                <Input
+                  id="editCvv"
+                  placeholder="123"
+                  value={editCardForm.cvv}
+                  onChange={(e) => handleEditCardFormChange('cvv', e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editName">Cardholder Name</Label>
+              <Input
+                id="editName"
+                placeholder="Jane Doe"
+                value={editCardForm.name}
+                onChange={(e) => handleEditCardFormChange('name', e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="editBillingAddress">Billing Address</Label>
+              <Input
+                id="editBillingAddress"
+                placeholder="123 Main Street"
+                value={editCardForm.billingAddress}
+                onChange={(e) => handleEditCardFormChange('billingAddress', e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="editCity">City</Label>
+                <Input
+                  id="editCity"
+                  placeholder="New York"
+                  value={editCardForm.city}
+                  onChange={(e) => handleEditCardFormChange('city', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editState">State</Label>
+                <Select value={editCardForm.state} onValueChange={(value) => handleEditCardFormChange('state', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="NY" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="NY">NY</SelectItem>
+                    <SelectItem value="CA">CA</SelectItem>
+                    <SelectItem value="TX">TX</SelectItem>
+                    <SelectItem value="FL">FL</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="editZipCode">ZIP</Label>
+                <Input
+                  id="editZipCode"
+                  placeholder="10001"
+                  value={editCardForm.zipCode}
+                  onChange={(e) => handleEditCardFormChange('zipCode', e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditCardModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateCard}
+              disabled={!editCardForm.cardNumber || !editCardForm.name || !editCardForm.expiryDate || !editCardForm.cvv}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Update Card
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Subscription Modal */}
+      <Dialog open={showCancelModal} onOpenChange={setShowCancelModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-red-600">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Cancel Subscription
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel your subscription? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <h4 className="font-medium text-red-900 dark:text-red-100 mb-2">What happens when you cancel:</h4>
+              <ul className="text-sm text-red-700 dark:text-red-200 space-y-1">
+                <li>• Your subscription will end on {currentPlan.nextBillingDate}</li>
+                <li>• You'll lose access to all premium features</li>
+                <li>• Your data will be preserved for 30 days</li>
+                <li>• No future charges will be made</li>
+              </ul>
+            </div>
+
+            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Consider downgrading instead:</h4>
+              <p className="text-sm text-blue-700 dark:text-blue-200">
+                Switch to our Starter plan for $99/month and keep basic access to your PA processing tools.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowCancelModal(false)}
+            >
+              Keep Subscription
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSubscription}
+            >
+              <AlertCircle className="w-4 h-4 mr-2" />
+              Yes, Cancel Subscription
             </Button>
           </DialogFooter>
         </DialogContent>

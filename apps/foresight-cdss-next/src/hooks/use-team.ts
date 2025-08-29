@@ -10,11 +10,19 @@ async function fetchTeamData(userId: string) {
   const supabase = createClient();
 
   // Get a user's current team
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from(Tables.USER_PROFILE)
     .select('current_team_id')
     .eq('id', userId)
     .single();
+
+  // Handle auth errors by signing out
+  if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT')) {
+    await supabase.auth.signOut();
+    throw new Error('Session expired');
+  }
+
+  if (profileError) throw profileError;
 
   if (!profile?.current_team_id) {
     return { team: null, members: [], invitations: [] };
