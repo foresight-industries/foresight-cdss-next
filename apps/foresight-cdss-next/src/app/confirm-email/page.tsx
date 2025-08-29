@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle, Loader2, AlertCircle, Mail } from 'lucide-react';
@@ -14,9 +14,8 @@ function ConfirmEmailContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
-  
+
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
@@ -25,7 +24,7 @@ function ConfirmEmailContent() {
         // Get the hash fragment from the URL which contains the auth tokens
         const hashFragment = window.location.hash.substring(1);
         const params = new URLSearchParams(hashFragment);
-        
+
         const accessToken = params.get('access_token');
         const refreshToken = params.get('refresh_token');
         const type = params.get('type');
@@ -127,11 +126,11 @@ function ConfirmEmailContent() {
                 Email confirmation failed
               </CardTitle>
               <CardDescription>
-                We couldn't confirm your email address
+                We couldn&apos;t confirm your email address
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert variant="destructive">
+              <Alert variant="error">
                 <AlertCircle className="h-4 w-4" />
                 <p>{error}</p>
               </Alert>
@@ -142,7 +141,7 @@ function ConfirmEmailContent() {
                     Try logging in
                   </Link>
                 </Button>
-                
+
                 <Button asChild variant="outline" className="w-full">
                   <a href="mailto:support@have-foresight.com?subject=Email Confirmation Issue">
                     <Mail className="mr-2 h-4 w-4" />
