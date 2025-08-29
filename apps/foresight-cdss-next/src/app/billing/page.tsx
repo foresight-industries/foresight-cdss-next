@@ -587,8 +587,8 @@ export default function BillingPage() {
               <Card
                 key={plan.id}
                 className={`relative cursor-pointer transition-all ${
-                  selectedPlan === plan.id 
-                    ? 'ring-2 ring-primary' 
+                  selectedPlan === plan.id
+                    ? 'ring-2 ring-primary'
                     : 'hover:shadow-lg'
                 }`}
                 onClick={() => setSelectedPlan(plan.id)}
@@ -599,7 +599,7 @@ export default function BillingPage() {
                       Recommended
                     </Badge>
                   )}
-                  
+
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold">{plan.name}</h3>
                     <div className={`w-5 h-5 rounded-full border-2 ${
@@ -643,7 +643,7 @@ export default function BillingPage() {
             <div className="flex-1 text-sm text-muted-foreground">
               {selectedPlan !== 'professional' && (
                 <p>
-                  {selectedPlan === 'enterprise' 
+                  {selectedPlan === 'enterprise'
                     ? 'Our team will contact you to discuss custom pricing'
                     : 'You will be charged at the start of your next billing cycle'}
                 </p>
@@ -656,7 +656,7 @@ export default function BillingPage() {
               >
                 Cancel
               </Button>
-              <Button 
+              <Button
                 onClick={handleChangePlan}
                 disabled={selectedPlan === 'professional'}
               >
@@ -804,7 +804,7 @@ export default function BillingPage() {
               <h4 className="font-medium text-red-900 dark:text-red-100 mb-2">What happens when you cancel:</h4>
               <ul className="text-sm text-red-700 dark:text-red-200 space-y-1">
                 <li>• Your subscription will end on {currentPlan.nextBillingDate}</li>
-                <li>• You'll lose access to all premium features</li>
+                <li>• You&apos;ll lose access to all premium features</li>
                 <li>• Your data will be preserved for 30 days</li>
                 <li>• No future charges will be made</li>
               </ul>
