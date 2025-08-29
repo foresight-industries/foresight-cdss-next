@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, EyeOff, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
@@ -21,9 +21,8 @@ function ResetPasswordContent() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  
+
   const router = useRouter();
-  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
@@ -41,7 +40,7 @@ function ResetPasswordContent() {
 
   const validatePassword = (password: string): string[] => {
     const errors: string[] = [];
-    
+
     if (password.length < 8) {
       errors.push('Password must be at least 8 characters long');
     }
@@ -57,7 +56,7 @@ function ResetPasswordContent() {
     if (!/(?=.*[@$!%*?&])/.test(password)) {
       errors.push('Password must contain at least one special character (@$!%*?&)');
     }
-    
+
     return errors;
   };
 
@@ -93,12 +92,12 @@ function ResetPasswordContent() {
       }
 
       setIsSuccess(true);
-      
+
       // Redirect to login after a delay
       setTimeout(() => {
         router.push('/login');
       }, 3000);
-      
+
     } catch (err) {
       setError('An unexpected error occurred. Please try again.');
       console.error('Error updating password:', err);
@@ -186,14 +185,14 @@ function ResetPasswordContent() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <Alert variant="destructive">
+                <Alert variant="error">
                   <AlertCircle className="h-4 w-4" />
                   {error}
                 </Alert>
               )}
 
               {validationErrors.length > 0 && (
-                <Alert variant="destructive">
+                <Alert variant="error">
                   <AlertCircle className="h-4 w-4" />
                   <div>
                     <p className="font-medium mb-2">Password requirements not met:</p>
