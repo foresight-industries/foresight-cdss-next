@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase, Tables } from '@/lib/supabase';
+import { supabase } from '@/lib/supabase/client';
+import { Tables } from '@/lib/supabase';
 import type { StatusDistribution } from '@/types/pa.types';
 
 // Fetch dashboard metrics from the existing prior_auth table

@@ -64,6 +64,39 @@ export type Database = {
           },
         ]
       }
+      automation_events: {
+        Row: {
+          case_id: string | null
+          confidence: number | null
+          description: string | null
+          details: Json | null
+          event_type: string
+          id: string
+          status: string
+          timestamp: string
+        }
+        Insert: {
+          case_id?: string | null
+          confidence?: number | null
+          description?: string | null
+          details?: Json | null
+          event_type: string
+          id?: string
+          status: string
+          timestamp?: string
+        }
+        Update: {
+          case_id?: string | null
+          confidence?: number | null
+          description?: string | null
+          details?: Json | null
+          event_type?: string
+          id?: string
+          status?: string
+          timestamp?: string
+        }
+        Relationships: []
+      }
       clinician: {
         Row: {
           created_at: string
@@ -121,6 +154,27 @@ export type Database = {
           signed?: boolean | null
           updated_at?: string
           version?: number | null
+        }
+        Relationships: []
+      }
+      dashboard_metrics: {
+        Row: {
+          calculated_at: string
+          id: string
+          metric_name: string
+          metric_value: Json
+        }
+        Insert: {
+          calculated_at?: string
+          id?: string
+          metric_name: string
+          metric_value: Json
+        }
+        Update: {
+          calculated_at?: string
+          id?: string
+          metric_name?: string
+          metric_value?: Json
         }
         Relationships: []
       }
@@ -724,6 +778,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_profile: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          department: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          job_title: string | null
+          last_name: string | null
+          location: string | null
+          phone: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          last_name?: string | null
+          location?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          job_title?: string | null
+          last_name?: string | null
+          location?: string | null
+          phone?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -750,6 +855,10 @@ export type Database = {
           transcript: string
           transcript_length: number
         }[]
+      }
+      get_user_role: {
+        Args: { user_id?: string }
+        Returns: string
       }
       gtrgm_compress: {
         Args: { "": unknown }
@@ -898,6 +1007,7 @@ export type Database = {
     }
     Enums: {
       insurance_policy_type: "Primary" | "Secondary"
+      user_role: "admin" | "coordinator" | "user" | "viewer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1026,6 +1136,7 @@ export const Constants = {
   public: {
     Enums: {
       insurance_policy_type: ["Primary", "Secondary"],
+      user_role: ["admin", "coordinator", "user", "viewer"],
     },
   },
 } as const

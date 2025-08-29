@@ -4,9 +4,16 @@ import { useState, useMemo, useEffect } from 'react';
 import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, Play, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 // import { useRecentActivity } from '@/hooks/use-dashboard-data';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Alert } from '@/components/ui/alert';
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
@@ -16,10 +23,10 @@ interface QueueFilters {
 }
 
 const statusConfig = {
-  'needs-review': { color: 'bg-yellow-100 text-yellow-800', icon: AlertCircle },
-  'auto-processing': { color: 'bg-blue-100 text-blue-800', icon: Clock },
-  'auto-approved': { color: 'bg-green-100 text-green-800', icon: CheckCircle },
-  'denied': { color: 'bg-red-100 text-red-800', icon: XCircle }
+  'needs-review': { color: 'bg-yellow-50 text-yellow-900 border-yellow-200', icon: AlertCircle },
+  'auto-processing': { color: 'bg-blue-50 text-blue-900 border-blue-200', icon: Clock },
+  'auto-approved': { color: 'bg-green-50 text-green-900 border-green-200', icon: CheckCircle },
+  'denied': { color: 'bg-red-50 text-red-900 border-red-200', icon: XCircle }
 } as const;
 
 export default function QueuePage() {
@@ -34,6 +41,10 @@ export default function QueuePage() {
   const [showFilters, setShowFilters] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [showBatchModal, setShowBatchModal] = useState(false);
+  const [batchCriteria, setBatchCriteria] = useState('current');
+  const [autoApprove, setAutoApprove] = useState(true);
+  const [sendNotifications, setSendNotifications] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Mock data for demonstration
   const mockQueueData = [
@@ -183,9 +194,9 @@ export default function QueuePage() {
   }, [queueData, searchTerm, filters]);
 
   const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 90) return <Badge variant="auto-approved" className="bg-green-100 text-green-800">High ({confidence}%)</Badge>;
-    if (confidence >= 70) return <Badge variant="auto-processing" className="bg-yellow-100 text-yellow-800">Medium ({confidence}%)</Badge>;
-    return <Badge variant="default" className="bg-red-100 text-red-800">Low ({confidence}%)</Badge>;
+    if (confidence >= 90) return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">High ({confidence}%)</Badge>;
+    if (confidence >= 70) return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Medium ({confidence}%)</Badge>;
+    return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100">Low ({confidence}%)</Badge>;
   };
 
   // Close dropdown when clicking outside
@@ -209,13 +220,13 @@ export default function QueuePage() {
         router.push(`/pa/${paId}`);
         break;
       case 'edit':
-        alert(`Edit PA ${paId} - This would open the edit modal`);
+        router.push(`/pa/${paId}?action=edit`);
         break;
       case 'documents':
-        alert(`View documents for PA ${paId} - This would open the documents viewer`);
+        router.push(`/pa/${paId}?tab=documents`);
         break;
       case 'notes':
-        alert(`Add note to PA ${paId} - This would open the notes modal`);
+        router.push(`/pa/${paId}?action=note`);
         break;
       case 'archive':
         alert(`Archive PA ${paId} - This would archive the PA request`);
@@ -241,8 +252,8 @@ export default function QueuePage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">PA Queue</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">PA Queue</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Manage and review prior authorization requests ({filteredData.length} items)
           </p>
         </div>
@@ -251,7 +262,7 @@ export default function QueuePage() {
             <Zap className="w-4 h-4 mr-2" />
             Batch Process
           </Button>
-          <Button variant="primary" size="sm">
+          <Button size="sm">
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
@@ -259,181 +270,186 @@ export default function QueuePage() {
       </div>
 
       {/* Search and Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search by patient, PA ID, medication, or payer..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col lg:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search by patient, PA ID, medication, or payer..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filter Toggle */}
+            <Button
+              variant="outline"
+              onClick={() => setShowFilters(!showFilters)}
+              className={showFilters ? 'bg-accent' : ''}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              Filters
+            </Button>
           </div>
 
-          {/* Filter Toggle */}
-          <Button
-            variant="secondary"
-            onClick={() => setShowFilters(!showFilters)}
-            className={showFilters ? 'bg-blue-50' : ''}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-          </Button>
-        </div>
+          {/* Filter Controls */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="status-select">Status</Label>
+                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as any }))}>
+                    <SelectTrigger id="status-select">
+                      <SelectValue placeholder="All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="needs-review">Needs Review</SelectItem>
+                      <SelectItem value="auto-processing">Auto Processing</SelectItem>
+                      <SelectItem value="auto-approved">Auto Approved</SelectItem>
+                      <SelectItem value="denied">Denied</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-        {/* Filter Controls */}
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={filters.status}
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any }))}
-                  className="w-full border border-gray-300 rounded-md py-1 px-2 text-sm"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="needs-review">Needs Review</option>
-                  <option value="auto-processing">Auto Processing</option>
-                  <option value="auto-approved">Auto Approved</option>
-                  <option value="denied">Denied</option>
-                </select>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="payer-select">Payer</Label>
+                  <Select value={filters.payer} onValueChange={(value) => setFilters(prev => ({ ...prev, payer: value as any }))}>
+                    <SelectTrigger id="payer-select">
+                      <SelectValue placeholder="All Payers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Payers</SelectItem>
+                      <SelectItem value="Aetna">Aetna</SelectItem>
+                      <SelectItem value="UnitedHealth">UnitedHealth</SelectItem>
+                      <SelectItem value="Cigna">Cigna</SelectItem>
+                      <SelectItem value="Anthem">Anthem</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Payer</label>
-                <select
-                  value={filters.payer}
-                  onChange={(e) => setFilters(prev => ({ ...prev, payer: e.target.value as any }))}
-                  className="w-full border border-gray-300 rounded-md py-1 px-2 text-sm"
-                >
-                  <option value="all">All Payers</option>
-                  <option value="Aetna">Aetna</option>
-                  <option value="UnitedHealth">UnitedHealth</option>
-                  <option value="Cigna">Cigna</option>
-                  <option value="Anthem">Anthem</option>
-                </select>
-              </div>
+                <div className="space-y-2">
+                  <Label htmlFor="confidence-select">Confidence</Label>
+                  <Select value={filters.confidence} onValueChange={(value) => setFilters(prev => ({ ...prev, confidence: value as any }))}>
+                    <SelectTrigger id="confidence-select">
+                      <SelectValue placeholder="All Levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Levels</SelectItem>
+                      <SelectItem value="high">High (90%+)</SelectItem>
+                      <SelectItem value="medium">Medium (70-89%)</SelectItem>
+                      <SelectItem value="low">Low (&lt;70%)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Confidence</label>
-                <select
-                  value={filters.confidence}
-                  onChange={(e) => setFilters(prev => ({ ...prev, confidence: e.target.value as any }))}
-                  className="w-full border border-gray-300 rounded-md py-1 px-2 text-sm"
-                >
-                  <option value="all">All Levels</option>
-                  <option value="high">High (90%+)</option>
-                  <option value="medium">Medium (70-89%)</option>
-                  <option value="low">Low (&lt;70%)</option>
-                </select>
-              </div>
-
-              <div className="flex items-end">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFilters({
-                    status: 'all',
-                    priority: 'all',
-                    payer: 'all',
-                    confidence: 'all'
-                  })}
-                  className="w-full"
-                >
-                  Clear Filters
-                </Button>
+                <div className="flex items-end">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFilters({
+                      status: 'all',
+                      priority: 'all',
+                      payer: 'all',
+                      confidence: 'all'
+                    })}
+                    className="w-full"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </CardContent>
       </Card>
 
       {/* Queue Table */}
       <Card>
-        <div className="overflow-x-auto">
+        <CardContent className="p-0">
           {isLoading ? (
             <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-500">Loading queue...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-muted-foreground">Loading queue...</p>
             </div>
           ) : (
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-6 py-3">
                     PA Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     Patient
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     Medication & Payer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     Confidence
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     Updated
-                  </th>
-                  <th className="relative px-6 py-3">
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
                     <span className="sr-only">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {filteredData.map((item) => {
                   const StatusIcon = statusConfig[item.status].icon;
                   return (
-                    <tr 
-                      key={item.id} 
-                      className="hover:bg-gray-50 cursor-pointer"
+                    <TableRow
+                      key={item.id}
+                      className="cursor-pointer"
                       onClick={() => router.push(`/pa/${item.id}`)}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <TableCell className="px-6 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900 hover:text-blue-600">
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-primary">
                             {item.id}
                           </div>
-                          <div className="text-sm text-gray-500">{item.attempt}</div>
+                          <div className="text-sm text-muted-foreground">{item.attempt}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{item.patientName}</div>
-                          <div className="text-sm text-gray-500">{item.patientId}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.patientName}</div>
+                          <div className="text-sm text-muted-foreground">{item.patientId}</div>
                           {item.conditions && (
-                            <div className="text-xs text-gray-400 mt-1">{item.conditions}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{item.conditions}</div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{item.medication}</div>
-                          <div className="text-sm text-gray-500">{item.payer}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.medication}</div>
+                          <div className="text-sm text-muted-foreground">{item.payer}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         <div className="flex items-center">
                           <StatusIcon className="w-4 h-4 mr-2" />
-                          <Badge className={statusConfig[item.status].color}>
+                          <Badge variant="outline" className={statusConfig[item.status].color}>
                             {item.status.replace('-', ' ')}
                           </Badge>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
                         {getConfidenceBadge(item.confidence)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">
                         {item.updatedAt}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
                         <div className="relative">
                           <Button
                             variant="ghost"
@@ -447,13 +463,13 @@ export default function QueuePage() {
                           </Button>
 
                           {openDropdown === item.id && (
-                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg border border-gray-200 py-1 z-50">
+                            <div className="absolute right-0 mt-1 w-48 bg-popover rounded-md shadow-md border border-border py-1 z-50">
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleAction('view', item.id);
                                 }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
                               >
                                 <Eye className="w-4 h-4 mr-2" />
                                 View Details
@@ -463,7 +479,7 @@ export default function QueuePage() {
                                   e.stopPropagation();
                                   handleAction('edit', item.id);
                                 }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
                               >
                                 <Edit className="w-4 h-4 mr-2" />
                                 Edit PA
@@ -473,7 +489,7 @@ export default function QueuePage() {
                                   e.stopPropagation();
                                   handleAction('documents', item.id);
                                 }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
                               >
                                 <FileText className="w-4 h-4 mr-2" />
                                 View Documents
@@ -483,18 +499,18 @@ export default function QueuePage() {
                                   e.stopPropagation();
                                   handleAction('notes', item.id);
                                 }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-gray-900 dark:text-gray-100 hover:bg-accent"
                               >
                                 <MessageSquare className="w-4 h-4 mr-2" />
                                 Add Note
                               </button>
-                              <hr className="my-1" />
+                              <div className="my-1 h-px bg-border" />
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleAction('archive', item.id);
                                 }}
-                                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                className="flex items-center w-full px-4 py-2 text-sm text-destructive hover:bg-destructive/10"
                               >
                                 <Archive className="w-4 h-4 mr-2" />
                                 Archive
@@ -502,110 +518,166 @@ export default function QueuePage() {
                             </div>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
-        </div>
 
-        {filteredData.length === 0 && !isLoading && (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">No prior authorization requests match your filters.</p>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => {
-                setSearchTerm('');
-                setFilters({
-                  status: 'all',
-                  priority: 'all',
-                  payer: 'all',
-                  confidence: 'all'
-                });
-              }}
-            >
-              Clear all filters
-            </Button>
-          </div>
-        )}
+          {filteredData.length === 0 && !isLoading && (
+            <div className="p-8 text-center">
+              <p className="text-muted-foreground">No prior authorization requests match your filters.</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilters({
+                    status: 'all',
+                    priority: 'all',
+                    payer: 'all',
+                    confidence: 'all'
+                  });
+                }}
+              >
+                Clear all filters
+              </Button>
+            </div>
+          )}
+        </CardContent>
       </Card>
 
       {/* Batch Processing Modal */}
-      {showBatchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Zap className="w-5 h-5 mr-2 text-blue-600" />
-                Batch Process PAs
-              </h3>
-              <button
-                onClick={() => setShowBatchModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XCircle className="w-5 h-5" />
-              </button>
+      <Dialog open={showBatchModal} onOpenChange={setShowBatchModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Zap className="w-5 h-5 mr-2 text-primary" />
+              Batch Process PAs
+            </DialogTitle>
+            <DialogDescription>
+              Select criteria and options for batch processing prior authorization requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="criteria-select">Processing Criteria</Label>
+              <Select value={batchCriteria} onValueChange={setBatchCriteria}>
+                <SelectTrigger id="criteria-select">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="current">Current filtered results ({filteredData.length} PAs)</SelectItem>
+                  <SelectItem value="pending">All pending PAs ({mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length} PAs)</SelectItem>
+                  <SelectItem value="high-confidence">High confidence PAs (≥90%) ({mockQueueData.filter(pa => pa.confidence >= 90).length} PAs)</SelectItem>
+                  <SelectItem value="old">PAs older than 24 hours ({mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length} PAs)</SelectItem>
+                  <SelectItem value="payer">Specific payer PAs</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            
-            <div className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Processing Criteria</label>
-                  <select className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option>Current filtered results ({filteredData.length} PAs)</option>
-                    <option>All pending PAs</option>
-                    <option>High confidence PAs (≥90%)</option>
-                    <option>PAs older than 24 hours</option>
-                    <option>Specific payer PAs</option>
-                  </select>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" id="autoApprove" defaultChecked className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                  <label htmlFor="autoApprove" className="text-sm text-gray-700">Auto-approve eligible PAs</label>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <input type="checkbox" id="sendNotifications" className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                  <label htmlFor="sendNotifications" className="text-sm text-gray-700">Send notifications on completion</label>
-                </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
-                  <div className="flex items-start">
-                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <div className="text-sm text-blue-800">
-                      This will process {filteredData.length} PAs based on your current filters. 
-                      High-confidence PAs (≥90%) will be automatically approved.
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="autoApprove"
+                checked={autoApprove}
+                onCheckedChange={(checked) => setAutoApprove(checked === true)}
+              />
+              <Label htmlFor="autoApprove">Auto-approve eligible PAs</Label>
+            </div>
 
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowBatchModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => {
-                    alert(`Starting batch processing of ${filteredData.length} PAs...`);
-                    setShowBatchModal(false);
-                  }}
-                >
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="sendNotifications"
+                checked={sendNotifications}
+                onCheckedChange={(checked) => setSendNotifications(checked === true)}
+              />
+              <Label htmlFor="sendNotifications">Send notifications on completion</Label>
+            </div>
+
+            <Alert variant="info">
+              {batchCriteria === 'current' && `This will process ${filteredData.length} PAs based on your current filters.`}
+              {batchCriteria === 'pending' && `This will process ${mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length} pending PAs.`}
+              {batchCriteria === 'high-confidence' && `This will process ${mockQueueData.filter(pa => pa.confidence >= 90).length} high-confidence PAs.`}
+              {batchCriteria === 'old' && `This will process ${mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length} PAs older than 24 hours.`}
+              {batchCriteria === 'payer' && 'This will process PAs from the selected payer.'}
+              {autoApprove && ' High-confidence PAs (≥90%) will be automatically approved.'}
+            </Alert>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBatchModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                setIsProcessing(true);
+
+                // Get the count based on selected criteria
+                let processCount = 0;
+                switch (batchCriteria) {
+                  case 'current':
+                    processCount = filteredData.length;
+                    break;
+                  case 'pending':
+                    processCount = mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length;
+                    break;
+                  case 'high-confidence':
+                    processCount = mockQueueData.filter(pa => pa.confidence >= 90).length;
+                    break;
+                  case 'old':
+                    processCount = mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length;
+                    break;
+                  default:
+                    processCount = filteredData.length;
+                }
+
+                // Simulate processing delay
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Show success message
+                const approvedCount = autoApprove ? Math.floor(processCount * 0.7) : 0;
+                const reviewCount = processCount - approvedCount;
+
+                let message = `Batch processing completed!\n\n`;
+                message += `• Processed: ${processCount} PAs\n`;
+                if (autoApprove && approvedCount > 0) {
+                  message += `• Auto-approved: ${approvedCount} PAs\n`;
+                }
+                if (reviewCount > 0) {
+                  message += `• Sent for review: ${reviewCount} PAs\n`;
+                }
+                if (sendNotifications) {
+                  message += `• Notifications sent to team members`;
+                }
+
+                alert(message);
+                setIsProcessing(false);
+                setShowBatchModal(false);
+              }}
+              disabled={isProcessing}
+            >
+              {isProcessing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
                   <Play className="w-4 h-4 mr-2" />
                   Start Processing
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

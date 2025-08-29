@@ -22,7 +22,7 @@ export function StatusDistribution({ distribution }: StatusDistributionProps) {
     <Card>
       <CardHeader>
         <CardTitle>Current PA Status Distribution</CardTitle>
-        <span className="text-sm text-gray-500">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
           Last updated: Real-time via webhooks
         </span>
       </CardHeader>
@@ -34,7 +34,7 @@ export function StatusDistribution({ distribution }: StatusDistributionProps) {
             const percentage = getPercentage(value);
             
             return (
-              <div key={key} className="flex-1 bg-gray-100 h-2 rounded-full overflow-hidden">
+              <div key={key} className="flex-1 bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${color}`}
                   style={{ width: `${percentage}%` }}
@@ -52,7 +52,7 @@ export function StatusDistribution({ distribution }: StatusDistributionProps) {
             return (
               <div key={key} className="flex items-center gap-2">
                 <div className={`w-2.5 h-2.5 rounded-full ${color}`} />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-gray-600 dark:text-gray-300">
                   {label} ({value})
                 </span>
               </div>

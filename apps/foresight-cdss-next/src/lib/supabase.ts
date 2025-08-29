@@ -1,19 +1,12 @@
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/types/database.types';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: false, // Since this is a dashboard app, we might not need session persistence
-  },
-});
+// Re-export client functions for convenience
+export { createClient, supabase } from './supabase/client';
+// Note: Server functions are in ./supabase/server.ts - import directly when needed
 
 // Type-safe table names based on actual schema
 export const Tables = {
   PATIENT: 'patient' as const,
   PATIENT_PROFILE: 'patient_profile' as const,
+  USER_PROFILE: 'user_profile' as const,
   INSURANCE_POLICY: 'insurance_policy' as const,
   PAYER: 'payer' as const,
   PRIOR_AUTH: 'prior_auth' as const,

@@ -7,8 +7,8 @@ import {
   useStatusDistribution
 } from '@/hooks/use-dashboard-data';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface TimeRange {
   label: string;
@@ -45,7 +45,7 @@ const payerPerformance = [
 ];
 
 export default function AnalyticsPage() {
-  const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>(timeRanges[1]); // 30 days default
+  const [selectedTimeRange, setSelectedTimeRange] = useState('30d'); // 30 days default
 
   // const { data: metrics } = useDashboardMetrics();
   const { data: distribution } = useStatusDistribution();
@@ -55,8 +55,8 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analytics</h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Performance insights and trends for PA automation
           </p>
         </div>
@@ -64,16 +64,15 @@ export default function AnalyticsPage() {
         {/* Time Range Selector */}
         <div className="flex items-center gap-2">
           <Calendar className="w-4 h-4 text-gray-400" />
-          {timeRanges.map((range) => (
-            <Button
-              key={range.value}
-              variant={selectedTimeRange.value === range.value ? "primary" : "ghost"}
-              size="sm"
-              onClick={() => setSelectedTimeRange(range)}
-            >
-              {range.label}
-            </Button>
-          ))}
+          <Tabs value={selectedTimeRange} onValueChange={setSelectedTimeRange}>
+            <TabsList>
+              {timeRanges.map((range) => (
+                <TabsTrigger key={range.value} value={range.value}>
+                  {range.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
       </div>
 
@@ -82,8 +81,8 @@ export default function AnalyticsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Total PAs Processed</p>
-              <p className="text-3xl font-bold text-gray-900">1,247</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total PAs Processed</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">1,247</p>
               <div className="flex items-center mt-2">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600">+12% vs last month</span>
@@ -98,8 +97,8 @@ export default function AnalyticsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Automation Success Rate</p>
-              <p className="text-3xl font-bold text-gray-900">87%</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Automation Success Rate</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">87%</p>
               <div className="flex items-center mt-2">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600">+5% vs last month</span>
@@ -114,8 +113,8 @@ export default function AnalyticsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Avg Processing Time</p>
-              <p className="text-3xl font-bold text-gray-900">2.1h</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Avg Processing Time</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">2.1h</p>
               <div className="flex items-center mt-2">
                 <TrendingDown className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600">-22min vs last month</span>
@@ -130,8 +129,8 @@ export default function AnalyticsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Patients Served</p>
-              <p className="text-3xl font-bold text-gray-900">892</p>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Patients Served</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">892</p>
               <div className="flex items-center mt-2">
                 <TrendingUp className="w-4 h-4 text-green-500 mr-1" />
                 <span className="text-sm text-green-600">+8% vs last month</span>
@@ -147,14 +146,14 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Processing Time Trends */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Processing Time Trends</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Processing Time Trends</h3>
           <div className="space-y-4">
             {processingTimeData.map((item, index) => (
               <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">{item.period}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">{item.period}</span>
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
-                    <div className="w-32 bg-gray-200 rounded-full h-2">
+                    <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
                         style={{ width: `${(item.avgTime / item.target) * 100}%` }}
@@ -173,15 +172,15 @@ export default function AnalyticsPage() {
 
         {/* Automation vs Manual Distribution */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Automation Trends</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Automation Trends</h3>
           <div className="space-y-4">
             {automationTrends.map((item, index) => (
               <div key={index} className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">{item.month}</span>
-                  <span className="text-gray-900">{item.automation}% automated</span>
+                  <span className="text-gray-600 dark:text-gray-400">{item.month}</span>
+                  <span className="text-gray-900 dark:text-gray-100">{item.automation}% automated</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
                     className="bg-green-500 h-2 rounded-full relative"
                     style={{ width: `${item.automation}%` }}
@@ -200,26 +199,26 @@ export default function AnalyticsPage() {
 
       {/* Payer Performance Analysis */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payer Performance Analysis</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Payer Performance Analysis</h3>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Payer</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Approval Rate</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Avg Processing Time</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Volume</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-600">Performance</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Payer</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Approval Rate</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Avg Processing Time</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Volume</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-600 dark:text-gray-400">Performance</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {payerPerformance.map((payer, index) => (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="py-4 px-4 font-medium text-gray-900">{payer.payer}</td>
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-gray-800">
+                  <td className="py-4 px-4 font-medium text-gray-900 dark:text-gray-100">{payer.payer}</td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">
-                      <span className="text-gray-900">{payer.approvalRate}%</span>
-                      <div className="w-16 bg-gray-200 rounded-full h-1.5">
+                      <span className="text-gray-900 dark:text-gray-100">{payer.approvalRate}%</span>
+                      <div className="w-16 bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full ${
                             payer.approvalRate >= 90 ? 'bg-green-500' :
@@ -230,8 +229,8 @@ export default function AnalyticsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-gray-600">{payer.avgTime}</td>
-                  <td className="py-4 px-4 text-gray-600">{payer.volume} PAs</td>
+                  <td className="py-4 px-4 text-gray-600 dark:text-gray-400">{payer.avgTime}</td>
+                  <td className="py-4 px-4 text-gray-600 dark:text-gray-400">{payer.volume} PAs</td>
                   <td className="py-4 px-4">
                     <Badge
                       variant="default"
@@ -255,29 +254,29 @@ export default function AnalyticsPage() {
       {/* Status Distribution Visualization */}
       {distribution && (
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Status Distribution</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Current Status Distribution</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">{distribution.needsReview}</div>
-              <p className="text-sm text-gray-600">Needs Review</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Needs Review</p>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-blue-600">{distribution.autoProcessing}</div>
-              <p className="text-sm text-gray-600">Auto Processing</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Auto Processing</p>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-green-600">{distribution.autoApproved}</div>
-              <p className="text-sm text-gray-600">Auto Approved</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Auto Approved</p>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-red-600">{distribution.denied}</div>
-              <p className="text-sm text-gray-600">Denied</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Denied</p>
             </div>
           </div>
 
           {/* Status distribution bar */}
           <div className="mt-6">
-            <div className="w-full bg-gray-200 rounded-full h-4 flex overflow-hidden">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 flex overflow-hidden">
               <div
                 className="bg-yellow-500"
                 style={{ width: `${(distribution.needsReview / distribution.total) * 100}%` }}
@@ -295,7 +294,7 @@ export default function AnalyticsPage() {
                 style={{ width: `${(distribution.denied / distribution.total) * 100}%` }}
               ></div>
             </div>
-            <p className="text-sm text-gray-600 mt-2">Total: {distribution.total} PAs</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Total: {distribution.total} PAs</p>
           </div>
         </Card>
       )}

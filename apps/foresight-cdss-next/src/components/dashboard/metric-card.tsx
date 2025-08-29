@@ -11,10 +11,10 @@ interface MetricCardProps {
 export function MetricCard({ metric }: MetricCardProps) {
   return (
     <Card className="p-5">
-      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
         {metric.label}
       </p>
-      <p className="text-3xl font-semibold text-gray-900 mb-2">
+      <p className="text-3xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
         {metric.value}
       </p>
       {metric.change && (
@@ -33,7 +33,7 @@ export function MetricCard({ metric }: MetricCardProps) {
         </div>
       )}
       {metric.target && (
-        <p className="text-xs text-gray-500 mt-1">Target: {metric.target}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Target: {metric.target}</p>
       )}
     </Card>
   );

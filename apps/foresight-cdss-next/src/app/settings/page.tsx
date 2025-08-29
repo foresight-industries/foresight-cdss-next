@@ -1,10 +1,18 @@
 'use client';
 
-import { useState } from 'react';
-import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, X, Mail, UserPlus, Edit } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 
 interface SettingsSection {
   id: string;
@@ -47,6 +55,7 @@ const settingsSections: SettingsSection[] = [
 ];
 
 export default function SettingsPage() {
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState('automation');
   const [hasChanges, setHasChanges] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -99,6 +108,14 @@ export default function SettingsPage() {
     gemini: { connected: true, lastSync: '1 minute ago', status: 'healthy' },
     webhooks: { connected: true, lastSync: '30 seconds ago', status: 'healthy' }
   });
+
+  // Handle URL parameters to navigate to specific sections
+  useEffect(() => {
+    const section = searchParams.get('section');
+    if (section && settingsSections.some(s => s.id === section)) {
+      setActiveSection(section);
+    }
+  }, [searchParams]);
 
   const handleSave = () => {
     // In real implementation, this would save to backend
@@ -185,64 +202,58 @@ export default function SettingsPage() {
   const renderAutomationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Confidence Thresholds</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Auto-Approval Threshold
-            </label>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Confidence Thresholds</h3>
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <Label>Auto-Approval Threshold</Label>
             <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="80"
-                max="100"
-                value={automationSettings.autoApprovalThreshold}
-                onChange={(e) => handleSettingChange('automation', 'autoApprovalThreshold', Number(e.target.value))}
+              <Slider
+                value={[automationSettings.autoApprovalThreshold]}
+                onValueChange={(value) => handleSettingChange('automation', 'autoApprovalThreshold', value[0])}
+                max={100}
+                min={80}
+                step={1}
                 className="flex-1"
               />
               <span className="text-sm font-medium w-12">{automationSettings.autoApprovalThreshold}%</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground">
               PAs with confidence above this threshold will be automatically approved
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Manual Review Threshold
-            </label>
+          <div className="space-y-3">
+            <Label>Manual Review Threshold</Label>
             <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="60"
-                max="90"
-                value={automationSettings.requireReviewThreshold}
-                onChange={(e) => handleSettingChange('automation', 'requireReviewThreshold', Number(e.target.value))}
+              <Slider
+                value={[automationSettings.requireReviewThreshold]}
+                onValueChange={(value) => handleSettingChange('automation', 'requireReviewThreshold', value[0])}
+                max={90}
+                min={60}
+                step={1}
                 className="flex-1"
               />
               <span className="text-sm font-medium w-12">{automationSettings.requireReviewThreshold}%</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground">
               PAs with confidence below this threshold require manual review
             </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              OCR Accuracy Threshold
-            </label>
+          <div className="space-y-3">
+            <Label>OCR Accuracy Threshold</Label>
             <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="85"
-                max="100"
-                value={automationSettings.ocrAccuracyThreshold}
-                onChange={(e) => handleSettingChange('automation', 'ocrAccuracyThreshold', Number(e.target.value))}
+              <Slider
+                value={[automationSettings.ocrAccuracyThreshold]}
+                onValueChange={(value) => handleSettingChange('automation', 'ocrAccuracyThreshold', value[0])}
+                max={100}
+                min={85}
+                step={1}
                 className="flex-1"
               />
               <span className="text-sm font-medium w-12">{automationSettings.ocrAccuracyThreshold}%</span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground">
               Minimum OCR accuracy required for automatic processing
             </p>
           </div>
@@ -250,48 +261,46 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Processing Rules</h3>
-        <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Processing Rules</h3>
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Enable Bulk Processing</p>
-              <p className="text-sm text-gray-500">Process multiple PAs simultaneously</p>
+              <Label className="font-medium">Enable Bulk Processing</Label>
+              <p className="text-sm text-muted-foreground">Process multiple PAs simultaneously</p>
             </div>
-            <input
-              type="checkbox"
+            <Switch
               checked={automationSettings.enableBulkProcessing}
-              onChange={(e) => handleSettingChange('automation', 'enableBulkProcessing', e.target.checked)}
-              className="h-4 w-4 text-blue-600"
+              onCheckedChange={(checked) => handleSettingChange('automation', 'enableBulkProcessing', checked)}
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Confidence Score Display</p>
-              <p className="text-sm text-gray-500">Show AI confidence scores in UI</p>
+              <Label className="font-medium">Confidence Score Display</Label>
+              <p className="text-sm text-muted-foreground">Show AI confidence scores in UI</p>
             </div>
-            <input
-              type="checkbox"
+            <Switch
               checked={automationSettings.confidenceScoreEnabled}
-              onChange={(e) => handleSettingChange('automation', 'confidenceScoreEnabled', e.target.checked)}
-              className="h-4 w-4 text-blue-600"
+              onCheckedChange={(checked) => handleSettingChange('automation', 'confidenceScoreEnabled', checked)}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Max Retry Attempts
-            </label>
-            <select
-              value={automationSettings.maxRetryAttempts}
-              onChange={(e) => handleSettingChange('automation', 'maxRetryAttempts', Number(e.target.value))}
-              className="block w-full border border-gray-300 rounded-md py-2 px-3"
+          <div className="space-y-2">
+            <Label>Max Retry Attempts</Label>
+            <Select
+              value={automationSettings.maxRetryAttempts.toString()}
+              onValueChange={(value) => handleSettingChange('automation', 'maxRetryAttempts', Number(value))}
             >
-              <option value={1}>1 attempt</option>
-              <option value={2}>2 attempts</option>
-              <option value={3}>3 attempts</option>
-              <option value={5}>5 attempts</option>
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 attempt</SelectItem>
+                <SelectItem value="2">2 attempts</SelectItem>
+                <SelectItem value="3">3 attempts</SelectItem>
+                <SelectItem value="5">5 attempts</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Card>
@@ -301,7 +310,7 @@ export default function SettingsPage() {
   const renderNotificationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Alert Preferences</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Alert Preferences</h3>
         <div className="space-y-4">
           {[
             { key: 'emailAlerts', label: 'Email Alerts', description: 'Receive notifications via email' },
@@ -311,14 +320,12 @@ export default function SettingsPage() {
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-900">{item.label}</p>
-                <p className="text-sm text-gray-500">{item.description}</p>
+                <Label className="font-medium">{item.label}</Label>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={notificationSettings[item.key as keyof typeof notificationSettings] as boolean}
-                onChange={(e) => handleSettingChange('notifications', item.key, e.target.checked)}
-                className="h-4 w-4 text-blue-600"
+                onCheckedChange={(checked) => handleSettingChange('notifications', item.key, checked)}
               />
             </div>
           ))}
@@ -326,7 +333,7 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Reports & Digests</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Reports & Digests</h3>
         <div className="space-y-4">
           {[
             { key: 'weeklyReports', label: 'Weekly Reports', description: 'Comprehensive weekly performance reports' },
@@ -335,14 +342,12 @@ export default function SettingsPage() {
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between">
               <div>
-                <p className="font-medium text-gray-900">{item.label}</p>
-                <p className="text-sm text-gray-500">{item.description}</p>
+                <Label className="font-medium">{item.label}</Label>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <input
-                type="checkbox"
+              <Switch
                 checked={notificationSettings[item.key as keyof typeof notificationSettings] as boolean}
-                onChange={(e) => handleSettingChange('notifications', item.key, e.target.checked)}
-                className="h-4 w-4 text-blue-600"
+                onCheckedChange={(checked) => handleSettingChange('notifications', item.key, checked)}
               />
             </div>
           ))}
@@ -354,19 +359,19 @@ export default function SettingsPage() {
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">API Connections</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">API Connections</h3>
         <div className="space-y-4">
           {Object.entries(integrationStatus).map(([key, integration]) => (
-            <div key={key} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div key={key} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${integration.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <div>
-                  <p className="font-medium text-gray-900 capitalize">{key === 'cmm' ? 'CMM API' : key}</p>
-                  <p className="text-sm text-gray-500">Last sync: {integration.lastSync}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">{key === 'cmm' ? 'CMM API' : key}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Last sync: {integration.lastSync}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
-                <Badge variant={integration.status === 'healthy' ? "auto-approved" : "denied"} className={
+                <Badge variant={integration.status === 'healthy' ? "default" : "secondary"} className={
                   integration.status === 'healthy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }>
                   {integration.status === 'healthy' ? (
@@ -391,25 +396,25 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Webhook Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Webhook Settings</h3>
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Webhook URL</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Webhook URL</label>
             <input
               type="url"
               placeholder="https://your-domain.com/webhooks/pa-status"
-              className="w-full border border-gray-300 rounded-md py-2 px-3"
+              className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md py-2 px-3"
               readOnly
               value="https://api.foresight.health/webhooks/pa-status"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Secret Key</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Secret Key</label>
             <div className="flex space-x-2">
               <input
                 type="password"
                 value="••••••••••••••••"
-                className="flex-1 border border-gray-300 rounded-md py-2 px-3"
+                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md py-2 px-3"
                 readOnly
               />
               <Button variant="secondary" size="sm">Regenerate</Button>
@@ -423,65 +428,80 @@ export default function SettingsPage() {
   const renderSecuritySettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Access Controls</h3>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Default User Role</label>
-            <select className="block w-full border border-gray-300 rounded-md py-2 px-3">
-              <option>PA Coordinator</option>
-              <option>PA Reviewer</option>
-              <option>Administrator</option>
-              <option>Read Only</option>
-            </select>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Access Controls</h3>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label>Default User Role</Label>
+            <Select defaultValue="PA Coordinator">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
+                <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
+                <SelectItem value="Administrator">Administrator</SelectItem>
+                <SelectItem value="Read Only">Read Only</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Require MFA</p>
-              <p className="text-sm text-gray-500">Require multi-factor authentication for all users</p>
+              <Label className="font-medium">Require MFA</Label>
+              <p className="text-sm text-muted-foreground">Require multi-factor authentication for all users</p>
             </div>
-            <input type="checkbox" className="h-4 w-4 text-blue-600" />
+            <Switch />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Session Timeout</p>
-              <p className="text-sm text-gray-500">Automatically log out inactive users</p>
+              <Label className="font-medium">Session Timeout</Label>
+              <p className="text-sm text-muted-foreground">Automatically log out inactive users</p>
             </div>
-            <select className="border border-gray-300 rounded-md py-1 px-2 text-sm">
-              <option>30 minutes</option>
-              <option>1 hour</option>
-              <option>4 hours</option>
-              <option>8 hours</option>
-            </select>
+            <Select defaultValue="1 hour">
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="30 minutes">30 minutes</SelectItem>
+                <SelectItem value="1 hour">1 hour</SelectItem>
+                <SelectItem value="4 hours">4 hours</SelectItem>
+                <SelectItem value="8 hours">8 hours</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Audit & Compliance</h3>
-        <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Audit & Compliance</h3>
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">Enable Audit Logging</p>
-              <p className="text-sm text-gray-500">Track all user actions and system events</p>
+              <Label className="font-medium">Enable Audit Logging</Label>
+              <p className="text-sm text-muted-foreground">Track all user actions and system events</p>
             </div>
-            <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600" />
+            <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900">HIPAA Compliance Mode</p>
-              <p className="text-sm text-gray-500">Enable additional privacy and security controls</p>
+              <Label className="font-medium">HIPAA Compliance Mode</Label>
+              <p className="text-sm text-muted-foreground">Enable additional privacy and security controls</p>
             </div>
-            <input type="checkbox" defaultChecked className="h-4 w-4 text-blue-600" />
+            <Switch checked disabled />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Data Retention Period</label>
-            <select className="block w-full border border-gray-300 rounded-md py-2 px-3">
-              <option>1 year</option>
-              <option>2 years</option>
-              <option>5 years</option>
-              <option>7 years</option>
-              <option>Indefinite</option>
-            </select>
+          <div className="space-y-2">
+            <Label>Data Retention Period</Label>
+            <Select defaultValue="7 years">
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1 year">1 year</SelectItem>
+                <SelectItem value="2 years">2 years</SelectItem>
+                <SelectItem value="5 years">5 years</SelectItem>
+                <SelectItem value="7 years">7 years</SelectItem>
+                <SelectItem value="Indefinite">Indefinite</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Card>
@@ -492,7 +512,7 @@ export default function SettingsPage() {
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Team Members</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
           <Button size="sm" onClick={() => setShowInviteModal(true)}>
             <UserPlus className="w-4 h-4 mr-2" />
             Invite User
@@ -500,14 +520,14 @@ export default function SettingsPage() {
         </div>
         <div className="space-y-3">
           {teamMembers.map((user, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+            <div key={index} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div>
-                <p className="font-medium text-gray-900">{user.name}</p>
-                <p className="text-sm text-gray-500">{user.email}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
               </div>
               <div className="flex items-center space-x-3">
-                <Badge variant="needs-review">{user.role}</Badge>
-                <Badge variant={user.status === 'Active' ? "auto-approved" : "default"} className={
+                <Badge variant="outline">{user.role}</Badge>
+                <Badge variant={user.status === 'Active' ? "default" : "secondary"} className={
                   user.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                 }>
                   {user.status}
@@ -523,19 +543,19 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Role Permissions</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Role Permissions</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b">
-                <th className="text-left py-2">Permission</th>
-                <th className="text-center py-2">Admin</th>
-                <th className="text-center py-2">Coordinator</th>
-                <th className="text-center py-2">Reviewer</th>
-                <th className="text-center py-2">Read Only</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-2 text-gray-900 dark:text-gray-100">Permission</th>
+                <th className="text-center py-2 text-gray-900 dark:text-gray-100">Admin</th>
+                <th className="text-center py-2 text-gray-900 dark:text-gray-100">Coordinator</th>
+                <th className="text-center py-2 text-gray-900 dark:text-gray-100">Reviewer</th>
+                <th className="text-center py-2 text-gray-900 dark:text-gray-100">Read Only</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {[
                 'View Dashboard',
                 'View PA Queue',
@@ -548,7 +568,7 @@ export default function SettingsPage() {
                 'Analytics'
               ].map((permission, index) => (
                 <tr key={index}>
-                  <td className="py-2 font-medium">{permission}</td>
+                  <td className="py-2 font-medium text-gray-900 dark:text-gray-100">{permission}</td>
                   <td className="text-center py-2">
                     <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
                   </td>
@@ -600,8 +620,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600">Manage your PA automation system configuration</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
+          <p className="text-gray-600 dark:text-gray-400">Manage your PA automation system configuration</p>
         </div>
 
         {hasChanges && (
@@ -626,13 +646,13 @@ export default function SettingsPage() {
                     className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
                       activeSection === section.id
                         ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 hover:bg-gray-50'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
                     }`}
                   >
                     <Icon className="w-5 h-5" />
                     <div>
                       <div className="font-medium">{section.title}</div>
-                      <div className="text-xs text-gray-500">{section.description}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">{section.description}</div>
                     </div>
                   </button>
                 );
@@ -648,208 +668,195 @@ export default function SettingsPage() {
       </div>
 
       {/* Invite User Modal */}
-      {showInviteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Mail className="w-5 h-5 mr-2 text-blue-600" />
-                Invite New User
-              </h3>
-              <button
-                onClick={() => setShowInviteModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Mail className="w-5 h-5 mr-2 text-primary" />
+              Invite New User
+            </DialogTitle>
+            <DialogDescription>
+              Send an invitation to add a new team member to your organization.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="invite-firstName">First Name</Label>
+                <Input
+                  id="invite-firstName"
+                  type="text"
+                  value={inviteForm.firstName}
+                  onChange={(e) => handleInviteFormChange('firstName', e.target.value)}
+                  placeholder="John"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="invite-lastName">Last Name</Label>
+                <Input
+                  id="invite-lastName"
+                  type="text"
+                  value={inviteForm.lastName}
+                  onChange={(e) => handleInviteFormChange('lastName', e.target.value)}
+                  placeholder="Smith"
+                />
+              </div>
             </div>
 
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input
-                      type="text"
-                      value={inviteForm.firstName}
-                      onChange={(e) => handleInviteFormChange('firstName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="John"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      value={inviteForm.lastName}
-                      onChange={(e) => handleInviteFormChange('lastName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Smith"
-                    />
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-email">Email Address</Label>
+              <Input
+                id="invite-email"
+                type="email"
+                value={inviteForm.email}
+                onChange={(e) => handleInviteFormChange('email', e.target.value)}
+                placeholder="john.smith@company.com"
+                required
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    value={inviteForm.email}
-                    onChange={(e) => handleInviteFormChange('email', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="john.smith@company.com"
-                    required
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select value={inviteForm.role} onValueChange={(value) => handleInviteFormChange('role', value)}>
+                <SelectTrigger id="invite-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
+                  <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Read Only">Read Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select
-                    value={inviteForm.role}
-                    onChange={(e) => handleInviteFormChange('role', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="PA Coordinator">PA Coordinator</option>
-                    <option value="PA Reviewer">PA Reviewer</option>
-                    <option value="Administrator">Administrator</option>
-                    <option value="Read Only">Read Only</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="sendWelcomeEmail"
-                    checked={inviteForm.sendWelcomeEmail}
-                    onChange={(e) => handleInviteFormChange('sendWelcomeEmail', e.target.checked)}
-                    className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="sendWelcomeEmail" className="text-sm text-gray-700">
-                    Send welcome email with setup instructions
-                  </label>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-                <Button
-                  variant="primary"
-                  onClick={() => setShowInviteModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleInviteUser}
-                  disabled={!inviteForm.email || !inviteForm.firstName || !inviteForm.lastName}
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  Send Invitation
-                </Button>
-              </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="invite-welcomeEmail"
+                checked={inviteForm.sendWelcomeEmail}
+                onCheckedChange={(checked) => handleInviteFormChange('sendWelcomeEmail', checked)}
+              />
+              <Label htmlFor="invite-welcomeEmail" className="text-sm">
+                Send welcome email with setup instructions
+              </Label>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowInviteModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleInviteUser}
+              disabled={!inviteForm.email || !inviteForm.firstName || !inviteForm.lastName}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Invitation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit User Modal */}
-      {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-            <div className="flex justify-between items-center p-6 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                <Edit className="w-5 h-5 mr-2 text-blue-600" />
-                Edit Team Member
-              </h3>
-              <button
-                onClick={() => setShowEditModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Edit className="w-5 h-5 mr-2 text-primary" />
+              Edit Team Member
+            </DialogTitle>
+            <DialogDescription>
+              Update the team member&apos;s information and permissions.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">First Name</Label>
+                <Input
+                  id="edit-firstName"
+                  type="text"
+                  value={editForm.firstName}
+                  onChange={(e) => handleEditFormChange('firstName', e.target.value)}
+                  placeholder="Jane"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">Last Name</Label>
+                <Input
+                  id="edit-lastName"
+                  type="text"
+                  value={editForm.lastName}
+                  onChange={(e) => handleEditFormChange('lastName', e.target.value)}
+                  placeholder="Doe"
+                />
+              </div>
             </div>
 
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                    <input
-                      type="text"
-                      value={editForm.firstName}
-                      onChange={(e) => handleEditFormChange('firstName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Jane"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      value={editForm.lastName}
-                      onChange={(e) => handleEditFormChange('lastName', e.target.value)}
-                      className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Doe"
-                    />
-                  </div>
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">Email Address</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => handleEditFormChange('email', e.target.value)}
+                placeholder="jane.doe@company.com"
+                required
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    value={editForm.email}
-                    onChange={(e) => handleEditFormChange('email', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="jane.doe@company.com"
-                    required
-                  />
-                </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={editForm.role} onValueChange={(value) => handleEditFormChange('role', value)}>
+                <SelectTrigger id="edit-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
+                  <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
+                  <SelectItem value="Administrator">Administrator</SelectItem>
+                  <SelectItem value="Read Only">Read Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                  <select
-                    value={editForm.role}
-                    onChange={(e) => handleEditFormChange('role', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="PA Coordinator">PA Coordinator</option>
-                    <option value="PA Reviewer">PA Reviewer</option>
-                    <option value="Administrator">Administrator</option>
-                    <option value="Read Only">Read Only</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={editForm.status}
-                    onChange={(e) => handleEditFormChange('status', e.target.value)}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="Active">Active</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Suspended">Suspended</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
-                <Button
-                  variant="primary"
-                  onClick={() => setShowEditModal(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveEditUser}
-                  disabled={!editForm.email || !editForm.firstName || !editForm.lastName}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </Button>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-status">Status</Label>
+              <Select value={editForm.status} onValueChange={(value) => handleEditFormChange('status', value)}>
+                <SelectTrigger id="edit-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Suspended">Suspended</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowEditModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEditUser}
+              disabled={!editForm.email || !editForm.firstName || !editForm.lastName}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
