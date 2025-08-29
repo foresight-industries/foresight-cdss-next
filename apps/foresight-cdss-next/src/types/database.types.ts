@@ -778,11 +778,139 @@ export type Database = {
         }
         Relationships: []
       }
+      team: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          plan_type: string | null
+          settings: Json | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          plan_type?: string | null
+          settings?: Json | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          plan_type?: string | null
+          settings?: Json | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      team_invitation: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string | null
+          id: string
+          invited_by: string | null
+          role: string
+          team_id: string | null
+          token: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role?: string
+          team_id?: string | null
+          token?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string | null
+          id?: string
+          invited_by?: string | null
+          role?: string
+          team_id?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitation_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_member: {
+        Row: {
+          created_at: string | null
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          joined_at: string | null
+          role: string
+          status: string
+          team_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: string
+          status?: string
+          team_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          role?: string
+          status?: string
+          team_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_member_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_profile: {
         Row: {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          current_team_id: string | null
           department: string | null
           email: string | null
           first_name: string | null
@@ -790,6 +918,7 @@ export type Database = {
           job_title: string | null
           last_name: string | null
           location: string | null
+          onboarded_at: string | null
           phone: string | null
           role: Database["public"]["Enums"]["user_role"]
           timezone: string | null
@@ -799,6 +928,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          current_team_id?: string | null
           department?: string | null
           email?: string | null
           first_name?: string | null
@@ -806,6 +936,7 @@ export type Database = {
           job_title?: string | null
           last_name?: string | null
           location?: string | null
+          onboarded_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           timezone?: string | null
@@ -815,6 +946,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          current_team_id?: string | null
           department?: string | null
           email?: string | null
           first_name?: string | null
@@ -822,18 +954,31 @@ export type Database = {
           job_title?: string | null
           last_name?: string | null
           location?: string | null
+          onboarded_at?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["user_role"]
           timezone?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_profile_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      accept_team_invitation: {
+        Args: { invitation_token: string }
+        Returns: boolean
+      }
       binary_quantize: {
         Args: { "": string } | { "": unknown }
         Returns: unknown
@@ -841,6 +986,10 @@ export type Database = {
       cleanup_expired_alerts: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      create_team_with_owner: {
+        Args: { owner_id?: string; team_name: string; team_slug: string }
+        Returns: string
       }
       get_patients_for_clinical_engine: {
         Args: Record<PropertyKey, never>
