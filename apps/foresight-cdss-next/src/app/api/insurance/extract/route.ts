@@ -1,20 +1,21 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.GOOGLE_API_KEY) {
+    if (!process.env.GEMINI_API_KEY) {
       return Response.json({ error: 'API key not configured' }, { status: 500 });
     }
 
     const formData = await request.formData();
     const file = formData.get('image') as File;
-    
+
     if (!file) {
       return Response.json({ error: 'No image file provided' }, { status: 400 });
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+    const genAI = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY,
+    });
 
     // Convert file to base64 for Gemini
     const bytes = await file.arrayBuffer();
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
 
     const prompt = `
     Analyze this insurance card image and extract the following information:
-    
+
     1. Member/Subscriber Name
     2. Member ID/Subscriber ID
     3. Group Number
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     11. RX Group
     12. Customer Service Phone Number
     13. Provider Phone Number
-    
+
     Format the response as a JSON object with these fields:
     {
         "member_name": "extracted name or null",
@@ -59,17 +60,27 @@ export async function POST(request: Request) {
         "provider_phone": "extracted phone or null",
         "raw_text": "all text visible on the card"
     }
-    
+
     If any field is not found on the card, use null for that field.
     `;
 
-    const result = await model.generateContent([
-      prompt,
-      { inlineData: { data: base64, mimeType: file.type } }
-    ]);
+    const result = await genAI.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        prompt,
+        { inlineData: { data: base64, mimeType: file.type } }
+      ]
+    });
 
-    const responseText = result.response.text().trim();
-    
+    const responseText = result.text?.trim();
+
+    if (!responseText) {
+      return Response.json(
+        { error: 'Failed to extract insurance card data' },
+        { status: 500 }
+      );
+    }
+
     // Clean JSON response
     let cleanText = responseText;
     if (cleanText.startsWith('```json')) {
@@ -80,13 +91,13 @@ export async function POST(request: Request) {
     }
 
     const extractedData = JSON.parse(cleanText.trim());
-    
+
     return Response.json(extractedData);
-    
+
   } catch (error) {
     console.error('OCR extraction error:', error);
     return Response.json(
-      { error: 'Failed to extract insurance card data' }, 
+      { error: 'Failed to extract insurance card data' },
       { status: 500 }
     );
   }
