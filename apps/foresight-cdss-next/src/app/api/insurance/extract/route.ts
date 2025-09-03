@@ -35,8 +35,6 @@ export async function POST(request: Request) {
     9. RX BIN (prescription benefit identification number)
     10. RX PCN (processor control number)
     11. RX Group
-    12. Customer Service Phone Number
-    13. Provider Phone Number
 
     Format the response as a JSON object with these fields:
     {
@@ -56,8 +54,6 @@ export async function POST(request: Request) {
         "rx_bin": "extracted BIN or null",
         "rx_pcn": "extracted PCN or null",
         "rx_group": "extracted RX group or null",
-        "customer_service_phone": "extracted phone or null",
-        "provider_phone": "extracted phone or null",
         "raw_text": "all text visible on the card"
     }
 
