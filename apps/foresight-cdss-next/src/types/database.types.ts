@@ -429,35 +429,49 @@ export type Database = {
       patient: {
         Row: {
           created_at: string
+          dosespot_patient_id: number | null
           external_id: string | null
           has_verified_identity: boolean
           height: number | null
           id: number
+          profile_id: number | null
           region: string | null
           updated_at: string
           weight: number | null
         }
         Insert: {
           created_at?: string
+          dosespot_patient_id?: number | null
           external_id?: string | null
           has_verified_identity?: boolean
           height?: number | null
           id?: number
+          profile_id?: number | null
           region?: string | null
           updated_at?: string
           weight?: number | null
         }
         Update: {
           created_at?: string
+          dosespot_patient_id?: number | null
           external_id?: string | null
           has_verified_identity?: boolean
           height?: number | null
           id?: number
+          profile_id?: number | null
           region?: string | null
           updated_at?: string
           weight?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "patient_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "patient_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patient_diagnosis: {
         Row: {
@@ -533,28 +547,34 @@ export type Database = {
         Row: {
           birth_date: string | null
           created_at: string
+          email: string | null
           first_name: string | null
           gender: string | null
           id: number
           last_name: string | null
+          phone: string | null
           updated_at: string | null
         }
         Insert: {
           birth_date?: string | null
           created_at?: string
+          email?: string | null
           first_name?: string | null
           gender?: string | null
           id?: number
           last_name?: string | null
+          phone?: string | null
           updated_at?: string | null
         }
         Update: {
           birth_date?: string | null
           created_at?: string
+          email?: string | null
           first_name?: string | null
           gender?: string | null
           id?: number
           last_name?: string | null
+          phone?: string | null
           updated_at?: string | null
         }
         Relationships: []

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AxiosError, isAxiosError } from 'axios';
 import { createDosespotToken } from '@/app/api/services/dosespot/_utils/createDosespotToken';
-import { Database } from '@/lib/database.types';
 import { createDosespotPatient } from '@/app/api/services/dosespot/_utils/createDosespotPatient';
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -19,7 +18,7 @@ export default async function DosespotCreatePatientHandler(
       throw new Error(`Zealthy patient id is required`);
     }
 
-    const supabase = createServerSupabaseClient<Database>({ req, res });
+    const supabase = await createServerSupabaseClient();
 
     // Check if we have a session
     const {
@@ -68,12 +67,13 @@ export default async function DosespotCreatePatientHandler(
         message: `Patient ${patientId} already has dosespot id. Returning...`,
       });
 
-      res.status(200).json({
-        id: patient.id,
-        dosespot_patient_id: patient.dosespot_patient_id,
-      });
-
-      return;
+      return NextResponse.json(
+        {
+          id: patient.id,
+          dosespot_patient_id: patient.dosespot_patient_id,
+        },
+        { status: 200 }
+      );
     }
 
     //create token

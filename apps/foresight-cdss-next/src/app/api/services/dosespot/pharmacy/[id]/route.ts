@@ -1,7 +1,6 @@
 import { getPharmacyInfo } from '../../_utils/getPharmacyInfo';
 import { createDosespotToken } from '../../_utils/createDosespotToken';
 import { createServerSupabaseClient } from '@/lib/supabase/server';
-import { Database } from '@/lib/database.types';
 import { NextResponse } from "next/server";
 
 /**
@@ -18,7 +17,7 @@ export default async function GET(
   }
 
   try {
-    const supabase = createServerSupabaseClient<Database>({ req, res });
+    const supabase = await createServerSupabaseClient();
 
     // Check if we have a session
     const {
@@ -55,7 +54,7 @@ export default async function GET(
     }
 
     const pharmacy = await getPharmacyInfo(
-      dosespotPharmacyId,
+      Number(dosespotPharmacyId),
       token.access_token
     );
 

@@ -1,8 +1,9 @@
-import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { Tables } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { getDosespotPatientUrl } from '@/app/api/utils/dosespot/getDosespotPatientUrl';
 import { getDosespotHeaders } from '@/app/api/utils/dosespot/getDosespotHeaders';
 import axios, { AxiosRequestConfig } from 'axios';
-import { Database } from '@/lib/database.types';
+import { Database } from '@/types/database.types';
 import { SupabaseClient } from '@supabase/supabase-js';
 
 enum PrimaryPhoneTypeEnum {
@@ -76,9 +77,9 @@ export const createDosespotPatient = async (
 
   const [profile, address] = await Promise.all([
     supabase
-      .from('profiles')
+      .from(Tables.PATIENT_PROFILE)
       .select('*')
-      .eq('id', patient.profile_id)
+      .eq('id', patient.profile_id!)
       .maybeSingle()
       .then(({ data }) => data),
 
@@ -100,19 +101,19 @@ export const createDosespotPatient = async (
     );
   }
 
-  if (!profile.phone_number) {
+  if (!profile.phone) {
     throw new Error(`
       Patient ${patient.id} does not have phone number
     `);
   }
 
   const formattedPhoneNumber = profile
-    .phone_number!.replace('+1', '')
-    .replace(/[^0-9]+/g, '');
+    .phone.replace('+1', '')
+    .replace(/\D+/g, '');
 
   if (formattedPhoneNumber.length > 10) {
     throw new Error(
-      `Patient ${patient.id}. Phone of type Primary and number ${profile.phone_number} is not a valid phone number.`
+      `Patient ${patient.id}. Phone of type Primary and number ${profile.phone} is not a valid phone number.`
     );
   }
 

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createDosespotToken } from '../../_utils/createDosespotToken';
-
-type DosespotInitiatePriorAuthBody = {
-  dosespotProviderId: number;
-  prescriptionId?: number;
-  rxChangeRequestId?: number;
-};
+// import { createDosespotToken } from '../../_utils/createDosespotToken';
+//
+// type DosespotInitiatePriorAuthBody = {
+//   prescriptionId?: number;
+//   rxChangeRequestId?: number;
+// };
 
 export default async function POST(
   req: NextRequest,
@@ -15,11 +14,11 @@ export default async function POST(
   }
 
   try {
-    const { prescriptionId, rxChangeRequestId } =
-      await req.json() as DosespotInitiatePriorAuthBody;
-
-    //create token
-    const { data: token } = await createDosespotToken(Number(process.env.DOSESPOT_PROVIDER_ID));
+    // const { prescriptionId, rxChangeRequestId } =
+    //   await req.json() as DosespotInitiatePriorAuthBody;
+    //
+    // // Create token
+    // const { data: token } = await createDosespotToken(Number(process.env.DOSESPOT_PROVIDER_ID));
 
     return NextResponse.json({ status: 200 });
   } catch (err) {
