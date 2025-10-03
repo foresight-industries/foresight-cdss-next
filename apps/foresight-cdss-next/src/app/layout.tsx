@@ -7,8 +7,8 @@ import { LayoutWrapper } from '@/components/layout/layout-wrapper';
 import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata = {
-  title: 'Foresight PA Automation Dashboard',
-  description: 'Automated Prior Authorization Management System',
+  title: 'Foresight RCM Dashboard',
+  description: 'Automated RCM System',
 };
 
 export default function RootLayout({

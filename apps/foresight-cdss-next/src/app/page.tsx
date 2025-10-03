@@ -2,7 +2,9 @@
 
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { StatusDistribution } from '@/components/dashboard/status-distribution';
-import { Alert } from '@/components/ui/alert';
+import { ActionableQueues, getDefaultQueueData } from '@/components/dashboard/actionable-queues';
+import { DashboardCharts } from '@/components/dashboard/dashboard-charts';
+import { AuditTrail } from '@/components/dashboard/audit-trail';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -100,29 +102,29 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="container mx-auto max-w-7xl p-6">
-      {/* System Alert */}
-      <Alert variant="success">
-        <strong>System Status:</strong> All automations operational. CMM API responding in 340ms average.
-      </Alert>
+    <div className="p-8 bg-gray-100 min-h-screen">
+      {/* Header */}
+      <header className="mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Foresight Overview</h1>
+        <p className="text-gray-600 mt-1">Automated RCM System — Multi-state operations. Focus: Prior Authorization, E/M optimization, high automation rate.</p>
+      </header>
 
-      {/* Core Metrics */}
+      {/* Core KPI Metrics */}
       {metrics?.coreMetrics && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           {metrics.coreMetrics.map((metric) => (
             <MetricCard key={metric.label} metric={metric} />
           ))}
         </div>
       )}
 
-      {/* Automation Performance */}
-      {metrics?.automationMetrics && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {metrics.automationMetrics.map((metric) => (
-            <MetricCard key={metric.label} metric={metric} />
-          ))}
-        </div>
-      )}
+      {/* Charts Section */}
+      <DashboardCharts className="mb-8" />
+
+      {/* Actionable Queues */}
+      <div className="mb-8">
+        <ActionableQueues queueData={getDefaultQueueData()} />
+      </div>
 
       {/* Status Distribution */}
       {statusDistribution && (
@@ -132,95 +134,79 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activity */}
-      <Card>
+      <Card className="bg-white border shadow-sm mb-8">
         <CardHeader>
-          <CardTitle>Recent PA Activity</CardTitle>
-          <Link href="/queue">
-            <Button variant="ghost" size="sm">
-              View All →
-            </Button>
-          </Link>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold">Recent PA Activity</CardTitle>
+            <Link href="/queue">
+              <Button variant="ghost" size="sm" className="text-indigo-600 hover:underline">
+                View All →
+              </Button>
+            </Link>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Case ID
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Patient
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    PA Attempt
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Payer
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    AI Confidence
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Updated
-                  </th>
+            <table className="w-full text-sm">
+              <thead className="text-left text-gray-500">
+                <tr>
+                  <th className="py-2">Case ID</th>
+                  <th>Patient</th>
+                  <th>PA Attempt</th>
+                  <th>Payer</th>
+                  <th>Status</th>
+                  <th>AI Confidence</th>
+                  <th>Updated</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-100">
                 {recentActivity?.map((activity) => (
-                  <tr key={activity.id} className="hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <td className="py-4 px-4">
+                  <tr key={activity.id} className="hover:bg-gray-50">
+                    <td className="py-2">
                       <Link
                         href={`/pa/${activity.id}`}
-                        className="text-blue-600 dark:text-blue-400 font-semibold hover:underline"
+                        className="text-indigo-600 font-semibold hover:underline"
                       >
                         {activity.id}
                       </Link>
                     </td>
-                    <td className="py-4 px-4">
+                    <td>
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{activity.patientName}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{activity.patientId}</p>
+                        <p className="font-medium text-gray-900">{activity.patientName}</p>
+                        <p className="text-xs text-gray-500">{activity.patientId}</p>
                         <p className="text-xs text-green-600 font-medium">{activity.conditions}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{activity.attempt}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{activity.medication}</p>
+                        <p className="text-sm font-semibold text-gray-900">{activity.attempt}</p>
+                        <p className="text-xs text-gray-500">{activity.medication}</p>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
-                      {activity.payer}
-                    </td>
-                    <td className="py-4 px-4">
+                    <td className="text-gray-900">{activity.payer}</td>
+                    <td>
                       <Badge variant={activity.status === 'auto-approved' ? 'secondary' : 'default'}>
                         {activity.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </Badge>
                     </td>
-                    <td className="py-4 px-4">
+                    <td>
                       <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
                           <div
                             className="bg-gradient-to-r from-cyan-500 to-blue-600 h-1.5 rounded-full"
                             style={{ width: `${activity.confidence}%` }}
                           />
                         </div>
-                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                        <span className="text-sm font-medium text-gray-600">
                           {activity.confidence}%
                         </span>
                       </div>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
-                      {activity.updatedAt}
-                    </td>
+                    <td className="text-gray-500">{activity.updatedAt}</td>
                   </tr>
                 )) || (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={7} className="py-8 text-center text-gray-500">
                       No recent activity found
                     </td>
                   </tr>
@@ -230,6 +216,9 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Audit Trail */}
+      <AuditTrail />
     </div>
   );
 }

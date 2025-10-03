@@ -558,7 +558,7 @@ function SettingsPageContent() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {[
                 'View Dashboard',
-                'View PA Queue',
+                'View ePA Queue',
                 'Edit PA Details',
                 'Approve PAs',
                 'Deny PAs',
@@ -576,14 +576,14 @@ function SettingsPageContent() {
                     <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
                   </td>
                   <td className="text-center py-2">
-                    {['View Dashboard', 'View PA Queue', 'Edit PA Details', 'Analytics'].includes(permission) ? (
+                    {['View Dashboard', 'View ePA Queue', 'Edit PA Details', 'Analytics'].includes(permission) ? (
                       <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
                     ) : (
                       <div className="w-4 h-4 mx-auto"></div>
                     )}
                   </td>
                   <td className="text-center py-2">
-                    {['View Dashboard', 'View PA Queue', 'Analytics'].includes(permission) ? (
+                    {['View Dashboard', 'View ePA Queue', 'Analytics'].includes(permission) ? (
                       <CheckCircle className="w-4 h-4 text-green-500 mx-auto" />
                     ) : (
                       <div className="w-4 h-4 mx-auto"></div>

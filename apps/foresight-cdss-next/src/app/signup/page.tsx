@@ -23,7 +23,7 @@ export default function SignupPage() {
             Create an account
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Join the Foresight PA Automation platform
+            Join the Foresight RCM platform
           </p>
         </div>
 
@@ -37,13 +37,13 @@ export default function SignupPage() {
           <CardContent className="space-y-4">
             <Alert variant="info" className="p-4">
               <p>
-                To request access to the Foresight PA Automation platform, please contact your system administrator or reach out to our support team.
+                To request access to the Foresight RCM platform, please contact your system administrator or reach out to our support team.
               </p>
             </Alert>
 
             <div className="space-y-3">
               <Button asChild className="w-full">
-                <a href="mailto:support@have-foresight.com?subject=Account Access Request&body=Hello, I would like to request access to the Foresight PA Automation platform.">
+                <a href="mailto:support@have-foresight.com?subject=Account Access Request&body=Hello, I would like to request access to the Foresight RCM platform.">
                   <Mail className="mr-2 h-4 w-4" />
                   Contact Support
                 </a>

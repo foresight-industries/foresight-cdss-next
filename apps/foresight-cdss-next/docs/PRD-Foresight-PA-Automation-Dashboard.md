@@ -1,14 +1,14 @@
 # Product Requirements Document (PRD)
-# Foresight PA Automation Dashboard
+# Foresight RCM Dashboard
 
 ## 1. Executive Summary
 
 ### Product Overview
-The Foresight PA Automation Dashboard is a comprehensive web-based platform designed to streamline and automate the Prior Authorization (PA) process for GLP-1 medications. The system leverages AI/ML capabilities, OCR technology, and intelligent workflow automation to reduce manual PA processing from hours to minutes while maintaining high accuracy and compliance standards.
+The Foresight RCM Dashboard is a comprehensive web-based platform designed to streamline and automate the RCM and Prior Authorization (PA) process for GLP-1 medications. The system leverages AI/ML capabilities, OCR technology, and intelligent workflow automation to reduce manual PA processing from hours to minutes while maintaining high accuracy and compliance standards.
 
 ### Key Value Propositions
-- **87% Full Automation Rate**: Majority of PAs processed without human intervention
-- **2.4 minute Average Processing Time**: Down from traditional 30-60 minute manual processes
+- **87% Full Automation Rate**: The majority of PAs processed without human intervention
+- **2.4-minute Average Processing Time**: Down from traditional 30-60 minute manual processes
 - **96.2% Field Accuracy**: High-confidence automated data extraction and form filling
 - **Real-time Status Synchronization**: Webhook-based updates with <2 hour latency
 - **Zero Duplicate Prevention**: Idempotency key implementation ensures data integrity
@@ -80,9 +80,9 @@ Current prior authorization processes are manual, time-consuming, and error-pron
 - Real-time updates via webhooks
 - Historical trend comparison
 
-### 3.2 PA Queue Management
+### 3.2 ePA Queue Management
 
-#### 3.2.1 Intelligent PA Queue
+#### 3.2.1 Intelligent ePA Queue
 **Description**: Comprehensive list view of all PAs with smart filtering and search
 
 **Core Fields**:

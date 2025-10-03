@@ -26,7 +26,7 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/' },
-  { name: 'PA Queue', href: '/queue' },
+  { name: 'ePA Queue', href: '/queue' },
   { name: 'Analytics', href: '/analytics' },
   { name: 'Settings', href: '/settings' },
 ];
@@ -49,7 +49,7 @@ export function NavHeader() {
                 className="rounded-lg hidden sm:block"
               />
               <span className="text-xl font-semibold text-primary hidden sm:block">
-                Foresight PA Automation
+                Foresight RCM
               </span>
             </Link>
 
@@ -143,13 +143,13 @@ export function NavHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <a href="mailto:support@have-foresight.com?subject=Foresight PA Automation Support Request" className="cursor-pointer">
+                    <a href="mailto:support@have-foresight.com?subject=Foresight RCM Support Request" className="cursor-pointer">
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Support</span>
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem 
+                  <DropdownMenuItem
                     className="text-red-600 cursor-pointer"
                     onClick={async () => {
                       const { createClient } = await import('@/lib/supabase/client');

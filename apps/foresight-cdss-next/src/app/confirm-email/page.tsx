@@ -172,7 +172,7 @@ function ConfirmEmailContent() {
               Email confirmed!
             </h2>
             <p className="mt-2 text-sm text-gray-600">
-              Welcome to Foresight PA Automation
+              Welcome to Foresight RCM
             </p>
           </div>
 
