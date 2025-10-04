@@ -2191,7 +2191,7 @@ __metadata:
     tailwindcss-animate: "npm:^1.0.7"
     vercel: "npm:^48.2.0"
     zod: "npm:^4.1.5"
-    zustand: "npm:^5.0.2"
+    zustand: "npm:^5.0.8"
   languageName: unknown
   linkType: soft
 
@@ -24959,7 +24959,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zustand@npm:^5.0.2":
+"zustand@npm:^5.0.8":
   version: 5.0.8
   resolution: "zustand@npm:5.0.8"
   peerDependencies:
