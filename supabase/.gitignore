@@ -3,3 +3,4 @@
 .temp
 .env.local
 .env.example
+*error.log
