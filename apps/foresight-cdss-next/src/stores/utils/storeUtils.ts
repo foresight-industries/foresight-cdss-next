@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Tables } from "@/types/database.types";
 import { useAppStore } from "../mainStore";
 
@@ -10,9 +10,9 @@ export interface PaginationState {
   totalPages: number;
 }
 
-export const usePagination = (data: any[], initialPageSize: number = 20) => {
-  const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
+export const usePagination = (data: any[], initialPageSize = 20) => {
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
 
   const paginatedData = useMemo(() => {
     const startIndex = (page - 1) * pageSize;
@@ -76,7 +76,7 @@ export const useSorting = <T extends Record<string, any>>(
   data: T[],
   initialSort?: { field: keyof T; direction: SortDirection }
 ) => {
-  const [sortState, setSortState] = React.useState<SortState>({
+  const [sortState, setSortState] = useState<SortState>({
     field: (initialSort?.field as string) || null,
     direction: initialSort?.direction || "asc",
   });
@@ -335,12 +335,18 @@ export const useEntityRelationships = () => {
   const priorAuths = useAppStore((state) => state.priorAuths);
   const clinicians = useAppStore((state) => state.clinicians);
   const payers = useAppStore((state) => state.payers);
+  const encounters = useAppStore((state) => state.encounters);
+  const patientProfiles = useAppStore((state) => state.patientProfiles);
 
   const getPatientClaims = useCallback(
     (patientId: number) => {
-      return claims.filter((claim) => claim.patient_id === patientId);
+      return claims.filter((claim) => {
+        // Get the encounter for this claim
+        const encounter = encounters.find((e) => e.id === claim.encounter_id);
+        return encounter?.patient_id === patientId;
+      });
     },
-    [claims]
+    [claims, encounters]
   );
 
   const getPatientPriorAuths = useCallback(
@@ -354,53 +360,63 @@ export const useEntityRelationships = () => {
     (claimId: string) => {
       const claim = claims.find((c) => c.id === claimId);
       if (!claim) return null;
+
+      // Get the encounter for this claim
+      const encounter = encounters.find((e) => e.id === claim.encounter_id);
+      if (!encounter) return null;
+
+      // Get the rendering clinician from the encounter
       return (
-        clinicians.find((p) => p.id === claim.rendering_provider_id) || null
+        clinicians.find((p) => p.id === encounter.rendering_clinician_id) ||
+        null
       );
     },
-    [claims, clinicians]
+    [claims, encounters, clinicians]
   );
 
   const getClaimPayer = useCallback(
     (claimId: string) => {
       const claim = claims.find((c) => c.id === claimId);
       if (!claim) return null;
-      return payers.find((p) => p.id === claim.primary_payer_id) || null;
+      return payers.find((p) => p.id === claim.payer_id) || null;
     },
     [claims, payers]
   );
 
   const getPatientByName = useCallback(
     (firstName: string, lastName: string) => {
-      return patients.find(
-        (p) =>
-          p.first_name.toLowerCase() === firstName.toLowerCase() &&
-          p.last_name.toLowerCase() === lastName.toLowerCase()
-      );
+      return patients.find((patient) => {
+        // Get the patient profile for this patient
+        const profile = patient.profile_id
+          ? patientProfiles[patient.profile_id]
+          : null;
+        if (!profile) return false;
+
+        return (
+          profile.first_name?.toLowerCase() === firstName.toLowerCase() &&
+          profile.last_name?.toLowerCase() === lastName.toLowerCase()
+        );
+      });
     },
-    [patients]
+    [patients, patientProfiles]
   );
 
   const getPayerClaims = useCallback(
     (payerId: number) => {
-      return claims.filter(
-        (claim) =>
-          claim.primary_payer_id === payerId ||
-          claim.secondary_payer_id === payerId
-      );
+      return claims.filter((claim) => claim.payer_id === payerId);
     },
     [claims]
   );
 
   const getProviderClaims = useCallback(
     (providerId: number) => {
-      return claims.filter(
-        (claim) =>
-          claim.rendering_provider_id === providerId ||
-          claim.billing_provider_id === providerId
-      );
+      return claims.filter((claim) => {
+        // Get the encounter for this claim
+        const encounter = encounters.find((e) => e.id === claim.encounter_id);
+        return encounter?.rendering_clinician_id === providerId;
+      });
     },
-    [claims]
+    [claims, encounters]
   );
 
   return {
@@ -416,44 +432,46 @@ export const useEntityRelationships = () => {
 
 // Validation utility
 export const useValidation = () => {
-  const validatePatient = useCallback((patient: Partial<Tables<"patient">>) => {
-    const errors: Record<string, string> = {};
+  const validatePatientProfile = useCallback(
+    (patientProfile: Partial<Tables<"patient_profile">>) => {
+      const errors: Record<string, string> = {};
 
-    if (!patient.first_name?.trim()) {
-      errors.first_name = "First name is required";
-    }
+      if (!patientProfile.first_name?.trim()) {
+        errors.first_name = "First name is required";
+      }
 
-    if (!patient.last_name?.trim()) {
-      errors.last_name = "Last name is required";
-    }
+      if (!patientProfile.last_name?.trim()) {
+        errors.last_name = "Last name is required";
+      }
 
-    if (!patient.date_of_birth) {
-      errors.date_of_birth = "Date of birth is required";
-    }
+      if (!patientProfile.birth_date) {
+        errors.birth_date = "Date of birth is required";
+      }
 
-    if (patient.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patient.email)) {
-      errors.email = "Invalid email format";
-    }
+      if (
+        patientProfile.email &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patientProfile.email)
+      ) {
+        errors.email = "Invalid email format";
+      }
 
-    return {
-      isValid: Object.keys(errors).length === 0,
-      errors,
-    };
-  }, []);
+      return {
+        isValid: Object.keys(errors).length === 0,
+        errors,
+      };
+    },
+    []
+  );
 
   const validateClaim = useCallback((claim: Partial<Tables<"claim">>) => {
     const errors: Record<string, string> = {};
 
-    if (!claim.patient_id) {
-      errors.patient_id = "Patient is required";
+    if (!claim.encounter_id) {
+      errors.encounter_id = "Encounter is required";
     }
 
-    if (!claim.primary_payer_id) {
-      errors.primary_payer_id = "Primary payer is required";
-    }
-
-    if (!claim.service_date) {
-      errors.service_date = "Service date is required";
+    if (!claim.payer_id) {
+      errors.payer_id = "Payer is required";
     }
 
     if (!claim.total_amount || claim.total_amount <= 0) {
@@ -467,7 +485,7 @@ export const useValidation = () => {
   }, []);
 
   return {
-    validatePatient,
+    validatePatientProfile,
     validateClaim,
   };
 };

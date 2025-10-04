@@ -80,7 +80,7 @@ export const useRealtimeSubscription = <T extends DatabaseTables>(
     filter?: string;
     onInsert?: (record: Tables<T>) => void;
     onUpdate?: (record: Tables<T>) => void;
-    onDelete?: (record: Tables<T>) => void;
+    onDelete?: (record: Partial<Tables<T>>) => void;
   } = {}
 ) => {
   const { enabled = true, filter, onInsert, onUpdate, onDelete } = options;
@@ -105,7 +105,7 @@ export const useRealtimeSubscription = <T extends DatabaseTables>(
           onUpdate?.(payload.new);
           break;
         case "DELETE":
-          onDelete?.(payload.old);
+          onDelete?.(payload.old as Partial<Tables<T>>);
           break;
       }
     },
@@ -147,7 +147,7 @@ export const useRealtimeSubscription = <T extends DatabaseTables>(
 };
 
 // Hook for patient real-time updates
-export const usePatientRealtime = (enabled: boolean = true) => {
+export const usePatientRealtime = (enabled = true) => {
   const addPatient = useAppStore((state) => state.addPatient);
   const updatePatient = useAppStore((state) => state.updatePatient);
   const removePatient = useAppStore((state) => state.removePatient);
@@ -161,13 +161,15 @@ export const usePatientRealtime = (enabled: boolean = true) => {
       updatePatient(patient.id, patient);
     },
     onDelete: (patient) => {
-      removePatient(patient.id);
+      if (patient.id) {
+        removePatient(patient.id);
+      }
     },
   });
 };
 
 // Hook for claim real-time updates
-export const useClaimRealtime = (enabled: boolean = true) => {
+export const useClaimRealtime = (enabled = true) => {
   const addClaim = useAppStore((state) => state.addClaim);
   const updateClaim = useAppStore((state) => state.updateClaim);
   const removeClaim = useAppStore((state) => state.removeClaim);
@@ -181,13 +183,15 @@ export const useClaimRealtime = (enabled: boolean = true) => {
       updateClaim(claim.id, claim);
     },
     onDelete: (claim) => {
-      removeClaim(claim.id);
+      if (claim.id) {
+        removeClaim(claim.id);
+      }
     },
   });
 };
 
 // Hook for prior auth real-time updates
-export const usePriorAuthRealtime = (enabled: boolean = true) => {
+export const usePriorAuthRealtime = (enabled = true) => {
   const addPriorAuth = useAppStore((state) => state.addPriorAuth);
   const updatePriorAuth = useAppStore((state) => state.updatePriorAuth);
   const removePriorAuth = useAppStore((state) => state.removePriorAuth);
@@ -201,13 +205,15 @@ export const usePriorAuthRealtime = (enabled: boolean = true) => {
       updatePriorAuth(priorAuth.id, priorAuth);
     },
     onDelete: (priorAuth) => {
-      removePriorAuth(priorAuth.id);
+      if (priorAuth.id) {
+        removePriorAuth(priorAuth.id);
+      }
     },
   });
 };
 
 // Hook for payment real-time updates
-export const usePaymentRealtime = (enabled: boolean = true) => {
+export const usePaymentRealtime = (enabled = true) => {
   const addPaymentDetail = useAppStore((state) => state.addPaymentDetail);
   const updatePaymentDetail = useAppStore((state) => state.updatePaymentDetail);
   const removePaymentDetail = useAppStore((state) => state.removePaymentDetail);
@@ -221,13 +227,15 @@ export const usePaymentRealtime = (enabled: boolean = true) => {
       updatePaymentDetail(payment.id, payment);
     },
     onDelete: (payment) => {
-      removePaymentDetail(payment.id);
+      if (payment.id) {
+        removePaymentDetail(payment.id);
+      }
     },
   });
 };
 
 // Hook for team real-time updates (admin)
-export const useTeamRealtime = (enabled: boolean = true) => {
+export const useTeamRealtime = (enabled = true) => {
   const addTeam = useAppStore((state) => state.addTeam);
   const updateTeam = useAppStore((state) => state.updateTeam);
   const removeTeam = useAppStore((state) => state.removeTeam);
@@ -241,7 +249,9 @@ export const useTeamRealtime = (enabled: boolean = true) => {
       updateTeam(team.id, team);
     },
     onDelete: (team) => {
-      removeTeam(team.id);
+      if (team.id) {
+        removeTeam(team.id);
+      }
     },
   });
 };
@@ -293,7 +303,7 @@ export const useRealtimeUpdates = (
 export const useFilteredRealtime = (
   table: DatabaseTables,
   filter: string,
-  enabled: boolean = true
+  enabled = true
 ) => {
   const updateRealtimeTimestamp = useAppStore(
     (state) => state.updateRealtimeTimestamp
@@ -320,7 +330,8 @@ export const useRealtimeStatus = () => {
 
   const reconnect = useCallback(() => {
     // Force reconnection by resubscribing to all active channels
-    const currentSubscriptions = realtimeManager.getActiveSubscriptions();
+
+    // const currentSubscriptions = realtimeManager.getActiveSubscriptions();
     realtimeManager.unsubscribeAll();
 
     // This would need to be implemented based on your app's specific needs
