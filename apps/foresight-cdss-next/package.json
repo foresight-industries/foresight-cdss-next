@@ -1,8 +1,15 @@
 {
   "name": "@foresight-cdss-next/foresight-cdss-next",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "supabase:types": "dotenvx run --quiet --env-file=.env.local -- cross-var yarn supabase gen types typescript --project-id=%SUPABASE_PROJECT_REF_PROD% --schema public > src/types/database.types.d.ts && echo \"✅ Successfully generated Supabase types\"",
+    "vercel:env:pull": "yarn vercel env pull --environment production .env.local",
+    "vercel:env:pull-dev": "yarn vercel env pull --environment preview .env.local"
+  },
   "dependencies": {
+    "@clerk/elements": "^0.23.68",
+    "@clerk/nextjs": "^6.33.2",
     "@google/genai": "^1.16.0",
     "@hookform/resolvers": "^5.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -27,6 +34,7 @@
     "@tanstack/react-query": "^5.62.14",
     "@tanstack/react-query-devtools": "^5.62.14",
     "@vercel/analytics": "^1.5.0",
+    "@vercel/speed-insights": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -39,12 +47,18 @@
     "react-hook-form": "^7.62.0",
     "recharts": "2.15.4",
     "sonner": "^2.0.7",
+    "stripe": "^19.1.0",
+    "svix": "^1.76.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss-animate": "^1.0.7",
     "zod": "^4.1.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
-    "tailwindcss": "3.4.3"
+    "@dotenvx/dotenvx": "*",
+    "cross-var": "^1.1.0",
+    "supabase": "2.48.3",
+    "tailwindcss": "3.4.3",
+    "vercel": "^48.2.0"
   }
 }

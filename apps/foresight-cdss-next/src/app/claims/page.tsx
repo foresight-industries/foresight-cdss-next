@@ -1,18 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 // Mock data based on the HTML example
 const encounters = [
@@ -75,24 +69,31 @@ export default function ClaimsPage() {
           </DialogHeader>
 
           <p className="text-sm text-gray-600">
-            Applying these fixes will preserve/adjust E/M <strong>99213</strong>. Manual confirmation required.
+            Applying these fixes will preserve/adjust E/M <strong>99213</strong>
+            . Manual confirmation required.
           </p>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowConfirmModal(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowConfirmModal(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={confirmEM}>
-              Confirm & Apply
-            </Button>
+            <Button onClick={confirmEM}>Confirm & Apply</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Claims Workbench — 99213 Default</h1>
-        <p className="text-gray-600 mt-1">Deterministic edits: Telehealth POS 10 + Mod 95; licensure; time-based E/M guard.</p>
+        <h1 className="text-3xl font-bold text-gray-900">
+          Claims Workbench — 99213 Default
+        </h1>
+        <p className="text-gray-600 mt-1">
+          Deterministic edits: Telehealth POS 10 + Mod 95; licensure; time-based
+          E/M guard.
+        </p>
       </header>
 
       {/* Encounters Table */}
@@ -122,7 +123,13 @@ export default function ClaimsPage() {
                     <td>{enc.dos}</td>
                     <td>{enc.visit}</td>
                     <td>
-                      <Badge variant={enc.status === 'Needs Review' ? 'destructive' : 'secondary'}>
+                      <Badge
+                        variant={
+                          enc.status === "Needs Review"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                      >
                         {enc.status}
                       </Badge>
                     </td>
@@ -155,20 +162,43 @@ export default function ClaimsPage() {
                 <Checkbox
                   id="show-sources"
                   checked={noteShowSources}
-                  onCheckedChange={(checked) => setNoteShowSources(checked === true)}
+                  onCheckedChange={(checked) =>
+                    setNoteShowSources(checked === true)
+                  }
                 />
-                <Label htmlFor="show-sources" className="text-sm font-normal cursor-pointer">
+                <Label
+                  htmlFor="show-sources"
+                  className="text-sm font-normal cursor-pointer"
+                >
                   Show sources
                 </Label>
               </div>
             </div>
             <div className="prose max-w-none text-sm leading-relaxed">
               <p>
-                {noteShowSources && <mark className="px-1 rounded bg-yellow-100">Video</mark>} follow-up for {noteShowSources && <mark className="px-1 rounded bg-yellow-100">OUD on Suboxone</mark>}.
-                Time today: {noteShowSources && <mark className="px-1 rounded bg-yellow-100">21 minutes</mark>} with counseling.
+                {noteShowSources && (
+                  <mark className="px-1 rounded bg-yellow-100">Video</mark>
+                )}{" "}
+                follow-up for{" "}
+                {noteShowSources && (
+                  <mark className="px-1 rounded bg-yellow-100">
+                    OUD on Suboxone
+                  </mark>
+                )}
+                . Time today:{" "}
+                {noteShowSources && (
+                  <mark className="px-1 rounded bg-yellow-100">21 minutes</mark>
+                )}{" "}
+                with counseling.
               </p>
-              <p><strong>Assessment:</strong> OUD stable; craving controlled; PDMP reviewed.</p>
-              <p><strong>Plan:</strong> Continue buprenorphine/naloxone; therapy weekly; safety plan reviewed.</p>
+              <p>
+                <strong>Assessment:</strong> OUD stable; craving controlled;
+                PDMP reviewed.
+              </p>
+              <p>
+                <strong>Plan:</strong> Continue buprenorphine/naloxone; therapy
+                weekly; safety plan reviewed.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -188,12 +218,19 @@ export default function ClaimsPage() {
             </div>
 
             <div>
-              <h4 className="text-xs uppercase text-gray-500 mb-2">CPT/HCPCS</h4>
+              <h4 className="text-xs uppercase text-gray-500 mb-2">
+                CPT/HCPCS
+              </h4>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium">99213 <span className="text-gray-500">· E/M by time</span></div>
-                    <div className="text-gray-500">Modifiers: <strong>95</strong> (synchronous); POS: <strong>10</strong> (home)</div>
+                    <div className="font-medium">
+                      99213 <span className="text-gray-500">· E/M by time</span>
+                    </div>
+                    <div className="text-gray-500">
+                      Modifiers: <strong>95</strong> (synchronous); POS:{" "}
+                      <strong>10</strong> (home)
+                    </div>
                   </div>
                   <div className="text-right">
                     <div className="text-gray-500">Charge</div>
@@ -204,17 +241,26 @@ export default function ClaimsPage() {
             </div>
 
             <div>
-              <h4 className="text-xs uppercase text-gray-500 mb-2">Eligibility</h4>
+              <h4 className="text-xs uppercase text-gray-500 mb-2">
+                Eligibility
+              </h4>
               <div className="flex items-center gap-2">
-                <Badge className="bg-emerald-50 text-emerald-700">Active ✓</Badge>
-                <Badge className="bg-emerald-50 text-emerald-700">PA not required for E/M</Badge>
+                <Badge className="bg-emerald-50 text-emerald-700">
+                  Active ✓
+                </Badge>
+                <Badge className="bg-emerald-50 text-emerald-700">
+                  PA not required for E/M
+                </Badge>
               </div>
             </div>
 
             <div className="text-sm">
               <div className="flex items-center space-x-2">
                 <Checkbox id="hold-erx" />
-                <Label htmlFor="hold-erx" className="font-normal cursor-pointer">
+                <Label
+                  htmlFor="hold-erx"
+                  className="font-normal cursor-pointer"
+                >
                   Hold eRx transmission until ePA = Approved
                 </Label>
               </div>
@@ -227,7 +273,9 @@ export default function ClaimsPage() {
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Pre-Bill Edits</h3>
-              <span className="text-xs text-gray-500">277CA expectation: <strong>Accepted</strong></span>
+              <span className="text-xs text-gray-500">
+                277CA expectation: <strong>Accepted</strong>
+              </span>
             </div>
 
             <ul className="text-sm space-y-2">
@@ -253,19 +301,20 @@ export default function ClaimsPage() {
               Payer hint: Home video visits require POS 10 + Mod 95.
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
-              <Button variant="outline" onClick={applyAllFixes}>
-                Apply All Fixes
-              </Button>
-              <Button onClick={submitAndListen}>
-                Submit & Listen
-              </Button>
-            </div>
-
-            <div className="pt-2 text-sm">
-              <div className="flex items-center gap-2">
-                <Badge className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(claimStatus)}`}>
-                  {claimStatus.replaceAll('_', ' · ')}
+            <div className="flex flex-col gap-2 pt-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" onClick={applyAllFixes}>
+                  Apply All Fixes
+                </Button>
+                <Button onClick={submitAndListen}>Submit & Listen</Button>
+              </div>
+              <div className="flex items-center">
+                <Badge
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                    claimStatus
+                  )}`}
+                >
+                  {claimStatus.replaceAll("_", " · ")}
                 </Badge>
               </div>
             </div>
@@ -277,8 +326,12 @@ export default function ClaimsPage() {
       <Card className="bg-white border shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-semibold">Recent Denials (835)</CardTitle>
-            <div className="text-sm text-gray-500">Filters: State / Payer / CARC</div>
+            <CardTitle className="text-lg font-semibold">
+              Recent Denials (835)
+            </CardTitle>
+            <div className="text-sm text-gray-500">
+              Filters: State / Payer / CARC
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -306,11 +359,19 @@ export default function ClaimsPage() {
                     <td>{denial.payer}</td>
                     <td>${denial.amount.toFixed(2)}</td>
                     <td>
-                      <Badge variant="destructive" className="bg-red-50 text-red-700">
+                      <Badge
+                        variant="destructive"
+                        className="bg-red-50 text-red-700"
+                      >
                         {denial.carc} / {denial.rarc}
                       </Badge>
                     </td>
-                    <td className="max-w-[280px] truncate" title={denial.reason}>{denial.reason}</td>
+                    <td
+                      className="max-w-[280px] truncate"
+                      title={denial.reason}
+                    >
+                      {denial.reason}
+                    </td>
                     <td>{denial.days}</td>
                     <td className="text-right">
                       <Button
@@ -331,57 +392,80 @@ export default function ClaimsPage() {
       </Card>
 
       {/* Denial Detail Dialog */}
-      <Dialog open={!!selectedDenial} onOpenChange={() => setSelectedDenial(null)}>
+      <Dialog
+        open={!!selectedDenial}
+        onOpenChange={() => setSelectedDenial(null)}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              Denial Detail — {selectedDenial?.id}
-            </DialogTitle>
+            <DialogTitle>Denial Detail — {selectedDenial?.id}</DialogTitle>
           </DialogHeader>
 
           {selectedDenial && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Date of Service</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Date of Service
+                  </label>
                   <p className="text-gray-900">{selectedDenial.dos}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">State</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    State
+                  </label>
                   <p className="text-gray-900">{selectedDenial.state}</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Payer</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Payer
+                </label>
                 <p className="text-sm text-gray-900">{selectedDenial.payer}</p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">CARC/RARC Codes</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  CARC/RARC Codes
+                </label>
                 <Badge variant="destructive" className="bg-red-50 text-red-700">
                   {selectedDenial.carc} / {selectedDenial.rarc}
                 </Badge>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Denial Reason</label>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Denial Reason
+                </label>
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                  <p className="text-sm text-red-800">{selectedDenial.reason}</p>
+                  <p className="text-sm text-red-800">
+                    {selectedDenial.reason}
+                  </p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Playbook Suggestions</label>
+                <label className="block text-xs font-medium text-gray-700 mb-2">
+                  Playbook Suggestions
+                </label>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3">
                   <ul className="text-sm text-indigo-800 space-y-1">
-                    {selectedDenial.carc === '197' && (
-                      <li>• Attach valid Auth# from ePA; resubmit as corrected claim</li>
+                    {selectedDenial.carc === "197" && (
+                      <li>
+                        • Attach valid Auth# from ePA; resubmit as corrected
+                        claim
+                      </li>
                     )}
-                    {selectedDenial.carc === '96' && (
-                      <li>• Set POS to 10 and add Mod 95; add note &quot;video visit, 21 min&quot;</li>
+                    {selectedDenial.carc === "96" && (
+                      <li>
+                        • Set POS to 10 and add Mod 95; add note &quot;video
+                        visit, 21 min&quot;
+                      </li>
                     )}
-                    <li>• Re-run deterministic checks; log diffs in Audit Trail</li>
+                    <li>
+                      • Re-run deterministic checks; log diffs in Audit Trail
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -429,30 +513,58 @@ export default function ClaimsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Patient</label>
-                      <p className="text-sm text-gray-900">{selectedEncounter.patient}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Patient
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {selectedEncounter.patient}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Date of Service</label>
-                      <p className="text-sm text-gray-900">{selectedEncounter.dos}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date of Service
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {selectedEncounter.dos}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Visit Type</label>
-                      <p className="text-sm text-gray-900">{selectedEncounter.visit}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Visit Type
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {selectedEncounter.visit}
+                      </p>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                      <p className="text-sm text-gray-900">{selectedEncounter.state}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        State
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {selectedEncounter.state}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Payer</label>
-                      <p className="text-sm text-gray-900">{selectedEncounter.payer}</p>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Payer
+                      </label>
+                      <p className="text-sm text-gray-900">
+                        {selectedEncounter.payer}
+                      </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                      <Badge variant={selectedEncounter.status === 'Needs Review' ? 'destructive' : 'secondary'}>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status
+                      </label>
+                      <Badge
+                        variant={
+                          selectedEncounter.status === "Needs Review"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                      >
                         {selectedEncounter.status}
                       </Badge>
                     </div>
@@ -460,26 +572,45 @@ export default function ClaimsPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Clinical Summary</h4>
+                  <h4 className="font-medium text-gray-900 mb-3">
+                    Clinical Summary
+                  </h4>
                   <div className="bg-gray-50 rounded-md p-4 text-sm space-y-2">
-                    <p><strong>Chief Complaint:</strong> Follow-up for OUD on Suboxone</p>
-                    <p><strong>Assessment:</strong> OUD stable; craving controlled; PDMP reviewed</p>
-                    <p><strong>Plan:</strong> Continue buprenorphine/naloxone; therapy weekly; safety plan reviewed</p>
-                    <p><strong>Time:</strong> 21 minutes with counseling</p>
+                    <p>
+                      <strong>Chief Complaint:</strong> Follow-up for OUD on
+                      Suboxone
+                    </p>
+                    <p>
+                      <strong>Assessment:</strong> OUD stable; craving
+                      controlled; PDMP reviewed
+                    </p>
+                    <p>
+                      <strong>Plan:</strong> Continue buprenorphine/naloxone;
+                      therapy weekly; safety plan reviewed
+                    </p>
+                    <p>
+                      <strong>Time:</strong> 21 minutes with counseling
+                    </p>
                   </div>
                 </div>
 
                 <div className="border-t pt-6">
-                  <h4 className="font-medium text-gray-900 mb-3">Coding Information</h4>
+                  <h4 className="font-medium text-gray-900 mb-3">
+                    Coding Information
+                  </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Primary Diagnosis</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Primary Diagnosis
+                      </label>
                       <Badge variant="secondary" className="bg-gray-100">
                         F11.20 - Opioid Use Disorder
                       </Badge>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Procedure Code</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Procedure Code
+                      </label>
                       <Badge variant="secondary" className="bg-gray-100">
                         99213 - E/M Office Visit
                       </Badge>
@@ -487,9 +618,11 @@ export default function ClaimsPage() {
                   </div>
                 </div>
 
-                {selectedEncounter.status === 'Needs Review' && (
+                {selectedEncounter.status === "Needs Review" && (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-                    <h4 className="font-medium text-yellow-800 mb-2">Review Required</h4>
+                    <h4 className="font-medium text-yellow-800 mb-2">
+                      Review Required
+                    </h4>
                     <ul className="text-sm text-yellow-700 space-y-1">
                       <li>• Verify telehealth modifiers (95) are present</li>
                       <li>• Confirm place of service (10 - Home)</li>
@@ -500,10 +633,13 @@ export default function ClaimsPage() {
 
                 <div className="border-t pt-6">
                   <div className="flex items-center gap-3">
-                    <Button variant="outline" onClick={() => setSelectedEncounter(null)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedEncounter(null)}
+                    >
                       Close
                     </Button>
-                    {selectedEncounter.status === 'Needs Review' && (
+                    {selectedEncounter.status === "Needs Review" && (
                       <Button onClick={() => setSelectedEncounter(null)}>
                         Mark as Reviewed
                       </Button>

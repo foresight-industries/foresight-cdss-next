@@ -1,14 +1,15 @@
-import './global.css';
-import { Analytics } from "@vercel/analytics/next"
+import "./global.css";
+import { Analytics } from "@vercel/analytics/next";
 import type { ReactNode } from "react";
-import { QueryProvider } from '@/components/providers/query-provider';
-import { AuthProvider } from '@/components/providers/auth-provider';
-import { LayoutWrapper } from '@/components/layout/layout-wrapper';
+import { QueryProvider } from "@/components/providers/query-provider";
+import { AuthProvider } from "@/components/providers/auth-provider";
+import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import { ThemeProvider } from "@/components/theme-provider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata = {
-  title: 'Foresight RCM Dashboard',
-  description: 'Automated RCM System',
+  title: "Foresight RCM Dashboard",
+  description: "Automated RCM System",
 };
 
 export default function RootLayout({
@@ -29,6 +30,7 @@ export default function RootLayout({
             <QueryProvider>
               <LayoutWrapper>
                 {children}
+                <SpeedInsights />
               </LayoutWrapper>
             </QueryProvider>
           </AuthProvider>
