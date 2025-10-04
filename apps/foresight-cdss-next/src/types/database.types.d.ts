@@ -1777,42 +1777,6 @@ export type Database = {
           },
         ]
       }
-      clinician_note: {
-        Row: {
-          amended: boolean | null
-          clinician_id: number | null
-          created_at: string
-          id: number
-          note: string | null
-          patient_id: number | null
-          signed: boolean | null
-          updated_at: string
-          version: number | null
-        }
-        Insert: {
-          amended?: boolean | null
-          clinician_id?: number | null
-          created_at?: string
-          id?: number
-          note?: string | null
-          patient_id?: number | null
-          signed?: boolean | null
-          updated_at?: string
-          version?: number | null
-        }
-        Update: {
-          amended?: boolean | null
-          clinician_id?: number | null
-          created_at?: string
-          id?: number
-          note?: string | null
-          patient_id?: number | null
-          signed?: boolean | null
-          updated_at?: string
-          version?: number | null
-        }
-        Relationships: []
-      }
       collection_account: {
         Row: {
           agency_name: string | null
@@ -2706,27 +2670,6 @@ export type Database = {
             referencedColumns: ["team_id"]
           },
         ]
-      }
-      dosage: {
-        Row: {
-          created_at: string
-          dosage: string
-          id: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          dosage: string
-          id?: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          dosage?: string
-          id?: number
-          updated_at?: string
-        }
-        Relationships: []
       }
       drug_formulary: {
         Row: {
@@ -3856,33 +3799,6 @@ export type Database = {
           },
         ]
       }
-      intake: {
-        Row: {
-          created_at: string
-          id: number
-          patient_id: number | null
-          questionnaire_name: string | null
-          response: Json | null
-          updated_at: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          patient_id?: number | null
-          questionnaire_name?: string | null
-          response?: Json | null
-          updated_at?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          patient_id?: number | null
-          questionnaire_name?: string | null
-          response?: Json | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       integration_event_log: {
         Row: {
           created_at: string | null
@@ -4100,102 +4016,6 @@ export type Database = {
             referencedColumns: ["patient_id"]
           },
         ]
-      }
-      medication: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          id: number
-          name: string | null
-          type: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          id?: number
-          name?: string | null
-          type?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          id?: number
-          name?: string | null
-          type?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      medication_dosage: {
-        Row: {
-          active: boolean | null
-          aps_drug_id: number | null
-          created_at: string
-          designator_id: string | null
-          dosage_id: number | null
-          dosespot_ndc: string | null
-          id: number
-          medication_id: number | null
-          national_drug_code: string | null
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean | null
-          aps_drug_id?: number | null
-          created_at?: string
-          designator_id?: string | null
-          dosage_id?: number | null
-          dosespot_ndc?: string | null
-          id?: number
-          medication_id?: number | null
-          national_drug_code?: string | null
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean | null
-          aps_drug_id?: number | null
-          created_at?: string
-          designator_id?: string | null
-          dosage_id?: number | null
-          dosespot_ndc?: string | null
-          id?: number
-          medication_id?: number | null
-          national_drug_code?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      medication_quantity: {
-        Row: {
-          active: boolean | null
-          created_at: string
-          id: number
-          medication_dosage_id: number | null
-          price: number | null
-          quantity_id: number | null
-          updated_at: string
-        }
-        Insert: {
-          active?: boolean | null
-          created_at?: string
-          id?: number
-          medication_dosage_id?: number | null
-          price?: number | null
-          quantity_id?: number | null
-          updated_at?: string
-        }
-        Update: {
-          active?: boolean | null
-          created_at?: string
-          id?: number
-          medication_dosage_id?: number | null
-          price?: number | null
-          quantity_id?: number | null
-          updated_at?: string
-        }
-        Relationships: []
       }
       ml_model_metrics: {
         Row: {
@@ -6309,129 +6129,6 @@ export type Database = {
           },
         ]
       }
-      prescription: {
-        Row: {
-          clinician_id: number | null
-          created_at: string
-          dispense_quantity: number | null
-          dosage_instructions: string | null
-          dosespot_prescription_id: number | null
-          dosespot_prescription_status: string | null
-          duration_in_days: number | null
-          expires_on: string | null
-          id: number
-          is_injectable: boolean | null
-          medication: string | null
-          medication_id: string | null
-          national_drug_code: string | null
-          note: string | null
-          order_name: string | null
-          patient_id: number | null
-          pharmacy: string | null
-          status: string | null
-          unit: string | null
-          updated_at: string
-        }
-        Insert: {
-          clinician_id?: number | null
-          created_at?: string
-          dispense_quantity?: number | null
-          dosage_instructions?: string | null
-          dosespot_prescription_id?: number | null
-          dosespot_prescription_status?: string | null
-          duration_in_days?: number | null
-          expires_on?: string | null
-          id?: number
-          is_injectable?: boolean | null
-          medication?: string | null
-          medication_id?: string | null
-          national_drug_code?: string | null
-          note?: string | null
-          order_name?: string | null
-          patient_id?: number | null
-          pharmacy?: string | null
-          status?: string | null
-          unit?: string | null
-          updated_at?: string
-        }
-        Update: {
-          clinician_id?: number | null
-          created_at?: string
-          dispense_quantity?: number | null
-          dosage_instructions?: string | null
-          dosespot_prescription_id?: number | null
-          dosespot_prescription_status?: string | null
-          duration_in_days?: number | null
-          expires_on?: string | null
-          id?: number
-          is_injectable?: boolean | null
-          medication?: string | null
-          medication_id?: string | null
-          national_drug_code?: string | null
-          note?: string | null
-          order_name?: string | null
-          patient_id?: number | null
-          pharmacy?: string | null
-          status?: string | null
-          unit?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      prescription_request: {
-        Row: {
-          clinician_id: number | null
-          created_at: string
-          dosespot_prescription_id: number | null
-          id: number
-          is_adjustment: boolean | null
-          medication_quantity_id: number | null
-          note: string | null
-          number_of_month_requested: number | null
-          patient_id: number | null
-          quantity: number | null
-          region: string | null
-          specific_medication: string | null
-          status: string | null
-          type: string | null
-          updated_at: string
-        }
-        Insert: {
-          clinician_id?: number | null
-          created_at?: string
-          dosespot_prescription_id?: number | null
-          id?: number
-          is_adjustment?: boolean | null
-          medication_quantity_id?: number | null
-          note?: string | null
-          number_of_month_requested?: number | null
-          patient_id?: number | null
-          quantity?: number | null
-          region?: string | null
-          specific_medication?: string | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string
-        }
-        Update: {
-          clinician_id?: number | null
-          created_at?: string
-          dosespot_prescription_id?: number | null
-          id?: number
-          is_adjustment?: boolean | null
-          medication_quantity_id?: number | null
-          note?: string | null
-          number_of_month_requested?: number | null
-          patient_id?: number | null
-          quantity?: number | null
-          region?: string | null
-          specific_medication?: string | null
-          status?: string | null
-          type?: string | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       prior_auth: {
         Row: {
           approved_at: string | null
@@ -6869,27 +6566,6 @@ export type Database = {
           numerator_criteria?: Json | null
           reporting_period_end?: string | null
           reporting_period_start?: string | null
-        }
-        Relationships: []
-      }
-      quantity: {
-        Row: {
-          created_at: string
-          id: number
-          quantity: number
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          id?: number
-          quantity: number
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          id?: number
-          quantity?: number
-          updated_at?: string
         }
         Relationships: []
       }
