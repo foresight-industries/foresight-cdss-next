@@ -1,98 +1,28 @@
 // stores/index.ts
-import { create } from "zustand";
-import { devtools, persist } from "zustand/middleware";
-import { immer } from "zustand/middleware/immer";
-import { supabase } from "@/lib/supabase";
-import { SessionState } from "node:http2";
+// Main store exports
+export * from './mainStore';
+export * from './entities/patientStore';
+export * from './entities/claimStore';
+export * from './entities/priorAuthStore';
+export * from './entities/paymentStore';
+export * from './entities/providerStore';
+export * from './entities/payerStore';
+export * from './entities/adminStore';
 
-// Separate stores by domain
-export const useSessionStore = create<SessionState>()(
-  devtools(
-    persist(
-      immer((set) => ({
-        currentTeam: null,
-        teamMember: null,
-        permissions: [],
+// Utility exports
+export * from './utils/storeUtils';
+export * from './utils/realtimeManager';
+export * from './utils/cacheManager';
 
-        setSession: (data) =>
-          set((state) => {
-            state.currentTeam = data.team;
-            state.teamMember = data.member;
-            state.permissions = data.permissions;
-          }),
-      })),
-      { name: "rcm-session" }
-    )
-  )
-);
+// Legacy stores (keeping for backward compatibility)
+export { useWorkflowStore } from './workflowStore';
+export { useWorkQueueStore } from './workQueueStore';
+export { useUIStore } from './uiStore';
+export { useSessionStore } from './sessionStore';
+export { useRealtimeStore } from './realtimeStore';
 
-export const useWorkflowStore = create<WorkflowState>()(
-  devtools(
-    immer((set, get) => ({
-      // Claims workflow
-      activeClaimWorkflow: null,
-      claimFilters: {
-        status: ["submitted", "in_review"],
-        payer: null,
-        dateRange: "last_30_days",
-      },
+// Re-export configuration
+export { ENABLE_DEVTOOLS } from './config';
 
-      // PA workflow
-      activePAWorkflow: null,
-      paQueue: [],
-
-      // Denial management
-      denialWorkList: [],
-
-      // Actions with business logic
-      startClaimWorkflow: (claimId: string) =>
-        set((state) => {
-          state.activeClaimWorkflow = {
-            claimId,
-            startedAt: new Date(),
-            currentStep: "validation",
-          };
-        }),
-
-      // Complex async workflows
-      async processNextDenial() {
-        const { denialWorkList } = get();
-        const next = denialWorkList[0];
-
-        if (!next) return;
-
-        const result = await supabase
-          .from("denial_tracking")
-          .update({ status: "in_review" })
-          .eq("id", next.id);
-
-        set((state) => {
-          state.denialWorkList.shift();
-        });
-
-        return result;
-      },
-    }))
-  )
-);
-
-// UI-only store (not persisted)
-export const useUIStore = create<UIState>()((set) => ({
-  sidebarOpen: true,
-  activeModal: null,
-  notifications: [],
-
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
-
-  showNotification: (notification) =>
-    set((state) => ({
-      notifications: [
-        ...state.notifications,
-        {
-          ...notification,
-          id: crypto.randomUUID(),
-          timestamp: Date.now(),
-        },
-      ],
-    })),
-}));
+// Re-export types
+export type * from './types';

@@ -4,6 +4,7 @@ import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { Tables } from "@/types/database.types";
 import { RealtimeChannel } from "@supabase/supabase-js";
+import { ClaimFilters, PAFilters } from "@/stores/types";
 
 interface AppState {
   // User & Team

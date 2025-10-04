@@ -8,6 +8,12 @@
     },
     {
       "path": "./apps/foresight-cdss-next"
+    },
+    {
+      "path": "./supabase"
     }
+  ],
+  "exclude": [
+    "supabase/functions/**/*"
   ]
 }

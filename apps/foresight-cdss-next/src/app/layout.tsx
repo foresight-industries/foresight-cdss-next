@@ -6,8 +6,10 @@ import { AuthProvider } from "@/components/providers/auth-provider";
 import { LayoutWrapper } from "@/components/layout/layout-wrapper";
 import { ThemeProvider } from "@/components/theme-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ClerkProvider } from "@clerk/nextjs";
+import type { Metadata } from "next";
 
-export const metadata = {
+export const metadata: Metadata = {
   title: "Foresight RCM Dashboard",
   description: "Automated RCM System",
 };
@@ -18,25 +20,27 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AuthProvider>
-            <QueryProvider>
-              <LayoutWrapper>
-                {children}
-                <SpeedInsights />
-              </LayoutWrapper>
-            </QueryProvider>
-          </AuthProvider>
-          <Analytics />
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en" suppressHydrationWarning>
+        <body>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthProvider>
+              <QueryProvider>
+                <LayoutWrapper>
+                  {children}
+                  <SpeedInsights />
+                </LayoutWrapper>
+              </QueryProvider>
+            </AuthProvider>
+            <Analytics />
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

@@ -21,6 +21,16 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 
+// Type definition for credentialing items
+interface CredentialingItem {
+  id: number;
+  state: string;
+  payer: string;
+  status: string;
+  next: string;
+  contact: string;
+}
+
 // Initial credentialing data based on the HTML example
 const initialCredentialingData = [
   { id: 1, state: 'MI', payer: 'Meridian', status: 'Active', next: '—', contact: 'portal' },
@@ -38,7 +48,9 @@ const states = ['All', 'MI', 'OH', 'KY', 'TX', 'AZ', 'FL', 'IN'];
 
 export default function CredentialingPage() {
   const [stateFilter, setStateFilter] = useState('All');
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedItem, setSelectedItem] = useState<CredentialingItem | null>(
+    null
+  );
   const [credentialingData, setCredentialingData] = useState(initialCredentialingData);
   const [newStatus, setNewStatus] = useState('');
   const [showCaqhModal, setShowCaqhModal] = useState(false);
@@ -365,16 +377,14 @@ export default function CredentialingPage() {
               variant="outline"
               onClick={() => setShowCaqhModal(true)}
             >
-              <span className="mr-2">📄</span>
-              CAQH Update
+              <span className="mr-2">📄</span>CAQH Update
             </Button>
             <Button
               className="justify-start"
               variant="outline"
               onClick={() => setShowFollowUpModal(true)}
             >
-              <span className="mr-2">📧</span>
-              Follow Up
+              <span className="mr-2">📧</span>Follow Up
             </Button>
             <Button
               className="justify-start"
@@ -389,8 +399,7 @@ export default function CredentialingPage() {
               variant="outline"
               onClick={() => setShowNewApplicationModal(true)}
             >
-              <span className="mr-2">➕</span>
-              New Application
+              <span className="mr-2">➕</span>New Application
             </Button>
           </div>
         </CardContent>
@@ -765,7 +774,7 @@ export default function CredentialingPage() {
                     onCheckedChange={(checked) =>
                       setReportOptions((prev) => ({
                         ...prev,
-                        includeTimeline: checked,
+                        includeTimeline: Boolean(checked),
                       }))
                     }
                   />
@@ -783,7 +792,7 @@ export default function CredentialingPage() {
                     onCheckedChange={(checked) =>
                       setReportOptions((prev) => ({
                         ...prev,
-                        showContacts: checked,
+                        showContacts: Boolean(checked),
                       }))
                     }
                   />
@@ -801,7 +810,7 @@ export default function CredentialingPage() {
                     onCheckedChange={(checked) =>
                       setReportOptions((prev) => ({
                         ...prev,
-                        includePendingRequirements: checked,
+                        includePendingRequirements: Boolean(checked),
                       }))
                     }
                   />

@@ -1,9 +1,9 @@
 // stores/workflowStore.ts
-import { create } from "zustand";
+import { create, StateCreator } from "zustand";
 import { immer } from "zustand/middleware/immer";
+import { devtools } from "zustand/middleware";
 import { ENABLE_DEVTOOLS } from "./config";
 import type { ClaimFilters, PAFilters, WorkflowStep } from "./types";
-import { devtools } from "zustand/middleware";
 
 interface WorkflowState {
   // Claims Workflow
@@ -12,7 +12,7 @@ interface WorkflowState {
     startedAt: Date;
     currentStep: string;
     steps: WorkflowStep[];
-    context: Record<string, any>;
+    context: Record<string, unknown>;
   } | null;
 
   claimFilters: ClaimFilters;
@@ -24,7 +24,7 @@ interface WorkflowState {
     startedAt: Date;
     currentStep: string;
     steps: WorkflowStep[];
-    clinicalData: Record<string, any>;
+    clinicalData: Record<string, unknown>;
   } | null;
 
   paFilters: PAFilters;
@@ -63,7 +63,12 @@ interface WorkflowState {
 }
 
 // Store implementation without exposing PHI
-const storeImplementation = (set: any, get: any) => ({
+const storeImplementation: StateCreator<
+  WorkflowState,
+  [["zustand/immer", never]],
+  [],
+  WorkflowState
+> = (set, _get) => ({
   // Initial state
   activeClaimWorkflow: null,
   claimFilters: {
@@ -102,14 +107,16 @@ const storeImplementation = (set: any, get: any) => ({
     set((state) => {
       if (!state.activeClaimWorkflow) return;
 
-      const step = state.activeClaimWorkflow.steps.find((s) => s.id === stepId);
+      const step = state.activeClaimWorkflow.steps.find(
+        (s: WorkflowStep) => s.id === stepId
+      );
       if (step) {
         Object.assign(step, data);
 
         // Auto-advance to next step
         if (data.status === "completed") {
           const currentIndex = state.activeClaimWorkflow.steps.findIndex(
-            (s) => s.id === stepId
+            (s: WorkflowStep) => s.id === stepId
           );
           const nextStep = state.activeClaimWorkflow.steps[currentIndex + 1];
           if (nextStep) {
@@ -151,13 +158,15 @@ const storeImplementation = (set: any, get: any) => ({
     set((state) => {
       if (!state.activePAWorkflow) return;
 
-      const step = state.activePAWorkflow.steps.find((s) => s.id === stepId);
+      const step = state.activePAWorkflow.steps.find(
+        (s: WorkflowStep) => s.id === stepId
+      );
       if (step) {
         Object.assign(step, data);
 
         if (data.status === "completed") {
           const currentIndex = state.activePAWorkflow.steps.findIndex(
-            (s) => s.id === stepId
+            (s: WorkflowStep) => s.id === stepId
           );
           const nextStep = state.activePAWorkflow.steps[currentIndex + 1];
           if (nextStep) {
@@ -206,13 +215,18 @@ const storeImplementation = (set: any, get: any) => ({
   addToDenialWorkList: (denial) =>
     set((state) => {
       state.denialWorkList.push(denial);
-      state.denialWorkList.sort((a, b) => b.priority - a.priority);
+      state.denialWorkList.sort(
+        (
+          a: WorkflowState["denialWorkList"][0],
+          b: WorkflowState["denialWorkList"][0]
+        ) => b.priority - a.priority
+      );
     }),
 
   removeFromDenialWorkList: (denialId) =>
     set((state) => {
       state.denialWorkList = state.denialWorkList.filter(
-        (d) => d.id !== denialId
+        (d: WorkflowState["denialWorkList"][0]) => d.id !== denialId
       );
     }),
 

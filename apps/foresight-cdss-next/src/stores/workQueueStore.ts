@@ -2,7 +2,7 @@
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import type { Tables } from "@/types/database";
+import type { Tables } from "@/types/database.types";
 import type { WorkQueueFilters } from "./types";
 
 interface WorkQueueState {
@@ -77,7 +77,7 @@ export const useWorkQueueStore = create<WorkQueueState>()(
       completeItem: (itemId, completionTime) =>
         set((state) => {
           state.currentQueue = state.currentQueue.filter(
-            (item) => item.id !== itemId
+            (item: Tables<"work_queue">) => item.id !== itemId
           );
           state.sessionStats.itemsCompleted++;
 
@@ -115,7 +115,7 @@ export const useWorkQueueStore = create<WorkQueueState>()(
       selectAll: () =>
         set((state) => {
           state.selectedItems = new Set(
-            state.currentQueue.map((item) => item.id)
+            state.currentQueue.map((item: Tables<"work_queue">) => item.id)
           );
         }),
 

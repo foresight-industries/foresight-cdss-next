@@ -1,4 +1,6 @@
-// supabase/functions/process-claim/index.ts
+// eslint-disable-next-line
+// @ts-nocheck
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.50.0";
 

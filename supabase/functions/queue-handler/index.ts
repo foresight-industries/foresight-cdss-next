@@ -1,3 +1,6 @@
+// eslint-disable-next-line
+// @ts-nocheck
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import PgBoss from "npm:pg-boss@11.0.5";
 

@@ -1,11 +1,20 @@
 // hooks/useWorkQueue.ts
 import { supabase } from "@/lib/supabase";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  UseMutationResult,
+  useQuery,
+  UseQueryResult,
+} from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { useAppStore } from "@/stores/useAppStore";
 import { queryClient } from "@/lib/query/queryClient";
+import type { Tables } from "@/types/database.types";
 
-export function useWorkQueue() {
+export function useWorkQueue(): {
+  assignedWork: UseQueryResult<Tables<"work_queue">[] | null, Error>;
+  getNextItem: UseMutationResult<unknown, Error, void, unknown>;
+} {
   const { teamMember } = useAppStore();
 
   const assignedWork = useQuery({
@@ -13,7 +22,7 @@ export function useWorkQueue() {
     queryFn: async () => {
       const { data } = await supabase
         .from("work_queue")
-        .select("*, ...relatedData")
+        .select("*")
         .eq("assigned_to", teamMember?.id ?? "")
         .eq("status", "in_progress")
         .order("priority", { ascending: false })
@@ -25,11 +34,13 @@ export function useWorkQueue() {
   });
 
   const getNextItem = useMutation({
-    mutationFn: () =>
-      supabase.rpc("get_next_work_item", {
+    mutationFn: async () => {
+      const { data } = await supabase.rpc("get_next_work_item", {
         user_id: teamMember?.id ?? "",
-      }),
-    onSuccess: (data) => {
+      });
+      return data;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.workQueue.assigned(teamMember?.id ?? ""),
       });

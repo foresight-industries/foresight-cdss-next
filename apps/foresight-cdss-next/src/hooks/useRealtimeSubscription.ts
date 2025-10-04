@@ -22,10 +22,13 @@ export function useClaimRealtimeUpdates(teamId: string) {
           filter: `team_id=eq.${teamId}`,
         },
         (payload) => {
+          // Type assertion for claim table
+          const claimRecord = payload.new as { id?: string } | null;
+
           // Update specific claim
-          if (payload.eventType === "UPDATE") {
+          if (payload.eventType === "UPDATE" && claimRecord?.id) {
             queryClient.setQueryData(
-              queryKeys.claims.detail(payload.new.id),
+              queryKeys.claims.detail(claimRecord.id),
               payload.new
             );
           }
@@ -46,9 +49,11 @@ export function useClaimRealtimeUpdates(teamId: string) {
           filter: `team_id=eq.${teamId}`,
         },
         (payload) => {
-          if (payload.new?.claim_id) {
+          // Type assertion for denial_tracking table
+          const denialRecord = payload.new as { claim_id?: string } | null;
+          if (denialRecord?.claim_id) {
             queryClient.invalidateQueries({
-              queryKey: queryKeys.claims.detail(payload.new.claim_id),
+              queryKey: queryKeys.claims.detail(denialRecord.claim_id),
             });
           }
         }

@@ -1,6 +1,5 @@
-// stores/sessionStore.ts
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, PersistStorage, StorageValue } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import CryptoJS from "crypto-js";
 
@@ -8,22 +7,39 @@ import CryptoJS from "crypto-js";
 const ENCRYPTION_KEY =
   process.env.NEXT_PUBLIC_ENCRYPTION_KEY || "default-dev-key";
 
+// Define persisted state type (only the data we want to persist)
+interface PersistedSessionState {
+  currentTeamId: string | null;
+  teamMemberId: string | null;
+  userRole: string | null;
+  permissions: string[];
+  preferences: {
+    defaultView: string;
+    claimsPerPage: number;
+    colorScheme: "light" | "dark" | "system";
+  };
+}
+
 // Custom secure storage
-const secureStorage = {
-  getItem: (name: string) => {
-    const encrypted = sessionStorage.getItem(name); // Use sessionStorage, not localStorage
+const secureStorage: PersistStorage<PersistedSessionState> = {
+  getItem: (name: string): StorageValue<PersistedSessionState> | null => {
+    const encrypted = sessionStorage.getItem(name);
     if (!encrypted) return null;
 
     try {
       const decrypted = CryptoJS.AES.decrypt(encrypted, ENCRYPTION_KEY);
-      return decrypted.toString(CryptoJS.enc.Utf8);
+      const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+      return JSON.parse(decryptedString);
     } catch {
       return null;
     }
   },
 
-  setItem: (name: string, value: string) => {
-    const encrypted = CryptoJS.AES.encrypt(value, ENCRYPTION_KEY).toString();
+  setItem: (name: string, value: StorageValue<PersistedSessionState>) => {
+    const encrypted = CryptoJS.AES.encrypt(
+      JSON.stringify(value),
+      ENCRYPTION_KEY
+    ).toString();
     sessionStorage.setItem(name, encrypted);
   },
 
@@ -48,13 +64,20 @@ interface SessionState {
 
   // PHI data - NEVER persisted, only in memory
   _sensitiveData: {
-    patientData: any | null;
-    claimDetails: any | null;
+    patientData: Record<string, unknown> | null;
+    claimDetails: Record<string, unknown> | null;
   };
 
   // Actions
-  setSession: (data: any) => void;
-  setSensitiveData: (data: any) => void;
+  setSession: (data: {
+    team?: { id: string };
+    member?: { id: string; role: string };
+    permissions?: string[];
+  }) => void;
+  setSensitiveData: (data: {
+    patientData?: Record<string, unknown> | null;
+    claimDetails?: Record<string, unknown> | null;
+  }) => void;
   clearSession: () => void;
 }
 
@@ -90,7 +113,12 @@ export const useSessionStore = create<SessionState>()(
       setSensitiveData: (data) =>
         set((state) => {
           // This is NEVER persisted
-          state._sensitiveData = data;
+          if (data.patientData !== undefined) {
+            state._sensitiveData.patientData = data.patientData;
+          }
+          if (data.claimDetails !== undefined) {
+            state._sensitiveData.claimDetails = data.claimDetails;
+          }
         }),
 
       clearSession: () =>
@@ -108,7 +136,7 @@ export const useSessionStore = create<SessionState>()(
     {
       name: "rcm-session",
       storage: secureStorage,
-      partialize: (state) => ({
+      partialize: (state): PersistedSessionState => ({
         // Only persist non-sensitive data
         currentTeamId: state.currentTeamId,
         teamMemberId: state.teamMemberId,

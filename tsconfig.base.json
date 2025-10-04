@@ -17,5 +17,8 @@
     "strict": true,
     "target": "es2022",
     "customConditions": ["development"]
-  }
+  },
+  "exclude": [
+    "supabase/functions/**/*"
+  ]
 }

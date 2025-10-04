@@ -19,7 +19,7 @@ export class SecurityMonitor {
 
   private detectDevTools() {
     // Detect if DevTools is open
-    let devtools = { open: false, orientation: null };
+    const devtools = { open: false, orientation: null };
 
     const threshold = 160;
     const emitEvent = (state: boolean) => {
@@ -64,7 +64,7 @@ export class SecurityMonitor {
   private preventDataLeaks() {
     // Override console methods in production
     if (process.env.NODE_ENV === "production") {
-      const noop = () => {};
+      const noop = () => undefined;
       console.log = noop;
       console.debug = noop;
       console.info = noop;

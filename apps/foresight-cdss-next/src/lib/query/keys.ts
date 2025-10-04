@@ -1,3 +1,5 @@
+import { ClaimFilters, PAFilters } from "@/stores/types";
+
 export const queryKeys = {
   claims: {
     all: ["claims"] as const,
