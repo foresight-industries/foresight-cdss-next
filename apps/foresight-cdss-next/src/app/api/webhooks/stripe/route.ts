@@ -1,9 +1,8 @@
-// app/api/webhooks/stripe/route.ts
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin as supabaseAdminClient } from "@/lib/supabase/server";
-import { Database } from "@/types/database.types";
+import { supabaseAdmin } from "@/lib/supabase/server";
+import type { Database } from "@/types/database.types";
 
 // Environment variable checks
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -18,9 +17,6 @@ if (!process.env.STRIPE_WEBHOOK_SECRET) {
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-09-30.clover', // Use current stable API version
 });
-
-// Initialize Supabase Admin Client
-const supabaseAdmin = await supabaseAdminClient();
 
 // Webhook secret from Stripe Dashboard
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;

@@ -1,5 +1,5 @@
 import { Tables } from "@/lib/supabase";
-import { supabaseAdmin as supabaseAdminClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/server";
 import { getDosespotPatientUrl } from "@/app/api/utils/dosespot/getDosespotPatientUrl";
 import { getDosespotHeaders } from "@/app/api/utils/dosespot/getDosespotHeaders";
 import axios, { AxiosRequestConfig } from "axios";
@@ -72,8 +72,6 @@ export const createDosespotPatient = async (
     level: 'info',
     message: `Creating dosespot patient for ${patient.id}`,
   });
-
-  const supabaseAdmin = await supabaseAdminClient();
 
   const [profile, address] = await Promise.all([
     supabaseAdmin
