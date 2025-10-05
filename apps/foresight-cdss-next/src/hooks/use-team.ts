@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/components/providers/auth-provider";
+import { useUser } from "@clerk/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import type {
   InviteTeamMemberRequest,
@@ -199,7 +199,7 @@ async function cancelInvitationFn(invitationId: string) {
 }
 
 export function useTeam() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const queryClient = useQueryClient();
 
   const {

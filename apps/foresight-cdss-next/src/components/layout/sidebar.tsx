@@ -20,7 +20,7 @@ import {
   FileText,
   FolderOpen
 } from 'lucide-react';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser, useClerk } from '@clerk/nextjs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,9 +45,12 @@ const navigationItems = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
-export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
+export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>) {
   const pathname = usePathname();
-  const { user } = useAuth();
+
+  const { signOut, redirectToSignIn } = useClerk();
+  const { user } = useUser();
+  const userEmail = user?.emailAddresses?.[0].emailAddress ?? "";
 
   return (
     <aside
@@ -57,10 +60,12 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
       )}
     >
       {/* Header */}
-      <div className={cn(
-        "flex items-center p-4 border-b border-gray-200",
-        sidebarOpen ? "justify-between" : "justify-center"
-      )}>
+      <div
+        className={cn(
+          "flex items-center p-4 border-b border-gray-200",
+          sidebarOpen ? "justify-between" : "justify-center"
+        )}
+      >
         {sidebarOpen && (
           <Link href="/" className="flex items-center gap-2.5">
             <Image
@@ -87,8 +92,9 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
       <nav className="flex-1 p-4 space-y-2">
         {navigationItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href ||
-            (item.href !== '/' && pathname.startsWith(item.href));
+          const isActive =
+            pathname === item.href ||
+            (item.href !== "/" && pathname.startsWith(item.href));
 
           return (
             <Link
@@ -103,61 +109,69 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
               onClick={() => {
                 // Scroll to top when switching tabs
                 setTimeout(() => {
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                  window.scrollTo({ top: 0, behavior: "smooth" });
                 }, 100);
               }}
             >
-              <Icon className={cn(
-                "h-5 w-5 flex-shrink-0",
-                isActive ? "text-primary" : "text-gray-500"
-              )} />
-              {sidebarOpen && (
-                <span className="truncate">{item.name}</span>
-              )}
+              <Icon
+                className={cn(
+                  "h-5 w-5 flex-shrink-0",
+                  isActive ? "text-primary" : "text-gray-500"
+                )}
+              />
+              {sidebarOpen && <span className="truncate">{item.name}</span>}
             </Link>
           );
         })}
       </nav>
 
       {/* User Profile Section */}
-      <div className={cn(
-        "p-4 border-t border-gray-200",
-        sidebarOpen ? "space-y-3" : "flex justify-center"
-      )}>
+      <div
+        className={cn(
+          "p-4 border-t border-gray-200",
+          sidebarOpen ? "space-y-3" : "flex justify-center"
+        )}
+      >
         {sidebarOpen && (
-          <div className="text-xs text-muted-foreground">
-            PA Coordinator
-          </div>
+          <div className="text-xs text-muted-foreground">PA Coordinator</div>
         )}
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className={cn(
-              "rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
-              sidebarOpen ? "w-full h-10 gap-3 pl-3 pr-3" : "w-9 h-9"
-            )}>
+            <button
+              className={cn(
+                "rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                sidebarOpen ? "w-full h-10 gap-3 pl-3 pr-3" : "w-9 h-9"
+              )}
+            >
               {sidebarOpen ? (
                 <>
                   <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">
-                    {user?.email ? user.email.slice(0, 2).toUpperCase() : 'U'}
+                    {userEmail ? userEmail.slice(0, 2).toUpperCase() : "U"}
                   </span>
                   <span className="flex-1 text-left truncate">
-                    {user?.email?.split('@')[0] || 'User'}
+                    {userEmail?.split("@")[0] || "User"}
                   </span>
                 </>
+              ) : userEmail ? (
+                userEmail.slice(0, 2).toUpperCase()
               ) : (
-                user?.email ? user.email.slice(0, 2).toUpperCase() : 'U'
+                "U"
               )}
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56" align={sidebarOpen ? "end" : "start"} forceMount>
+          <DropdownMenuContent
+            className="w-56"
+            align={sidebarOpen ? "end" : "start"}
+            forceMount
+          >
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {user?.email?.split('@')[0] || 'User'}
+                  {userEmail?.split("@")[0] || "User"}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || 'Loading...'}
+                  {userEmail || "Loading..."}
                 </p>
               </div>
             </DropdownMenuLabel>
@@ -177,7 +191,10 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings?section=notifications" className="cursor-pointer">
+              <Link
+                href="/settings?section=notifications"
+                className="cursor-pointer"
+              >
                 <Bell className="mr-2 h-4 w-4" />
                 <span>Notifications</span>
               </Link>
@@ -190,14 +207,20 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href="/settings?section=security" className="cursor-pointer">
+              <Link
+                href="/settings?section=security"
+                className="cursor-pointer"
+              >
                 <Shield className="mr-2 h-4 w-4" />
                 <span>Security</span>
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a href="mailto:support@have-foresight.com?subject=Foresight RCM Support Request" className="cursor-pointer">
+              <a
+                href="mailto:support@have-foresight.com?subject=Foresight RCM Support Request"
+                className="cursor-pointer"
+              >
                 <HelpCircle className="mr-2 h-4 w-4" />
                 <span>Support</span>
               </a>
@@ -206,10 +229,8 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: SidebarProps) {
             <DropdownMenuItem
               className="text-red-600 cursor-pointer"
               onClick={async () => {
-                const { createClient } = await import('@/lib/supabase/client');
-                const supabase = createClient();
-                await supabase.auth.signOut();
-                window.location.href = '/login';
+                await signOut();
+                await redirectToSignIn();
               }}
             >
               <LogOut className="mr-2 h-4 w-4" />

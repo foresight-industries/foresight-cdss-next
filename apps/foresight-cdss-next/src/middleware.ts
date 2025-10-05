@@ -3,10 +3,7 @@ import { NextResponse } from "next/server";
 
 // Only match /api/*, but exclude /api/webhooks in logic
 const isUnauthenticatedRoute = createRouteMatcher([
-  "/login",
-  "/signup",
-  "/forgot-password",
-  "/reset-password",
+  "/(login|signup|forgot-password|reset-password)(.*)"
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
@@ -15,20 +12,24 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  const { userId, sessionClaims } = await auth();
+  const { sessionClaims, isAuthenticated } = await auth({
+    treatPendingAsSignedOut: false
+  });
 
   // If user is authenticated and trying to access auth pages, redirect to dashboard
-  if (userId && isUnauthenticatedRoute(req)) {
+  if (isAuthenticated && isUnauthenticatedRoute(req)) {
+    console.log("Redirecting authenticated user from auth page to dashboard");
     return NextResponse.redirect(new URL("/", req.url));
   }
 
   // If user is not authenticated and trying to access protected routes
-  if (!userId && !isUnauthenticatedRoute(req)) {
+  if (!isAuthenticated && !isUnauthenticatedRoute(req)) {
+    console.log("Redirecting unauthenticated user to login");
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
   // Add team context to API requests
-  if (req.url.includes("/api/") && userId) {
+  if (req.url.includes("/api/") && isAuthenticated) {
     const headers = new Headers(req.headers);
     if (sessionClaims?.team_id) {
       headers.set("x-team-id", sessionClaims.team_id as string);

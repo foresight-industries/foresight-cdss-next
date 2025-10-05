@@ -3,18 +3,23 @@
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@clerk/nextjs';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export function LayoutWrapper({ children }: { children: React.ReactNode }) {
+export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
-  const { user, loading } = useAuth();
+  const { isLoaded } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  
+
   // Don't show nav on auth pages
-  const isAuthPage = pathname === '/login' || pathname === '/signup' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/confirm-email';
-  
-  if (loading) {
+  const isAuthPage =
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname === "/reset-password" ||
+    pathname === "/confirm-email";
+
+  if (!isLoaded) {
     return (
       <div className="min-h-screen bg-muted/40">
         {!isAuthPage ? (
@@ -51,9 +56,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         ) : (
-          <main className="flex-1">
-            {children}
-          </main>
+          <main className="flex-1">{children}</main>
         )}
       </div>
     );
@@ -61,20 +64,18 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-muted/40">
-      {!isAuthPage && user ? (
+      {!isAuthPage ? (
         <div className="flex h-screen">
-          <Sidebar 
-            sidebarOpen={sidebarOpen} 
-            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} 
+          <Sidebar
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
-          <main className="flex-1 overflow-auto">
-            {children}
-          </main>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <main className="flex-1 overflow-auto">{children}</main>
+          </div>
         </div>
       ) : (
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
       )}
     </div>
   );

@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@clerk/nextjs';
 import { createClient } from '@/lib/supabase/client';
 import { Tables } from "@/lib/supabase";
 
 export type UserRole = 'admin' | 'coordinator' | 'user' | 'viewer';
 
 export function useUserRole() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const [role, setRole] = useState<UserRole | null>(null);
   const [loading, setLoading] = useState(true);
 

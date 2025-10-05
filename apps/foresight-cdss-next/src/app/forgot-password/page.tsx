@@ -21,7 +21,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
-import { useSignIn } from "@clerk/nextjs";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -29,25 +28,22 @@ export default function ForgotPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const { isLoaded, signIn } = useSignIn();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    if (!signIn) {
-      return;
-    }
-
     try {
-      await signIn.create({
-        strategy: "reset_password_email_code",
-        identifier: email.trim(),
+      const response = await fetch('/api/auth/handle-magic-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), redirectTo: '/reset-password' }),
       });
 
-      setIsSuccess(true);
-    } catch (err) {
+      if (response.ok) {
+        setIsSuccess(true);
+      }
+    } catch (err: any) {
       setError("An unexpected error occurred. Please try again.");
       console.error("Error sending password reset email:", err);
       throw err;
@@ -55,14 +51,6 @@ export default function ForgotPasswordPage() {
       setIsLoading(false);
     }
   };
-
-  if (!isLoaded) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
 
   if (isSuccess) {
     return (

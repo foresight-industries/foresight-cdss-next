@@ -11,10 +11,12 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { createClient } from '@/lib/supabase/client';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@clerk/nextjs';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user } = useUser();
+  const userEmail = user?.emailAddresses?.[0].emailAddress ?? '';
+
   const [hasChanges, setHasChanges] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -120,7 +122,7 @@ export default function ProfilePage() {
 
       // First, verify the current password by attempting to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
+        email: userEmail,
         password: passwordForm.currentPassword
       });
 

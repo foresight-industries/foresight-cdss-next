@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/components/providers/auth-provider";
+import { useUser } from "@clerk/nextjs";
 import { createClient } from "@/lib/supabase/client";
 import type { UserProfile, UserProfileUpdate } from "@/types/profile.types";
 import { Tables } from "@/lib/supabase";
@@ -47,7 +47,7 @@ async function updateUserProfileFn(params: { userId: string; updates: UserProfil
 }
 
 export function useUserProfile() {
-  const { user } = useAuth();
+  const { user } = useUser();
   const queryClient = useQueryClient();
 
   const {

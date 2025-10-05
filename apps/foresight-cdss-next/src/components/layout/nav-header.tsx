@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Settings, HelpCircle, CreditCard, LogOut, Bell, Shield, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth } from '@/components/providers/auth-provider';
+import { useUser } from '@clerk/nextjs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,8 @@ const navigation = [
 
 export function NavHeader() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { user } = useUser();
+  const userEmail = user?.emailAddresses?.[0].emailAddress ?? '';
 
   return (
     <div className="bg-background border-b border-gray-200 shadow-sm sticky top-0 z-40">
@@ -62,7 +63,7 @@ export function NavHeader() {
 
                   return (
                     <NavigationMenuItem key={item.name}>
-                      <Link href={item.href} legacyBehavior passHref>
+                      <Link href={item.href} passHref>
                         <NavigationMenuLink
                           className={cn(
                             navigationMenuTriggerStyle(),
@@ -93,17 +94,17 @@ export function NavHeader() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                    {user?.email ? user.email.slice(0, 2).toUpperCase() : 'U'}
+                    {userEmail ? userEmail.slice(0, 2).toUpperCase() : 'U'}
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56" align="end" forceMount>
                   <DropdownMenuLabel className="font-normal">
                     <div className="flex flex-col space-y-1">
                       <p className="text-sm font-medium leading-none">
-                        {user?.email?.split('@')[0] || 'User'}
+                        {userEmail?.split('@')[0] || 'User'}
                       </p>
                       <p className="text-xs leading-none text-muted-foreground">
-                        {user?.email || 'Loading...'}
+                        {userEmail || 'Loading...'}
                       </p>
                     </div>
                   </DropdownMenuLabel>
