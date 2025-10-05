@@ -2,7 +2,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin as supabaseAdminClient } from "@/lib/supabase/server";
 import { Database } from "@/types/database.types";
 
 // Environment variable checks
@@ -14,24 +14,13 @@ if (!process.env.STRIPE_WEBHOOK_SECRET) {
   throw new Error('STRIPE_WEBHOOK_SECRET is not defined');
 }
 
-if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error('SUPABASE_SERVICE_ROLE_KEY is not defined');
-}
-
-if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-  throw new Error('NEXT_PUBLIC_SUPABASE_URL is not defined');
-}
-
 // Initialize Stripe with correct API version
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
   apiVersion: '2025-09-30.clover', // Use current stable API version
 });
 
 // Initialize Supabase Admin Client
-const supabaseAdmin = createClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseAdmin = await supabaseAdminClient();
 
 // Webhook secret from Stripe Dashboard
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
