@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { auth } from '@clerk/nextjs/server';
+
+// GET - List available EHR systems
+export async function GET(request: NextRequest) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const supabase = createClient();
+    const { searchParams } = new URL(request.url);
+    const apiType = searchParams.get('api_type');
+    const authMethod = searchParams.get('auth_method');
+
+    // Build query for EHR systems
+    let query = supabase
+      .from('ehr_system')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_name');
+
+    // Apply filters
+    if (apiType) {
+      query = query.eq('api_type', apiType);
+    }
+    
+    if (authMethod) {
+      query = query.eq('auth_method', authMethod);
+    }
+
+    const { data: ehrSystems, error } = await query;
+
+    if (error) {
+      console.error('Error fetching EHR systems:', error);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      ehr_systems: ehrSystems || []
+    });
+
+  } catch (error) {
+    console.error('EHR systems GET error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

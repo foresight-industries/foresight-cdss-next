@@ -8,40 +8,36 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { 
-  Plus, 
-  Settings, 
-  Trash2, 
-  TestTube, 
-  Building2, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Plus,
+  Settings,
+  Trash2,
+  Building2,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
   Key,
-  ExternalLink,
   Eye,
   EyeOff,
   TrendingUp,
-  Users,
   FileText
 } from 'lucide-react';
-import type { 
-  PayerWithConfig, 
+import type {
+  PayerWithConfig,
   CreatePayerRequest,
   CreatePayerConfigRequest,
   CreatePayerPortalCredentialRequest,
   PayerConfigType,
   PopularPayerKey
 } from '@/types/payer.types';
-import { 
-  POPULAR_PAYERS, 
-  getPayerStatusColor, 
+import {
+  POPULAR_PAYERS,
+  getPayerStatusColor,
   getPayerStatusLabel,
-  getConfigTypeLabel 
+  getConfigTypeLabel
 } from '@/types/payer.types';
 
 export default function PayersPage() {
@@ -62,7 +58,7 @@ export default function PayersPage() {
       setLoading(true);
       const response = await fetch('/api/payers');
       const data = await response.json();
-      
+
       if (response.ok) {
         setPayers(data.payers || []);
         setError(null);
@@ -85,7 +81,7 @@ export default function PayersPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setIsCreateOpen(false);
         fetchPayers();
@@ -127,7 +123,7 @@ export default function PayersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Payer Configuration</h1>
@@ -135,7 +131,7 @@ export default function PayersPage() {
             Manage insurance payers, configure submission settings, and maintain portal credentials
           </p>
         </div>
-        
+
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -144,8 +140,8 @@ export default function PayersPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
-            <CreatePayerForm 
-              onSubmit={handleCreatePayer} 
+            <CreatePayerForm
+              onSubmit={handleCreatePayer}
               onCancel={() => setIsCreateOpen(false)}
             />
           </DialogContent>
@@ -153,9 +149,9 @@ export default function PayersPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="error">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <CardDescription>{error}</CardDescription>
         </Alert>
       )}
 
@@ -181,7 +177,7 @@ export default function PayersPage() {
         ) : (
           <div className="grid gap-4">
             {payers.map((payerWithConfig) => (
-              <PayerCard 
+              <PayerCard
                 key={payerWithConfig.payer.id}
                 payerWithConfig={payerWithConfig}
                 onConfigure={() => handleConfigurePayer(payerWithConfig)}
@@ -197,7 +193,7 @@ export default function PayersPage() {
       <Dialog open={isConfigOpen} onOpenChange={setIsConfigOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           {selectedPayer && (
-            <PayerConfigurationForm 
+            <PayerConfigurationForm
               payer={selectedPayer}
               onClose={() => setIsConfigOpen(false)}
               onUpdate={fetchPayers}
@@ -210,7 +206,7 @@ export default function PayersPage() {
       <Dialog open={isCredentialsOpen} onOpenChange={setIsCredentialsOpen}>
         <DialogContent className="max-w-2xl">
           {selectedPayer && (
-            <PayerCredentialsForm 
+            <PayerCredentialsForm
               payer={selectedPayer}
               onClose={() => setIsCredentialsOpen(false)}
               onUpdate={fetchPayers}
@@ -222,12 +218,12 @@ export default function PayersPage() {
   );
 }
 
-function CreatePayerForm({ 
-  onSubmit, 
-  onCancel 
-}: { 
-  onSubmit: (data: CreatePayerRequest) => void; 
-  onCancel: () => void; 
+function CreatePayerForm({
+  onSubmit,
+  onCancel
+}: {
+  onSubmit: (data: CreatePayerRequest) => void;
+  onCancel: () => void;
 }) {
   const [step, setStep] = useState(1);
   const [selectedTemplate, setSelectedTemplate] = useState<PopularPayerKey | null>(null);
@@ -266,7 +262,7 @@ function CreatePayerForm({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Popular Payers */}
             {Object.entries(POPULAR_PAYERS).map(([key, template]) => (
-              <Card 
+              <Card
                 key={key}
                 className={`cursor-pointer transition-all ${selectedTemplate === key ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
                 onClick={() => handleTemplateSelect(key as PopularPayerKey)}
@@ -289,7 +285,7 @@ function CreatePayerForm({
             ))}
 
             {/* Custom Option */}
-            <Card 
+            <Card
               className={`cursor-pointer transition-all ${selectedTemplate === null && formData.name ? 'ring-2 ring-primary' : 'hover:shadow-md'}`}
               onClick={() => {
                 setSelectedTemplate(null);
@@ -316,9 +312,9 @@ function CreatePayerForm({
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button 
-            type="button" 
-            onClick={() => setStep(2)} 
+          <Button
+            type="button"
+            onClick={() => setStep(2)}
             disabled={!selectedTemplate && !formData.name}
           >
             Continue
@@ -365,11 +361,11 @@ function CreatePayerForm({
 
         <div>
           <Label>Configuration Type</Label>
-          <Select 
-            value={formData.payer_type} 
-            onValueChange={(value: PayerConfigType) => setFormData(prev => ({ 
-              ...prev, 
-              payer_type: value 
+          <Select
+            value={formData.payer_type}
+            onValueChange={(value: PayerConfigType) => setFormData(prev => ({
+              ...prev,
+              payer_type: value
             }))}
           >
             <SelectTrigger>
@@ -401,19 +397,19 @@ function CreatePayerForm({
   );
 }
 
-function PayerCard({ 
-  payerWithConfig, 
-  onConfigure, 
+function PayerCard({
+  payerWithConfig,
+  onConfigure,
   onCredentials,
-  onDelete 
-}: { 
-  payerWithConfig: PayerWithConfig; 
-  onConfigure: () => void; 
+  onDelete
+}: {
+  payerWithConfig: PayerWithConfig;
+  onConfigure: () => void;
   onCredentials: () => void;
-  onDelete: () => void; 
+  onDelete: () => void;
 }) {
   const { payer, config, portal_credential, performance_stats } = payerWithConfig;
-  
+
   const hasConfig = !!config;
   const hasCredentials = !!portal_credential;
   const statusColor = getPayerStatusColor(hasConfig, hasCredentials);
@@ -449,7 +445,7 @@ function PayerCard({
               )}
             </CardDescription>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={onCredentials}>
               <Key className="h-4 w-4 mr-2" />
@@ -483,7 +479,7 @@ function PayerCard({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">
-                {performance_stats?.last_submission ? 
+                {performance_stats?.last_submission ?
                   new Date(performance_stats.last_submission).toLocaleDateString() : 'Never'
                 }
               </div>
@@ -531,14 +527,14 @@ function PayerCard({
   );
 }
 
-function PayerConfigurationForm({ 
-  payer, 
-  onClose, 
-  onUpdate 
-}: { 
-  payer: PayerWithConfig; 
-  onClose: () => void; 
-  onUpdate: () => void; 
+function PayerConfigurationForm({
+  payer,
+  onClose,
+  onUpdate
+}: {
+  payer: PayerWithConfig;
+  onClose: () => void;
+  onUpdate: () => void;
 }) {
   const [formData, setFormData] = useState<CreatePayerConfigRequest>({
     payer_id: payer.payer.id,
@@ -563,7 +559,7 @@ function PayerConfigurationForm({
 
     try {
       const method = payer.config ? 'PUT' : 'POST';
-      const url = payer.config 
+      const url = payer.config
         ? `/api/payers/${payer.payer.id}/config/${payer.config.id}`
         : `/api/payers/${payer.payer.id}/config`;
 
@@ -574,7 +570,7 @@ function PayerConfigurationForm({
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         onUpdate();
         onClose();
@@ -599,9 +595,9 @@ function PayerConfigurationForm({
 
       <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="error">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <CardDescription>{error}</CardDescription>
           </Alert>
         )}
 
@@ -616,11 +612,11 @@ function PayerConfigurationForm({
           <TabsContent value="general" className="space-y-4">
             <div>
               <Label>Configuration Type</Label>
-              <Select 
-                value={formData.config_type} 
-                onValueChange={(value: PayerConfigType) => setFormData(prev => ({ 
-                  ...prev, 
-                  config_type: value 
+              <Select
+                value={formData.config_type}
+                onValueChange={(value: PayerConfigType) => setFormData(prev => ({
+                  ...prev,
+                  config_type: value
                 }))}
               >
                 <SelectTrigger>
@@ -645,9 +641,9 @@ function PayerConfigurationForm({
                   min="30"
                   max="730"
                   value={formData.timely_filing_days}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    timely_filing_days: parseInt(e.target.value) 
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    timely_filing_days: parseInt(e.target.value)
                   }))}
                 />
               </div>
@@ -659,9 +655,9 @@ function PayerConfigurationForm({
                   min="1"
                   max="168"
                   value={formData.eligibility_cache_hours}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    eligibility_cache_hours: parseInt(e.target.value) 
+                  onChange={(e) => setFormData(prev => ({
+                    ...prev,
+                    eligibility_cache_hours: parseInt(e.target.value)
                   }))}
                 />
               </div>
@@ -675,9 +671,9 @@ function PayerConfigurationForm({
                 min="1"
                 max="500"
                 value={formData.submission_batch_size}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  submission_batch_size: parseInt(e.target.value) 
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  submission_batch_size: parseInt(e.target.value)
                 }))}
               />
             </div>
@@ -691,9 +687,9 @@ function PayerConfigurationForm({
               </div>
               <Switch
                 checked={formData.auto_submit_claims}
-                onCheckedChange={(checked) => setFormData(prev => ({ 
-                  ...prev, 
-                  auto_submit_claims: checked 
+                onCheckedChange={(checked) => setFormData(prev => ({
+                  ...prev,
+                  auto_submit_claims: checked
                 }))}
               />
             </div>
@@ -705,20 +701,20 @@ function PayerConfigurationForm({
               </div>
               <Switch
                 checked={formData.auto_submit_pa}
-                onCheckedChange={(checked) => setFormData(prev => ({ 
-                  ...prev, 
-                  auto_submit_pa: checked 
+                onCheckedChange={(checked) => setFormData(prev => ({
+                  ...prev,
+                  auto_submit_pa: checked
                 }))}
               />
             </div>
 
             <div>
               <Label>Submission Schedule</Label>
-              <Select 
-                value={formData.submission_schedule} 
-                onValueChange={(value) => setFormData(prev => ({ 
-                  ...prev, 
-                  submission_schedule: value 
+              <Select
+                value={formData.submission_schedule}
+                onValueChange={(value) => setFormData(prev => ({
+                  ...prev,
+                  submission_schedule: value
                 }))}
               >
                 <SelectTrigger>
@@ -738,18 +734,18 @@ function PayerConfigurationForm({
           <TabsContent value="portal" className="space-y-4">
             <Alert>
               <Building2 className="h-4 w-4" />
-              <AlertDescription>
+              <CardDescription>
                 Portal configuration settings will be available after setting up credentials for this payer.
-              </AlertDescription>
+              </CardDescription>
             </Alert>
           </TabsContent>
 
           <TabsContent value="rules" className="space-y-4">
             <Alert>
               <FileText className="h-4 w-4" />
-              <AlertDescription>
+              <CardDescription>
                 Special rules and billing requirements will be configurable in the next release.
-              </AlertDescription>
+              </CardDescription>
             </Alert>
           </TabsContent>
         </Tabs>
@@ -767,14 +763,14 @@ function PayerConfigurationForm({
   );
 }
 
-function PayerCredentialsForm({ 
-  payer, 
-  onClose, 
-  onUpdate 
-}: { 
-  payer: PayerWithConfig; 
-  onClose: () => void; 
-  onUpdate: () => void; 
+function PayerCredentialsForm({
+  payer,
+  onClose,
+  onUpdate
+}: {
+  payer: PayerWithConfig;
+  onClose: () => void;
+  onUpdate: () => void;
 }) {
   const [formData, setFormData] = useState<CreatePayerPortalCredentialRequest>({
     payer_id: payer.payer.id,
@@ -806,7 +802,7 @@ function PayerCredentialsForm({
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         onUpdate();
         onClose();
@@ -831,9 +827,9 @@ function PayerCredentialsForm({
 
       <div className="space-y-4 py-4">
         {error && (
-          <Alert variant="destructive">
+          <Alert variant="error">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <CardDescription>{error}</CardDescription>
           </Alert>
         )}
 
@@ -889,9 +885,9 @@ function PayerCredentialsForm({
             </div>
             <Switch
               checked={formData.mfa_enabled}
-              onCheckedChange={(checked) => setFormData(prev => ({ 
-                ...prev, 
-                mfa_enabled: checked 
+              onCheckedChange={(checked) => setFormData(prev => ({
+                ...prev,
+                mfa_enabled: checked
               }))}
             />
           </div>
@@ -903,9 +899,9 @@ function PayerCredentialsForm({
             </div>
             <Switch
               checked={formData.automation_enabled}
-              onCheckedChange={(checked) => setFormData(prev => ({ 
-                ...prev, 
-                automation_enabled: checked 
+              onCheckedChange={(checked) => setFormData(prev => ({
+                ...prev,
+                automation_enabled: checked
               }))}
             />
           </div>

@@ -29,10 +29,10 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
   const [profileForm, setProfileForm] = useState({
-    firstName: 'Jane',
-    lastName: 'Doe',
-    email: 'jane.doe@foresight.health',
-    phone: '+1 (555) 123-4567',
+    firstName: user?.firstName ?? '',
+    lastName: user?.lastName ?? '',
+    email: user?.emailAddresses?.[0].emailAddress ?? '',
+    phone: user?.phoneNumbers?.[0].phoneNumber ?? '',
     title: 'PA Coordinator',
     department: 'Clinical Operations',
     location: 'New York, NY',

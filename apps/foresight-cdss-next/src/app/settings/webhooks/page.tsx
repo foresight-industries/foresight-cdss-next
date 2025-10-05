@@ -6,35 +6,30 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { 
-  Plus, 
-  Settings, 
-  Trash2, 
-  TestTube, 
-  Globe, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  AlertTriangle,
-  Copy,
-  ExternalLink
+import {
+  Plus,
+  Settings,
+  Trash2,
+  TestTube,
+  Globe,
+  Clock,
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
-import type { WebhookConfig, WebhookStats, WEBHOOK_EVENTS } from '@/types/webhook.types';
+import { type WebhookConfig, type WebhookStats, WEBHOOK_EVENTS } from '@/types/webhook.types';
 
 const AVAILABLE_EVENTS = [
-  { value: 'all', label: 'All Events', description: 'Listen to all webhook events' },
-  { value: 'team.created', label: 'Team Created', description: 'When a new team is created' },
-  { value: 'team.updated', label: 'Team Updated', description: 'When team information is modified' },
-  { value: 'team.deleted', label: 'Team Deleted', description: 'When a team is deleted' },
-  { value: 'team_member.added', label: 'Member Added', description: 'When a new team member joins' },
-  { value: 'team_member.updated', label: 'Member Updated', description: 'When team member info changes' },
-  { value: 'team_member.removed', label: 'Member Removed', description: 'When a team member leaves' }
+  { value: WEBHOOK_EVENTS.ALL, label: 'All Events', description: 'Listen to all webhook events' },
+  { value: WEBHOOK_EVENTS.TEAM_CREATED, label: 'Team Created', description: 'When a new team is created' },
+  { value: WEBHOOK_EVENTS.TEAM_UPDATED, label: 'Team Updated', description: 'When team information is modified' },
+  { value: WEBHOOK_EVENTS.TEAM_DELETED, label: 'Team Deleted', description: 'When a team is deleted' },
+  { value: WEBHOOK_EVENTS.TEAM_MEMBER_ADDED, label: 'Member Added', description: 'When a new team member joins' },
+  { value: WEBHOOK_EVENTS.TEAM_MEMBER_UPDATED, label: 'Member Updated', description: 'When team member info changes' },
+  { value: WEBHOOK_EVENTS.TEAM_MEMBER_REMOVED, label: 'Member Removed', description: 'When a team member leaves' }
 ];
 
 interface WebhookWithStats extends WebhookConfig {
@@ -57,7 +52,7 @@ export default function WebhooksPage() {
       setLoading(true);
       const response = await fetch(`/api/webhooks/config?environment=${environment}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setWebhooks(data.webhooks || []);
         setError(null);
@@ -80,7 +75,7 @@ export default function WebhooksPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         setIsCreateOpen(false);
         fetchWebhooks();
@@ -103,7 +98,7 @@ export default function WebhooksPage() {
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
         alert('Test webhook sent! Check your endpoint logs.');
       } else {
@@ -134,7 +129,7 @@ export default function WebhooksPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Webhooks</h1>
@@ -142,7 +137,7 @@ export default function WebhooksPage() {
             Configure webhooks to receive real-time notifications when your team data changes
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <Select value={environment} onValueChange={(value: 'development' | 'production') => setEnvironment(value)}>
             <SelectTrigger className="w-[150px]">
@@ -162,8 +157,8 @@ export default function WebhooksPage() {
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
-              <CreateWebhookForm 
-                onSubmit={handleCreateWebhook} 
+              <CreateWebhookForm
+                onSubmit={handleCreateWebhook}
                 onCancel={() => setIsCreateOpen(false)}
               />
             </DialogContent>
@@ -172,9 +167,9 @@ export default function WebhooksPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive">
+        <Alert variant="error">
           <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
+          <CardDescription>{error}</CardDescription>
         </Alert>
       )}
 
@@ -206,7 +201,7 @@ export default function WebhooksPage() {
           ) : (
             <div className="grid gap-4">
               {webhooks.map((webhook) => (
-                <WebhookCard 
+                <WebhookCard
                   key={webhook.id}
                   webhook={webhook}
                   onTest={() => handleTestWebhook(webhook.id)}
@@ -336,17 +331,17 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
   );
 }
 
-function WebhookCard({ 
-  webhook, 
-  onTest, 
-  onDelete 
-}: { 
-  webhook: WebhookWithStats; 
-  onTest: () => void; 
-  onDelete: () => void; 
+function WebhookCard({
+  webhook,
+  onTest,
+  onDelete
+}: {
+  webhook: WebhookWithStats;
+  onTest: () => void;
+  onDelete: () => void;
 }) {
   const { stats } = webhook;
-  const successRate = stats.total_deliveries > 0 ? 
+  const successRate = stats.total_deliveries > 0 ?
     Math.round((stats.successful_deliveries / stats.total_deliveries) * 100) : 0;
 
   return (
@@ -371,7 +366,7 @@ function WebhookCard({
               </span>
             </CardDescription>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <Button size="sm" variant="outline" onClick={onTest}>
               <TestTube className="h-4 w-4 mr-2" />
@@ -416,11 +411,11 @@ function WebhookCard({
           </div>
 
           {webhook.last_error && (
-            <Alert variant="destructive">
+            <Alert variant="error">
               <XCircle className="h-4 w-4" />
-              <AlertDescription>
+              <CardDescription>
                 Last error: {webhook.last_error}
-              </AlertDescription>
+              </CardDescription>
             </Alert>
           )}
         </div>

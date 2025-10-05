@@ -147,14 +147,14 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
               {sidebarOpen ? (
                 <>
                   <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-xs">
-                    {userEmail ? userEmail.slice(0, 2).toUpperCase() : "U"}
+                    {(user?.firstName && user?.lastName) ? user?.firstName.slice(0, 1).concat(user.lastName.slice(0, 1)).toUpperCase() : "U"}
                   </span>
                   <span className="flex-1 text-left truncate">
                     {userEmail?.split("@")[0] || "User"}
                   </span>
                 </>
-              ) : userEmail ? (
-                userEmail.slice(0, 2).toUpperCase()
+              ) : (user?.firstName && user?.lastName) ? (
+                user?.firstName.slice(0, 1).concat(user.lastName.slice(0, 1)).toUpperCase()
               ) : (
                 "U"
               )}
@@ -168,7 +168,8 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
                 <p className="text-sm font-medium leading-none">
-                  {userEmail?.split("@")[0] || "User"}
+                  {(user?.firstName && user?.lastName) ? user?.firstName.slice(0, 1).concat(user.lastName.slice(0, 1)).toUpperCase()
+                    : "User"}
                 </p>
                 <p className="text-xs leading-none text-muted-foreground">
                   {userEmail || "Loading..."}
