@@ -1,10 +1,9 @@
-import { Tables } from '@/lib/supabase';
-import { supabaseAdmin } from '@/lib/supabase/server';
-import { getDosespotPatientUrl } from '@/app/api/utils/dosespot/getDosespotPatientUrl';
-import { getDosespotHeaders } from '@/app/api/utils/dosespot/getDosespotHeaders';
-import axios, { AxiosRequestConfig } from 'axios';
-import { Database } from '@/types/database.types';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { Tables } from "@/lib/supabase";
+import { supabaseAdmin as supabaseAdminClient } from "@/lib/supabase/server";
+import { getDosespotPatientUrl } from "@/app/api/utils/dosespot/getDosespotPatientUrl";
+import { getDosespotHeaders } from "@/app/api/utils/dosespot/getDosespotHeaders";
+import axios, { AxiosRequestConfig } from "axios";
+import { Database } from "@/types/database.types";
 
 enum PrimaryPhoneTypeEnum {
   Beeper = 1,
@@ -67,7 +66,6 @@ type Patient = Database['public']['Tables']['patient']['Row'];
 
 export const createDosespotPatient = async (
   patient: Patient,
-  supabase: SupabaseClient<Database>,
   token: string
 ) => {
   console.log({
@@ -75,18 +73,20 @@ export const createDosespotPatient = async (
     message: `Creating dosespot patient for ${patient.id}`,
   });
 
+  const supabaseAdmin = await supabaseAdminClient();
+
   const [profile, address] = await Promise.all([
-    supabase
+    supabaseAdmin
       .from(Tables.PATIENT_PROFILE)
-      .select('*')
-      .eq('id', patient.profile_id!)
+      .select("*")
+      .eq("id", patient.profile_id ?? 0)
       .maybeSingle()
       .then(({ data }) => data),
 
-    supabase
-      .from('address')
-      .select('*')
-      .eq('patient_id', patient.id)
+    supabaseAdmin
+      .from("address")
+      .select("*")
+      .eq("patient_id", patient.id)
       .maybeSingle()
       .then(({ data }) => data),
   ]);
@@ -123,15 +123,15 @@ export const createDosespotPatient = async (
   });
 
   const patientInput: CreateDosespotPatientInput = {
-    FirstName: profile.first_name!,
-    LastName: profile.last_name!,
+    FirstName: profile.first_name ?? "",
+    LastName: profile.last_name ?? "",
     // MiddleName: profile.middle_name,
     // Suffix: profile.suffix,
-    Email: profile.email!,
-    DateOfBirth: profile.birth_date!,
+    Email: profile.email ?? "",
+    DateOfBirth: profile.birth_date ?? "",
     PrimaryPhone: formattedPhoneNumber,
     PrimaryPhoneType: PrimaryPhoneTypeEnum.Primary,
-    Gender: profile.gender === 'male' ? GenderEnum.Male : GenderEnum.Female,
+    Gender: profile.gender === "male" ? GenderEnum.Male : GenderEnum.Female,
     Address1: address.address_line_1,
     Address2: address.address_line_2,
     City: address.city,

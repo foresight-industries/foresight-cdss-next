@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AxiosError, isAxiosError } from 'axios';
-import { createDosespotToken } from '@/app/api/services/dosespot/_utils/createDosespotToken';
-import { createDosespotPatient } from '@/app/api/services/dosespot/_utils/createDosespotPatient';
+import { AxiosError, isAxiosError } from "axios";
+import { createDosespotToken } from "@/app/api/services/dosespot/_utils/createDosespotToken";
+import { createDosespotPatient } from "@/app/api/services/dosespot/_utils/createDosespotPatient";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database.types";
 
@@ -91,7 +91,6 @@ export default async function DosespotCreatePatientHandler(
 
     const zealthyPatient = await createDosespotPatient(
       patient,
-      supabase,
       token.access_token
     );
 
