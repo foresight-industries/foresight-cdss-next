@@ -2,34 +2,24 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/api/(?!webhooks)(.*)", // Protect API routes except webhooks
-]);
+// Only match /api/*, but exclude /api/webhooks in logic
+const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api/(.*)"]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // For protected routes, ensure user is authenticated
-  if (isProtectedRoute(req)) {
+  // Exclude /api/webhooks from protection
+  if (isProtectedRoute(req) && !req.url.includes("/api/webhooks")) {
     const { userId, sessionClaims } = await auth();
 
     if (!userId) {
       return NextResponse.redirect(new URL("/sign-in", req.url));
     }
 
-    // Add team context to headers for API routes
     if (req.url.includes("/api/")) {
       const headers = new Headers(req.headers);
-
-      // If team_id is in session claims (set via Clerk metadata)
       if (sessionClaims?.team_id) {
         headers.set("x-team-id", sessionClaims.team_id as string);
       }
-
-      return NextResponse.next({
-        request: {
-          headers,
-        },
-      });
+      return NextResponse.next({ request: { headers } });
     }
   }
 
