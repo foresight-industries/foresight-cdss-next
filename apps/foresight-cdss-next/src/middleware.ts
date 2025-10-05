@@ -1,4 +1,3 @@
-// middleware.ts
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
@@ -11,21 +10,30 @@ const isUnauthenticatedRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  // Exclude /api/webhooks from protection
-  if (!isUnauthenticatedRoute(req) && !req.url.includes("/api/webhooks")) {
-    const { userId, sessionClaims } = await auth();
+  // Skip webhook routes entirely
+  if (req.url.includes("/api/webhooks")) {
+    return NextResponse.next();
+  }
 
-    if (!userId) {
-      return NextResponse.redirect(new URL("/login", req.url));
-    }
+  const { userId, sessionClaims } = await auth();
 
-    if (req.url.includes("/api/")) {
-      const headers = new Headers(req.headers);
-      if (sessionClaims?.team_id) {
-        headers.set("x-team-id", sessionClaims.team_id as string);
-      }
-      return NextResponse.next({ request: { headers } });
+  // If user is authenticated and trying to access auth pages, redirect to dashboard
+  if (userId && isUnauthenticatedRoute(req)) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
+
+  // If user is not authenticated and trying to access protected routes
+  if (!userId && !isUnauthenticatedRoute(req)) {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
+
+  // Add team context to API requests
+  if (req.url.includes("/api/") && userId) {
+    const headers = new Headers(req.headers);
+    if (sessionClaims?.team_id) {
+      headers.set("x-team-id", sessionClaims.team_id as string);
     }
+    return NextResponse.next({ request: { headers } });
   }
 
   return NextResponse.next();
