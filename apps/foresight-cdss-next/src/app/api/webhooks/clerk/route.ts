@@ -127,14 +127,17 @@ async function handleUserCreated(data: UserResource) {
     const { error } = await supabase
       .from("user_profile")
       .insert({
-        id: data.id, // Use Clerk ID as primary key
         email: data.emailAddresses?.[0]?.emailAddress,
         first_name: data.firstName,
         last_name: data.lastName,
         phone_number: data.phoneNumbers?.[0]?.phoneNumber,
         clerk_id: data.id,
-        created_at: new Date(data.createdAt ?? "").toISOString(),
-        updated_at: new Date(data.updatedAt ?? "").toISOString(),
+        created_at: data.createdAt
+          ? new Date(data.createdAt).toISOString()
+          : new Date().toISOString(),
+        updated_at: data.updatedAt
+          ? new Date(data.updatedAt).toISOString()
+          : new Date().toISOString(),
       })
       .select()
       .single();
@@ -214,7 +217,9 @@ async function handleOrganizationCreated(data: any) {
         slug: data.slug,
         clerk_org_id: data.id,
         billing_status: "trialing",
-        created_at: new Date(data.created_at).toISOString(),
+        created_at: data.created_at
+          ? new Date(data.created_at).toISOString()
+          : new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -278,7 +283,9 @@ async function handleMembershipCreated(data: any) {
       role: role,
       permissions: getPermissionsForRole(role),
       status: "active",
-      created_at: new Date(data.created_at).toISOString(),
+      created_at: data.created_at
+        ? new Date(data.created_at).toISOString()
+        : new Date().toISOString(),
       updated_at: new Date().toISOString(),
     });
 
