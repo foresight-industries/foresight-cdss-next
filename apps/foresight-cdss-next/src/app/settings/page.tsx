@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit, Globe, Webhook } from 'lucide-react';
+import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit, Globe, Webhook, CreditCard } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -45,6 +45,12 @@ const settingsSections: SettingsSection[] = [
     title: 'Webhooks',
     icon: Webhook,
     description: 'Real-time data synchronization webhooks'
+  },
+  {
+    id: 'payers',
+    title: 'Payer Configuration',
+    icon: CreditCard,
+    description: 'Manage insurance payer configurations'
   },
   {
     id: 'integrations',
@@ -682,6 +688,53 @@ function SettingsPageContent() {
     </div>
   );
 
+  const renderPayerSettings = () => (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Payer Configuration</h3>
+          <Button variant="outline" asChild>
+            <a href="/settings/payers">
+              <CreditCard className="w-4 h-4 mr-2" />
+              Manage Payers
+            </a>
+          </Button>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Configure insurance payer settings, portal credentials, and automation rules for your team.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Configured Payers</h4>
+              <Badge variant="outline">0 payers</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No payers configured yet</p>
+          </div>
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Portal Credentials</h4>
+              <Badge variant="outline">0 credentials</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No portal credentials stored</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported Payers</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {['Medicare', 'Medicaid', 'Aetna', 'Anthem', 'Cigna', 'UnitedHealthcare', 'Humana', 'BCBS'].map((payer) => (
+            <div key={payer} className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <p className="font-medium text-sm">{payer}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Portal Integration</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+
   const renderSectionContent = () => {
     switch (activeSection) {
       case 'automation':
@@ -692,6 +745,8 @@ function SettingsPageContent() {
         return renderEHRSettings();
       case 'webhooks':
         return renderWebhookSettings();
+      case 'payers':
+        return renderPayerSettings();
       case 'integrations':
         return renderIntegrationSettings();
       case 'security':
