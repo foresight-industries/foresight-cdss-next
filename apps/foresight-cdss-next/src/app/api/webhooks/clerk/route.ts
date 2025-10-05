@@ -122,16 +122,16 @@ export async function POST(req: Request) {
 }
 
 // User Management Functions
-async function handleUserCreated(data: UserResource) {
+async function handleUserCreated(data: any) {
   try {
     const { data: authUser, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
-        email: data.emailAddresses?.[0]?.emailAddress,
+        email: data.email_addresses?.[0]?.email_address,
         user_metadata: {
           clerk_id: data.id,
-          first_name: data.firstName,
-          last_name: data.lastName,
-          phone_number: data.phoneNumbers?.[0]?.phoneNumber,
+          first_name: data.first_name,
+          last_name: data.last_name,
+          phone_number: data.phone_numbers?.[0]?.phone_number,
         },
         email_confirm: true,
       });
@@ -156,10 +156,10 @@ async function handleUserCreated(data: UserResource) {
       .from("user_profile")
       .insert({
         id: user?.id,
-        email: data.emailAddresses?.[0]?.emailAddress,
-        first_name: data.firstName,
-        last_name: data.lastName,
-        phone_number: data.phoneNumbers?.[0]?.phoneNumber,
+        email: user?.email,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        phone_number: user?.phone,
         clerk_id: data.id,
         created_at: data.createdAt
           ? new Date(data.createdAt).toISOString()
