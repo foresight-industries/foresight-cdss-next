@@ -132,6 +132,7 @@ async function handleUserCreated(data: any) {
           first_name: data.first_name,
           last_name: data.last_name,
           phone_number: data.phone_numbers?.[0]?.phone_number,
+          role: "viewer",
         },
         email_confirm: true,
       });
@@ -159,7 +160,7 @@ async function handleUserCreated(data: any) {
         email: user?.email,
         first_name: data.first_name,
         last_name: data.last_name,
-        phone_number: user?.phone,
+        phone: user?.phone,
         clerk_id: data.id,
         created_at: data.createdAt
           ? new Date(data.created_at).toISOString()
