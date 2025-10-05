@@ -4,6 +4,13 @@ import Stripe from "stripe";
 import { supabaseAdmin } from "@/lib/supabase/server";
 import type { Database } from "@/types/database.types";
 
+export type RecurringPlanType =
+  Database["public"]["Enums"]["recurring_plan_type"];
+export type EventCategory =
+  Database["public"]["Enums"]["analytics_event_category"];
+export type NotificationCategory =
+  Database["public"]["Enums"]["notification_type"];
+
 // Environment variable checks
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('STRIPE_SECRET_KEY is not defined');
@@ -189,7 +196,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   // Map Stripe subscription status to your team status
   const teamStatus = mapStripeStatusToTeamStatus(status);
-  const planType = await extractPlanType(items);
+  const planType = (await extractPlanType(items)) as RecurringPlanType;
 
   // Update team record
   const { error: updateError } = await supabaseAdmin
@@ -670,15 +677,13 @@ async function logAnalyticsEvent(
   eventData: Record<string, any>
 ) {
   try {
-    await supabaseAdmin
-      .from('analytics_event')
-      .insert({
-        team_id: teamId,
-        event_name: eventName,
-        event_category: 'billing',
-        event_data: eventData,
-        created_at: new Date().toISOString(),
-      });
+    await supabaseAdmin.from("analytics_event").insert({
+      team_id: teamId,
+      event_name: eventName,
+      event_category: "financial",
+      event_data: eventData,
+      created_at: new Date().toISOString(),
+    });
   } catch (error) {
     console.error('Error logging analytics event:', error);
   }
@@ -692,10 +697,10 @@ async function sendNotification(
   try {
     // Get notification template
     const { data: template } = await supabaseAdmin
-      .from('notification_template')
-      .select('*')
-      .eq('event_type', type)
-      .eq('is_active', true)
+      .from("notification_template")
+      .select("*")
+      .eq("event_type", type as EventCategory)
+      .eq("is_active", true)
       .single();
 
     if (!template) {
@@ -704,17 +709,15 @@ async function sendNotification(
     }
 
     // Create notification
-    await supabaseAdmin
-      .from('notification')
-      .insert({
-        team_id: teamId,
-        type: type,
-        subject: template.subject || `Billing notification: ${type}`,
-        body: template.body_template || JSON.stringify(metadata),
-        status: 'pending',
-        metadata: metadata,
-        template_id: template.id,
-      });
+    await supabaseAdmin.from("notification").insert({
+      team_id: teamId,
+      type: type as NotificationCategory,
+      subject: template.subject || `Billing notification: ${type}`,
+      body: template.body_template || JSON.stringify(metadata),
+      status: "pending",
+      metadata: metadata,
+      template_id: template.id,
+    });
   } catch (error) {
     console.error('Error sending notification:', error);
   }

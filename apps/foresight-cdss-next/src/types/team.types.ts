@@ -1,4 +1,9 @@
-export type TeamRole = 'owner' | 'admin' | 'coordinator' | 'reviewer' | 'member';
+export type TeamRole =
+  | "super_admin"
+  | "org_admin"
+  | "provider"
+  | "coder"
+  | "viewer";
 export type MemberStatus = 'active' | 'pending' | 'suspended';
 export type PlanType = 'basic' | 'pro' | 'enterprise';
 

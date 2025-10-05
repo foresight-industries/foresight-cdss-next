@@ -580,7 +580,7 @@ export const createPaymentSlice: StateCreator<
       }
 
       // Update payment detail status
-      get().updatePaymentDetail(paymentId, { status: "reconciled" });
+      get().updatePaymentDetail(paymentId, { status: "processed" });
     } catch (error) {
       console.error("Failed to reconcile payment:", error);
       throw error;

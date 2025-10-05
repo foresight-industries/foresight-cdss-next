@@ -555,7 +555,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
       const { error } = await supabase
         .from("claim")
         .update({
-          status: "resubmitted",
+          status: "appealing",
           submitted_at: new Date().toISOString(),
         })
         .eq("id", claimId);
@@ -564,7 +564,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
       // Update local state
       get().updateClaim(claimId, {
-        status: "resubmitted",
+        status: "appealing",
         submitted_at: new Date().toISOString(),
       });
 

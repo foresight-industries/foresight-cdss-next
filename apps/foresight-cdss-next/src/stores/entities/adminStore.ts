@@ -1,6 +1,7 @@
 import { StateCreator } from "zustand";
 import type { Tables } from "@/types/database.types";
 import { supabase } from "@/lib/supabase";
+import { TeamRole } from "@/types/team.types";
 
 export interface AdminSlice {
   // State
@@ -137,7 +138,7 @@ export interface AdminSlice {
   inviteTeamMember: (
     teamId: string,
     email: string,
-    role: string
+    role: TeamRole
   ) => Promise<void>;
   acceptTeamInvitation: (invitationId: string) => Promise<void>;
   revokeApiKey: (keyId: string) => Promise<void>;
@@ -560,7 +561,7 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
     }
   },
 
-  inviteTeamMember: async (teamId, email, role) => {
+  inviteTeamMember: async (teamId, email, role: TeamRole) => {
     try {
       const { data, error } = await supabase
         .from("team_invitation")

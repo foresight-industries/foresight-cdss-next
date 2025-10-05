@@ -1,9 +1,18 @@
-'use client';
+"use client";
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/components/providers/auth-provider';
-import { createClient } from '@/lib/supabase/client';
-import type { Team, TeamMember, TeamInvitation, InviteTeamMemberRequest, UpdateTeamMemberRequest, PlanType, TeamRole, MemberStatus } from '@/types/team.types';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/components/providers/auth-provider";
+import { createClient } from "@/lib/supabase/client";
+import type {
+  InviteTeamMemberRequest,
+  MemberStatus,
+  PlanType,
+  Team,
+  TeamInvitation,
+  TeamMember,
+  TeamRole,
+  UpdateTeamMemberRequest,
+} from "@/types/team.types";
 import { Tables } from "@/lib/supabase";
 
 async function fetchTeamData(userId: string) {
@@ -12,14 +21,17 @@ async function fetchTeamData(userId: string) {
   // Get a user's current team
   const { data: profile, error: profileError } = await supabase
     .from(Tables.USER_PROFILE)
-    .select('current_team_id')
-    .eq('id', userId)
+    .select("current_team_id")
+    .eq("id", userId)
     .single();
 
   // Handle auth errors by signing out
-  if (profileError?.code === 'PGRST301' || profileError?.message?.includes('JWT')) {
+  if (
+    profileError?.code === "PGRST301" ||
+    profileError?.message?.includes("JWT")
+  ) {
     await supabase.auth.signOut();
-    throw new Error('Session expired');
+    throw new Error("Session expired");
   }
 
   if (profileError) throw profileError;
@@ -31,8 +43,8 @@ async function fetchTeamData(userId: string) {
   // Get team details
   const { data: team, error: teamError } = await supabase
     .from(Tables.TEAM)
-    .select('*')
-    .eq('id', profile.current_team_id)
+    .select("*")
+    .eq("id", profile.current_team_id)
     .single();
 
   if (teamError) throw teamError;
@@ -40,22 +52,24 @@ async function fetchTeamData(userId: string) {
   // Get team members with user profiles
   const { data: members, error: membersError } = await supabase
     .from(Tables.TEAM_MEMBER)
-    .select(`
+    .select(
+      `
       *,
       user_profile!user_id(email, first_name, last_name)
-    `)
-    .eq('team_id', profile.current_team_id)
-    .eq('status', 'active');
+    `
+    )
+    .eq("team_id", profile.current_team_id)
+    .eq("status", "active");
 
   if (membersError) throw membersError;
 
   // Get pending invitations
   const { data: invitations, error: invitationsError } = await supabase
     .from(Tables.TEAM_INVITATION)
-    .select('*')
-    .eq('team_id', profile.current_team_id)
-    .is('accepted_at', null)
-    .gt('expires_at', new Date().toISOString());
+    .select("*")
+    .eq("team_id", profile.current_team_id)
+    .is("accepted_at", null)
+    .gt("expires_at", new Date().toISOString());
 
   if (invitationsError) throw invitationsError;
 
@@ -67,16 +81,16 @@ async function fetchTeamData(userId: string) {
     description: team.description,
     logo_url: team.logo_url,
     settings: (team.settings as Record<string, string>) || {},
-    plan_type: (team.plan_type as PlanType) || 'basic',
+    plan_type: (team.plan_type as PlanType) || "basic",
     created_at: team.created_at || new Date().toISOString(),
-    updated_at: team.updated_at || new Date().toISOString()
+    updated_at: team.updated_at || new Date().toISOString(),
   };
 
   // Transform members with proper defaults
-  const membersWithDefaults: TeamMember[] = (members || []).map(member => ({
+  const membersWithDefaults: TeamMember[] = (members || []).map((member) => ({
     id: member.id,
-    team_id: member.team_id || '',
-    user_id: member.user_id || '',
+    team_id: member.team_id || "",
+    user_id: member.user_id || "",
     role: member.role as TeamRole,
     status: member.status as MemberStatus,
     invited_by: member.invited_by,
@@ -84,26 +98,28 @@ async function fetchTeamData(userId: string) {
     joined_at: member.joined_at,
     created_at: member.created_at || new Date().toISOString(),
     updated_at: member.updated_at || new Date().toISOString(),
-    user_profile: member.user_profile || undefined
+    user_profile: member.user_profile || undefined,
   }));
 
   // Transform invitations with proper defaults
-  const invitationsWithDefaults: TeamInvitation[] = (invitations || []).map(invitation => ({
-    id: invitation.id,
-    team_id: invitation.team_id || '',
-    email: invitation.email,
-    role: invitation.role as TeamRole,
-    invited_by: invitation.invited_by || '',
-    token: invitation.token,
-    expires_at: invitation.expires_at || new Date().toISOString(),
-    accepted_at: invitation.accepted_at,
-    created_at: invitation.created_at || new Date().toISOString()
-  }));
+  const invitationsWithDefaults: TeamInvitation[] = (invitations || []).map(
+    (invitation) => ({
+      id: invitation.id,
+      team_id: invitation.team_id || "",
+      email: invitation.email,
+      role: invitation.role as TeamRole,
+      invited_by: invitation.invited_by || "",
+      token: invitation.token,
+      expires_at: invitation.expires_at || new Date().toISOString(),
+      accepted_at: invitation.accepted_at,
+      created_at: invitation.created_at || new Date().toISOString(),
+    })
+  );
 
   return {
     team: teamWithDefaults,
     members: membersWithDefaults,
-    invitations: invitationsWithDefaults
+    invitations: invitationsWithDefaults,
   };
 }
 
@@ -150,14 +166,14 @@ async function inviteTeamMemberFn(params: { currentTeam: Team; invite: InviteTea
 async function updateTeamMemberFn(params: { memberId: string; updates: UpdateTeamMemberRequest }) {
   const { memberId, updates } = params;
   const supabase = createClient();
-  
+
   const { error } = await supabase
     .from(Tables.TEAM_MEMBER)
     .update({
       ...updates,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', memberId);
+    .eq("id", memberId);
 
   if (error) throw error;
 }
@@ -204,11 +220,15 @@ export function useTeam() {
   const error = queryError?.message || null;
 
   const inviteTeamMemberMutation = useMutation({
-    mutationFn: (invite: InviteTeamMemberRequest) => 
-      inviteTeamMemberFn({ currentTeam: currentTeam!, invite, userId: user!.id }),
+    mutationFn: (invite: InviteTeamMemberRequest) =>
+      inviteTeamMemberFn({
+        currentTeam: currentTeam!,
+        invite,
+        userId: user!.id,
+      }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['team', user?.id] });
-    }
+      queryClient.invalidateQueries({ queryKey: ["team", user?.id] });
+    },
   });
 
   const updateTeamMemberMutation = useMutation({
@@ -248,7 +268,10 @@ export function useTeam() {
         return false;
       }
     },
-    updateTeamMember: async (memberId: string, updates: UpdateTeamMemberRequest) => {
+    updateTeamMember: async (
+      memberId: string,
+      updates: UpdateTeamMemberRequest
+    ) => {
       try {
         await updateTeamMemberMutation.mutateAsync({ memberId, updates });
         return true;
@@ -272,8 +295,11 @@ export function useTeam() {
         return false;
       }
     },
-    isOwner: teamMembers.find(m => m.user_id === user?.id)?.role === 'owner',
-    isAdmin: ['owner', 'admin'].includes(teamMembers.find(m => m.user_id === user?.id)?.role || ''),
-    currentUserRole: teamMembers.find(m => m.user_id === user?.id)?.role
+    isOwner:
+      teamMembers.find((m) => m.user_id === user?.id)?.role === "super_admin",
+    isAdmin: ["admin"].includes(
+      teamMembers.find((m) => m.user_id === user?.id)?.role || ""
+    ),
+    currentUserRole: teamMembers.find((m) => m.user_id === user?.id)?.role,
   };
 }

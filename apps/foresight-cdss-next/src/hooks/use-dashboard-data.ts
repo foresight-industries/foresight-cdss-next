@@ -190,13 +190,23 @@ async function calculateStatusDistributionFallback(): Promise<StatusDistribution
   };
 
   data?.forEach(item => {
-    if (item.status === 'review' || item.status === 'pending' || !item.status) {
+    if (
+      item.status === "in_review" ||
+      item.status === "pending_info" ||
+      !item.status
+    ) {
       distribution.needsReview++;
-    } else if (item.status === 'processing' || item.status === 'submitted') {
+    } else if (
+      item.status === "ready_to_submit" ||
+      item.status === "submitted"
+    ) {
       distribution.autoProcessing++;
-    } else if (item.status === 'approved' || item.status === 'authorized') {
+    } else if (
+      item.status === "approved" ||
+      item.status === "partially_approved"
+    ) {
       distribution.autoApproved++;
-    } else if (item.status === 'denied' || item.status === 'rejected') {
+    } else if (item.status === "denied" || item.status === "expired") {
       distribution.denied++;
     }
   });

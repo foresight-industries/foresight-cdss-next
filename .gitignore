@@ -54,3 +54,5 @@ test-output
 # Environment variables
 .env*
 !.env*.example
+
+*.tsbuildinfo
