@@ -1,47 +1,68 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Mail, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert } from '@/components/ui/alert';
+import { useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  Loader2,
+  Mail,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
+import { useSignIn } from "@clerk/nextjs";
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState('');
-  const supabase = createClient();
+  const [error, setError] = useState("");
+
+  const { isLoaded, signIn } = useSignIn();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
+
+    if (!signIn) {
+      return;
+    }
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: `${window.location.origin}/reset-password`,
+      await signIn.create({
+        strategy: "reset_password_email_code",
+        identifier: email.trim(),
       });
-
-      if (error) {
-        setError(error.message);
-        return;
-      }
 
       setIsSuccess(true);
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-      console.error('Error sending password reset email:', err);
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Error sending password reset email:", err);
       throw err;
     } finally {
       setIsLoading(false);
     }
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   if (isSuccess) {
     return (
@@ -70,15 +91,17 @@ export default function ForgotPasswordPage() {
                 Email sent successfully
               </CardTitle>
               <CardDescription>
-                We&apos;ve sent password reset instructions to your email address
+                We&apos;ve sent password reset instructions to your email
+                address
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert variant="info" className="p-4">
                 <Mail className="h-4 w-4" />
                 <p>
-                  Check your email at <strong>{email}</strong> for a link to reset your password.
-                  If it doesn&apos;t appear within a few minutes, check your spam folder.
+                  Check your email at <strong>{email}</strong> for a link to
+                  reset your password. If it doesn&apos;t appear within a few
+                  minutes, check your spam folder.
                 </p>
               </Alert>
 
@@ -116,7 +139,8 @@ export default function ForgotPasswordPage() {
             Forgot your password?
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Enter your email address and we&apos;ll send you a link to reset your password
+            Enter your email address and we&apos;ll send you a link to reset
+            your password
           </p>
         </div>
 
@@ -155,11 +179,7 @@ export default function ForgotPasswordPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -13,7 +13,7 @@ export interface UserProfile {
   email: string | null;
   first_name: string | null;
   last_name: string | null;
-  role: UserRole;
+  role: string;
   department: string | null;
   job_title: string | null;
   phone: string | null;

@@ -1,25 +1,38 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import { Eye, EyeOff, ArrowLeft, CheckCircle, Loader2, AlertCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert } from '@/components/ui/alert';
+import { Suspense, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle,
+  Eye,
+  EyeOff,
+  Loader2,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Alert } from "@/components/ui/alert";
 
 function ResetPasswordContent() {
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const router = useRouter();
@@ -30,8 +43,10 @@ function ResetPasswordContent() {
     const handleAuthCallback = async () => {
       const { error } = await supabase.auth.getSession();
       if (error) {
-        console.error('Error getting session:', error);
-        setError('Invalid or expired reset link. Please request a new password reset.');
+        console.error("Error getting session:", error);
+        setError(
+          "Invalid or expired reset link. Please request a new password reset."
+        );
       }
     };
 
@@ -42,19 +57,21 @@ function ResetPasswordContent() {
     const errors: string[] = [];
 
     if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
+      errors.push("Password must be at least 8 characters long");
     }
     if (!/(?=.*[a-z])/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
+      errors.push("Password must contain at least one lowercase letter");
     }
     if (!/(?=.*[A-Z])/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
+      errors.push("Password must contain at least one uppercase letter");
     }
     if (!/(?=.*\d)/.test(password)) {
-      errors.push('Password must contain at least one number');
+      errors.push("Password must contain at least one number");
     }
     if (!/(?=.*[@$!%*?&])/.test(password)) {
-      errors.push('Password must contain at least one special character (@$!%*?&)');
+      errors.push(
+        "Password must contain at least one special character (@$!%*?&)"
+      );
     }
 
     return errors;
@@ -63,7 +80,7 @@ function ResetPasswordContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
     setValidationErrors([]);
 
     // Validate password
@@ -76,14 +93,14 @@ function ResetPasswordContent() {
 
     // Check if passwords match
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       setIsLoading(false);
       return;
     }
 
     try {
       const { error } = await supabase.auth.updateUser({
-        password: password
+        password: password,
       });
 
       if (error) {
@@ -93,14 +110,13 @@ function ResetPasswordContent() {
 
       setIsSuccess(true);
 
-      // Redirect to login after a delay
+      // Redirect to login page after a delay
       setTimeout(() => {
-        router.push('/login');
+        router.push("/login");
       }, 3000);
-
     } catch (err) {
-      setError('An unexpected error occurred. Please try again.');
-      console.error('Error updating password:', err);
+      setError("An unexpected error occurred. Please try again.");
+      console.error("Error updating password:", err);
     } finally {
       setIsLoading(false);
     }
@@ -140,14 +156,13 @@ function ResetPasswordContent() {
               <Alert className="p-4">
                 <CheckCircle className="h-4 w-4" />
                 <p>
-                  You can now sign in with your new password. You will be redirected to the login page in a few seconds.
+                  You can now sign in with your new password. You will be
+                  redirected to the login page in a few seconds.
                 </p>
               </Alert>
 
               <Button asChild className="w-full">
-                <Link href="/login">
-                  Continue to Login
-                </Link>
+                <Link href="/login">Continue to Login</Link>
               </Button>
             </CardContent>
           </Card>
@@ -195,7 +210,9 @@ function ResetPasswordContent() {
                 <Alert variant="error">
                   <AlertCircle className="h-4 w-4" />
                   <div>
-                    <p className="font-medium mb-2">Password requirements not met:</p>
+                    <p className="font-medium mb-2">
+                      Password requirements not met:
+                    </p>
                     <ul className="list-disc list-inside space-y-1 text-sm">
                       {validationErrors.map((error, index) => (
                         <li key={index}>{error}</li>
@@ -211,7 +228,7 @@ function ResetPasswordContent() {
                   <Input
                     id="password"
                     name="password"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showPassword ? "text" : "password"}
                     autoComplete="new-password"
                     required
                     value={password}
@@ -240,7 +257,7 @@ function ResetPasswordContent() {
                   <Input
                     id="confirmPassword"
                     name="confirmPassword"
-                    type={showConfirmPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? "text" : "password"}
                     autoComplete="new-password"
                     required
                     value={confirmPassword}
@@ -284,7 +301,7 @@ function ResetPasswordContent() {
                     Updating password...
                   </>
                 ) : (
-                  'Update password'
+                  "Update password"
                 )}
               </Button>
 

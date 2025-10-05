@@ -3,15 +3,20 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 // Only match /api/*, but exclude /api/webhooks in logic
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)", "/api/(.*)"]);
+const isUnauthenticatedRoute = createRouteMatcher([
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/reset-password",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   // Exclude /api/webhooks from protection
-  if (isProtectedRoute(req) && !req.url.includes("/api/webhooks")) {
+  if (!isUnauthenticatedRoute(req) && !req.url.includes("/api/webhooks")) {
     const { userId, sessionClaims } = await auth();
 
     if (!userId) {
-      return NextResponse.redirect(new URL("/sign-in", req.url));
+      return NextResponse.redirect(new URL("/login", req.url));
     }
 
     if (req.url.includes("/api/")) {
@@ -27,8 +32,5 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 export const config = {
-  matcher: [
-    "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    "/(api|trpc)(.*)",
-  ],
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };

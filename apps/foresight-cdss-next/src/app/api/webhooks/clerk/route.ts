@@ -1,7 +1,7 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
-import { WebhookEvent } from "@clerk/nextjs/server";
+import { clerkClient, WebhookEvent } from "@clerk/nextjs/server";
 import { UserResource } from "@clerk/types";
 import { supabaseAdmin } from "@/lib/supabase/server";
 
@@ -32,6 +32,8 @@ export async function POST(req: Request) {
     const payload = await req.json();
     const headersList = await headers();
 
+    const clerk = await clerkClient();
+
     // Get headers for verification
     const svixId = headersList.get("svix-id");
     const svixTimestamp = headersList.get("svix-timestamp");
@@ -59,7 +61,10 @@ export async function POST(req: Request) {
 
     switch (evt.type) {
       case "user.created":
-        result = await handleUserCreated(evt.data as unknown as UserResource);
+        result = await handleUserCreated(
+          evt.data as unknown as UserResource,
+          clerk
+        );
         break;
 
       case "user.updated":
@@ -122,7 +127,7 @@ export async function POST(req: Request) {
 }
 
 // User Management Functions
-async function handleUserCreated(data: any) {
+async function handleUserCreated(data: any, clerk: any) {
   try {
     const { data: authUser, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
@@ -151,6 +156,10 @@ async function handleUserCreated(data: any) {
     }
 
     const { user } = authUser;
+
+    await clerk.users.updateUser(data.id, {
+      external_id: user.id,
+    });
 
     // Create user profile
     const { error } = await supabase
