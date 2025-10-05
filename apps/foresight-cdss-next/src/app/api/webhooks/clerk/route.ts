@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { WebhookEvent } from "@clerk/nextjs/server";
+import { UserResource } from "@clerk/types";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
 
     switch (evt.type) {
       case "user.created":
-        result = await handleUserCreated(evt.data);
+        result = await handleUserCreated(evt.data as unknown as UserResource);
         break;
 
       case "user.updated":
@@ -93,16 +94,15 @@ export async function POST(req: Request) {
     }
 
     // Log webhook event
-    const { error: logError } = await supabase.from("auth_event_log").insert({
-      event_type: `clerk.${evt.type}`,
-      user_id:
-        evt.data.id ?? evt.data.id ?? JSON.parse(evt.data.object)?.user_id,
-      occurred_at: new Date().toISOString(),
-      metadata: {
-        clerk_event_id: svixId,
-        result,
-      },
-    });
+    const { error: logError } = await supabase
+      .from("clerk_webhook_log")
+      .insert({
+        event_type: `clerk.${evt.type}`,
+        clerk_id:
+          evt.data.id ?? evt.data.id ?? JSON.parse(evt.data.object)?.user_id,
+        payload: evt.data,
+        processed_at: new Date().toISOString(),
+      });
 
     if (logError) {
       console.error("Failed to log webhook:", logError);
@@ -121,20 +121,20 @@ export async function POST(req: Request) {
 }
 
 // User Management Functions
-async function handleUserCreated(data: any) {
+async function handleUserCreated(data: UserResource) {
   try {
     // Create user profile
     const { error } = await supabase
       .from("user_profile")
       .insert({
         id: data.id, // Use Clerk ID as primary key
-        email: data.email_addresses?.[0]?.email_address,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone_number: data.phone_numbers?.[0]?.phone_number,
+        email: data.emailAddresses?.[0]?.emailAddress,
+        first_name: data.firstName,
+        last_name: data.lastName,
+        phone_number: data.phoneNumbers?.[0]?.phoneNumber,
         clerk_id: data.id,
-        created_at: new Date(data.created_at).toISOString(),
-        updated_at: new Date(data.updated_at).toISOString(),
+        created_at: new Date(data.createdAt ?? "").toISOString(),
+        updated_at: new Date(data.updatedAt ?? "").toISOString(),
       })
       .select()
       .single();
