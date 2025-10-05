@@ -6,7 +6,9 @@ import { useSessionStore } from "@/stores/sessionStore";
 import { useRealtimeStore } from "@/stores/realtimeStore";
 import { createClient } from "@/lib/supabase/client";
 
-export function StoreProvider({ children }: { children: React.ReactNode }) {
+export function StoreProvider({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   const clearChannels = useRealtimeStore((s) => s.clearChannels);
 
   useEffect(() => {
@@ -41,7 +43,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           if (team && member) {
             useSessionStore.getState().setSession({
-              user: profile,
               team,
               member,
               permissions: (member.permissions as string[]) || [],

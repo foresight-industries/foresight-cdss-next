@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/lib/supabase/client';
-import { Tables } from '@/lib/supabase';
-import type { StatusDistribution } from '@/types/pa.types';
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase/client";
+import { Tables } from "@/lib/supabase";
+import type { StatusDistribution } from "@/types/pa.types";
 
 // Fetch dashboard metrics from the existing prior_auth table
 export function useDashboardMetrics() {
@@ -92,10 +92,8 @@ export function useRecentActivity(limit = 10) {
         .from(Tables.PRIOR_AUTH)
         .select(`
           id,
-          cmm_request_case_id,
           attempt_count,
           status,
-          priority,
           created_at,
           updated_at,
           patient_id,
@@ -150,16 +148,24 @@ export function useRecentActivity(limit = 10) {
         }
 
         return {
-          id: `PA-2025-${String(item.id).padStart(4, '0')}`,
-          patientName: `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'Unknown Patient',
+          id: `PA-2025-${String(item.id).padStart(4, "0")}`,
+          patientName:
+            `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+            "Unknown Patient",
           patientId: `PT-${item.patient_id}`,
           conditions: formatPatientConditions(patient, diagnosis),
-          attempt: `${getOrdinal((item.attempt_count || 1))} Attempt`,
-          medication: getMedicationDisplay(medication?.display_name || medication?.name),
-          payer: 'Aetna', // Default payer since payer_name doesn't exist
+          attempt: `${getOrdinal(item.attempt_count || 1)} Attempt`,
+          medication: getMedicationDisplay(
+            medication?.display_name || medication?.name
+          ),
+          payer: "Aetna", // Default payer since payer_name doesn't exist
           status: mapStatusToUIStatus(item.status ?? ""),
           confidence: 85 + Math.floor(Math.random() * 15), // Random confidence for demo
-          updatedAt: formatTimeAgo(item.updated_at)
+          updatedAt: formatTimeAgo(
+            item.updated_at
+              ? item.updated_at
+              : item.created_at ?? new Date().toISOString()
+          ),
         };
       }) || [];
     },

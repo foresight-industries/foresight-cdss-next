@@ -117,8 +117,8 @@ export interface ClaimSlice {
   fetchClaimStateHistory: (claimId: string) => Promise<void>;
   fetchScrubberResults: (claimId: string) => Promise<void>;
   fetchDenialTracking: (claimId: string) => Promise<void>;
-  submitClaim: (claimId: string) => Promise<void>;
-  resubmitClaim: (claimId: string) => Promise<void>;
+  submitClaim: (claimId: string, userId?: string) => Promise<void>;
+  resubmitClaim: (claimId: string, userId?: string) => Promise<void>;
 }
 
 export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
@@ -224,7 +224,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addClaimAttachment: (attachment) =>
     set((state) => {
-      const claimId = attachment.claim_id;
+      const claimId = attachment.claim_id ?? "";
       const currentAttachments = state.claimAttachments[claimId] || [];
       return {
         claimAttachments: {
@@ -311,7 +311,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addScrubberResult: (result) =>
     set((state) => {
-      const claimId = result.claim_id;
+      const claimId = result.id ?? "";
       const currentResults = state.scrubberResults[claimId] || [];
       return {
         scrubberResults: {
@@ -329,7 +329,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addDenialTracking: (denial) =>
     set((state) => {
-      const claimId = denial.claim_id;
+      const claimId = denial.claim_id ?? "";
       const currentDenials = state.denialTracking[claimId] || [];
       return {
         denialTracking: {
@@ -515,7 +515,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
     }
   },
 
-  submitClaim: async (claimId) => {
+  submitClaim: async (claimId, userId) => {
     try {
       const { error } = await supabase
         .from("claim")
@@ -537,8 +537,10 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
       const historyEntry = {
         id: crypto.randomUUID(),
         claim_id: claimId,
-        previous_status: "draft",
-        new_status: "submitted",
+        actor: userId || "system",
+        at: new Date().toISOString(),
+        state: "submitted",
+        details: { previous_status: "draft", action: "submit" },
         created_at: new Date().toISOString(),
       };
       get().addClaimStateHistory(historyEntry);
@@ -548,13 +550,13 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
     }
   },
 
-  resubmitClaim: async (claimId) => {
+  resubmitClaim: async (claimId, userId) => {
     try {
       const { error } = await supabase
         .from("claim")
         .update({
           status: "resubmitted",
-          resubmitted_at: new Date().toISOString(),
+          submitted_at: new Date().toISOString(),
         })
         .eq("id", claimId);
 
@@ -563,15 +565,17 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
       // Update local state
       get().updateClaim(claimId, {
         status: "resubmitted",
-        resubmitted_at: new Date().toISOString(),
+        submitted_at: new Date().toISOString(),
       });
 
       // Add state history entry
       const historyEntry = {
         id: crypto.randomUUID(),
         claim_id: claimId,
-        previous_status: "denied",
-        new_status: "resubmitted",
+        actor: userId || "system",
+        at: new Date().toISOString(),
+        state: "resubmitted",
+        details: { previous_status: "denied", action: "resubmit" },
         created_at: new Date().toISOString(),
       };
       get().addClaimStateHistory(historyEntry);

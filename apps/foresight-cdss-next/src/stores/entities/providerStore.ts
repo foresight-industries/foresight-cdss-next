@@ -248,7 +248,7 @@ export const createProviderSlice: StateCreator<
 
   addProviderEnrollment: (enrollment) =>
     set((state) => {
-      const clinicianId = enrollment.clinician_id;
+      const clinicianId = Number(enrollment.clinician_id);
       const currentEnrollment = state.providerEnrollment[clinicianId] || [];
       return {
         providerEnrollment: {
@@ -291,7 +291,7 @@ export const createProviderSlice: StateCreator<
 
   addProviderSchedule: (schedule) =>
     set((state) => {
-      const clinicianId = schedule.clinician_id;
+      const clinicianId = Number(schedule.provider_id);
       const currentSchedules = state.providerSchedules[clinicianId] || [];
       return {
         providerSchedules: {

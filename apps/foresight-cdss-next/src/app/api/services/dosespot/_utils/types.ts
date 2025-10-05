@@ -1,4 +1,4 @@
-import { Database } from '@/types/database.types';
+import { Database } from "@/types/database.types";
 
 export type DosespotDiagnosis = {
   DiagnosisId: number;
@@ -170,20 +170,9 @@ export type DosespotPrescriptionsResponse = {
 };
 
 export type Clinician = Pick<
-  Database['public']['Tables']['clinician']['Row'],
-  'id' | 'npi_key'
+  Database["public"]["Tables"]["clinician"]["Row"],
+  "id" | "npi_key" | "dosespot_provider_id"
 >;
-
-export type MedicationQuantity = Pick<
-  Database['public']['Tables']['medication_quantity']['Row'],
-  'id' | 'price'
-> & {
-  medication_dosage: Pick<
-    Database['public']['Tables']['medication_dosage']['Row'],
-    'dosespot_ndc' | 'national_drug_code'
-  >;
-  quantity: Pick<Database['public']['Tables']['quantity']['Row'], 'quantity'>;
-};
 
 export type PrescriptionResultData = {
   PatientId: number;

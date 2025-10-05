@@ -2,12 +2,10 @@ import { useSessionStore } from "@/stores/sessionStore";
 
 export function usePermissions() {
   const permissions = useSessionStore((s) => s.permissions);
-  const teamMember = useSessionStore((s) => s.teamMember);
+  const userRole = useSessionStore((s) => s.userRole);
 
   const hasPermission = (permission: string) => {
-    return (
-      permissions.includes(permission) || teamMember?.role === "super_admin"
-    );
+    return permissions.includes(permission) || userRole === "super_admin";
   };
 
   const hasAnyPermission = (...perms: string[]) => {
@@ -23,7 +21,6 @@ export function usePermissions() {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    isAdmin:
-      teamMember?.role === "super_admin" || teamMember?.role === "org_admin",
+    isAdmin: userRole === "super_admin" || userRole === "org_admin",
   };
 }

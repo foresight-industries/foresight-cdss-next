@@ -155,7 +155,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPAClinicalCriteria: (criteria) =>
     set((state) => {
-      const paId = criteria.prior_auth_id;
+      const paId = criteria.id;
       const currentCriteria = state.paClinicalCriteria[paId] || [];
       return {
         paClinicalCriteria: {
@@ -193,7 +193,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPARequirementRule: (rule) =>
     set((state) => {
-      const paId = rule.prior_auth_id;
+      const paId = rule.id;
       const currentRules = state.paRequirementRules[paId] || [];
       return {
         paRequirementRules: {
@@ -415,8 +415,8 @@ export const createPriorAuthSlice: StateCreator<
         .update({
           status: "approved",
           approved_at: new Date().toISOString(),
-          approval_number: approvalData.approvalNumber,
-          valid_until: approvalData.validUntil,
+          auth_number: approvalData.approvalNumber,
+          duration_days: approvalData.durationDays,
         })
         .eq("id", paId);
 
@@ -426,8 +426,8 @@ export const createPriorAuthSlice: StateCreator<
       get().updatePriorAuth(paId, {
         status: "approved",
         approved_at: new Date().toISOString(),
-        approval_number: approvalData.approvalNumber,
-        valid_until: approvalData.validUntil,
+        auth_number: approvalData.approvalNumber,
+        duration_days: approvalData.durationDays,
       });
     } catch (error) {
       console.error("Failed to approve prior auth:", error);
@@ -442,7 +442,7 @@ export const createPriorAuthSlice: StateCreator<
         .update({
           status: "denied",
           denied_at: new Date().toISOString(),
-          denial_reason: denialReason,
+          issues: [denialReason],
         })
         .eq("id", paId);
 
@@ -452,7 +452,7 @@ export const createPriorAuthSlice: StateCreator<
       get().updatePriorAuth(paId, {
         status: "denied",
         denied_at: new Date().toISOString(),
-        denial_reason: denialReason,
+        issues: [denialReason],
       });
     } catch (error) {
       console.error("Failed to deny prior auth:", error);

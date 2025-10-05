@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { AxiosError, isAxiosError } from 'axios';
 import { createDosespotToken } from '@/app/api/services/dosespot/_utils/createDosespotToken';
 import { createDosespotPatient } from '@/app/api/services/dosespot/_utils/createDosespotPatient';
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Tables } from "@/types/database.types";
 
 type CreateDosespotPatientRequestBody = {
   patientId: number;
@@ -18,7 +19,7 @@ export default async function DosespotCreatePatientHandler(
       throw new Error(`Zealthy patient id is required`);
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check if we have a session
     const {
@@ -38,19 +39,28 @@ export default async function DosespotCreatePatientHandler(
 
     const [dosespotProviderId, patient] = await Promise.all([
       supabase
-        .from('clinician')
-        .select('dosespot_provider_id')
-        .eq('profile_id', session.user.id)
+        .from("clinician")
+        .select("id, npi_key, dosespot_provider_id")
+        .eq("profile_id", session.user.id)
         .throwOnError()
         .maybeSingle()
-        .then(({ data }) => data?.dosespot_provider_id),
+        .then(
+          ({
+            data,
+          }: {
+            data: {
+              id: number;
+              npi_key: string | null;
+              dosespot_provider_id: number | null;
+            } | null;
+          }) => data?.dosespot_provider_id ?? 0
+        ),
       supabase
-        .from('patient')
-        .select('*')
-        .eq('id', patientId)
-        .throwOnError()
-        .maybeSingle()
-        .then(({ data }) => data),
+        .from("patient")
+        .select("*")
+        .eq("id", patientId)
+        .single()
+        .then(({ data }: { data: Tables<"patient"> | null }) => data),
     ]);
 
     if (!dosespotProviderId) {

@@ -212,7 +212,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientDiagnosis: (diagnosis) =>
     set((state) => {
-      const patientId = diagnosis.patient_id;
+      const patientId = Number(diagnosis.patient_id);
       const currentDiagnoses = state.patientDiagnoses[patientId] || [];
       return {
         patientDiagnoses: {
@@ -252,7 +252,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientDocument: (document) =>
     set((state) => {
-      const patientId = document.patient_id;
+      const patientId = Number(document.patient_id);
       const currentDocuments = state.patientDocuments[patientId] || [];
       return {
         patientDocuments: {
@@ -268,7 +268,7 @@ export const createPatientSlice: StateCreator<
       Object.keys(newDocuments).forEach((patientId) => {
         newDocuments[parseInt(patientId)] = newDocuments[
           parseInt(patientId)
-        ].map((d) => (d.id === id ? { ...d, ...updates } : d));
+        ].map((d) => (d.id === String(id) ? { ...d, ...updates } : d));
       });
       return { patientDocuments: newDocuments };
     }),
@@ -279,7 +279,7 @@ export const createPatientSlice: StateCreator<
       Object.keys(newDocuments).forEach((patientId) => {
         newDocuments[parseInt(patientId)] = newDocuments[
           parseInt(patientId)
-        ].filter((d) => d.id !== id);
+        ].filter((d) => d.id !== String(id));
       });
       return { patientDocuments: newDocuments };
     }),
@@ -292,7 +292,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientPayment: (payment) =>
     set((state) => {
-      const patientId = payment.patient_id;
+      const patientId = Number(payment.patient_id);
       const currentPayments = state.patientPayments[patientId] || [];
       return {
         patientPayments: {
@@ -307,7 +307,7 @@ export const createPatientSlice: StateCreator<
       const newPayments = { ...state.patientPayments };
       Object.keys(newPayments).forEach((patientId) => {
         newPayments[parseInt(patientId)] = newPayments[parseInt(patientId)].map(
-          (p) => (p.id === id ? { ...p, ...updates } : p)
+          (p) => (p.id === String(id) ? { ...p, ...updates } : p)
         );
       });
       return { patientPayments: newPayments };
@@ -350,7 +350,7 @@ export const createPatientSlice: StateCreator<
       const newHistory = { ...state.medicalHistory };
       Object.keys(newHistory).forEach((patientId) => {
         newHistory[parseInt(patientId)] = newHistory[parseInt(patientId)].map(
-          (h) => (h.id === id ? { ...h, ...updates } : h)
+          (h) => (Number(h.patient_id) === id ? { ...h, ...updates } : h)
         );
       });
       return { medicalHistory: newHistory };
@@ -383,7 +383,7 @@ export const createPatientSlice: StateCreator<
       Object.keys(newPharmacies).forEach((patientId) => {
         newPharmacies[parseInt(patientId)] = newPharmacies[
           parseInt(patientId)
-        ].map((p) => (p.id === id ? { ...p, ...updates } : p));
+        ].map((p) => (Number(p.patient_id) === id ? { ...p, ...updates } : p));
       });
       return { patientPharmacies: newPharmacies };
     }),
@@ -399,7 +399,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientQualityMeasure: (measure) =>
     set((state) => {
-      const patientId = measure.patient_id;
+      const patientId = Number(measure.patient_id);
       const currentMeasures = state.patientQualityMeasures[patientId] || [];
       return {
         patientQualityMeasures: {
@@ -414,7 +414,7 @@ export const createPatientSlice: StateCreator<
       const newMeasures = { ...state.patientQualityMeasures };
       Object.keys(newMeasures).forEach((patientId) => {
         newMeasures[parseInt(patientId)] = newMeasures[parseInt(patientId)].map(
-          (m) => (m.id === id ? { ...m, ...updates } : m)
+          (m) => (Number(m.id) === id ? { ...m, ...updates } : m)
         );
       });
       return { patientQualityMeasures: newMeasures };

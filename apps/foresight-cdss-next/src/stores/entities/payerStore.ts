@@ -241,7 +241,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerPortalCredential: (credential) =>
     set((state) => {
-      const payerId = credential.payer_id;
+      const payerId = Number(credential.payer_id);
       const currentCredentials = state.payerPortalCredentials[payerId] || [];
       return {
         payerPortalCredentials: {
@@ -284,7 +284,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerResponseMessage: (message) =>
     set((state) => {
-      const payerId = message.payer_id;
+      const payerId = Number(message.id);
       const currentMessages = state.payerResponseMessages[payerId] || [];
       return {
         payerResponseMessages: {
@@ -305,7 +305,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerSubmissionConfig: (config) =>
     set((state) => {
-      const payerId = config.payer_id;
+      const payerId = Number(config.payer_id);
       const currentConfigs = state.payerSubmissionConfigs[payerId] || [];
       return {
         payerSubmissionConfigs: {
@@ -337,13 +337,15 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   updateInsurancePolicy: (id, updates) =>
     set((state) => ({
       insurancePolicies: state.insurancePolicies.map((p) =>
-        p.id === id ? { ...p, ...updates } : p
+        String(p.id) === id ? { ...p, ...updates } : p
       ),
     })),
 
   removeInsurancePolicy: (id) =>
     set((state) => ({
-      insurancePolicies: state.insurancePolicies.filter((p) => p.id !== id),
+      insurancePolicies: state.insurancePolicies.filter(
+        (p) => String(p.id) !== id
+      ),
     })),
 
   // Benefits coverage actions
@@ -650,9 +652,10 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
         .insert([
           {
             patient_id: patientId,
-            payer_id: payerId,
-            check_date: new Date().toISOString(),
+            insurance_policy_id: payerId,
+            request_data: { patient_id: patientId, payer_id: payerId },
             status: "pending",
+            team_id: "default", // TODO: Get actual team_id from context
           },
         ])
         .select()
@@ -676,8 +679,11 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
         .eq("insurance_policy_id", policyId);
 
       if (error) throw error;
-      // Process benefits verification logic here
-      return data;
+
+      // Update local state with benefits coverage data
+      if (data) {
+        get().setBenefitsCoverage(data);
+      }
     } catch (error) {
       console.error("Failed to verify benefits:", error);
       throw error;

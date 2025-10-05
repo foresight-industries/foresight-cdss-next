@@ -88,272 +88,284 @@ export type AppStore = PatientSlice &
 const createMainStore = create<AppStore>()(
   subscribeWithSelector(
     devtools(
-      immer((...args) => ({
-        // Combine all slices
-        ...createPatientSlice(...args),
-        ...createClaimSlice(...args),
-        ...createPriorAuthSlice(...args),
-        ...createPaymentSlice(...args),
-        ...createProviderSlice(...args),
-        ...createPayerSlice(...args),
-        ...createAdminSlice(...args),
-
-        // Global state
-        globalLoading: false,
-        globalError: null,
-
-        // Navigation state
-        currentView: "dashboard",
-        breadcrumbs: [],
-
-        // Multi-entity selection
-        selectedEntityType: null,
-        selectedEntityIds: new Set(),
-
-        // Bulk operations
-        bulkOperationMode: false,
-        bulkOperationType: null,
-
-        // Real-time updates
-        realtimeConnected: false,
-        realtimeLastUpdate: null,
-
-        // Global actions
-        setGlobalLoading: (loading) => {
-          args[0]((state) => {
-            state.globalLoading = loading;
-          });
-        },
-
-        setGlobalError: (error) => {
-          args[0]((state) => {
-            state.globalError = error;
-          });
-        },
-
-        setCurrentView: (view) => {
-          args[0]((state) => {
-            state.currentView = view;
-          });
-        },
-
-        setBreadcrumbs: (breadcrumbs) => {
-          args[0]((state) => {
-            state.breadcrumbs = breadcrumbs;
-          });
-        },
-
-        // Multi-entity selection actions
-        setSelectedEntityType: (type) => {
-          args[0]((state) => {
-            state.selectedEntityType = type;
-            state.selectedEntityIds = new Set(); // Clear selection when changing type
-          });
-        },
-
-        toggleEntitySelection: (id) => {
-          args[0]((state) => {
-            const newSet = new Set(state.selectedEntityIds);
-            if (newSet.has(id)) {
-              newSet.delete(id);
+      immer((set, get, store) => {
+        // Create individual slice setters that work with the combined store
+        const createSliceSetter =
+          () => (partial: any, replace?: boolean | undefined) => {
+            if (replace === true) {
+              set(partial, true);
             } else {
-              newSet.add(id);
+              set(partial, replace);
             }
-            state.selectedEntityIds = newSet;
-          });
-        },
+          };
 
-        selectAllEntities: (ids) => {
-          args[0]((state) => {
-            state.selectedEntityIds = new Set(ids);
-          });
-        },
+        return {
+          // Combine all slices
+          ...createPatientSlice(createSliceSetter(), get as any, {} as any),
+          ...createClaimSlice(createSliceSetter(), get as any, {} as any),
+          ...createPriorAuthSlice(createSliceSetter(), get as any, {} as any),
+          ...createPaymentSlice(createSliceSetter(), get as any, {} as any),
+          ...createProviderSlice(createSliceSetter(), get as any, {} as any),
+          ...createPayerSlice(createSliceSetter(), get as any, {} as any),
+          ...createAdminSlice(createSliceSetter(), get as any, {} as any),
 
-        clearEntitySelection: () => {
-          args[0]((state) => {
-            state.selectedEntityIds = new Set();
-          });
-        },
+          // Global state
+          globalLoading: false,
+          globalError: null,
 
-        // Bulk operations actions
-        setBulkOperationMode: (enabled) => {
-          args[0]((state) => {
-            state.bulkOperationMode = enabled;
-            if (!enabled) {
+          // Navigation state
+          currentView: "dashboard",
+          breadcrumbs: [],
+
+          // Multi-entity selection
+          selectedEntityType: null,
+          selectedEntityIds: new Set(),
+
+          // Bulk operations
+          bulkOperationMode: false,
+          bulkOperationType: null,
+
+          // Real-time updates
+          realtimeConnected: false,
+          realtimeLastUpdate: null,
+
+          // Global actions
+          setGlobalLoading: (loading) => {
+            set((state) => {
+              state.globalLoading = loading;
+            });
+          },
+
+          setGlobalError: (error) => {
+            set((state) => {
+              state.globalError = error;
+            });
+          },
+
+          setCurrentView: (view) => {
+            set((state) => {
+              state.currentView = view;
+            });
+          },
+
+          setBreadcrumbs: (breadcrumbs) => {
+            set((state) => {
+              state.breadcrumbs = breadcrumbs;
+            });
+          },
+
+          // Multi-entity selection actions
+          setSelectedEntityType: (type) => {
+            set((state) => {
+              state.selectedEntityType = type;
+              state.selectedEntityIds = new Set(); // Clear selection when changing type
+            });
+          },
+
+          toggleEntitySelection: (id) => {
+            set((state) => {
+              const newSet = new Set(state.selectedEntityIds);
+              if (newSet.has(id)) {
+                newSet.delete(id);
+              } else {
+                newSet.add(id);
+              }
+              state.selectedEntityIds = newSet;
+            });
+          },
+
+          selectAllEntities: (ids) => {
+            set((state) => {
+              state.selectedEntityIds = new Set(ids);
+            });
+          },
+
+          clearEntitySelection: () => {
+            set((state) => {
               state.selectedEntityIds = new Set();
-              state.bulkOperationType = null;
+            });
+          },
+
+          // Bulk operations actions
+          setBulkOperationMode: (enabled) => {
+            set((state) => {
+              state.bulkOperationMode = enabled;
+              if (!enabled) {
+                state.selectedEntityIds = new Set();
+                state.bulkOperationType = null;
+              }
+            });
+          },
+
+          setBulkOperationType: (type) => {
+            set((state) => {
+              state.bulkOperationType = type;
+            });
+          },
+
+          executeBulkOperation: async () => {
+            const state = get();
+            const { selectedEntityType, selectedEntityIds, bulkOperationType } =
+              state;
+
+            if (
+              !selectedEntityType ||
+              !bulkOperationType ||
+              selectedEntityIds.size === 0
+            ) {
+              return;
             }
-          });
-        },
 
-        setBulkOperationType: (type) => {
-          args[0]((state) => {
-            state.bulkOperationType = type;
-          });
-        },
+            try {
+              state.setGlobalLoading(true);
 
-        executeBulkOperation: async () => {
-          const state = args[1]();
-          const { selectedEntityType, selectedEntityIds, bulkOperationType } =
-            state;
-
-          if (
-            !selectedEntityType ||
-            !bulkOperationType ||
-            selectedEntityIds.size === 0
-          ) {
-            return;
-          }
-
-          try {
-            state.setGlobalLoading(true);
-
-            // Execute bulk operation based on type and entity
-            switch (bulkOperationType) {
-              case "delete":
-                // Implement bulk delete logic for each entity type
-                if (selectedEntityType === "patient") {
-                  // Bulk delete patients
-                  for (const id of selectedEntityIds) {
-                    state.removePatient(id as number);
+              // Execute bulk operation based on type and entity
+              switch (bulkOperationType) {
+                case "delete":
+                  // Implement bulk delete logic for each entity type
+                  if (selectedEntityType === "patient") {
+                    // Bulk delete patients
+                    for (const id of selectedEntityIds) {
+                      state.removePatient(id as number);
+                    }
+                  } else if (selectedEntityType === "claim") {
+                    // Bulk delete claims
+                    for (const id of selectedEntityIds) {
+                      state.removeClaim(id as string);
+                    }
                   }
-                } else if (selectedEntityType === "claim") {
-                  // Bulk delete claims
-                  for (const id of selectedEntityIds) {
-                    state.removeClaim(id as string);
-                  }
-                }
-                // Add other entity types as needed
-                break;
+                  // Add other entity types as needed
+                  break;
 
-              case "export":
-                // Implement bulk export logic
-                await state.exportData(selectedEntityType, "csv");
-                break;
+                case "export":
+                  // Implement bulk export logic
+                  await state.exportData(selectedEntityType, "csv");
+                  break;
 
-              case "update":
-                // Implement bulk update logic
-                // This would typically show a modal for bulk updates
-                break;
-            }
+                case "update":
+                  // Implement bulk update logic
+                  // This would typically show a modal for bulk updates
+                  break;
+              }
 
-            // Clear selection after operation
-            state.clearEntitySelection();
-            state.setBulkOperationMode(false);
-          } catch (error) {
-            state.setGlobalError(
-              error instanceof Error ? error.message : "Bulk operation failed"
-            );
-          } finally {
-            state.setGlobalLoading(false);
-          }
-        },
-
-        // Real-time actions
-        setRealtimeConnected: (connected) => {
-          args[0]((state) => {
-            state.realtimeConnected = connected;
-          });
-        },
-
-        updateRealtimeTimestamp: () => {
-          args[0]((state) => {
-            state.realtimeLastUpdate = new Date();
-          });
-        },
-
-        // Utility actions
-        resetAllStores: () => {
-          args[0]((state) => {
-            // Reset all entity stores to initial state
-            state.patients = [];
-            state.selectedPatient = null;
-            state.claims = [];
-            state.selectedClaim = null;
-            state.priorAuths = [];
-            state.selectedPriorAuth = null;
-            state.paymentDetails = [];
-            state.clinicians = [];
-            state.selectedClinician = null;
-            state.payers = [];
-            state.selectedPayer = null;
-            state.teams = [];
-
-            // Reset global state
-            state.globalLoading = false;
-            state.globalError = null;
-            state.selectedEntityIds = new Set();
-            state.bulkOperationMode = false;
-            state.bulkOperationType = null;
-          });
-        },
-
-        exportData: async (entityType, format) => {
-          const state = args[1]();
-
-          try {
-            state.setGlobalLoading(true);
-
-            let data: any[] = [];
-
-            // Get data based on entity type
-            switch (entityType) {
-              case "patient":
-                data = state.patients;
-                break;
-              case "claim":
-                data = state.claims;
-                break;
-              case "prior-auth":
-                data = state.priorAuths;
-                break;
-              case "payment":
-                data = state.paymentDetails;
-                break;
-              case "provider":
-                data = state.clinicians;
-                break;
-              case "payer":
-                data = state.payers;
-                break;
-              default:
-                throw new Error("Unsupported entity type for export");
-            }
-
-            // Filter by selected IDs if in bulk mode
-            if (state.bulkOperationMode && state.selectedEntityIds.size > 0) {
-              data = data.filter((item) =>
-                state.selectedEntityIds.has(item.id)
+              // Clear selection after operation
+              state.clearEntitySelection();
+              state.setBulkOperationMode(false);
+            } catch (error) {
+              state.setGlobalError(
+                error instanceof Error ? error.message : "Bulk operation failed"
               );
+            } finally {
+              state.setGlobalLoading(false);
             }
+          },
 
-            // Export logic would go here (convert to CSV, JSON, etc.)
-            const exportData = JSON.stringify(data, null, 2);
+          // Real-time actions
+          setRealtimeConnected: (connected) => {
+            set((state) => {
+              state.realtimeConnected = connected;
+            });
+          },
 
-            // Create download
-            const blob = new Blob([exportData], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `${entityType}-export-${
-              new Date().toISOString().split("T")[0]
-            }.${format}`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          } catch (error) {
-            state.setGlobalError(
-              error instanceof Error ? error.message : "Export failed"
-            );
-          } finally {
-            state.setGlobalLoading(false);
-          }
-        },
-      })),
+          updateRealtimeTimestamp: () => {
+            set((state) => {
+              state.realtimeLastUpdate = new Date();
+            });
+          },
+
+          // Utility actions
+          resetAllStores: () => {
+            set((state) => {
+              // Reset all entity stores to initial state
+              state.patients = [];
+              state.selectedPatient = null;
+              state.claims = [];
+              state.selectedClaim = null;
+              state.priorAuths = [];
+              state.selectedPriorAuth = null;
+              state.paymentDetails = [];
+              state.clinicians = [];
+              state.selectedClinician = null;
+              state.payers = [];
+              state.selectedPayer = null;
+              state.teams = [];
+
+              // Reset global state
+              state.globalLoading = false;
+              state.globalError = null;
+              state.selectedEntityIds = new Set();
+              state.bulkOperationMode = false;
+              state.bulkOperationType = null;
+            });
+          },
+
+          exportData: async (entityType, format) => {
+            const state = get();
+
+            try {
+              state.setGlobalLoading(true);
+
+              let data: any[] = [];
+
+              // Get data based on entity type
+              switch (entityType) {
+                case "patient":
+                  data = state.patients;
+                  break;
+                case "claim":
+                  data = state.claims;
+                  break;
+                case "prior-auth":
+                  data = state.priorAuths;
+                  break;
+                case "payment":
+                  data = state.paymentDetails;
+                  break;
+                case "provider":
+                  data = state.clinicians;
+                  break;
+                case "payer":
+                  data = state.payers;
+                  break;
+                default:
+                  throw new Error("Unsupported entity type for export");
+              }
+
+              // Filter by selected IDs if in bulk mode
+              if (state.bulkOperationMode && state.selectedEntityIds.size > 0) {
+                data = data.filter((item) =>
+                  state.selectedEntityIds.has(item.id)
+                );
+              }
+
+              // Export logic would go here (convert to CSV, JSON, etc.)
+              const exportData = JSON.stringify(data, null, 2);
+
+              // Create download
+              const blob = new Blob([exportData], { type: "application/json" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `${entityType}-export-${
+                new Date().toISOString().split("T")[0]
+              }.${format}`;
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            } catch (error) {
+              state.setGlobalError(
+                error instanceof Error ? error.message : "Export failed"
+              );
+            } finally {
+              state.setGlobalLoading(false);
+            }
+          },
+        };
+      }),
       {
         name: "foresight-cdss-store",
-        partialize: (state) => ({
+        partialize: (state: AppStore) => ({
           // Only persist certain parts of the state
           currentView: state.currentView,
           breadcrumbs: state.breadcrumbs,

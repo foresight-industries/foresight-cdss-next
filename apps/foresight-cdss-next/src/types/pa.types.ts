@@ -1,19 +1,19 @@
-export type PAStatus = 
-  | 'needs-review'
-  | 'auto-processing'
-  | 'auto-approved'
-  | 'auto-denied'
-  | 'denied'
-  | 'error';
+export type PAStatus =
+  | "needs-review"
+  | "auto-processing"
+  | "auto-approved"
+  | "auto-denied"
+  | "denied"
+  | "error";
 
-export type EventType = 
-  | 'pa-initiated'
-  | 'fields-populated'
-  | 'questions-answered'
-  | 'documents-attached'
-  | 'submitted'
-  | 'status-update'
-  | 'completed';
+export type EventType =
+  | "pa-initiated"
+  | "fields-populated"
+  | "questions-answered"
+  | "documents-attached"
+  | "submitted"
+  | "status-update"
+  | "completed";
 
 export type Priority = 'high' | 'medium' | 'low';
 
@@ -33,6 +33,7 @@ export interface Patient {
   bmi: number;
   hasType2Diabetes: boolean;
   insurance: Insurance;
+  dosespot_patient_id?: number;
 }
 
 export interface Insurance {

@@ -1,9 +1,9 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/components/providers/auth-provider';
-import { createClient } from '@/lib/supabase/client';
-import type { UserProfile, UserProfileUpdate } from '@/types/profile.types';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/components/providers/auth-provider";
+import { createClient } from "@/lib/supabase/client";
+import type { UserProfile, UserProfileUpdate } from "@/types/profile.types";
 import { Tables } from "@/lib/supabase";
 
 async function fetchUserProfile(userId: string): Promise<UserProfile> {
@@ -19,21 +19,21 @@ async function fetchUserProfile(userId: string): Promise<UserProfile> {
   // Ensure timezone has a default value if null
   return {
     ...data,
-    timezone: data.timezone || 'America/New_York'
+    timezone: data.timezone ?? "America/New_York",
   };
 }
 
 async function updateUserProfileFn(params: { userId: string; updates: UserProfileUpdate }): Promise<UserProfile> {
   const { userId, updates } = params;
   const supabase = createClient();
-  
+
   const { data, error } = await supabase
     .from(Tables.USER_PROFILE)
     .update({
       ...updates,
-      updated_at: new Date().toISOString()
+      updated_at: new Date().toISOString(),
     })
-    .eq('id', userId)
+    .eq("id", userId)
     .select()
     .single();
 
@@ -42,7 +42,7 @@ async function updateUserProfileFn(params: { userId: string; updates: UserProfil
   // Ensure timezone has a default value if null
   return {
     ...data,
-    timezone: data.timezone || 'America/New_York'
+    timezone: data.timezone || "America/New_York",
   };
 }
 
@@ -86,7 +86,7 @@ export function useUserProfile() {
       }
     },
     hasRole: (role: string) => profile?.role === role,
-    isAdmin: profile?.role === 'admin',
-    isCoordinator: profile?.role === 'coordinator'
+    isAdmin: profile?.role === "super_admin" || profile?.role === "org_admin",
+    isCoordinator: profile?.role === "nurse" || profile?.role === "front_desk",
   };
 }

@@ -569,8 +569,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
             team_id: teamId,
             email,
             role,
-            status: "pending",
-            invited_at: new Date().toISOString(),
             expires_at: new Date(
               Date.now() + 7 * 24 * 60 * 60 * 1000
             ).toISOString(), // 7 days
@@ -594,7 +592,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
       const { error } = await supabase
         .from("team_invitation")
         .update({
-          status: "accepted",
           accepted_at: new Date().toISOString(),
         })
         .eq("id", invitationId);
@@ -603,7 +600,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
 
       // Update local state
       get().updateTeamInvitation(invitationId, {
-        status: "accepted",
         accepted_at: new Date().toISOString(),
       });
     } catch (error) {
@@ -618,7 +614,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
         .from("api_key")
         .update({
           is_active: false,
-          revoked_at: new Date().toISOString(),
         })
         .eq("id", keyId);
 
@@ -627,7 +622,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
       // Update local state
       get().updateApiKey(keyId, {
         is_active: false,
-        revoked_at: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Failed to revoke API key:", error);

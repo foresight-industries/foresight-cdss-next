@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useAppStore } from "../mainStore";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAppStore } from "@/stores/mainStore";
+import type { Tables } from "@/types/database.types";
 
 // Cache entry interface
 interface CacheEntry<T> {
@@ -11,9 +12,9 @@ interface CacheEntry<T> {
 
 // Cache manager class
 export class CacheManager {
-  private cache = new Map<string, CacheEntry<any>>();
-  private defaultTTL = 5 * 60 * 1000; // 5 minutes
-  private maxSize = 1000;
+  private readonly cache = new Map<string, CacheEntry<any>>();
+  private readonly defaultTTL = 5 * 60 * 1000; // 5 minutes
+  private readonly maxSize = 1000;
 
   set<T>(key: string, data: T, ttl?: number): void {
     const now = Date.now();
@@ -140,11 +141,11 @@ export const useCache = <T>(
     onError,
   } = options;
 
-  const [data, setData] = React.useState<T | null>(() => {
+  const [data, setData] = useState<T | null>(() => {
     return enabled ? cacheManager.get<T>(key) : null;
   });
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState<Error | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
   const fetchedRef = useRef(false);
 
   const fetchData = useCallback(
@@ -261,13 +262,19 @@ export const useStoreCache = () => {
 
           switch (entityType) {
             case "patients":
-              store.setPatients(cachedData);
+              if (Array.isArray(cachedData)) {
+                store.setPatients(cachedData as Tables<"patient">[]);
+              }
               break;
             case "claims":
-              store.setClaims(cachedData);
+              if (Array.isArray(cachedData)) {
+                store.setClaims(cachedData as Tables<"claim">[]);
+              }
               break;
             case "priorAuths":
-              store.setPriorAuths(cachedData);
+              if (Array.isArray(cachedData)) {
+                store.setPriorAuths(cachedData as Tables<"prior_auth">[]);
+              }
               break;
             // Add other entity types as needed
           }

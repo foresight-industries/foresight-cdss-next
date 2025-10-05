@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import axios, { AxiosRequestConfig } from 'axios';
 import { createDosespotToken } from '../../../../_utils/createDosespotToken';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getDosespotPatientUrl } from '@/app/api/utils/dosespot/getDosespotPatientUrl';
 import { getDosespotHeaders } from '@/app/api/utils/dosespot/getDosespotHeaders';
 
@@ -34,7 +34,7 @@ export default async function POST(
     throw new Error(`Dosespot patient id was not provided`);
   }
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check if we have a session
     const {
@@ -58,7 +58,10 @@ export default async function POST(
       .eq("profile_id", session.user.id)
       .throwOnError()
       .maybeSingle()
-      .then(({ data }) => data?.dosespot_provider_id);
+      .then(
+        ({ data }: { data: { dosespot_provider_id: number | null } | null }) =>
+          data?.dosespot_provider_id
+      );
 
     if (!dosespotProviderId) {
       throw new Error(`Unauthorized`);

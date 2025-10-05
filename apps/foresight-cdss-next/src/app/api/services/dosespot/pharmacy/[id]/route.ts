@@ -1,6 +1,6 @@
 import { getPharmacyInfo } from '../../_utils/getPharmacyInfo';
 import { createDosespotToken } from '../../_utils/createDosespotToken';
-import { createServerSupabaseClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
 /**
@@ -17,7 +17,7 @@ export default async function GET(
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createSupabaseServerClient();
 
     // Check if we have a session
     const {
@@ -35,19 +35,25 @@ export default async function GET(
       { status: 401 }
     );
 
-    const dosespotProviderId = await supabase
-      .from('clinician')
-      .select('dosespot_provider_id')
-      .eq('profile_id', session.user.id)
-      .throwOnError()
-      .maybeSingle()
-      .then(({ data }) => data?.dosespot_provider_id);
+    const { data: dosespotProviderId, error: dosespotProviderIdError } =
+      await supabase
+        .from("clinician")
+        .select("dosespot_provider_id")
+        .eq("profile_id", session.user.id)
+        .throwOnError()
+        .maybeSingle();
+
+    if (dosespotProviderIdError) {
+      throw new Error(`Could not get dosespot provider ID`);
+    }
 
     if (!dosespotProviderId) {
       throw new Error(`Unauthorized`);
     }
     //need to add get patient demographics endpoint
-    const { data: token } = await createDosespotToken(dosespotProviderId);
+    const { data: token } = await createDosespotToken(
+      dosespotProviderId.dosespot_provider_id ?? 0
+    );
 
     if (!token) {
       throw new Error(`Could not generate token to get patient demographics`);
