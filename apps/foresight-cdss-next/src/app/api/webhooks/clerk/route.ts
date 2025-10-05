@@ -162,11 +162,9 @@ async function handleUserCreated(data: any) {
         phone_number: user?.phone,
         clerk_id: data.id,
         created_at: data.createdAt
-          ? new Date(data.createdAt).toISOString()
+          ? new Date(data.created_at).toISOString()
           : new Date().toISOString(),
-        updated_at: data.updatedAt
-          ? new Date(data.updatedAt).toISOString()
-          : new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .select()
       .single();
