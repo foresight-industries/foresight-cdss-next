@@ -81,25 +81,31 @@ export type Database = {
       adjustment_reason_code: {
         Row: {
           action_required: boolean | null
-          category: string | null
+          category:
+            | Database["public"]["Enums"]["adjustment_reason_category"]
+            | null
           code: string
-          code_type: string
+          code_type: Database["public"]["Enums"]["adjustment_code_type"]
           created_at: string | null
           description: string
         }
         Insert: {
           action_required?: boolean | null
-          category?: string | null
+          category?:
+            | Database["public"]["Enums"]["adjustment_reason_category"]
+            | null
           code: string
-          code_type: string
+          code_type: Database["public"]["Enums"]["adjustment_code_type"]
           created_at?: string | null
           description: string
         }
         Update: {
           action_required?: boolean | null
-          category?: string | null
+          category?:
+            | Database["public"]["Enums"]["adjustment_reason_category"]
+            | null
           code?: string
-          code_type?: string
+          code_type?: Database["public"]["Enums"]["adjustment_code_type"]
           created_at?: string | null
           description?: string
         }
@@ -108,7 +114,9 @@ export type Database = {
       analytics_event: {
         Row: {
           created_at: string | null
-          event_category: string | null
+          event_category:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           event_data: Json | null
           event_name: string
           id: string
@@ -120,7 +128,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          event_category?: string | null
+          event_category?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           event_data?: Json | null
           event_name: string
           id?: string
@@ -132,7 +142,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          event_category?: string | null
+          event_category?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           event_data?: Json | null
           event_name?: string
           id?: string
@@ -278,7 +290,7 @@ export type Database = {
         Row: {
           appeal_letter_path: string | null
           appeal_level: number | null
-          appeal_type: string | null
+          appeal_type: Database["public"]["Enums"]["appeal_level"] | null
           claim_id: string | null
           created_at: string | null
           created_by: string | null
@@ -289,7 +301,7 @@ export type Database = {
           notes: string | null
           recovered_amount: number | null
           response_due_date: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["appeal_status"] | null
           submission_date: string | null
           supporting_docs: Json | null
           team_id: string
@@ -298,7 +310,7 @@ export type Database = {
         Insert: {
           appeal_letter_path?: string | null
           appeal_level?: number | null
-          appeal_type?: string | null
+          appeal_type?: Database["public"]["Enums"]["appeal_level"] | null
           claim_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -309,7 +321,7 @@ export type Database = {
           notes?: string | null
           recovered_amount?: number | null
           response_due_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["appeal_status"] | null
           submission_date?: string | null
           supporting_docs?: Json | null
           team_id: string
@@ -318,7 +330,7 @@ export type Database = {
         Update: {
           appeal_letter_path?: string | null
           appeal_level?: number | null
-          appeal_type?: string | null
+          appeal_type?: Database["public"]["Enums"]["appeal_level"] | null
           claim_id?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -329,7 +341,7 @@ export type Database = {
           notes?: string | null
           recovered_amount?: number | null
           response_due_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["appeal_status"] | null
           submission_date?: string | null
           supporting_docs?: Json | null
           team_id?: string
@@ -403,7 +415,7 @@ export type Database = {
       }
       appointment: {
         Row: {
-          appointment_type: string | null
+          appointment_type: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at: string | null
           confirmation_sent_at: string | null
           created_at: string | null
@@ -418,12 +430,12 @@ export type Database = {
           scheduled_date: string
           scheduled_time: string
           service_location_id: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["appointment_status"] | null
           team_id: string
           updated_at: string | null
         }
         Insert: {
-          appointment_type?: string | null
+          appointment_type?: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at?: string | null
           confirmation_sent_at?: string | null
           created_at?: string | null
@@ -438,12 +450,12 @@ export type Database = {
           scheduled_date: string
           scheduled_time: string
           service_location_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"] | null
           team_id: string
           updated_at?: string | null
         }
         Update: {
-          appointment_type?: string | null
+          appointment_type?: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at?: string | null
           confirmation_sent_at?: string | null
           created_at?: string | null
@@ -458,7 +470,7 @@ export type Database = {
           scheduled_date?: string
           scheduled_time?: string
           service_location_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["appointment_status"] | null
           team_id?: string
           updated_at?: string | null
         }
@@ -535,7 +547,7 @@ export type Database = {
           id: string
           new_data: Json | null
           old_data: Json | null
-          operation: string
+          operation: Database["public"]["Enums"]["audit_event_type"]
           record_id: string | null
           table_name: string
           team_id: string | null
@@ -546,7 +558,7 @@ export type Database = {
           id?: string
           new_data?: Json | null
           old_data?: Json | null
-          operation: string
+          operation: Database["public"]["Enums"]["audit_event_type"]
           record_id?: string | null
           table_name: string
           team_id?: string | null
@@ -557,7 +569,7 @@ export type Database = {
           id?: string
           new_data?: Json | null
           old_data?: Json | null
-          operation?: string
+          operation?: Database["public"]["Enums"]["audit_event_type"]
           record_id?: string | null
           table_name?: string
           team_id?: string | null
@@ -574,7 +586,7 @@ export type Database = {
           error_message: string | null
           event_type: string
           id: string
-          status: string
+          status: Database["public"]["Enums"]["automation_status"]
           team_id: string | null
           timestamp: string
         }
@@ -587,7 +599,7 @@ export type Database = {
           error_message?: string | null
           event_type: string
           id: string
-          status: string
+          status: Database["public"]["Enums"]["automation_status"]
           team_id?: string | null
           timestamp: string
         }
@@ -600,7 +612,7 @@ export type Database = {
           error_message?: string | null
           event_type?: string
           id?: string
-          status?: string
+          status?: Database["public"]["Enums"]["automation_status"]
           team_id?: string | null
           timestamp?: string
         }
@@ -625,7 +637,9 @@ export type Database = {
         Row: {
           attempt_number: number | null
           automation_type: string
-          backoff_strategy: string | null
+          backoff_strategy:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at: string | null
           entity_id: string
           entity_type: string
@@ -635,13 +649,15 @@ export type Database = {
           max_attempts: number | null
           metadata: Json | null
           next_retry_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
         }
         Insert: {
           attempt_number?: number | null
           automation_type: string
-          backoff_strategy?: string | null
+          backoff_strategy?:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at?: string | null
           entity_id: string
           entity_type: string
@@ -651,13 +667,15 @@ export type Database = {
           max_attempts?: number | null
           metadata?: Json | null
           next_retry_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
         }
         Update: {
           attempt_number?: number | null
           automation_type?: string
-          backoff_strategy?: string | null
+          backoff_strategy?:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at?: string | null
           entity_id?: string
           entity_type?: string
@@ -667,7 +685,7 @@ export type Database = {
           max_attempts?: number | null
           metadata?: Json | null
           next_retry_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
         }
         Relationships: [
@@ -758,12 +776,12 @@ export type Database = {
           error_log: Json | null
           failed_items: number | null
           id: string
-          job_type: string | null
+          job_type: Database["public"]["Enums"]["task_type"] | null
           parameters: Json | null
           processed_items: number | null
           scheduled_at: string | null
           started_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["batch_status"] | null
           successful_items: number | null
           team_id: string
           total_items: number | null
@@ -775,12 +793,12 @@ export type Database = {
           error_log?: Json | null
           failed_items?: number | null
           id?: string
-          job_type?: string | null
+          job_type?: Database["public"]["Enums"]["task_type"] | null
           parameters?: Json | null
           processed_items?: number | null
           scheduled_at?: string | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           successful_items?: number | null
           team_id: string
           total_items?: number | null
@@ -792,12 +810,12 @@ export type Database = {
           error_log?: Json | null
           failed_items?: number | null
           id?: string
-          job_type?: string | null
+          job_type?: Database["public"]["Enums"]["task_type"] | null
           parameters?: Json | null
           processed_items?: number | null
           scheduled_at?: string | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           successful_items?: number | null
           team_id?: string
           total_items?: number | null
@@ -843,7 +861,7 @@ export type Database = {
           id: string
           processed_at: string | null
           processing_result: Json | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
         }
         Insert: {
           batch_job_id: string
@@ -854,7 +872,7 @@ export type Database = {
           id?: string
           processed_at?: string | null
           processing_result?: Json | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
         }
         Update: {
           batch_job_id?: string
@@ -865,7 +883,7 @@ export type Database = {
           id?: string
           processed_at?: string | null
           processing_result?: Json | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
         }
         Relationships: [
           {
@@ -1049,7 +1067,7 @@ export type Database = {
           paid_at: string | null
           payer_id: number
           rejected_at: string | null
-          status: string
+          status: Database["public"]["Enums"]["claim_status"]
           submitted_at: string | null
           suggested_fixes: Json[] | null
           team_id: string | null
@@ -1072,7 +1090,7 @@ export type Database = {
           paid_at?: string | null
           payer_id: number
           rejected_at?: string | null
-          status: string
+          status?: Database["public"]["Enums"]["claim_status"]
           submitted_at?: string | null
           suggested_fixes?: Json[] | null
           team_id?: string | null
@@ -1095,7 +1113,7 @@ export type Database = {
           paid_at?: string | null
           payer_id?: number
           rejected_at?: string | null
-          status?: string
+          status?: Database["public"]["Enums"]["claim_status"]
           submitted_at?: string | null
           suggested_fixes?: Json[] | null
           team_id?: string | null
@@ -1143,7 +1161,7 @@ export type Database = {
       claim_attachment: {
         Row: {
           attachment_control_number: string | null
-          attachment_type: string | null
+          attachment_type: Database["public"]["Enums"]["document_type"] | null
           claim_id: string | null
           created_at: string | null
           file_path: string | null
@@ -1151,12 +1169,12 @@ export type Database = {
           id: string
           page_count: number | null
           sent_at: string | null
-          sent_method: string | null
+          sent_method: Database["public"]["Enums"]["communication_type"] | null
           team_id: string
         }
         Insert: {
           attachment_control_number?: string | null
-          attachment_type?: string | null
+          attachment_type?: Database["public"]["Enums"]["document_type"] | null
           claim_id?: string | null
           created_at?: string | null
           file_path?: string | null
@@ -1164,12 +1182,12 @@ export type Database = {
           id?: string
           page_count?: number | null
           sent_at?: string | null
-          sent_method?: string | null
+          sent_method?: Database["public"]["Enums"]["communication_type"] | null
           team_id: string
         }
         Update: {
           attachment_control_number?: string | null
-          attachment_type?: string | null
+          attachment_type?: Database["public"]["Enums"]["document_type"] | null
           claim_id?: string | null
           created_at?: string | null
           file_path?: string | null
@@ -1177,7 +1195,7 @@ export type Database = {
           id?: string
           page_count?: number | null
           sent_at?: string | null
-          sent_method?: string | null
+          sent_method?: Database["public"]["Enums"]["communication_type"] | null
           team_id?: string
         }
         Relationships: [
@@ -1236,13 +1254,13 @@ export type Database = {
           diagnosis_pointers: number[] | null
           id: string
           line_number: number
-          modifiers: string[] | null
+          modifiers: Database["public"]["Enums"]["modifier_type"][] | null
           paid_amount: number | null
           patient_responsibility: number | null
           place_of_service: string | null
           revenue_code: string | null
           service_date: string
-          status: string | null
+          status: Database["public"]["Enums"]["payment_posting_status"] | null
           team_id: string
           units: number | null
         }
@@ -1256,13 +1274,13 @@ export type Database = {
           diagnosis_pointers?: number[] | null
           id?: string
           line_number: number
-          modifiers?: string[] | null
+          modifiers?: Database["public"]["Enums"]["modifier_type"][] | null
           paid_amount?: number | null
           patient_responsibility?: number | null
           place_of_service?: string | null
           revenue_code?: string | null
           service_date: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_posting_status"] | null
           team_id: string
           units?: number | null
         }
@@ -1276,13 +1294,13 @@ export type Database = {
           diagnosis_pointers?: number[] | null
           id?: string
           line_number?: number
-          modifiers?: string[] | null
+          modifiers?: Database["public"]["Enums"]["modifier_type"][] | null
           paid_amount?: number | null
           patient_responsibility?: number | null
           place_of_service?: string | null
           revenue_code?: string | null
           service_date?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_posting_status"] | null
           team_id?: string
           units?: number | null
         }
@@ -1398,7 +1416,7 @@ export type Database = {
           file_name: string | null
           id: string
           response_file: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["batch_status"] | null
           submitted_at: string | null
           team_id: string | null
           total_amount: number | null
@@ -1410,7 +1428,7 @@ export type Database = {
           file_name?: string | null
           id: string
           response_file?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           submitted_at?: string | null
           team_id?: string | null
           total_amount?: number | null
@@ -1422,7 +1440,7 @@ export type Database = {
           file_name?: string | null
           id?: string
           response_file?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           submitted_at?: string | null
           team_id?: string | null
           total_amount?: number | null
@@ -1523,12 +1541,14 @@ export type Database = {
           created_at: string | null
           file_path: string | null
           id: string
-          status: string | null
+          status: Database["public"]["Enums"]["batch_status"] | null
           submitted_at: string | null
           team_id: string
           total_amount: number | null
           total_claims: number | null
-          transaction_type: string | null
+          transaction_type:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
         }
         Insert: {
           acknowledged_at?: string | null
@@ -1538,12 +1558,14 @@ export type Database = {
           created_at?: string | null
           file_path?: string | null
           id?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           submitted_at?: string | null
           team_id: string
           total_amount?: number | null
           total_claims?: number | null
-          transaction_type?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
         }
         Update: {
           acknowledged_at?: string | null
@@ -1553,12 +1575,14 @@ export type Database = {
           created_at?: string | null
           file_path?: string | null
           id?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["batch_status"] | null
           submitted_at?: string | null
           team_id?: string
           total_amount?: number | null
           total_claims?: number | null
-          transaction_type?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
         }
         Relationships: [
           {
@@ -1587,42 +1611,48 @@ export type Database = {
       clearinghouse_connection: {
         Row: {
           clearinghouse_name: string | null
-          connection_type: string | null
+          connection_type: Database["public"]["Enums"]["ehr_api_type"] | null
           created_at: string | null
           credentials: Json | null
           endpoint_urls: Json | null
           id: string
           is_active: boolean | null
           last_connection_test: string | null
-          supported_transactions: string[] | null
+          supported_transactions:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id: string
           test_mode: boolean | null
           updated_at: string | null
         }
         Insert: {
           clearinghouse_name?: string | null
-          connection_type?: string | null
+          connection_type?: Database["public"]["Enums"]["ehr_api_type"] | null
           created_at?: string | null
           credentials?: Json | null
           endpoint_urls?: Json | null
           id?: string
           is_active?: boolean | null
           last_connection_test?: string | null
-          supported_transactions?: string[] | null
+          supported_transactions?:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id: string
           test_mode?: boolean | null
           updated_at?: string | null
         }
         Update: {
           clearinghouse_name?: string | null
-          connection_type?: string | null
+          connection_type?: Database["public"]["Enums"]["ehr_api_type"] | null
           created_at?: string | null
           credentials?: Json | null
           endpoint_urls?: Json | null
           id?: string
           is_active?: boolean | null
           last_connection_test?: string | null
-          supported_transactions?: string[] | null
+          supported_transactions?:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id?: string
           test_mode?: boolean | null
           updated_at?: string | null
@@ -1651,7 +1681,7 @@ export type Database = {
           metadata: Json | null
           organization_id: string | null
           supabase_user_id: string | null
-          sync_status: string | null
+          sync_status: Database["public"]["Enums"]["sync_status"] | null
           team_id: string | null
         }
         Insert: {
@@ -1660,7 +1690,7 @@ export type Database = {
           metadata?: Json | null
           organization_id?: string | null
           supabase_user_id?: string | null
-          sync_status?: string | null
+          sync_status?: Database["public"]["Enums"]["sync_status"] | null
           team_id?: string | null
         }
         Update: {
@@ -1669,7 +1699,7 @@ export type Database = {
           metadata?: Json | null
           organization_id?: string | null
           supabase_user_id?: string | null
-          sync_status?: string | null
+          sync_status?: Database["public"]["Enums"]["sync_status"] | null
           team_id?: string | null
         }
         Relationships: [
@@ -1790,7 +1820,7 @@ export type Database = {
           original_balance: number
           patient_id: number | null
           sent_to_collections_date: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
           updated_at: string | null
@@ -1804,7 +1834,7 @@ export type Database = {
           original_balance: number
           patient_id?: number | null
           sent_to_collections_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
           updated_at?: string | null
@@ -1818,7 +1848,7 @@ export type Database = {
           original_balance?: number
           patient_id?: number | null
           sent_to_collections_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           total_balance?: number
           updated_at?: string | null
@@ -1864,14 +1894,16 @@ export type Database = {
       communication_log: {
         Row: {
           attachments: Json | null
-          communication_type: string | null
+          communication_type:
+            | Database["public"]["Enums"]["communication_type"]
+            | null
           contact_details: Json | null
           contact_name: string | null
-          contact_type: string | null
+          contact_type: Database["public"]["Enums"]["contact_type"] | null
           content: string | null
           created_at: string | null
           created_by: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["direction"] | null
           entity_id: string | null
           entity_type: string | null
           follow_up_date: string | null
@@ -1883,14 +1915,16 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
-          communication_type?: string | null
+          communication_type?:
+            | Database["public"]["Enums"]["communication_type"]
+            | null
           contact_details?: Json | null
           contact_name?: string | null
-          contact_type?: string | null
+          contact_type?: Database["public"]["Enums"]["contact_type"] | null
           content?: string | null
           created_at?: string | null
           created_by?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["direction"] | null
           entity_id?: string | null
           entity_type?: string | null
           follow_up_date?: string | null
@@ -1902,14 +1936,16 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
-          communication_type?: string | null
+          communication_type?:
+            | Database["public"]["Enums"]["communication_type"]
+            | null
           contact_details?: Json | null
           contact_name?: string | null
-          contact_type?: string | null
+          contact_type?: Database["public"]["Enums"]["contact_type"] | null
           content?: string | null
           created_at?: string | null
           created_by?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["direction"] | null
           entity_id?: string | null
           entity_type?: string | null
           follow_up_date?: string | null
@@ -2012,12 +2048,12 @@ export type Database = {
           notes: string | null
           patient_id: number | null
           payer_id: number | null
-          reason: string | null
+          reason: Database["public"]["Enums"]["adjustment_type"] | null
           refund_check_number: string | null
           refund_date: string | null
-          refund_method: string | null
+          refund_method: Database["public"]["Enums"]["payment_method"] | null
           source_claim_id: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
           updated_at: string | null
         }
@@ -2028,12 +2064,12 @@ export type Database = {
           notes?: string | null
           patient_id?: number | null
           payer_id?: number | null
-          reason?: string | null
+          reason?: Database["public"]["Enums"]["adjustment_type"] | null
           refund_check_number?: string | null
           refund_date?: string | null
-          refund_method?: string | null
+          refund_method?: Database["public"]["Enums"]["payment_method"] | null
           source_claim_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
           updated_at?: string | null
         }
@@ -2044,12 +2080,12 @@ export type Database = {
           notes?: string | null
           patient_id?: number | null
           payer_id?: number | null
-          reason?: string | null
+          reason?: Database["public"]["Enums"]["adjustment_type"] | null
           refund_check_number?: string | null
           refund_date?: string | null
-          refund_method?: string | null
+          refund_method?: Database["public"]["Enums"]["payment_method"] | null
           source_claim_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
           updated_at?: string | null
         }
@@ -2399,13 +2435,13 @@ export type Database = {
           created_at: string | null
           denial_date: string
           denial_reason: string | null
-          denial_type: string | null
+          denial_type: Database["public"]["Enums"]["denial_category"] | null
           financial_impact: number | null
           id: string
           preventable: boolean | null
           rarc_code: string | null
           root_cause: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["denial_status"] | null
           team_id: string
           updated_at: string | null
         }
@@ -2418,13 +2454,13 @@ export type Database = {
           created_at?: string | null
           denial_date: string
           denial_reason?: string | null
-          denial_type?: string | null
+          denial_type?: Database["public"]["Enums"]["denial_category"] | null
           financial_impact?: number | null
           id?: string
           preventable?: boolean | null
           rarc_code?: string | null
           root_cause?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["denial_status"] | null
           team_id: string
           updated_at?: string | null
         }
@@ -2437,13 +2473,13 @@ export type Database = {
           created_at?: string | null
           denial_date?: string
           denial_reason?: string | null
-          denial_type?: string | null
+          denial_type?: Database["public"]["Enums"]["denial_category"] | null
           financial_impact?: number | null
           id?: string
           preventable?: boolean | null
           rarc_code?: string | null
           root_cause?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["denial_status"] | null
           team_id?: string
           updated_at?: string | null
         }
@@ -2509,7 +2545,7 @@ export type Database = {
       document: {
         Row: {
           created_at: string | null
-          document_type: string | null
+          document_type: Database["public"]["Enums"]["document_type"] | null
           entity_id: string | null
           entity_type: string | null
           file_name: string | null
@@ -2523,7 +2559,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           entity_id?: string | null
           entity_type?: string | null
           file_name?: string | null
@@ -2537,7 +2573,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           entity_id?: string | null
           entity_type?: string | null
           file_name?: string | null
@@ -2691,7 +2727,7 @@ export type Database = {
           step_therapy_required: boolean | null
           termination_date: string | null
           therapeutic_class: string | null
-          tier: number | null
+          tier: Database["public"]["Enums"]["formulary_tier"] | null
           updated_at: string | null
         }
         Insert: {
@@ -2710,7 +2746,7 @@ export type Database = {
           step_therapy_required?: boolean | null
           termination_date?: string | null
           therapeutic_class?: string | null
-          tier?: number | null
+          tier?: Database["public"]["Enums"]["formulary_tier"] | null
           updated_at?: string | null
         }
         Update: {
@@ -2729,7 +2765,7 @@ export type Database = {
           step_therapy_required?: boolean | null
           termination_date?: string | null
           therapeutic_class?: string | null
-          tier?: number | null
+          tier?: Database["public"]["Enums"]["formulary_tier"] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -2757,12 +2793,12 @@ export type Database = {
           created_at: string | null
           custom_headers: Json | null
           ehr_system_id: string
-          environment: string | null
+          environment: Database["public"]["Enums"]["environment_type"] | null
           id: string
           last_error: string | null
           last_sync_at: string | null
           metadata: Json | null
-          status: string | null
+          status: Database["public"]["Enums"]["connection_status"] | null
           sync_config: Json | null
           team_id: string
           updated_at: string | null
@@ -2774,12 +2810,12 @@ export type Database = {
           created_at?: string | null
           custom_headers?: Json | null
           ehr_system_id: string
-          environment?: string | null
+          environment?: Database["public"]["Enums"]["environment_type"] | null
           id?: string
           last_error?: string | null
           last_sync_at?: string | null
           metadata?: Json | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["connection_status"] | null
           sync_config?: Json | null
           team_id: string
           updated_at?: string | null
@@ -2791,12 +2827,12 @@ export type Database = {
           created_at?: string | null
           custom_headers?: Json | null
           ehr_system_id?: string
-          environment?: string | null
+          environment?: Database["public"]["Enums"]["environment_type"] | null
           id?: string
           last_error?: string | null
           last_sync_at?: string | null
           metadata?: Json | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["connection_status"] | null
           sync_config?: Json | null
           team_id?: string
           updated_at?: string | null
@@ -2827,14 +2863,14 @@ export type Database = {
       }
       ehr_system: {
         Row: {
-          api_type: string | null
-          auth_method: string | null
+          api_type: Database["public"]["Enums"]["ehr_api_type"] | null
+          auth_method: Database["public"]["Enums"]["ehr_auth_method"] | null
           base_urls: Json | null
           capabilities: Json | null
           created_at: string | null
           display_name: string | null
           documentation_url: string | null
-          fhir_version: string | null
+          fhir_version: Database["public"]["Enums"]["fhir_version"] | null
           id: string
           is_active: boolean | null
           name: string
@@ -2842,14 +2878,14 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          api_type?: string | null
-          auth_method?: string | null
+          api_type?: Database["public"]["Enums"]["ehr_api_type"] | null
+          auth_method?: Database["public"]["Enums"]["ehr_auth_method"] | null
           base_urls?: Json | null
           capabilities?: Json | null
           created_at?: string | null
           display_name?: string | null
           documentation_url?: string | null
-          fhir_version?: string | null
+          fhir_version?: Database["public"]["Enums"]["fhir_version"] | null
           id?: string
           is_active?: boolean | null
           name: string
@@ -2857,14 +2893,14 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          api_type?: string | null
-          auth_method?: string | null
+          api_type?: Database["public"]["Enums"]["ehr_api_type"] | null
+          auth_method?: Database["public"]["Enums"]["ehr_auth_method"] | null
           base_urls?: Json | null
           capabilities?: Json | null
           created_at?: string | null
           display_name?: string | null
           documentation_url?: string | null
-          fhir_version?: string | null
+          fhir_version?: Database["public"]["Enums"]["fhir_version"] | null
           id?: string
           is_active?: boolean | null
           name?: string
@@ -2963,11 +2999,13 @@ export type Database = {
       }
       eligibility_check: {
         Row: {
-          check_type: string | null
+          check_type: Database["public"]["Enums"]["eligibility_check_type"]
           coverage_details: Json | null
           created_at: string | null
           effective_date: string | null
-          eligibility_status: string | null
+          eligibility_status:
+            | Database["public"]["Enums"]["eligibility_response"]
+            | null
           error_message: string | null
           id: string
           insurance_policy_id: number | null
@@ -2975,16 +3013,18 @@ export type Database = {
           patient_id: number | null
           request_data: Json
           response_data: Json | null
-          status: string
+          status: Database["public"]["Enums"]["automation_status"]
           team_id: string
           termination_date: string | null
         }
         Insert: {
-          check_type?: string | null
+          check_type?: Database["public"]["Enums"]["eligibility_check_type"]
           coverage_details?: Json | null
           created_at?: string | null
           effective_date?: string | null
-          eligibility_status?: string | null
+          eligibility_status?:
+            | Database["public"]["Enums"]["eligibility_response"]
+            | null
           error_message?: string | null
           id?: string
           insurance_policy_id?: number | null
@@ -2992,16 +3032,18 @@ export type Database = {
           patient_id?: number | null
           request_data: Json
           response_data?: Json | null
-          status: string
+          status?: Database["public"]["Enums"]["automation_status"]
           team_id: string
           termination_date?: string | null
         }
         Update: {
-          check_type?: string | null
+          check_type?: Database["public"]["Enums"]["eligibility_check_type"]
           coverage_details?: Json | null
           created_at?: string | null
           effective_date?: string | null
-          eligibility_status?: string | null
+          eligibility_status?:
+            | Database["public"]["Enums"]["eligibility_response"]
+            | null
           error_message?: string | null
           id?: string
           insurance_policy_id?: number | null
@@ -3009,7 +3051,7 @@ export type Database = {
           patient_id?: number | null
           request_data?: Json
           response_data?: Json | null
-          status?: string
+          status?: Database["public"]["Enums"]["automation_status"]
           team_id?: string
           termination_date?: string | null
         }
@@ -3067,7 +3109,7 @@ export type Database = {
           duration_minutes: number | null
           icd10: string
           id: string
-          modifiers: string[] | null
+          modifiers: Database["public"]["Enums"]["modifier_type"][] | null
           notes: string | null
           patient_id: number
           pos: string
@@ -3076,7 +3118,7 @@ export type Database = {
           team_id: string | null
           units: number | null
           updated_at: string | null
-          visit_type: string | null
+          visit_type: Database["public"]["Enums"]["visit_type"] | null
         }
         Insert: {
           appointment_id?: string | null
@@ -3086,7 +3128,7 @@ export type Database = {
           duration_minutes?: number | null
           icd10: string
           id: string
-          modifiers?: string[] | null
+          modifiers?: Database["public"]["Enums"]["modifier_type"][] | null
           notes?: string | null
           patient_id: number
           pos: string
@@ -3095,7 +3137,7 @@ export type Database = {
           team_id?: string | null
           units?: number | null
           updated_at?: string | null
-          visit_type?: string | null
+          visit_type?: Database["public"]["Enums"]["visit_type"] | null
         }
         Update: {
           appointment_id?: string | null
@@ -3105,7 +3147,7 @@ export type Database = {
           duration_minutes?: number | null
           icd10?: string
           id?: string
-          modifiers?: string[] | null
+          modifiers?: Database["public"]["Enums"]["modifier_type"][] | null
           notes?: string | null
           patient_id?: number
           pos?: string
@@ -3114,7 +3156,7 @@ export type Database = {
           team_id?: string | null
           units?: number | null
           updated_at?: string | null
-          visit_type?: string | null
+          visit_type?: Database["public"]["Enums"]["visit_type"] | null
         }
         Relationships: [
           {
@@ -3253,7 +3295,7 @@ export type Database = {
           error_trace: string | null
           failed_at: string | null
           id: string
-          job_type: string | null
+          job_type: Database["public"]["Enums"]["task_type"] | null
           max_retries: number | null
           next_retry_at: string | null
           payload: Json | null
@@ -3265,7 +3307,7 @@ export type Database = {
           error_trace?: string | null
           failed_at?: string | null
           id?: string
-          job_type?: string | null
+          job_type?: Database["public"]["Enums"]["task_type"] | null
           max_retries?: number | null
           next_retry_at?: string | null
           payload?: Json | null
@@ -3277,7 +3319,7 @@ export type Database = {
           error_trace?: string | null
           failed_at?: string | null
           id?: string
-          job_type?: string | null
+          job_type?: Database["public"]["Enums"]["task_type"] | null
           max_retries?: number | null
           next_retry_at?: string | null
           payload?: Json | null
@@ -3310,7 +3352,7 @@ export type Database = {
           effective_date: string
           facility_rate: number | null
           id: string
-          modifier: string | null
+          modifier: Database["public"]["Enums"]["modifier_type"] | null
           non_facility_rate: number | null
           notes: string | null
           payer_id: number | null
@@ -3327,7 +3369,7 @@ export type Database = {
           effective_date: string
           facility_rate?: number | null
           id?: string
-          modifier?: string | null
+          modifier?: Database["public"]["Enums"]["modifier_type"] | null
           non_facility_rate?: number | null
           notes?: string | null
           payer_id?: number | null
@@ -3344,7 +3386,7 @@ export type Database = {
           effective_date?: string
           facility_rate?: number | null
           id?: string
-          modifier?: string | null
+          modifier?: Database["public"]["Enums"]["modifier_type"] | null
           non_facility_rate?: number | null
           notes?: string | null
           payer_id?: number | null
@@ -3394,7 +3436,7 @@ export type Database = {
           resource_data: Json
           resource_id: string
           resource_type: string
-          source_system: string | null
+          source_system: Database["public"]["Enums"]["data_source_type"] | null
           team_id: string
           version_id: string | null
         }
@@ -3407,7 +3449,7 @@ export type Database = {
           resource_data: Json
           resource_id: string
           resource_type: string
-          source_system?: string | null
+          source_system?: Database["public"]["Enums"]["data_source_type"] | null
           team_id: string
           version_id?: string | null
         }
@@ -3420,7 +3462,7 @@ export type Database = {
           resource_data?: Json
           resource_id?: string
           resource_type?: string
-          source_system?: string | null
+          source_system?: Database["public"]["Enums"]["data_source_type"] | null
           team_id?: string
           version_id?: string | null
         }
@@ -3497,7 +3539,7 @@ export type Database = {
           merge_data: Json | null
           sent_at: string | null
           sent_to: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["document_status"] | null
           team_id: string
           template_id: string | null
         }
@@ -3512,7 +3554,7 @@ export type Database = {
           merge_data?: Json | null
           sent_at?: string | null
           sent_to?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["document_status"] | null
           team_id: string
           template_id?: string | null
         }
@@ -3527,7 +3569,7 @@ export type Database = {
           merge_data?: Json | null
           sent_at?: string | null
           sent_to?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["document_status"] | null
           team_id?: string
           template_id?: string | null
         }
@@ -3578,7 +3620,7 @@ export type Database = {
           parameters_used: Json | null
           report_definition_id: string | null
           row_count: number | null
-          status: string | null
+          status: Database["public"]["Enums"]["document_status"] | null
           team_id: string
         }
         Insert: {
@@ -3589,7 +3631,7 @@ export type Database = {
           parameters_used?: Json | null
           report_definition_id?: string | null
           row_count?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["document_status"] | null
           team_id: string
         }
         Update: {
@@ -3600,7 +3642,7 @@ export type Database = {
           parameters_used?: Json | null
           report_definition_id?: string | null
           row_count?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["document_status"] | null
           team_id?: string
         }
         Relationships: [
@@ -3698,7 +3740,7 @@ export type Database = {
           payer_id: number
           plan_name: string | null
           plan_status: string | null
-          plan_type: string | null
+          plan_type: Database["public"]["Enums"]["insurance_policy_type"] | null
           policy_type: Database["public"]["Enums"]["insurance_policy_type"]
           policyholder_first_name: string
           policyholder_last_name: string
@@ -3720,7 +3762,9 @@ export type Database = {
           payer_id: number
           plan_name?: string | null
           plan_status?: string | null
-          plan_type?: string | null
+          plan_type?:
+            | Database["public"]["Enums"]["insurance_policy_type"]
+            | null
           policy_type?: Database["public"]["Enums"]["insurance_policy_type"]
           policyholder_first_name: string
           policyholder_last_name: string
@@ -3742,7 +3786,9 @@ export type Database = {
           payer_id?: number
           plan_name?: string | null
           plan_status?: string | null
-          plan_type?: string | null
+          plan_type?:
+            | Database["public"]["Enums"]["insurance_policy_type"]
+            | null
           policy_type?: Database["public"]["Enums"]["insurance_policy_type"]
           policyholder_first_name?: string
           policyholder_last_name?: string
@@ -3807,10 +3853,14 @@ export type Database = {
           created_at: string | null
           duration_ms: number | null
           error_message: string | null
-          event_type: string | null
+          event_type:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           http_status: number | null
           id: string
-          integration_type: string | null
+          integration_type:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           request_data: Json | null
           request_id: string | null
           response_data: Json | null
@@ -3820,10 +3870,14 @@ export type Database = {
           created_at?: string | null
           duration_ms?: number | null
           error_message?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           http_status?: number | null
           id?: string
-          integration_type?: string | null
+          integration_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           request_data?: Json | null
           request_id?: string | null
           response_data?: Json | null
@@ -3833,10 +3887,14 @@ export type Database = {
           created_at?: string | null
           duration_ms?: number | null
           error_message?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           http_status?: number | null
           id?: string
-          integration_type?: string | null
+          integration_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           request_data?: Json | null
           request_id?: string | null
           response_data?: Json | null
@@ -3864,7 +3922,7 @@ export type Database = {
           calculation_sql: string | null
           category: string | null
           created_at: string | null
-          frequency: string | null
+          frequency: Database["public"]["Enums"]["billing_frequency"] | null
           id: string
           is_active: boolean | null
           kpi_name: string
@@ -3876,7 +3934,7 @@ export type Database = {
           calculation_sql?: string | null
           category?: string | null
           created_at?: string | null
-          frequency?: string | null
+          frequency?: Database["public"]["Enums"]["billing_frequency"] | null
           id?: string
           is_active?: boolean | null
           kpi_name: string
@@ -3888,7 +3946,7 @@ export type Database = {
           calculation_sql?: string | null
           category?: string | null
           created_at?: string | null
-          frequency?: string | null
+          frequency?: Database["public"]["Enums"]["billing_frequency"] | null
           id?: string
           is_active?: boolean | null
           kpi_name?: string
@@ -4136,7 +4194,7 @@ export type Database = {
           code: string
           created_at: string | null
           description: string
-          modifier_type: string | null
+          modifier_type: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact: number | null
           requires_documentation: boolean | null
         }
@@ -4144,7 +4202,7 @@ export type Database = {
           code: string
           created_at?: string | null
           description: string
-          modifier_type?: string | null
+          modifier_type?: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact?: number | null
           requires_documentation?: boolean | null
         }
@@ -4152,7 +4210,7 @@ export type Database = {
           code?: string
           created_at?: string | null
           description?: string
-          modifier_type?: string | null
+          modifier_type?: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact?: number | null
           requires_documentation?: boolean | null
         }
@@ -4167,12 +4225,12 @@ export type Database = {
           metadata: Json | null
           recipient: string | null
           sent_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           subject: string | null
           team_id: string
           team_member_id: string | null
           template_id: string | null
-          type: string | null
+          type: Database["public"]["Enums"]["task_type"] | null
         }
         Insert: {
           body?: string | null
@@ -4182,12 +4240,12 @@ export type Database = {
           metadata?: Json | null
           recipient?: string | null
           sent_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           subject?: string | null
           team_id: string
           team_member_id?: string | null
           template_id?: string | null
-          type?: string | null
+          type?: Database["public"]["Enums"]["task_type"] | null
         }
         Update: {
           body?: string | null
@@ -4197,12 +4255,12 @@ export type Database = {
           metadata?: Json | null
           recipient?: string | null
           sent_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           subject?: string | null
           team_id?: string
           team_member_id?: string | null
           template_id?: string | null
-          type?: string | null
+          type?: Database["public"]["Enums"]["task_type"] | null
         }
         Relationships: [
           {
@@ -4246,39 +4304,45 @@ export type Database = {
         Row: {
           body_template: string | null
           created_at: string | null
-          event_type: string | null
+          event_type:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id: string
           is_active: boolean | null
           name: string
           subject: string | null
           team_id: string | null
-          type: string | null
+          type: Database["public"]["Enums"]["notification_type"] | null
           updated_at: string | null
           variables: Json | null
         }
         Insert: {
           body_template?: string | null
           created_at?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id?: string
           is_active?: boolean | null
           name: string
           subject?: string | null
           team_id?: string | null
-          type?: string | null
+          type?: Database["public"]["Enums"]["notification_type"] | null
           updated_at?: string | null
           variables?: Json | null
         }
         Update: {
           body_template?: string | null
           created_at?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id?: string
           is_active?: boolean | null
           name?: string
           subject?: string | null
           team_id?: string | null
-          type?: string | null
+          type?: Database["public"]["Enums"]["notification_type"] | null
           updated_at?: string | null
           variables?: Json | null
         }
@@ -4314,7 +4378,7 @@ export type Database = {
           icd10_requirements: string[] | null
           id: string
           payer_id: number | null
-          service_type: string | null
+          service_type: Database["public"]["Enums"]["visit_type"] | null
           termination_date: string | null
           updated_at: string | null
         }
@@ -4332,7 +4396,7 @@ export type Database = {
           icd10_requirements?: string[] | null
           id?: string
           payer_id?: number | null
-          service_type?: string | null
+          service_type?: Database["public"]["Enums"]["visit_type"] | null
           termination_date?: string | null
           updated_at?: string | null
         }
@@ -4350,7 +4414,7 @@ export type Database = {
           icd10_requirements?: string[] | null
           id?: string
           payer_id?: number | null
-          service_type?: string | null
+          service_type?: Database["public"]["Enums"]["visit_type"] | null
           termination_date?: string | null
           updated_at?: string | null
         }
@@ -4457,7 +4521,7 @@ export type Database = {
       pa_supporting_document: {
         Row: {
           created_at: string | null
-          document_type: string | null
+          document_type: Database["public"]["Enums"]["document_type"] | null
           file_name: string | null
           file_path: string | null
           id: string
@@ -4469,7 +4533,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           file_name?: string | null
           file_path?: string | null
           id?: string
@@ -4481,7 +4545,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           file_name?: string | null
           file_path?: string | null
           id?: string
@@ -4549,7 +4613,7 @@ export type Database = {
           region: string | null
           ssn_encrypted: string | null
           ssn_key_id: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["patient_status"] | null
           team_id: string | null
           updated_at: string
           weight: number | null
@@ -4566,7 +4630,7 @@ export type Database = {
           region?: string | null
           ssn_encrypted?: string | null
           ssn_key_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["patient_status"] | null
           team_id?: string | null
           updated_at?: string
           weight?: number | null
@@ -4583,7 +4647,7 @@ export type Database = {
           region?: string | null
           ssn_encrypted?: string | null
           ssn_key_id?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["patient_status"] | null
           team_id?: string | null
           updated_at?: string
           weight?: number | null
@@ -4620,7 +4684,7 @@ export type Database = {
           id: number
           name: string | null
           patient_id: number | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
         }
         Insert: {
           condition_external_id?: string | null
@@ -4629,7 +4693,7 @@ export type Database = {
           id?: number
           name?: string | null
           patient_id?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
         }
         Update: {
           condition_external_id?: string | null
@@ -4638,7 +4702,7 @@ export type Database = {
           id?: number
           name?: string | null
           patient_id?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
         }
         Relationships: [
           {
@@ -4668,7 +4732,7 @@ export type Database = {
         Row: {
           created_at: string | null
           document_name: string | null
-          document_type: string | null
+          document_type: Database["public"]["Enums"]["document_type"] | null
           expiration_date: string | null
           file_path: string | null
           file_size: number | null
@@ -4686,7 +4750,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           document_name?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           expiration_date?: string | null
           file_path?: string | null
           file_size?: number | null
@@ -4704,7 +4768,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           document_name?: string | null
-          document_type?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
           expiration_date?: string | null
           file_path?: string | null
           file_size?: number | null
@@ -4779,11 +4843,11 @@ export type Database = {
           id: string
           notes: string | null
           patient_id: number | null
-          payment_method: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
           payment_plan_id: string | null
           processed_at: string | null
           reference_number: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           transaction_id: string | null
         }
@@ -4794,11 +4858,11 @@ export type Database = {
           id?: string
           notes?: string | null
           patient_id?: number | null
-          payment_method?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_plan_id?: string | null
           processed_at?: string | null
           reference_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           transaction_id?: string | null
         }
@@ -4809,11 +4873,11 @@ export type Database = {
           id?: string
           notes?: string | null
           patient_id?: number | null
-          payment_method?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           payment_plan_id?: string | null
           processed_at?: string | null
           reference_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           transaction_id?: string | null
         }
@@ -4914,7 +4978,7 @@ export type Database = {
           created_at: string
           email: string | null
           first_name: string | null
-          gender: string | null
+          gender: Database["public"]["Enums"]["gender"]
           id: number
           last_name: string | null
           patient_address: number | null
@@ -4927,7 +4991,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
-          gender?: string | null
+          gender?: Database["public"]["Enums"]["gender"]
           id?: number
           last_name?: string | null
           patient_address?: number | null
@@ -4940,7 +5004,7 @@ export type Database = {
           created_at?: string
           email?: string | null
           first_name?: string | null
-          gender?: string | null
+          gender?: Database["public"]["Enums"]["gender"]
           id?: number
           last_name?: string | null
           patient_address?: number | null
@@ -4986,7 +5050,7 @@ export type Database = {
           quality_measure_id: string | null
           reporting_period_end: string | null
           reporting_period_start: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["validation_status"] | null
           team_id: string
           updated_at: string | null
         }
@@ -5003,7 +5067,7 @@ export type Database = {
           quality_measure_id?: string | null
           reporting_period_end?: string | null
           reporting_period_start?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["validation_status"] | null
           team_id: string
           updated_at?: string | null
         }
@@ -5020,7 +5084,7 @@ export type Database = {
           quality_measure_id?: string | null
           reporting_period_end?: string | null
           reporting_period_start?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["validation_status"] | null
           team_id?: string
           updated_at?: string | null
         }
@@ -5084,7 +5148,7 @@ export type Database = {
           sent_method: string | null
           statement_date: string
           statement_number: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
           viewed_at: string | null
@@ -5103,7 +5167,7 @@ export type Database = {
           sent_method?: string | null
           statement_date: string
           statement_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
           viewed_at?: string | null
@@ -5122,7 +5186,7 @@ export type Database = {
           sent_method?: string | null
           statement_date?: string
           statement_number?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           total_balance?: number
           viewed_at?: string | null
@@ -5171,7 +5235,7 @@ export type Database = {
           external_payer_id: string
           id: number
           name: string
-          payer_type: string | null
+          payer_type: Database["public"]["Enums"]["payer_config_type"] | null
           team_id: string | null
           updated_at: string | null
         }
@@ -5180,7 +5244,7 @@ export type Database = {
           external_payer_id: string
           id?: number
           name: string
-          payer_type?: string | null
+          payer_type?: Database["public"]["Enums"]["payer_config_type"] | null
           team_id?: string | null
           updated_at?: string | null
         }
@@ -5189,7 +5253,7 @@ export type Database = {
           external_payer_id?: string
           id?: number
           name?: string
-          payer_type?: string | null
+          payer_type?: Database["public"]["Enums"]["payer_config_type"] | null
           team_id?: string | null
           updated_at?: string | null
         }
@@ -5214,7 +5278,7 @@ export type Database = {
         Row: {
           auto_submit_claims: boolean | null
           auto_submit_pa: boolean | null
-          config_type: string
+          config_type: Database["public"]["Enums"]["payer_config_type"]
           created_at: string | null
           eligibility_cache_hours: number | null
           id: string
@@ -5230,7 +5294,7 @@ export type Database = {
         Insert: {
           auto_submit_claims?: boolean | null
           auto_submit_pa?: boolean | null
-          config_type: string
+          config_type?: Database["public"]["Enums"]["payer_config_type"]
           created_at?: string | null
           eligibility_cache_hours?: number | null
           id?: string
@@ -5246,7 +5310,7 @@ export type Database = {
         Update: {
           auto_submit_claims?: boolean | null
           auto_submit_pa?: boolean | null
-          config_type?: string
+          config_type?: Database["public"]["Enums"]["payer_config_type"]
           created_at?: string | null
           eligibility_cache_hours?: number | null
           id?: string
@@ -5373,7 +5437,7 @@ export type Database = {
           entity_type: string | null
           id: string
           message: string | null
-          message_type: string | null
+          message_type: Database["public"]["Enums"]["communication_type"] | null
           resolved: boolean | null
           resolved_at: string | null
           resolved_by: string | null
@@ -5387,7 +5451,9 @@ export type Database = {
           entity_type?: string | null
           id?: string
           message?: string | null
-          message_type?: string | null
+          message_type?:
+            | Database["public"]["Enums"]["communication_type"]
+            | null
           resolved?: boolean | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -5401,7 +5467,9 @@ export type Database = {
           entity_type?: string | null
           id?: string
           message?: string | null
-          message_type?: string | null
+          message_type?:
+            | Database["public"]["Enums"]["communication_type"]
+            | null
           resolved?: boolean | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -5447,7 +5515,9 @@ export type Database = {
           portal_url: string | null
           required_attachments: string[] | null
           special_instructions: Json | null
-          submission_method: string | null
+          submission_method:
+            | Database["public"]["Enums"]["submission_method"]
+            | null
         }
         Insert: {
           api_endpoint?: string | null
@@ -5457,7 +5527,9 @@ export type Database = {
           portal_url?: string | null
           required_attachments?: string[] | null
           special_instructions?: Json | null
-          submission_method?: string | null
+          submission_method?:
+            | Database["public"]["Enums"]["submission_method"]
+            | null
         }
         Update: {
           api_endpoint?: string | null
@@ -5467,7 +5539,9 @@ export type Database = {
           portal_url?: string | null
           required_attachments?: string[] | null
           special_instructions?: Json | null
-          submission_method?: string | null
+          submission_method?:
+            | Database["public"]["Enums"]["submission_method"]
+            | null
         }
         Relationships: [
           {
@@ -5488,7 +5562,7 @@ export type Database = {
       }
       payment_adjustment: {
         Row: {
-          adjustment_type: string | null
+          adjustment_type: Database["public"]["Enums"]["adjustment_type"] | null
           amount: number
           claim_id: string | null
           created_at: string | null
@@ -5503,7 +5577,9 @@ export type Database = {
           team_id: string
         }
         Insert: {
-          adjustment_type?: string | null
+          adjustment_type?:
+            | Database["public"]["Enums"]["adjustment_type"]
+            | null
           amount: number
           claim_id?: string | null
           created_at?: string | null
@@ -5518,7 +5594,9 @@ export type Database = {
           team_id: string
         }
         Update: {
-          adjustment_type?: string | null
+          adjustment_type?:
+            | Database["public"]["Enums"]["adjustment_type"]
+            | null
           amount?: number
           claim_id?: string | null
           created_at?: string | null
@@ -5616,7 +5694,7 @@ export type Database = {
           patient_responsibility: number | null
           remittance_advice_id: string | null
           service_date: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["payment_status"] | null
         }
         Insert: {
           adjustment_codes?: Json | null
@@ -5635,7 +5713,7 @@ export type Database = {
           patient_responsibility?: number | null
           remittance_advice_id?: string | null
           service_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
         }
         Update: {
           adjustment_codes?: Json | null
@@ -5654,7 +5732,7 @@ export type Database = {
           patient_responsibility?: number | null
           remittance_advice_id?: string | null
           service_date?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
         }
         Relationships: [
           {
@@ -5728,7 +5806,7 @@ export type Database = {
           payment_method_token: string | null
           payments_made: number | null
           start_date: string
-          status: string | null
+          status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_amount: number
           updated_at: string | null
@@ -5745,7 +5823,7 @@ export type Database = {
           payment_method_token?: string | null
           payments_made?: number | null
           start_date: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_amount: number
           updated_at?: string | null
@@ -5762,7 +5840,7 @@ export type Database = {
           payment_method_token?: string | null
           payments_made?: number | null
           start_date?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           total_amount?: number
           updated_at?: string | null
@@ -5839,7 +5917,15 @@ export type Database = {
           team_id?: string | null
           total_posted?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "payment_posting_session_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "user_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_reconciliation: {
         Row: {
@@ -5851,11 +5937,13 @@ export type Database = {
           received_amount: number | null
           reconciled_at: string | null
           reconciled_by: string | null
-          reconciliation_status: string | null
+          reconciliation_status:
+            | Database["public"]["Enums"]["work_queue_status"]
+            | null
           requires_appeal: boolean | null
           team_id: string
           variance_amount: number | null
-          variance_reason: string | null
+          variance_reason: Database["public"]["Enums"]["variance_type"] | null
         }
         Insert: {
           claim_id?: string | null
@@ -5866,11 +5954,13 @@ export type Database = {
           received_amount?: number | null
           reconciled_at?: string | null
           reconciled_by?: string | null
-          reconciliation_status?: string | null
+          reconciliation_status?:
+            | Database["public"]["Enums"]["work_queue_status"]
+            | null
           requires_appeal?: boolean | null
           team_id: string
           variance_amount?: number | null
-          variance_reason?: string | null
+          variance_reason?: Database["public"]["Enums"]["variance_type"] | null
         }
         Update: {
           claim_id?: string | null
@@ -5881,11 +5971,13 @@ export type Database = {
           received_amount?: number | null
           reconciled_at?: string | null
           reconciled_by?: string | null
-          reconciliation_status?: string | null
+          reconciliation_status?:
+            | Database["public"]["Enums"]["work_queue_status"]
+            | null
           requires_appeal?: boolean | null
           team_id?: string
           variance_amount?: number | null
-          variance_reason?: string | null
+          variance_reason?: Database["public"]["Enums"]["variance_type"] | null
         }
         Relationships: [
           {
@@ -5955,7 +6047,7 @@ export type Database = {
           paid_amount: number | null
           team_id: string | null
           variance_amount: number | null
-          variance_reason: string | null
+          variance_reason: Database["public"]["Enums"]["variance_type"] | null
         }
         Insert: {
           action_required?: string | null
@@ -5965,7 +6057,7 @@ export type Database = {
           paid_amount?: number | null
           team_id?: string | null
           variance_amount?: number | null
-          variance_reason?: string | null
+          variance_reason?: Database["public"]["Enums"]["variance_type"] | null
         }
         Update: {
           action_required?: string | null
@@ -5975,7 +6067,7 @@ export type Database = {
           paid_amount?: number | null
           team_id?: string | null
           variance_amount?: number | null
-          variance_reason?: string | null
+          variance_reason?: Database["public"]["Enums"]["variance_type"] | null
         }
         Relationships: [
           {
@@ -6077,7 +6169,7 @@ export type Database = {
           result_data: Json | null
           retry_count: number | null
           scheduled_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           task_type: string | null
           team_id: string
         }
@@ -6092,7 +6184,7 @@ export type Database = {
           result_data?: Json | null
           retry_count?: number | null
           scheduled_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           task_type?: string | null
           team_id: string
         }
@@ -6107,7 +6199,7 @@ export type Database = {
           result_data?: Json | null
           retry_count?: number | null
           scheduled_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           task_type?: string | null
           team_id?: string
         }
@@ -6155,7 +6247,7 @@ export type Database = {
           payer_id: number | null
           prev_therapies: string[] | null
           quantity: number | null
-          status: string
+          status: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at: string | null
           suggested_fixes: Json[] | null
           team_id: string | null
@@ -6180,7 +6272,7 @@ export type Database = {
           payer_id?: number | null
           prev_therapies?: string[] | null
           quantity?: number | null
-          status: string
+          status?: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at?: string | null
           suggested_fixes?: Json[] | null
           team_id?: string | null
@@ -6205,7 +6297,7 @@ export type Database = {
           payer_id?: number | null
           prev_therapies?: string[] | null
           quantity?: number | null
-          status?: string
+          status?: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at?: string | null
           suggested_fixes?: Json[] | null
           team_id?: string | null
@@ -6365,8 +6457,12 @@ export type Database = {
           created_at: string | null
           effective_date: string | null
           enrollment_id: string | null
-          enrollment_status: string | null
-          enrollment_type: string | null
+          enrollment_status:
+            | Database["public"]["Enums"]["provider_enrollment_status"]
+            | null
+          enrollment_type:
+            | Database["public"]["Enums"]["provider_enrollment_type"]
+            | null
           id: string
           is_par: boolean | null
           payer_id: number | null
@@ -6381,8 +6477,12 @@ export type Database = {
           created_at?: string | null
           effective_date?: string | null
           enrollment_id?: string | null
-          enrollment_status?: string | null
-          enrollment_type?: string | null
+          enrollment_status?:
+            | Database["public"]["Enums"]["provider_enrollment_status"]
+            | null
+          enrollment_type?:
+            | Database["public"]["Enums"]["provider_enrollment_type"]
+            | null
           id?: string
           is_par?: boolean | null
           payer_id?: number | null
@@ -6397,8 +6497,12 @@ export type Database = {
           created_at?: string | null
           effective_date?: string | null
           enrollment_id?: string | null
-          enrollment_status?: string | null
-          enrollment_type?: string | null
+          enrollment_status?:
+            | Database["public"]["Enums"]["provider_enrollment_status"]
+            | null
+          enrollment_type?:
+            | Database["public"]["Enums"]["provider_enrollment_type"]
+            | null
           id?: string
           is_par?: boolean | null
           payer_id?: number | null
@@ -6577,7 +6681,9 @@ export type Database = {
       }
       rate_limit_bucket: {
         Row: {
-          bucket_type: string | null
+          bucket_type:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at: string | null
           id: string
           identifier: string
@@ -6585,7 +6691,9 @@ export type Database = {
           window_start: string
         }
         Insert: {
-          bucket_type?: string | null
+          bucket_type?:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at?: string | null
           id?: string
           identifier: string
@@ -6593,7 +6701,9 @@ export type Database = {
           window_start: string
         }
         Update: {
-          bucket_type?: string | null
+          bucket_type?:
+            | Database["public"]["Enums"]["retry_backoff_strategy"]
+            | null
           created_at?: string | null
           id?: string
           identifier?: string
@@ -6615,10 +6725,10 @@ export type Database = {
           referred_to_provider_npi: string | null
           referring_provider_id: number | null
           specialty: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
           updated_at: string | null
-          urgency: string | null
+          urgency: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized: number | null
           visits_used: number | null
         }
@@ -6634,10 +6744,10 @@ export type Database = {
           referred_to_provider_npi?: string | null
           referring_provider_id?: number | null
           specialty?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
           updated_at?: string | null
-          urgency?: string | null
+          urgency?: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized?: number | null
           visits_used?: number | null
         }
@@ -6653,10 +6763,10 @@ export type Database = {
           referred_to_provider_npi?: string | null
           referring_provider_id?: number | null
           specialty?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
           updated_at?: string | null
-          urgency?: string | null
+          urgency?: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized?: number | null
           visits_used?: number | null
         }
@@ -6681,6 +6791,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patient_balance_summary"
             referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "referral_referred_to_provider_npi_fkey"
+            columns: ["referred_to_provider_npi"]
+            isOneToOne: false
+            referencedRelation: "clinician"
+            referencedColumns: ["npi_key"]
+          },
+          {
+            foreignKeyName: "referral_referred_to_provider_npi_fkey"
+            columns: ["referred_to_provider_npi"]
+            isOneToOne: false
+            referencedRelation: "credentialing_status"
+            referencedColumns: ["npi_key"]
+          },
+          {
+            foreignKeyName: "referral_referred_to_provider_npi_fkey"
+            columns: ["referred_to_provider_npi"]
+            isOneToOne: false
+            referencedRelation: "provider_productivity"
+            referencedColumns: ["npi_key"]
           },
           {
             foreignKeyName: "referral_referring_provider_id_fkey"
@@ -6724,9 +6855,9 @@ export type Database = {
           payer_id: number | null
           payment_amount: number
           payment_date: string
-          payment_method: string | null
+          payment_method: Database["public"]["Enums"]["payment_method"] | null
           raw_era_data: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["era_status"] | null
           team_id: string
           updated_at: string | null
         }
@@ -6741,9 +6872,9 @@ export type Database = {
           payer_id?: number | null
           payment_amount: number
           payment_date: string
-          payment_method?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           raw_era_data?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["era_status"] | null
           team_id: string
           updated_at?: string | null
         }
@@ -6758,9 +6889,9 @@ export type Database = {
           payer_id?: number | null
           payment_amount?: number
           payment_date?: string
-          payment_method?: string | null
+          payment_method?: Database["public"]["Enums"]["payment_method"] | null
           raw_era_data?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["era_status"] | null
           team_id?: string
           updated_at?: string | null
         }
@@ -6805,7 +6936,7 @@ export type Database = {
           output_format: string | null
           parameters: Json | null
           query_template: string | null
-          report_type: string | null
+          report_type: Database["public"]["Enums"]["payer_config_type"] | null
           schedule_config: Json | null
           team_id: string | null
           updated_at: string | null
@@ -6819,7 +6950,7 @@ export type Database = {
           output_format?: string | null
           parameters?: Json | null
           query_template?: string | null
-          report_type?: string | null
+          report_type?: Database["public"]["Enums"]["payer_config_type"] | null
           schedule_config?: Json | null
           team_id?: string | null
           updated_at?: string | null
@@ -6833,7 +6964,7 @@ export type Database = {
           output_format?: string | null
           parameters?: Json | null
           query_template?: string | null
-          report_type?: string | null
+          report_type?: Database["public"]["Enums"]["payer_config_type"] | null
           schedule_config?: Json | null
           team_id?: string | null
           updated_at?: string | null
@@ -6971,7 +7102,7 @@ export type Database = {
           id: string
           message: string | null
           rule_name: string
-          severity: string | null
+          severity: Database["public"]["Enums"]["scrubbing_severity"] | null
           suggested_fix: Json | null
           team_id: string
         }
@@ -6986,7 +7117,7 @@ export type Database = {
           id?: string
           message?: string | null
           rule_name: string
-          severity?: string | null
+          severity?: Database["public"]["Enums"]["scrubbing_severity"] | null
           suggested_fix?: Json | null
           team_id: string
         }
@@ -7001,7 +7132,7 @@ export type Database = {
           id?: string
           message?: string | null
           rule_name?: string
-          severity?: string | null
+          severity?: Database["public"]["Enums"]["scrubbing_severity"] | null
           suggested_fix?: Json | null
           team_id?: string
         }
@@ -7128,7 +7259,7 @@ export type Database = {
           records_failed: number | null
           records_processed: number | null
           started_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
         }
         Insert: {
@@ -7143,7 +7274,7 @@ export type Database = {
           records_failed?: number | null
           records_processed?: number | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
         }
         Update: {
@@ -7158,7 +7289,7 @@ export type Database = {
           records_failed?: number | null
           records_processed?: number | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
         }
         Relationships: [
@@ -7222,13 +7353,13 @@ export type Database = {
           logo_url: string | null
           name: string
           npi: string | null
-          plan_type: string | null
+          plan_type: Database["public"]["Enums"]["recurring_plan_type"] | null
           settings: Json | null
           slug: string
-          status: string | null
+          status: Database["public"]["Enums"]["team_status"] | null
           tax_id: string | null
           trial_ends_at: string | null
-          type: string | null
+          type: Database["public"]["Enums"]["provider_enrollment_status"] | null
           updated_at: string | null
         }
         Insert: {
@@ -7239,13 +7370,15 @@ export type Database = {
           logo_url?: string | null
           name: string
           npi?: string | null
-          plan_type?: string | null
+          plan_type?: Database["public"]["Enums"]["recurring_plan_type"] | null
           settings?: Json | null
           slug: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["team_status"] | null
           tax_id?: string | null
           trial_ends_at?: string | null
-          type?: string | null
+          type?:
+            | Database["public"]["Enums"]["provider_enrollment_status"]
+            | null
           updated_at?: string | null
         }
         Update: {
@@ -7256,13 +7389,15 @@ export type Database = {
           logo_url?: string | null
           name?: string
           npi?: string | null
-          plan_type?: string | null
+          plan_type?: Database["public"]["Enums"]["recurring_plan_type"] | null
           settings?: Json | null
           slug?: string
-          status?: string | null
+          status?: Database["public"]["Enums"]["team_status"] | null
           tax_id?: string | null
           trial_ends_at?: string | null
-          type?: string | null
+          type?:
+            | Database["public"]["Enums"]["provider_enrollment_status"]
+            | null
           updated_at?: string | null
         }
         Relationships: []
@@ -7275,7 +7410,7 @@ export type Database = {
           expires_at: string | null
           id: string
           invited_by: string | null
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
           team_id: string | null
           team_member_id: string | null
           token: string
@@ -7287,7 +7422,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by?: string | null
-          role?: string
+          role: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           team_member_id?: string | null
           token?: string
@@ -7299,7 +7434,7 @@ export type Database = {
           expires_at?: string | null
           id?: string
           invited_by?: string | null
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
           team_id?: string | null
           team_member_id?: string | null
           token?: string
@@ -7337,6 +7472,8 @@ export type Database = {
       }
       team_member: {
         Row: {
+          clerk_org_id: string | null
+          clerk_user_id: string | null
           created_at: string | null
           id: string
           invited_at: string | null
@@ -7345,13 +7482,15 @@ export type Database = {
           last_login_at: string | null
           mfa_enabled: boolean | null
           permissions: Json | null
-          role: string
+          role: Database["public"]["Enums"]["user_role"]
           status: string
           team_id: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
+          clerk_org_id?: string | null
+          clerk_user_id?: string | null
           created_at?: string | null
           id?: string
           invited_at?: string | null
@@ -7360,13 +7499,15 @@ export type Database = {
           last_login_at?: string | null
           mfa_enabled?: boolean | null
           permissions?: Json | null
-          role?: string
+          role: Database["public"]["Enums"]["user_role"]
           status?: string
           team_id?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
+          clerk_org_id?: string | null
+          clerk_user_id?: string | null
           created_at?: string | null
           id?: string
           invited_at?: string | null
@@ -7375,7 +7516,7 @@ export type Database = {
           last_login_at?: string | null
           mfa_enabled?: boolean | null
           permissions?: Json | null
-          role?: string
+          role?: Database["public"]["Enums"]["user_role"]
           status?: string
           team_id?: string | null
           updated_at?: string | null
@@ -7451,7 +7592,9 @@ export type Database = {
         Row: {
           active: boolean | null
           connection_config: Json | null
-          connection_method: string | null
+          connection_method:
+            | Database["public"]["Enums"]["ehr_auth_method"]
+            | null
           created_at: string | null
           edi_receiver_id: string | null
           edi_sender_id: string | null
@@ -7459,7 +7602,9 @@ export type Database = {
           isa_qualifier: string | null
           partner_name: string
           partner_type: string | null
-          supported_transactions: string[] | null
+          supported_transactions:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id: string
           test_mode: boolean | null
           updated_at: string | null
@@ -7467,7 +7612,9 @@ export type Database = {
         Insert: {
           active?: boolean | null
           connection_config?: Json | null
-          connection_method?: string | null
+          connection_method?:
+            | Database["public"]["Enums"]["ehr_auth_method"]
+            | null
           created_at?: string | null
           edi_receiver_id?: string | null
           edi_sender_id?: string | null
@@ -7475,7 +7622,9 @@ export type Database = {
           isa_qualifier?: string | null
           partner_name: string
           partner_type?: string | null
-          supported_transactions?: string[] | null
+          supported_transactions?:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id: string
           test_mode?: boolean | null
           updated_at?: string | null
@@ -7483,7 +7632,9 @@ export type Database = {
         Update: {
           active?: boolean | null
           connection_config?: Json | null
-          connection_method?: string | null
+          connection_method?:
+            | Database["public"]["Enums"]["ehr_auth_method"]
+            | null
           created_at?: string | null
           edi_receiver_id?: string | null
           edi_sender_id?: string | null
@@ -7491,7 +7642,9 @@ export type Database = {
           isa_qualifier?: string | null
           partner_name?: string
           partner_type?: string | null
-          supported_transactions?: string[] | null
+          supported_transactions?:
+            | Database["public"]["Enums"]["x12_transaction_type"][]
+            | null
           team_id?: string
           test_mode?: boolean | null
           updated_at?: string | null
@@ -7619,7 +7772,9 @@ export type Database = {
         Row: {
           created_at: string | null
           ehr_connection_id: string | null
-          event_type: string | null
+          event_type:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           headers: Json | null
           id: string
           is_active: boolean | null
@@ -7632,7 +7787,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           ehr_connection_id?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           headers?: Json | null
           id?: string
           is_active?: boolean | null
@@ -7645,7 +7802,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           ehr_connection_id?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           headers?: Json | null
           id?: string
           is_active?: boolean | null
@@ -7691,7 +7850,9 @@ export type Database = {
           attempt_count: number | null
           created_at: string | null
           delivered_at: string | null
-          event_type: string | null
+          event_type:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id: string
           next_retry_at: string | null
           payload: Json | null
@@ -7703,7 +7864,9 @@ export type Database = {
           attempt_count?: number | null
           created_at?: string | null
           delivered_at?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id?: string
           next_retry_at?: string | null
           payload?: Json | null
@@ -7715,7 +7878,9 @@ export type Database = {
           attempt_count?: number | null
           created_at?: string | null
           delivered_at?: string | null
-          event_type?: string | null
+          event_type?:
+            | Database["public"]["Enums"]["analytics_event_category"]
+            | null
           id?: string
           next_retry_at?: string | null
           payload?: Json | null
@@ -7747,10 +7912,10 @@ export type Database = {
           id: string
           metadata: Json | null
           priority: number | null
-          queue_type: string
+          queue_type: Database["public"]["Enums"]["work_queue_type"]
           sla_deadline: string | null
           started_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["work_queue_status"] | null
           team_id: string
           title: string
           updated_at: string | null
@@ -7768,10 +7933,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           priority?: number | null
-          queue_type: string
+          queue_type: Database["public"]["Enums"]["work_queue_type"]
           sla_deadline?: string | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["work_queue_status"] | null
           team_id: string
           title: string
           updated_at?: string | null
@@ -7789,10 +7954,10 @@ export type Database = {
           id?: string
           metadata?: Json | null
           priority?: number | null
-          queue_type?: string
+          queue_type?: Database["public"]["Enums"]["work_queue_type"]
           sla_deadline?: string | null
           started_at?: string | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["work_queue_status"] | null
           team_id?: string
           title?: string
           updated_at?: string | null
@@ -7836,7 +8001,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           max_items_per_user: number | null
-          queue_type: string
+          queue_type: Database["public"]["Enums"]["work_queue_type"]
           rule_name: string
           skill_requirements: Json | null
           team_id: string
@@ -7849,7 +8014,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_items_per_user?: number | null
-          queue_type: string
+          queue_type: Database["public"]["Enums"]["work_queue_type"]
           rule_name: string
           skill_requirements?: Json | null
           team_id: string
@@ -7862,7 +8027,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           max_items_per_user?: number | null
-          queue_type?: string
+          queue_type?: Database["public"]["Enums"]["work_queue_type"]
           rule_name?: string
           skill_requirements?: Json | null
           team_id?: string
@@ -7952,7 +8117,7 @@ export type Database = {
           state_entered_at: string | null
           team_id: string
           transitions_history: Json[] | null
-          workflow_type: string
+          workflow_type: Database["public"]["Enums"]["work_queue_type"]
         }
         Insert: {
           created_at?: string | null
@@ -7965,7 +8130,7 @@ export type Database = {
           state_entered_at?: string | null
           team_id: string
           transitions_history?: Json[] | null
-          workflow_type: string
+          workflow_type: Database["public"]["Enums"]["work_queue_type"]
         }
         Update: {
           created_at?: string | null
@@ -7978,7 +8143,7 @@ export type Database = {
           state_entered_at?: string | null
           team_id?: string
           transitions_history?: Json[] | null
-          workflow_type?: string
+          workflow_type?: Database["public"]["Enums"]["work_queue_type"]
         }
         Relationships: [
           {
@@ -8003,15 +8168,17 @@ export type Database = {
           clearinghouse_id: string | null
           control_number: string | null
           created_at: string | null
-          direction: string | null
+          direction: Database["public"]["Enums"]["direction"] | null
           error_messages: Json | null
           file_path: string | null
           file_size: number | null
           id: string
           record_count: number | null
-          status: string | null
+          status: Database["public"]["Enums"]["claim_status"] | null
           team_id: string
-          transaction_type: string | null
+          transaction_type:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
           transmitted_at: string | null
         }
         Insert: {
@@ -8019,15 +8186,17 @@ export type Database = {
           clearinghouse_id?: string | null
           control_number?: string | null
           created_at?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["direction"] | null
           error_messages?: Json | null
           file_path?: string | null
           file_size?: number | null
           id?: string
           record_count?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["claim_status"] | null
           team_id: string
-          transaction_type?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
           transmitted_at?: string | null
         }
         Update: {
@@ -8035,15 +8204,17 @@ export type Database = {
           clearinghouse_id?: string | null
           control_number?: string | null
           created_at?: string | null
-          direction?: string | null
+          direction?: Database["public"]["Enums"]["direction"] | null
           error_messages?: Json | null
           file_path?: string | null
           file_size?: number | null
           id?: string
           record_count?: number | null
-          status?: string | null
+          status?: Database["public"]["Enums"]["claim_status"] | null
           team_id?: string
-          transaction_type?: string | null
+          transaction_type?:
+            | Database["public"]["Enums"]["x12_transaction_type"]
+            | null
           transmitted_at?: string | null
         }
         Relationships: [
@@ -8151,7 +8322,7 @@ export type Database = {
           payer_id: number | null
           payer_name: string | null
           rejected_at: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["claim_status"] | null
           submitted_at: string | null
           suggested_fixes: Json[] | null
           total_amount: number | null
@@ -8206,7 +8377,7 @@ export type Database = {
           payer_name: string | null
           rejected_at: string | null
           service_date: string | null
-          status: string | null
+          status: Database["public"]["Enums"]["claim_status"] | null
           submitted_at: string | null
           team_id: string | null
           total_amount: number | null
@@ -8250,7 +8421,7 @@ export type Database = {
           over_30_days: number | null
           over_60_days: number | null
           over_90_days: number | null
-          status: string | null
+          status: Database["public"]["Enums"]["claim_status"] | null
           team_id: string | null
           total_billed: number | null
           total_paid: number | null
@@ -8271,6 +8442,30 @@ export type Database = {
             referencedColumns: ["team_id"]
           },
         ]
+      }
+      clerk_sync_status: {
+        Row: {
+          clerk_user_id: string | null
+          last_synced_at: string | null
+          organization_id: string | null
+          sync_freshness: string | null
+          sync_status: Database["public"]["Enums"]["sync_status"] | null
+        }
+        Insert: {
+          clerk_user_id?: string | null
+          last_synced_at?: string | null
+          organization_id?: string | null
+          sync_freshness?: never
+          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+        }
+        Update: {
+          clerk_user_id?: string | null
+          last_synced_at?: string | null
+          organization_id?: string | null
+          sync_freshness?: never
+          sync_status?: Database["public"]["Enums"]["sync_status"] | null
+        }
+        Relationships: []
       }
       credentialing_status: {
         Row: {
@@ -8294,8 +8489,8 @@ export type Database = {
           days_until_deadline: number | null
           denial_date: string | null
           denial_reason: string | null
-          denial_status: string | null
-          denial_type: string | null
+          denial_status: Database["public"]["Enums"]["denial_status"] | null
+          denial_type: Database["public"]["Enums"]["denial_category"] | null
           financial_impact: number | null
           past_deadline: boolean | null
           payer_name: string | null
@@ -8355,37 +8550,15 @@ export type Database = {
       integration_health: {
         Row: {
           connection_id: string | null
-          connection_status: string | null
+          connection_status:
+            | Database["public"]["Enums"]["connection_status"]
+            | null
           ehr_system: string | null
           last_error: string | null
           last_sync_at: string | null
           recent_failures: number | null
           recent_successes: number | null
           team_name: string | null
-        }
-        Relationships: []
-      }
-      my_clerk_sync_status: {
-        Row: {
-          clerk_user_id: string | null
-          last_synced_at: string | null
-          organization_id: string | null
-          sync_freshness: string | null
-          sync_status: string | null
-        }
-        Insert: {
-          clerk_user_id?: string | null
-          last_synced_at?: string | null
-          organization_id?: string | null
-          sync_freshness?: never
-          sync_status?: string | null
-        }
-        Update: {
-          clerk_user_id?: string | null
-          last_synced_at?: string | null
-          organization_id?: string | null
-          sync_freshness?: never
-          sync_status?: string | null
         }
         Relationships: []
       }
@@ -8405,7 +8578,7 @@ export type Database = {
           patient_name: string | null
           payer_name: string | null
           quantity: number | null
-          status: string | null
+          status: Database["public"]["Enums"]["prior_auth_status"] | null
           submitted_at: string | null
           team_id: string | null
         }
@@ -8514,6 +8687,13 @@ export type Database = {
             referencedRelation: "user_profile"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "payment_posting_session_posted_by_fkey"
+            columns: ["posted_by"]
+            isOneToOne: false
+            referencedRelation: "user_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       payment_variance_summary: {
@@ -8615,8 +8795,8 @@ export type Database = {
           low_priority: number | null
           medium_priority: number | null
           overdue: number | null
-          queue_type: string | null
-          status: string | null
+          queue_type: Database["public"]["Enums"]["work_queue_type"] | null
+          status: Database["public"]["Enums"]["work_queue_status"] | null
           team_id: string | null
         }
         Relationships: [
@@ -8930,7 +9110,7 @@ export type Database = {
       }
       l2_normalize: {
         Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: string
+        Returns: unknown
       }
       log_clerk_webhook: {
         Args: { p_clerk_id: string; p_event_type: string; p_payload: Json }
@@ -9065,6 +9245,33 @@ export type Database = {
       }
     }
     Enums: {
+      access_level: "none" | "read" | "write" | "admin" | "owner"
+      adjustment_code_type:
+        | "CARC"
+        | "RARC"
+        | "GROUP"
+        | "MOA"
+        | "MIA"
+        | "CUSTOM"
+        | "PAYER_SPECIFIC"
+      adjustment_reason_category:
+        | "Patient Responsibility"
+        | "Coverage"
+        | "Medical Necessity"
+        | "Benefit Limit"
+        | "Administrative"
+        | "Duplicate"
+        | "Authorization"
+        | "COB"
+        | "Contractual"
+        | "Documentation"
+        | "Eligibility"
+        | "Timely Filing"
+        | "Coding Error"
+        | "Bundling"
+        | "Appeal Rights"
+        | "Routing"
+        | "Informational"
       adjustment_type:
         | "contractual"
         | "write_off"
@@ -9072,6 +9279,34 @@ export type Database = {
         | "correction"
         | "transfer"
         | "reversal"
+      analytics_event_category:
+        | "user_action"
+        | "patient_workflow"
+        | "clinical_workflow"
+        | "billing_workflow"
+        | "system_event"
+        | "integration_event"
+        | "security_event"
+        | "performance"
+        | "compliance"
+        | "notification"
+        | "reporting"
+        | "automation"
+        | "quality_measure"
+        | "financial"
+        | "administrative"
+      api_status:
+        | "success"
+        | "error"
+        | "timeout"
+        | "rate_limited"
+        | "unauthorized"
+      appeal_level:
+        | "first_level"
+        | "second_level"
+        | "third_level"
+        | "external_review"
+        | "judicial"
       appeal_status:
         | "preparing"
         | "ready"
@@ -9094,6 +9329,16 @@ export type Database = {
         | "no_show"
         | "cancelled"
         | "rescheduled"
+      archive_status: "active" | "archived" | "purged" | "retained"
+      audit_event_type:
+        | "create"
+        | "read"
+        | "update"
+        | "delete"
+        | "login"
+        | "logout"
+        | "export"
+        | "import"
       automation_status:
         | "pending"
         | "running"
@@ -9108,6 +9353,12 @@ export type Database = {
         | "failed"
         | "acknowledged"
         | "rejected"
+      billing_frequency:
+        | "one_time"
+        | "weekly"
+        | "monthly"
+        | "quarterly"
+        | "annually"
       claim_status:
         | "draft"
         | "built"
@@ -9133,6 +9384,68 @@ export type Database = {
         | "portal_message"
         | "sms"
         | "mail"
+      compliance_status:
+        | "compliant"
+        | "non_compliant"
+        | "pending_review"
+        | "exempted"
+      connection_status:
+        | "active"
+        | "inactive"
+        | "testing"
+        | "error"
+        | "maintenance"
+      contact_type:
+        | "patient"
+        | "insurance_company"
+        | "payer"
+        | "clearinghouse"
+        | "provider"
+        | "referring_provider"
+        | "pharmacy"
+        | "lab"
+        | "imaging_center"
+        | "legal_representative"
+        | "guardian"
+        | "family_member"
+        | "employer"
+        | "attorney"
+        | "vendor"
+        | "government_agency"
+        | "other_healthcare_provider"
+        | "billing_company"
+        | "collection_agency"
+        | "internal_staff"
+      data_quality_status:
+        | "good"
+        | "acceptable"
+        | "poor"
+        | "incomplete"
+        | "corrupt"
+      data_source_type:
+        | "ehr"
+        | "pms"
+        | "clearinghouse"
+        | "payer_portal"
+        | "lab"
+        | "pharmacy"
+        | "imaging"
+        | "manual_entry"
+      delivery_status:
+        | "queued"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "bounced"
+        | "unsubscribed"
+      denial_category:
+        | "administrative"
+        | "clinical"
+        | "coverage"
+        | "authorization"
+        | "timely_filing"
+        | "duplicate"
+        | "coordination_of_benefits"
       denial_status:
         | "new"
         | "under_review"
@@ -9142,6 +9455,7 @@ export type Database = {
         | "resolved"
         | "closed"
         | "written_off"
+      direction: "inbound" | "outbound" | "bidirectional"
       document_status:
         | "uploaded"
         | "processing"
@@ -9162,26 +9476,140 @@ export type Database = {
         | "consent_form"
         | "financial_agreement"
         | "other"
+      ehr_api_type: "fhir" | "rest" | "custom"
+      ehr_auth_method: "oauth2" | "api_key" | "custom" | "smart_on_fhir"
       eligibility_check_type:
         | "standard"
         | "real_time"
         | "batch"
         | "pre_visit"
         | "pre_service"
+      eligibility_response:
+        | "active"
+        | "inactive"
+        | "terminated"
+        | "unknown"
+        | "eligible"
+        | "not_eligible"
+      encounter_status:
+        | "scheduled"
+        | "checked_in"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "no_show"
+      environment_type:
+        | "production"
+        | "staging"
+        | "development"
+        | "testing"
+        | "sandbox"
+      era_processing_status:
+        | "received"
+        | "parsed"
+        | "validated"
+        | "posted"
+        | "exception"
+        | "manual_review"
       era_status: "pending" | "processing" | "posted" | "failed" | "partial"
+      fhir_version: "DSTU1" | "DSTU2" | "STU3" | "R4" | "R4B" | "R5" | "R6"
+      file_processing_status:
+        | "uploaded"
+        | "scanning"
+        | "processing"
+        | "parsed"
+        | "validated"
+        | "imported"
+        | "failed"
+        | "quarantined"
       followup_reason:
         | "no_response"
         | "underpayment"
         | "denial"
         | "request_records"
+      formulary_tier:
+        | "tier_1"
+        | "tier_2"
+        | "tier_3"
+        | "tier_4"
+        | "specialty"
+        | "non_formulary"
       gender: "male" | "female" | "other" | "unknown" | "prefer_not_to_say"
       insurance_policy_type: "Primary" | "Secondary"
+      mapping_status:
+        | "unmapped"
+        | "mapped"
+        | "validated"
+        | "active"
+        | "deprecated"
+        | "error"
+      medical_record_status:
+        | "active"
+        | "inactive"
+        | "merged"
+        | "corrected"
+        | "entered_in_error"
+      modifier_type: "payment" | "pricing" | "informational"
+      notification_type:
+        | "email"
+        | "sms"
+        | "push_notification"
+        | "in_app_notification"
+        | "portal_message"
+        | "fax"
+        | "phone_call"
+        | "mail"
+        | "webhook"
+        | "slack"
+        | "teams"
+        | "system_alert"
+      pa_decision_type:
+        | "approved"
+        | "denied"
+        | "pending"
+        | "partial"
+        | "conditional"
+        | "appeal_required"
+      patient_relationship:
+        | "self"
+        | "spouse"
+        | "child"
+        | "parent"
+        | "sibling"
+        | "grandparent"
+        | "grandchild"
+        | "other_family"
+        | "legal_guardian"
+        | "other"
+      patient_status:
+        | "active"
+        | "inactive"
+        | "pending_verification"
+        | "verified"
+        | "suspended"
+        | "deceased"
+        | "merged"
+        | "duplicate"
+        | "archived"
+        | "pending_enrollment"
+        | "discharged"
+        | "transferred"
+        | "do_not_contact"
+        | "collections"
       payer_config_type:
         | "submission"
         | "eligibility"
         | "pa_submission"
         | "portal"
         | "general"
+      payment_method:
+        | "cash"
+        | "check"
+        | "credit_card"
+        | "ach"
+        | "wire_transfer"
+        | "insurance"
+        | "other"
       payment_posting_status:
         | "pending"
         | "auto_posted"
@@ -9209,8 +9637,73 @@ export type Database = {
         | "denied"
         | "expired"
         | "cancelled"
+      priority_level: "low" | "medium" | "high" | "urgent" | "critical"
+      provider_enrollment_status:
+        | "pending"
+        | "under_review"
+        | "approved"
+        | "denied"
+        | "suspended"
+        | "terminated"
+        | "expired"
+        | "pending_revalidation"
+        | "revalidating"
+        | "inactive"
+        | "withdrawn"
+        | "pending_docs"
+        | "provisional"
+        | "deactivated"
+      provider_enrollment_type:
+        | "individual"
+        | "group"
+        | "institutional"
+        | "locum_tenens"
+        | "reassignment"
+        | "opt_out"
+        | "non_participating"
+        | "participating"
+        | "specialty"
+        | "dme"
+        | "home_health"
+        | "ambulatory"
+        | "hospice"
+      quality_measure_type:
+        | "process"
+        | "outcome"
+        | "structure"
+        | "patient_reported"
+        | "efficiency"
+        | "safety"
+      recurring_plan_type:
+        | "free"
+        | "trial"
+        | "starter"
+        | "professional"
+        | "enterprise"
       retry_backoff_strategy: "exponential" | "linear" | "fixed"
+      risk_level: "minimal" | "low" | "moderate" | "high" | "extreme"
       scrubbing_severity: "error" | "warning" | "info"
+      session_type: "web" | "mobile" | "api" | "system" | "integration"
+      severity_level: "info" | "warning" | "error" | "critical" | "fatal"
+      submission_method:
+        | "electronic"
+        | "paper"
+        | "clearinghouse"
+        | "direct"
+        | "portal"
+      sync_status:
+        | "up_to_date"
+        | "pending"
+        | "in_progress"
+        | "failed"
+        | "conflict"
+      task_type:
+        | "sync"
+        | "validation"
+        | "submission"
+        | "posting"
+        | "reporting"
+        | "maintenance"
       team_status:
         | "trial"
         | "active"
@@ -9227,6 +9720,18 @@ export type Database = {
         | "front_desk"
         | "viewer"
       validation_status: "pass" | "warning" | "error" | "pending"
+      variance_type:
+        | "overpayment"
+        | "underpayment"
+        | "timing_difference"
+        | "coding_error"
+        | "rate_difference"
+      verification_status:
+        | "unverified"
+        | "pending"
+        | "verified"
+        | "rejected"
+        | "expired"
       visit_type:
         | "office_visit"
         | "telehealth"
@@ -9246,6 +9751,35 @@ export type Database = {
         | "escalated"
         | "completed"
         | "cancelled"
+      work_queue_type:
+        | "claim_review"
+        | "denial_management"
+        | "prior_auth"
+        | "appeal"
+        | "payment_posting"
+        | "eligibility_check"
+        | "patient_collections"
+        | "insurance_followup"
+        | "coding_review"
+        | "credentialing"
+        | "data_entry"
+        | "quality_review"
+        | "compliance_audit"
+        | "exception_handling"
+        | "document_processing"
+        | "referral_processing"
+        | "reconciliation"
+        | "reporting"
+        | "system_maintenance"
+      workflow_status:
+        | "active"
+        | "completed"
+        | "failed"
+        | "suspended"
+        | "cancelled"
+        | "timeout"
+        | "pending_input"
+        | "escalated"
       x12_transaction_type:
         | "270"
         | "271"
@@ -9385,6 +9919,35 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      access_level: ["none", "read", "write", "admin", "owner"],
+      adjustment_code_type: [
+        "CARC",
+        "RARC",
+        "GROUP",
+        "MOA",
+        "MIA",
+        "CUSTOM",
+        "PAYER_SPECIFIC",
+      ],
+      adjustment_reason_category: [
+        "Patient Responsibility",
+        "Coverage",
+        "Medical Necessity",
+        "Benefit Limit",
+        "Administrative",
+        "Duplicate",
+        "Authorization",
+        "COB",
+        "Contractual",
+        "Documentation",
+        "Eligibility",
+        "Timely Filing",
+        "Coding Error",
+        "Bundling",
+        "Appeal Rights",
+        "Routing",
+        "Informational",
+      ],
       adjustment_type: [
         "contractual",
         "write_off",
@@ -9392,6 +9955,37 @@ export const Constants = {
         "correction",
         "transfer",
         "reversal",
+      ],
+      analytics_event_category: [
+        "user_action",
+        "patient_workflow",
+        "clinical_workflow",
+        "billing_workflow",
+        "system_event",
+        "integration_event",
+        "security_event",
+        "performance",
+        "compliance",
+        "notification",
+        "reporting",
+        "automation",
+        "quality_measure",
+        "financial",
+        "administrative",
+      ],
+      api_status: [
+        "success",
+        "error",
+        "timeout",
+        "rate_limited",
+        "unauthorized",
+      ],
+      appeal_level: [
+        "first_level",
+        "second_level",
+        "third_level",
+        "external_review",
+        "judicial",
       ],
       appeal_status: [
         "preparing",
@@ -9417,6 +10011,17 @@ export const Constants = {
         "cancelled",
         "rescheduled",
       ],
+      archive_status: ["active", "archived", "purged", "retained"],
+      audit_event_type: [
+        "create",
+        "read",
+        "update",
+        "delete",
+        "login",
+        "logout",
+        "export",
+        "import",
+      ],
       automation_status: [
         "pending",
         "running",
@@ -9432,6 +10037,13 @@ export const Constants = {
         "failed",
         "acknowledged",
         "rejected",
+      ],
+      billing_frequency: [
+        "one_time",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "annually",
       ],
       claim_status: [
         "draft",
@@ -9460,6 +10072,75 @@ export const Constants = {
         "sms",
         "mail",
       ],
+      compliance_status: [
+        "compliant",
+        "non_compliant",
+        "pending_review",
+        "exempted",
+      ],
+      connection_status: [
+        "active",
+        "inactive",
+        "testing",
+        "error",
+        "maintenance",
+      ],
+      contact_type: [
+        "patient",
+        "insurance_company",
+        "payer",
+        "clearinghouse",
+        "provider",
+        "referring_provider",
+        "pharmacy",
+        "lab",
+        "imaging_center",
+        "legal_representative",
+        "guardian",
+        "family_member",
+        "employer",
+        "attorney",
+        "vendor",
+        "government_agency",
+        "other_healthcare_provider",
+        "billing_company",
+        "collection_agency",
+        "internal_staff",
+      ],
+      data_quality_status: [
+        "good",
+        "acceptable",
+        "poor",
+        "incomplete",
+        "corrupt",
+      ],
+      data_source_type: [
+        "ehr",
+        "pms",
+        "clearinghouse",
+        "payer_portal",
+        "lab",
+        "pharmacy",
+        "imaging",
+        "manual_entry",
+      ],
+      delivery_status: [
+        "queued",
+        "sent",
+        "delivered",
+        "failed",
+        "bounced",
+        "unsubscribed",
+      ],
+      denial_category: [
+        "administrative",
+        "clinical",
+        "coverage",
+        "authorization",
+        "timely_filing",
+        "duplicate",
+        "coordination_of_benefits",
+      ],
       denial_status: [
         "new",
         "under_review",
@@ -9470,6 +10151,7 @@ export const Constants = {
         "closed",
         "written_off",
       ],
+      direction: ["inbound", "outbound", "bidirectional"],
       document_status: [
         "uploaded",
         "processing",
@@ -9492,6 +10174,8 @@ export const Constants = {
         "financial_agreement",
         "other",
       ],
+      ehr_api_type: ["fhir", "rest", "custom"],
+      ehr_auth_method: ["oauth2", "api_key", "custom", "smart_on_fhir"],
       eligibility_check_type: [
         "standard",
         "real_time",
@@ -9499,21 +10183,146 @@ export const Constants = {
         "pre_visit",
         "pre_service",
       ],
+      eligibility_response: [
+        "active",
+        "inactive",
+        "terminated",
+        "unknown",
+        "eligible",
+        "not_eligible",
+      ],
+      encounter_status: [
+        "scheduled",
+        "checked_in",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "no_show",
+      ],
+      environment_type: [
+        "production",
+        "staging",
+        "development",
+        "testing",
+        "sandbox",
+      ],
+      era_processing_status: [
+        "received",
+        "parsed",
+        "validated",
+        "posted",
+        "exception",
+        "manual_review",
+      ],
       era_status: ["pending", "processing", "posted", "failed", "partial"],
+      fhir_version: ["DSTU1", "DSTU2", "STU3", "R4", "R4B", "R5", "R6"],
+      file_processing_status: [
+        "uploaded",
+        "scanning",
+        "processing",
+        "parsed",
+        "validated",
+        "imported",
+        "failed",
+        "quarantined",
+      ],
       followup_reason: [
         "no_response",
         "underpayment",
         "denial",
         "request_records",
       ],
+      formulary_tier: [
+        "tier_1",
+        "tier_2",
+        "tier_3",
+        "tier_4",
+        "specialty",
+        "non_formulary",
+      ],
       gender: ["male", "female", "other", "unknown", "prefer_not_to_say"],
       insurance_policy_type: ["Primary", "Secondary"],
+      mapping_status: [
+        "unmapped",
+        "mapped",
+        "validated",
+        "active",
+        "deprecated",
+        "error",
+      ],
+      medical_record_status: [
+        "active",
+        "inactive",
+        "merged",
+        "corrected",
+        "entered_in_error",
+      ],
+      modifier_type: ["payment", "pricing", "informational"],
+      notification_type: [
+        "email",
+        "sms",
+        "push_notification",
+        "in_app_notification",
+        "portal_message",
+        "fax",
+        "phone_call",
+        "mail",
+        "webhook",
+        "slack",
+        "teams",
+        "system_alert",
+      ],
+      pa_decision_type: [
+        "approved",
+        "denied",
+        "pending",
+        "partial",
+        "conditional",
+        "appeal_required",
+      ],
+      patient_relationship: [
+        "self",
+        "spouse",
+        "child",
+        "parent",
+        "sibling",
+        "grandparent",
+        "grandchild",
+        "other_family",
+        "legal_guardian",
+        "other",
+      ],
+      patient_status: [
+        "active",
+        "inactive",
+        "pending_verification",
+        "verified",
+        "suspended",
+        "deceased",
+        "merged",
+        "duplicate",
+        "archived",
+        "pending_enrollment",
+        "discharged",
+        "transferred",
+        "do_not_contact",
+        "collections",
+      ],
       payer_config_type: [
         "submission",
         "eligibility",
         "pa_submission",
         "portal",
         "general",
+      ],
+      payment_method: [
+        "cash",
+        "check",
+        "credit_card",
+        "ach",
+        "wire_transfer",
+        "insurance",
+        "other",
       ],
       payment_posting_status: [
         "pending",
@@ -9545,8 +10354,80 @@ export const Constants = {
         "expired",
         "cancelled",
       ],
+      priority_level: ["low", "medium", "high", "urgent", "critical"],
+      provider_enrollment_status: [
+        "pending",
+        "under_review",
+        "approved",
+        "denied",
+        "suspended",
+        "terminated",
+        "expired",
+        "pending_revalidation",
+        "revalidating",
+        "inactive",
+        "withdrawn",
+        "pending_docs",
+        "provisional",
+        "deactivated",
+      ],
+      provider_enrollment_type: [
+        "individual",
+        "group",
+        "institutional",
+        "locum_tenens",
+        "reassignment",
+        "opt_out",
+        "non_participating",
+        "participating",
+        "specialty",
+        "dme",
+        "home_health",
+        "ambulatory",
+        "hospice",
+      ],
+      quality_measure_type: [
+        "process",
+        "outcome",
+        "structure",
+        "patient_reported",
+        "efficiency",
+        "safety",
+      ],
+      recurring_plan_type: [
+        "free",
+        "trial",
+        "starter",
+        "professional",
+        "enterprise",
+      ],
       retry_backoff_strategy: ["exponential", "linear", "fixed"],
+      risk_level: ["minimal", "low", "moderate", "high", "extreme"],
       scrubbing_severity: ["error", "warning", "info"],
+      session_type: ["web", "mobile", "api", "system", "integration"],
+      severity_level: ["info", "warning", "error", "critical", "fatal"],
+      submission_method: [
+        "electronic",
+        "paper",
+        "clearinghouse",
+        "direct",
+        "portal",
+      ],
+      sync_status: [
+        "up_to_date",
+        "pending",
+        "in_progress",
+        "failed",
+        "conflict",
+      ],
+      task_type: [
+        "sync",
+        "validation",
+        "submission",
+        "posting",
+        "reporting",
+        "maintenance",
+      ],
       team_status: [
         "trial",
         "active",
@@ -9565,6 +10446,20 @@ export const Constants = {
         "viewer",
       ],
       validation_status: ["pass", "warning", "error", "pending"],
+      variance_type: [
+        "overpayment",
+        "underpayment",
+        "timing_difference",
+        "coding_error",
+        "rate_difference",
+      ],
+      verification_status: [
+        "unverified",
+        "pending",
+        "verified",
+        "rejected",
+        "expired",
+      ],
       visit_type: [
         "office_visit",
         "telehealth",
@@ -9585,6 +10480,37 @@ export const Constants = {
         "escalated",
         "completed",
         "cancelled",
+      ],
+      work_queue_type: [
+        "claim_review",
+        "denial_management",
+        "prior_auth",
+        "appeal",
+        "payment_posting",
+        "eligibility_check",
+        "patient_collections",
+        "insurance_followup",
+        "coding_review",
+        "credentialing",
+        "data_entry",
+        "quality_review",
+        "compliance_audit",
+        "exception_handling",
+        "document_processing",
+        "referral_processing",
+        "reconciliation",
+        "reporting",
+        "system_maintenance",
+      ],
+      workflow_status: [
+        "active",
+        "completed",
+        "failed",
+        "suspended",
+        "cancelled",
+        "timeout",
+        "pending_input",
+        "escalated",
       ],
       x12_transaction_type: [
         "270",

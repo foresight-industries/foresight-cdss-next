@@ -191,7 +191,7 @@ async function handleUserDeleted(data: any) {
         status: "inactive",
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", data.id);
+      .eq("clerk_user_id", data.id);
 
     if (error) throw error;
 
@@ -212,11 +212,11 @@ async function handleOrganizationCreated(data: any) {
     const { error } = await supabase
       .from("team")
       .insert({
-        id: data.id, // Use Clerk org ID
+        // id: data.id, // Use Clerk org ID
         name: data.name,
         slug: data.slug,
         clerk_org_id: data.id,
-        billing_status: "trialing",
+        status: "trialing",
         created_at: data.created_at
           ? new Date(data.created_at).toISOString()
           : new Date().toISOString(),
@@ -265,21 +265,20 @@ async function handleOrganizationUpdated(data: any) {
 // Membership Management Functions
 async function handleMembershipCreated(data: any) {
   try {
-    // Map Clerk role to your role system
+    // Map Clerk role to your role system - must match user_role enum in database
     const roleMapping = {
       "org:admin": "org_admin",
-      "org:member": "team_user",
-      "org:viewer": "read_only",
+      "org:member": "biller",
+      "org:viewer": "viewer",
     };
 
-    const role =
-      roleMapping[data.role as keyof typeof roleMapping] ?? "team_user";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
 
     // Add user to team
     const { error } = await supabase.from("team_member").insert({
-      id: `${data.organization_id}_${data.public_user_data.user_id}`,
-      team_id: data.organization_id,
-      user_id: data.public_user_data.user_id,
+      // id: `${data.organization_id}_${data.public_user_data.user_id}`,
+      clerk_org_id: data.organization_id,
+      clerk_user_id: data.public_user_data.user_id,
       role: role,
       permissions: getPermissionsForRole(role),
       status: "active",
@@ -297,14 +296,14 @@ async function handleMembershipCreated(data: any) {
     const { data: userProfile } = await supabase
       .from("user_profile")
       .select("current_team_id")
-      .eq("id", data.public_user_data.user_id)
+      .eq("clerk_id", data.public_user_data.user_id)
       .single();
 
     if (userProfile && !userProfile.current_team_id) {
       await supabase
         .from("user_profile")
         .update({ current_team_id: data.organization_id })
-        .eq("id", data.public_user_data.user_id);
+        .eq("clerk_id", data.public_user_data.user_id);
     }
 
     return {
@@ -322,14 +321,14 @@ async function handleMembershipCreated(data: any) {
 
 async function handleMembershipUpdated(data: any) {
   try {
+    // Map Clerk role to your role system - must match user_role enum in database
     const roleMapping = {
       "org:admin": "org_admin",
-      "org:member": "team_user",
-      "org:viewer": "read_only",
+      "org:member": "coder",
+      "org:viewer": "viewer",
     };
 
-    const role =
-      roleMapping[data.role as keyof typeof roleMapping] ?? "team_user";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
 
     const { error } = await supabase
       .from("team_member")
@@ -338,8 +337,8 @@ async function handleMembershipUpdated(data: any) {
         permissions: getPermissionsForRole(role),
         updated_at: new Date().toISOString(),
       })
-      .eq("team_id", data.organization_id)
-      .eq("user_id", data.public_user_data.user_id);
+      .eq("clerk_org_id", data.organization_id)
+      .eq("clerk_id", data.public_user_data.user_id);
 
     if (error) {
       throw error;
@@ -367,8 +366,8 @@ async function handleMembershipDeleted(data: any) {
         status: "inactive",
         updated_at: new Date().toISOString(),
       })
-      .eq("team_id", data.organization_id)
-      .eq("user_id", data.public_user_data.user_id);
+      .eq("clerk_org_id", data.organization_id)
+      .eq("clerk_id", data.public_user_data.user_id);
 
     if (error) throw error;
 
@@ -376,8 +375,8 @@ async function handleMembershipDeleted(data: any) {
     await supabase
       .from("user_profile")
       .update({ current_team_id: null })
-      .eq("id", data.public_user_data.user_id)
-      .eq("current_team_id", data.organization_id);
+      .eq("clerk_id", data.public_user_data.user_id)
+      .eq("clerk_org_id", data.organization_id);
 
     return {
       success: true,
