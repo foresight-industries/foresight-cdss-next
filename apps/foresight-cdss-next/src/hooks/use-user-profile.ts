@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/components/providers/auth-provider";
@@ -10,8 +10,8 @@ async function fetchUserProfile(userId: string): Promise<UserProfile> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from(Tables.USER_PROFILE)
-    .select('*')
-    .eq('id', userId)
+    .select("*")
+    .eq("id", userId)
     .single();
 
   if (error) throw error;
