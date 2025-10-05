@@ -3,11 +3,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Search, 
-  Home, 
-  ArrowLeft, 
-  HelpCircle 
+import {
+  Search,
+  Home,
+  ArrowLeft,
+  HelpCircle
 } from 'lucide-react';
 
 export default function NotFound() {
@@ -41,7 +41,7 @@ export default function NotFound() {
               Page Not Found
             </h2>
             <p className="text-lg text-gray-600 max-w-md mx-auto">
-              The page you're looking for doesn't exist or may have been moved.
+              The page you&apos;re looking for doesn&apos;t exist or may have been moved.
             </p>
           </div>
 
@@ -60,38 +60,38 @@ export default function NotFound() {
                     Try navigating to one of our main sections or return to the dashboard.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    <Link 
-                      href="/queue" 
+                    <Link
+                      href="/queue"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • ePA Queue
                     </Link>
-                    <Link 
-                      href="/claims" 
+                    <Link
+                      href="/claims"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Claims Management
                     </Link>
-                    <Link 
-                      href="/analytics" 
+                    <Link
+                      href="/analytics"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Analytics Dashboard
                     </Link>
-                    <Link 
-                      href="/settings" 
+                    <Link
+                      href="/settings"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Settings
                     </Link>
-                    <Link 
-                      href="/credentialing" 
+                    <Link
+                      href="/credentialing"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Credentialing
                     </Link>
-                    <Link 
-                      href="/billing" 
+                    <Link
+                      href="/billing"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Billing
@@ -104,7 +104,7 @@ export default function NotFound() {
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
+            <Button
               asChild
               size="lg"
               className="flex items-center gap-2"
@@ -114,9 +114,9 @@ export default function NotFound() {
                 Go to Dashboard
               </Link>
             </Button>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               onClick={() => window.history.back()}
               size="lg"
               className="flex items-center gap-2"
@@ -135,18 +135,18 @@ export default function NotFound() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900 mb-2">
-                    Still can't find what you need?
+                    Still can&apos;t find what you need?
                   </h3>
                   <p className="text-gray-700 text-sm mb-4">
                     Our support team is here to help you navigate the platform.
                   </p>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     asChild
                     className="border-gray-300 text-gray-700 hover:bg-gray-50"
                   >
-                    <a 
+                    <a
                       href="mailto:support@have-foresight.com?subject=Navigation Help Request"
                       className="flex items-center gap-2"
                     >
