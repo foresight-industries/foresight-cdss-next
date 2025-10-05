@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit } from 'lucide-react';
+import { Save, Bell, Shield, Database, Zap, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit, Globe, Webhook } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -35,8 +35,20 @@ const settingsSections: SettingsSection[] = [
     description: 'Manage alerts and notification preferences'
   },
   {
+    id: 'ehr',
+    title: 'EHR Integration',
+    icon: Globe,
+    description: 'Electronic Health Record system connections'
+  },
+  {
+    id: 'webhooks',
+    title: 'Webhooks',
+    icon: Webhook,
+    description: 'Real-time data synchronization webhooks'
+  },
+  {
     id: 'integrations',
-    title: 'Integrations',
+    title: 'Other Integrations',
     icon: Database,
     description: 'API connections and data sync settings'
   },
@@ -356,12 +368,112 @@ function SettingsPageContent() {
     </div>
   );
 
+  const renderEHRSettings = () => (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">EHR Integration</h3>
+          <Button variant="outline" asChild>
+            <a href="/settings/ehr">
+              <Globe className="w-4 h-4 mr-2" />
+              Manage EHR Connections
+            </a>
+          </Button>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Configure your Electronic Health Record system connections to enable data synchronization and automation.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Production Environment</h4>
+              <Badge variant="outline">0 connections</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No EHR connections configured</p>
+          </div>
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Development Environment</h4>
+              <Badge variant="outline">0 connections</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No EHR connections configured</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported EHR Systems</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {['Epic', 'Cerner', 'athenahealth', 'Allscripts', 'NextGen', 'eClinicalWorks'].map((system) => (
+            <div key={system} className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <p className="font-medium text-sm">{system}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">FHIR/REST API</p>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+
+  const renderWebhookSettings = () => (
+    <div className="space-y-6">
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Webhook Management</h3>
+          <Button variant="outline" asChild>
+            <a href="/settings/webhooks">
+              <Webhook className="w-4 h-4 mr-2" />
+              Manage Webhooks
+            </a>
+          </Button>
+        </div>
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
+          Configure webhook endpoints to receive real-time notifications when your team data changes.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Production Webhooks</h4>
+              <Badge variant="outline">0 active</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No production webhooks configured</p>
+          </div>
+          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-medium">Development Webhooks</h4>
+              <Badge variant="outline">0 active</Badge>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400">No development webhooks configured</p>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Events</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {[
+            'team.created',
+            'team.updated', 
+            'team.deleted',
+            'team_member.added',
+            'team_member.updated',
+            'team_member.removed'
+          ].map((event) => (
+            <div key={event} className="flex items-center p-2 border border-gray-200 dark:border-gray-700 rounded">
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{event}</code>
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">API Connections</h3>
         <div className="space-y-4">
-          {Object.entries(integrationStatus).map(([key, integration]) => (
+          {Object.entries(integrationStatus).filter(([key]) => key !== 'webhooks').map(([key, integration]) => (
             <div key={key} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
               <div className="flex items-center space-x-3">
                 <div className={`w-3 h-3 rounded-full ${integration.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
@@ -392,34 +504,6 @@ function SettingsPageContent() {
               </div>
             </div>
           ))}
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Webhook Settings</h3>
-        <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Webhook URL</label>
-            <input
-              type="url"
-              placeholder="https://your-domain.com/webhooks/pa-status"
-              className="w-full border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md py-2 px-3"
-              readOnly
-              value="https://api.foresight.health/webhooks/pa-status"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Secret Key</label>
-            <div className="flex space-x-2">
-              <input
-                type="password"
-                value="••••••••••••••••"
-                className="flex-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-md py-2 px-3"
-                readOnly
-              />
-              <Button variant="secondary" size="sm">Regenerate</Button>
-            </div>
-          </div>
         </div>
       </Card>
     </div>
@@ -604,6 +688,10 @@ function SettingsPageContent() {
         return renderAutomationSettings();
       case 'notifications':
         return renderNotificationSettings();
+      case 'ehr':
+        return renderEHRSettings();
+      case 'webhooks':
+        return renderWebhookSettings();
       case 'integrations':
         return renderIntegrationSettings();
       case 'security':
