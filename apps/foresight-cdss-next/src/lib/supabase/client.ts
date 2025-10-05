@@ -1,5 +1,7 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "@/types/database.types";
+import { useAuth } from "@clerk/nextjs";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 
 if (
   !process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -18,3 +20,23 @@ export function createClient() {
 
 // Legacy client for backwards compatibility
 export const supabase = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
+
+export function useSupabaseUser() {
+  const { getToken } = useAuth();
+
+  return async () => {
+    const token = await getToken({ template: "supabase" });
+
+    return createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+      {
+        global: {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        },
+      }
+    );
+  };
+}

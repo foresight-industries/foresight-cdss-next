@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { WebhookEvent } from "@clerk/nextjs/server";
 import { UserResource } from "@clerk/types";
+import { supabaseAdmin } from "@/lib/supabase/server";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
@@ -123,10 +124,38 @@ export async function POST(req: Request) {
 // User Management Functions
 async function handleUserCreated(data: UserResource) {
   try {
+    const { data: authUser, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email: data.emailAddresses?.[0]?.emailAddress,
+        user_metadata: {
+          clerk_id: data.id,
+          first_name: data.firstName,
+          last_name: data.lastName,
+          phone_number: data.phoneNumbers?.[0]?.phoneNumber,
+        },
+        email_confirm: true,
+      });
+
+    if (authError) {
+      console.error(
+        "Error creating Supabase user in Clerk webhook:",
+        authError
+      );
+      throw authError;
+    }
+
+    if (!authUser) {
+      console.error("No user created in Clerk webhook");
+      throw new Error("No user created in Clerk webhook");
+    }
+
+    const { user } = authUser;
+
     // Create user profile
     const { error } = await supabase
       .from("user_profile")
       .insert({
+        id: user?.id,
         email: data.emailAddresses?.[0]?.emailAddress,
         first_name: data.firstName,
         last_name: data.lastName,
