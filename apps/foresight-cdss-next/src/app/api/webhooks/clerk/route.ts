@@ -75,9 +75,9 @@ export async function POST(req: Request) {
         result = await handleUserDeleted(evt.data);
         break;
 
-      case "organization.created":
-        result = await handleOrganizationCreated(evt.data);
-        break;
+      // case "organization.created":
+      //   result = await handleOrganizationCreated(evt.data);
+      //   break;
 
       case "organization.updated":
         result = await handleOrganizationUpdated(evt.data);
@@ -243,38 +243,38 @@ async function handleUserDeleted(data: any) {
 }
 
 // Organization Management Functions
-async function handleOrganizationCreated(data: any) {
-  try {
-    // Create team from organization
-    const { error } = await supabase
-      .from("team")
-      .insert({
-        // id: data.id, // Use Clerk org ID
-        name: data.name,
-        slug: data.slug,
-        clerk_org_id: data.id,
-        status: "trialing",
-        created_at: data.created_at
-          ? new Date(data.created_at).toISOString()
-          : new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error?.code !== "23505") {
-      throw error;
-    }
-
-    return { success: true, message: `Team ${data.id} created` };
-  } catch (error) {
-    console.error("Error creating team:", error);
-    return {
-      success: false,
-      message: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
+// async function handleOrganizationCreated(data: any) {
+//   try {
+//     // Create team from organization
+//     const { error } = await supabase
+//       .from("team")
+//       .insert({
+//         // id: data.id, // Use Clerk org ID
+//         name: data.name,
+//         slug: data.slug,
+//         clerk_org_id: data.id,
+//         status: "trialing",
+//         created_at: data.created_at
+//           ? new Date(data.created_at).toISOString()
+//           : new Date().toISOString(),
+//         updated_at: new Date().toISOString(),
+//       })
+//       .select()
+//       .single();
+//
+//     if (error?.code !== "23505") {
+//       throw error;
+//     }
+//
+//     return { success: true, message: `Team ${data.id} created` };
+//   } catch (error) {
+//     console.error("Error creating team:", error);
+//     return {
+//       success: false,
+//       message: error instanceof Error ? error.message : "Unknown error",
+//     };
+//   }
+// }
 
 async function handleOrganizationUpdated(data: any) {
   try {

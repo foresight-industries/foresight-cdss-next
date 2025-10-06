@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// GET - Get user profile  
+// GET - Get user profile
 export async function GET() {
   try {
     const { userId } = await auth();
@@ -76,7 +76,7 @@ export async function GET() {
     const { data: userProfile, error: profileError } = await supabase
       .from('user_profile')
       .select('*')
-      .eq('user_id', userId)
+      .eq('clerk_id', userId)
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned

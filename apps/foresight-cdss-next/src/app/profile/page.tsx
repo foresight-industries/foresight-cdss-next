@@ -1,11 +1,14 @@
-import { auth } from '@clerk/nextjs/server';
+import { createSupabaseServerClient, getCurrentUser } from '@/lib/supabase/server';
 import ProfileClient from '@/components/profile/profile-client';
 
 async function loadUserProfile() {
   try {
-    // Get authenticated user - this is the critical first step
-    const authResult = await auth();
-    if (!authResult?.userId) {
+    // Use the new Clerk-integrated Supabase client (same as dashboard)
+    const supabase = await createSupabaseServerClient();
+
+    // Get current user using the same method as the Supabase client
+    const currentUserInfo = await getCurrentUser();
+    if (!currentUserInfo?.userId) {
       console.error('No authenticated user');
       return {
         membership: null,
@@ -16,62 +19,60 @@ async function loadUserProfile() {
       };
     }
 
-    const { userId } = authResult;
-    
-    // Create a basic Supabase client for data fetching (avoiding the auth() call in createSupabaseServerClient)
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    const { userId } = currentUserInfo;
 
-    // Get user profile data
+    // Get user profile data with simpler query
     const { data: userProfile, error: profileError } = await supabase
       .from('user_profile')
       .select('*')
-      .eq('user_id', userId)
-      .single();
+      .eq('clerk_id', userId)
+      .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no data
 
-    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching user profile:', profileError);
+    if (profileError) {
+      console.error('Error fetching user profile:', JSON.stringify(profileError));
     }
 
-    // Get team membership data directly from database
+    // Get team membership data with simpler query
     const { data: membership, error: membershipError } = await supabase
       .from('team_member')
-      .select(`
-        team_id,
-        role,
-        status,
-        created_at,
-        team:team_id (
-          id,
-          name,
-          slug,
-          logo_url
-        )
-      `)
-      .eq('user_id', userId)
+      .select('team_id, role, status, created_at')
+      .eq('clerk_user_id', userId)
       .eq('status', 'active')
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single
 
-    if (membershipError && membershipError.code !== 'PGRST116') {
-      console.error('Error fetching team membership:', membershipError);
+    if (membershipError) {
+      console.error('Error fetching team membership:', JSON.stringify(membershipError));
     }
 
+    // Get team info separately if membership exists
+    let teamInfo = null;
+    if (membership?.team_id) {
+      const { data: team, error: teamError } = await supabase
+        .from('team')
+        .select('id, name, slug, logo_url')
+        .eq('id', membership.team_id)
+        .maybeSingle();
+
+      if (teamError) {
+        console.error('Error fetching team info:', JSON.stringify(teamError));
+      } else {
+        teamInfo = team;
+      }
+    }
+
+    // Combine membership with team info
+    const membershipWithTeam = membership ? {
+      ...membership,
+      team: teamInfo
+    } : null;
+
     // Determine the user's title/role
-    // Priority: team role -> user profile role -> fallback
     const userTitle = membership?.role || userProfile?.role || 'PA Coordinator';
 
     return {
-      membership,
+      membership: membershipWithTeam,
       userProfile,
-      teamMember: membership, // Use membership data directly
+      teamMember: membershipWithTeam,
       userTitle,
       userId
     };
@@ -91,7 +92,7 @@ export default async function ProfilePage() {
   const profileData = await loadUserProfile();
 
   return (
-    <ProfileClient 
+    <ProfileClient
       initialUserTitle={profileData.userTitle}
       teamMembership={profileData.membership}
       userProfile={profileData.userProfile}

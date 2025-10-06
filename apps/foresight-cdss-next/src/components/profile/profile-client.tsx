@@ -46,7 +46,7 @@ export default function ProfileClient({
     firstName: user?.firstName ?? userProfile?.first_name ?? "",
     lastName: user?.lastName ?? userProfile?.last_name ?? "",
     email: user?.emailAddresses?.[0].emailAddress ?? userProfile?.email ?? "",
-    phone: user?.phoneNumbers?.[0].phoneNumber ?? userProfile?.phone ?? "",
+    phone: user?.phoneNumbers?.[0]?.phoneNumber ?? userProfile?.phone ?? "",
     title: initialUserTitle,
     department: userProfile?.department ?? "Clinical Operations",
     location: userProfile?.location ?? "New York, NY",

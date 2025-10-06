@@ -17,7 +17,9 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
     pathname === "/signup" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
-    pathname === "/confirm-email";
+    pathname === "/confirm-email" ||
+    pathname === "/error" ||
+    pathname === '/onboard';
 
   if (!isLoaded) {
     return (

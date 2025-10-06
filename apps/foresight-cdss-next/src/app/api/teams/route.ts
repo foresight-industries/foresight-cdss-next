@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { auth } from '@clerk/nextjs/server';
+import {
+  createSupabaseServerClient,
+  supabaseAdmin,
+} from "@/lib/supabase/server";
+import { auth, clerkClient } from '@clerk/nextjs/server';
 
 // POST - Create new team
 export async function POST(request: NextRequest) {
@@ -10,6 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const clerk = await clerkClient();
     const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
@@ -43,10 +47,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already has an active team membership
-    const { data: existingMembership } = await supabase
+    const { data: existingMembership } = await supabaseAdmin
       .from('team_member')
       .select('team_id, status')
-      .eq('user_id', userId)
+      .eq('clerk_user_id', userId)
       .eq('status', 'active')
       .single();
 
@@ -56,15 +60,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    const createClerkOrgResponse = await clerk.organizations.createOrganization({
+      name,
+      slug,
+      createdBy: userId
+    });
+
     // Create the team
-    const { data: team, error: teamError } = await supabase
+    const { data: team, error: teamError } = await supabaseAdmin
       .from('team')
       .insert({
         name,
         slug,
         description,
         logo_url,
-        status: 'active'
+        status: 'active',
+        clerk_org_id: createClerkOrgResponse.id
       })
       .select()
       .single();
@@ -79,9 +90,9 @@ export async function POST(request: NextRequest) {
       .from('team_member')
       .insert({
         team_id: team.id,
-        user_id: userId,
         clerk_user_id: userId,
-        role: 'super_admin',
+        clerk_org_id: createClerkOrgResponse.id,
+        role: 'org_admin',
         status: 'active',
         joined_at: new Date().toISOString()
       });
@@ -132,7 +143,7 @@ export async function GET(request: NextRequest) {
           created_at
         )
       `)
-      .eq('user_id', userId)
+      .eq('clerk_user_id', userId)
       .eq('status', 'active');
 
     if (error) {

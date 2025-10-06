@@ -129,15 +129,15 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
   if (isAuthenticated && !isUnauthenticatedRoute(req) && !isOnboardingRoute(req)) {
     try {
       const { userId } = await auth();
-      
+
       if (userId) {
         const supabase = await createSupabaseMiddlewareClient();
-        
+
         // Check if user has an active team membership
         const { data: membership } = await supabase
           .from('team_member')
           .select('team_id, role, status')
-          .eq('user_id', userId)
+          .eq('clerk_user_id', userId)
           .eq('status', 'active')
           .single();
 
