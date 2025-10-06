@@ -150,7 +150,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
                     {(user?.firstName && user?.lastName) ? user?.firstName.slice(0, 1).concat(user.lastName.slice(0, 1)).toUpperCase() : "U"}
                   </span>
                   <span className="flex-1 text-left truncate">
-                    {userEmail?.split("@")[0] || "User"}
+                    {user?.firstName ? user.firstName.charAt(0).toUpperCase() + user.firstName.slice(1) : "User"}
                   </span>
                 </>
               ) : (user?.firstName && user?.lastName) ? (

@@ -112,10 +112,18 @@ export default function EhrConnectionsPage() {
       setStats(connectionsData.stats);
 
       // Load EHR systems
-      const systemsResponse = await fetch('/api/ehr/systems');
-      if (!systemsResponse.ok) throw new Error('Failed to load EHR systems');
-      const systemsData = await systemsResponse.json();
-      setEhrSystems(systemsData.ehr_systems);
+      try {
+        const systemsResponse = await fetch('/api/ehr/systems');
+        if (systemsResponse.ok) {
+          const systemsData = await systemsResponse.json();
+          if (systemsData.ehr_systems && systemsData.ehr_systems.length > 0) {
+            setEhrSystems(systemsData.ehr_systems);
+          }
+        }
+      } catch (systemsError) {
+        // Network error or API endpoint doesn't exist, use defaults
+        console.warn('EHR systems API error:', systemsError);
+      }
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load data');

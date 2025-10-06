@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseMiddlewareClient } from "@/lib/supabase/server";
 
 // Reserved subdomains that should not be treated as team slugs
 const RESERVED_SUBDOMAINS = [
@@ -61,7 +61,7 @@ export default clerkMiddleware(async (auth, req) => {
 
         try {
           // Create Supabase client for middleware
-          const supabase = await createSupabaseServerClient();
+          const supabase = await createSupabaseMiddlewareClient();
 
           // Check if team with this slug exists
           const { data: team, error } = await supabase
@@ -128,21 +128,24 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
   // Check if authenticated user needs team onboarding
   if (isAuthenticated && !isUnauthenticatedRoute(req) && !isOnboardingRoute(req)) {
     try {
-      const supabase = await createSupabaseServerClient();
       const { userId } = await auth();
       
-      // Check if user has an active team membership
-      const { data: membership } = await supabase
-        .from('team_member')
-        .select('team_id, role, status')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .single();
+      if (userId) {
+        const supabase = await createSupabaseMiddlewareClient();
+        
+        // Check if user has an active team membership
+        const { data: membership } = await supabase
+          .from('team_member')
+          .select('team_id, role, status')
+          .eq('user_id', userId)
+          .eq('status', 'active')
+          .single();
 
-      // If no active team membership, redirect to onboarding
-      if (!membership) {
-        console.log("Redirecting user without team to onboarding");
-        return NextResponse.redirect(new URL("/onboard", req.url));
+        // If no active team membership, redirect to onboarding
+        if (!membership) {
+          console.log("Redirecting user without team to onboarding");
+          return NextResponse.redirect(new URL("/onboard", req.url));
+        }
       }
     } catch (error) {
       // On database error, allow request to continue

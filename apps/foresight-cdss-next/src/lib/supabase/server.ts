@@ -69,6 +69,17 @@ export async function createSupabaseServerClient() {
   return supabase;
 }
 
+// Middleware-specific function that doesn't call auth() 
+export async function createSupabaseMiddlewareClient() {
+  // Create a simple admin client for middleware use
+  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
 // Helper to get user's current team
 async function getUserTeamId(userId: string): Promise<string | null> {
   // This should query your database to get the user's current team

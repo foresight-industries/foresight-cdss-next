@@ -897,8 +897,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                     onClick={() => setActiveSection(section.id)}
                     className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
                       activeSection === section.id
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
+                        : 'text-foreground hover:bg-accent'
                     }`}
                   >
                     <Icon className="w-5 h-5" />

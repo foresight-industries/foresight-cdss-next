@@ -17,7 +17,9 @@ const AVAILABLE_EVENTS = [
 // GET - List webhook configurations for current team
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth();
+    const { userId } = await auth({
+      treatPendingAsSignedOut: false
+    });
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -30,7 +32,7 @@ export async function GET(request: NextRequest) {
     const { data: profile } = await supabase
       .from('user_profile')
       .select('current_team_id')
-      .eq('id', userId)
+      .eq('clerk_id', userId)
       .single();
 
     if (!profile?.current_team_id) {

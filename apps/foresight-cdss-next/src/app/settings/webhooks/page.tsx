@@ -9,7 +9,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Plus,
   Settings,
@@ -173,45 +172,38 @@ export default function WebhooksPage() {
         </Alert>
       )}
 
-      <Tabs value={environment} className="w-full">
-        <TabsList>
-          <TabsTrigger value="production">Production</TabsTrigger>
-          <TabsTrigger value="development">Development</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value={environment} className="space-y-4">
-          {loading ? (
-            <div className="text-center py-8">Loading webhooks...</div>
-          ) : webhooks.length === 0 ? (
-            <Card>
-              <CardContent className="py-8">
-                <div className="text-center">
-                  <Globe className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">No webhooks configured</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Create your first webhook to start receiving real-time notifications
-                  </p>
-                  <Button onClick={() => setIsCreateOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Your First Webhook
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {webhooks.map((webhook) => (
-                <WebhookCard
-                  key={webhook.id}
-                  webhook={webhook}
-                  onTest={() => handleTestWebhook(webhook.id)}
-                  onDelete={() => handleDeleteWebhook(webhook.id)}
-                />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+      <div className="space-y-4">
+        {loading ? (
+          <div className="text-center py-8">Loading webhooks...</div>
+        ) : webhooks.length === 0 ? (
+          <Card>
+            <CardContent className="py-8">
+              <div className="text-center">
+                <Globe className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No webhooks configured</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create your first webhook to start receiving real-time notifications
+                </p>
+                <Button onClick={() => setIsCreateOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Your First Webhook
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-4">
+            {webhooks.map((webhook) => (
+              <WebhookCard
+                key={webhook.id}
+                webhook={webhook}
+                onTest={() => handleTestWebhook(webhook.id)}
+                onDelete={() => handleDeleteWebhook(webhook.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
