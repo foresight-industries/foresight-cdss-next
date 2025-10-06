@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 import type { CreatePayerPortalCredentialRequest, UpdatePayerPortalCredentialRequest } from '@/types/payer.types';
 
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
 
     // Verify user has access to this payer
@@ -33,8 +33,8 @@ export async function GET(
     const { data: credential, error } = await supabase
       .from('payer_portal_credential')
       .select('id, portal_url, username, mfa_enabled, automation_enabled, last_successful_login, created_at, updated_at')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
@@ -71,7 +71,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
     const body: CreatePayerPortalCredentialRequest = await request.json();
 
@@ -86,8 +86,8 @@ export async function POST(
     } = body;
 
     if (!portal_url) {
-      return NextResponse.json({ 
-        error: 'portal_url is required' 
+      return NextResponse.json({
+        error: 'portal_url is required'
       }, { status: 400 });
     }
 
@@ -107,8 +107,8 @@ export async function POST(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -116,8 +116,8 @@ export async function POST(
     const { data: payer } = await supabase
       .from('payer')
       .select('id, team_id')
-      .eq('id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (!payer) {
@@ -128,29 +128,31 @@ export async function POST(
     const { data: existingCredential } = await supabase
       .from('payer_portal_credential')
       .select('id')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (existingCredential) {
-      return NextResponse.json({ 
-        error: 'Portal credentials already exist. Use PUT to update.' 
+      return NextResponse.json({
+        error: 'Portal credentials already exist. Use PUT to update.'
       }, { status: 409 });
     }
 
     // Create payer portal credentials
+    const insertData = {
+      payer_id: parseInt(payerId),
+      team_id: member.team_id!,
+      portal_url,
+      username: username || null,
+      password: password || null,
+      mfa_enabled: mfa_enabled || null,
+      automation_enabled: automation_enabled || null,
+      security_questions: (security_questions || null) as any
+    };
+
     const { data: credential, error } = await supabase
       .from('payer_portal_credential')
-      .insert({
-        payer_id: parseInt(payerId),
-        team_id: member.team_id,
-        portal_url,
-        username,
-        password, // In production, this should be encrypted
-        mfa_enabled: mfa_enabled || false,
-        automation_enabled: automation_enabled || false,
-        security_questions // In production, this should be encrypted
-      })
+      .insert(insertData)
       .select('id, portal_url, username, mfa_enabled, automation_enabled, created_at, updated_at')
       .single();
 
@@ -183,7 +185,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
     const body: UpdatePayerPortalCredentialRequest = await request.json();
 
@@ -196,8 +198,8 @@ export async function PUT(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -205,8 +207,8 @@ export async function PUT(
     const { data: existingCredential } = await supabase
       .from('payer_portal_credential')
       .select('id, team_id')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (!existingCredential) {
@@ -215,7 +217,7 @@ export async function PUT(
 
     // Validate update fields
     const allowedFields = [
-      'portal_url', 'username', 'password', 'mfa_enabled', 
+      'portal_url', 'username', 'password', 'mfa_enabled',
       'automation_enabled', 'security_questions'
     ];
     const updates: Record<string, any> = {};
@@ -283,7 +285,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
 
     // Validate permissions
@@ -295,8 +297,8 @@ export async function DELETE(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -304,8 +306,8 @@ export async function DELETE(
     const { data: credential, error } = await supabase
       .from('payer_portal_credential')
       .delete()
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .select('id')
       .single();
 
@@ -313,7 +315,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Credentials not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Portal credentials deleted successfully',
       credential_id: credential.id
     });

@@ -66,7 +66,7 @@ export default function ClaimsPage() {
   };
 
   return (
-    <div className="p-8 bg-gray-100 min-h-screen">
+    <div className="p-8 bg-background min-h-screen">
       {/* Confirm Dialog */}
       <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
         <DialogContent className="sm:max-w-md">
@@ -74,7 +74,7 @@ export default function ClaimsPage() {
             <DialogTitle>Confirm E/M Level Change</DialogTitle>
           </DialogHeader>
 
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Applying these fixes will preserve/adjust E/M <strong>99213</strong>
             . Manual confirmation required.
           </p>
@@ -93,21 +93,21 @@ export default function ClaimsPage() {
 
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-foreground">
           Claims Workbench — 99213 Default
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-muted-foreground mt-1">
           Deterministic edits: Telehealth POS 10 + Mod 95; licensure; time-based
           E/M guard.
         </p>
       </header>
 
       {/* Encounters Table */}
-      <Card className="bg-white border shadow-sm mb-6">
+      <Card className="bg-card border shadow-sm mb-6">
         <CardContent className="p-4">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-gray-500">
+              <thead className="text-left text-muted-foreground">
                 <tr>
                   <th className="py-2">Encounter</th>
                   <th>Patient</th>
@@ -119,9 +119,9 @@ export default function ClaimsPage() {
                   <th></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {encounters.map((enc) => (
-                  <tr key={enc.id} className="hover:bg-gray-50">
+                  <tr key={enc.id} className="hover:bg-accent/50">
                     <td className="py-2 font-medium">{enc.id}</td>
                     <td>{enc.patient}</td>
                     <td>{enc.state}</td>
@@ -160,7 +160,7 @@ export default function ClaimsPage() {
       {/* Workbench - 3 Column Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
         {/* Chart Note */}
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Chart Note</h3>
@@ -210,36 +210,36 @@ export default function ClaimsPage() {
         </Card>
 
         {/* AI Coding Suggestions */}
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-5 space-y-4">
             <h3 className="font-semibold">AI Coding Suggestions</h3>
 
             <div>
-              <h4 className="text-xs uppercase text-gray-500 mb-2">ICD-10</h4>
+              <h4 className="text-xs uppercase text-muted-foreground mb-2">ICD-10</h4>
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="bg-gray-100">
-                  F11.20 <span className="text-gray-500 ml-1">· 0.92</span>
+                <Badge variant="secondary" className="bg-muted">
+                  F11.20 <span className="text-muted-foreground ml-1">· 0.92</span>
                 </Badge>
               </div>
             </div>
 
             <div>
-              <h4 className="text-xs uppercase text-gray-500 mb-2">
+              <h4 className="text-xs uppercase text-muted-foreground mb-2">
                 CPT/HCPCS
               </h4>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="font-medium">
-                      99213 <span className="text-gray-500">· E/M by time</span>
+                      99213 <span className="text-muted-foreground">· E/M by time</span>
                     </div>
-                    <div className="text-gray-500">
+                    <div className="text-muted-foreground">
                       Modifiers: <strong>95</strong> (synchronous); POS:{" "}
                       <strong>10</strong> (home)
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-gray-500">Charge</div>
+                    <div className="text-muted-foreground">Charge</div>
                     <div className="font-semibold">$110</div>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default function ClaimsPage() {
             </div>
 
             <div>
-              <h4 className="text-xs uppercase text-gray-500 mb-2">
+              <h4 className="text-xs uppercase text-muted-foreground mb-2">
                 Eligibility
               </h4>
               <div className="flex items-center gap-2">
@@ -275,11 +275,11 @@ export default function ClaimsPage() {
         </Card>
 
         {/* Pre-bill Edits */}
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-5 space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Pre-Bill Edits</h3>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-muted-foreground">
                 277CA expectation: <strong>Accepted</strong>
               </span>
             </div>
@@ -329,13 +329,13 @@ export default function ClaimsPage() {
       </div>
 
       {/* Denials Table */}
-      <Card className="bg-white border shadow-sm">
+      <Card className="bg-card border shadow-sm">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
               Recent Denials (835)
             </CardTitle>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               Filters: State / Payer / CARC
             </div>
           </div>
@@ -343,7 +343,7 @@ export default function ClaimsPage() {
         <CardContent>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-gray-500">
+              <thead className="text-left text-muted-foreground">
                 <tr>
                   <th className="py-2">Claim</th>
                   <th>DOS</th>
@@ -356,9 +356,9 @@ export default function ClaimsPage() {
                   <th></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {denials.map((denial) => (
-                  <tr key={denial.id} className="hover:bg-gray-50">
+                  <tr key={denial.id} className="hover:bg-accent/50">
                     <td className="py-2 font-medium">{denial.id}</td>
                     <td>{denial.dos}</td>
                     <td>{denial.state}</td>
@@ -411,28 +411,28 @@ export default function ClaimsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-foreground mb-1">
                     Date of Service
                   </label>
-                  <p className="text-gray-900">{selectedDenial.dos}</p>
+                  <p className="text-foreground">{selectedDenial.dos}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-foreground mb-1">
                     State
                   </label>
-                  <p className="text-gray-900">{selectedDenial.state}</p>
+                  <p className="text-foreground">{selectedDenial.state}</p>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-foreground mb-1">
                   Payer
                 </label>
-                <p className="text-sm text-gray-900">{selectedDenial.payer}</p>
+                <p className="text-sm text-foreground">{selectedDenial.payer}</p>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-foreground mb-1">
                   CARC/RARC Codes
                 </label>
                 <Badge variant="destructive" className="bg-red-50 text-red-700">
@@ -441,7 +441,7 @@ export default function ClaimsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-foreground mb-2">
                   Denial Reason
                 </label>
                 <div className="bg-red-50 border border-red-200 rounded-md p-3">
@@ -452,7 +452,7 @@ export default function ClaimsPage() {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">
+                <label className="block text-xs font-medium text-foreground mb-2">
                   Playbook Suggestions
                 </label>
                 <div className="bg-indigo-50 border border-indigo-200 rounded-md p-3">
@@ -499,10 +499,10 @@ export default function ClaimsPage() {
           />
 
           {/* Drawer */}
-          <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-white border-l border-gray-200 shadow-xl z-50 overflow-y-auto animate-in slide-in-from-right duration-300">
+          <div className="fixed inset-y-0 right-0 w-full max-w-2xl bg-background border-l border-border shadow-xl z-50 overflow-y-auto animate-in slide-in-from-right duration-300">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900">
+                <h3 className="text-xl font-semibold text-foreground">
                   Encounter Details — {selectedEncounter.id}
                 </h3>
                 <Button
@@ -519,49 +519,49 @@ export default function ClaimsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         Patient
                       </label>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-sm text-foreground">
                         {selectedEncounter.patient}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         Date of Service
                       </label>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-sm text-foreground">
                         {selectedEncounter.dos}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         Visit Type
                       </label>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-sm text-foreground">
                         {selectedEncounter.visit}
                       </p>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         State
                       </label>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-sm text-foreground">
                         {selectedEncounter.state}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         Payer
                       </label>
-                      <p className="text-sm text-gray-900">
+                      <p className="text-sm text-foreground">
                         {selectedEncounter.payer}
                       </p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-muted-foreground mb-1">
                         Status
                       </label>
                       <Badge
@@ -578,10 +578,10 @@ export default function ClaimsPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h4 className="font-medium text-gray-900 mb-3">
+                  <h4 className="font-medium text-foreground mb-3">
                     Clinical Summary
                   </h4>
-                  <div className="bg-gray-50 rounded-md p-4 text-sm space-y-2">
+                  <div className="bg-muted rounded-md p-4 text-sm space-y-2">
                     <p>
                       <strong>Chief Complaint:</strong> Follow-up for OUD on
                       Suboxone
@@ -601,23 +601,23 @@ export default function ClaimsPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h4 className="font-medium text-gray-900 mb-3">
+                  <h4 className="font-medium text-foreground mb-3">
                     Coding Information
                   </h4>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">
                         Primary Diagnosis
                       </label>
-                      <Badge variant="secondary" className="bg-gray-100">
+                      <Badge variant="secondary" className="bg-muted">
                         F11.20 - Opioid Use Disorder
                       </Badge>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-muted-foreground mb-2">
                         Procedure Code
                       </label>
-                      <Badge variant="secondary" className="bg-gray-100">
+                      <Badge variant="secondary" className="bg-muted">
                         99213 - E/M Office Visit
                       </Badge>
                     </div>

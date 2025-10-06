@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import type { 
+import type {
   CustomFieldMapping,
   MappingValidationResult,
   ValidationRule,
-  TransformationRule 
+  TransformationRule
 } from '@/types/field-mapping.types';
 
 // POST - Validate field mappings
@@ -16,13 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body = await request.json();
     const { mappings, sample_data } = body;
 
     if (!mappings || !Array.isArray(mappings)) {
-      return NextResponse.json({ 
-        error: 'Invalid request: mappings array required' 
+      return NextResponse.json({
+        error: 'Invalid request: mappings array required'
       }, { status: 400 });
     }
 
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function validateMapping(
-  mapping: Partial<CustomFieldMapping>, 
+  mapping: Partial<CustomFieldMapping>,
   sampleData?: any
 ): Promise<MappingValidationResult> {
   const errors: string[] = [];
@@ -79,7 +79,7 @@ async function validateMapping(
   if (!mapping.entity_type) {
     errors.push('Entity type is required');
   }
-  
+
   if (!mapping.source_path) {
     errors.push('Source path is required');
   }
@@ -132,7 +132,7 @@ async function validateMapping(
     is_valid: errors.length === 0,
     errors,
     warnings,
-    field_conflicts
+    field_conflicts: fieldConflicts
   };
 }
 
@@ -142,13 +142,9 @@ function isValidSourcePath(sourcePath: string): boolean {
   if (sourcePath.startsWith('$') || sourcePath.startsWith('/')) {
     return true;
   }
-  
+
   // Simple dot notation
-  if (/^[a-zA-Z_][a-zA-Z0-9_]*(\.[a-zA-Z_][a-zA-Z0-9_]*)*$/.test(sourcePath)) {
-    return true;
-  }
-  
-  return false;
+  return /^[a-zA-Z_]\w*(\.[a-zA-Z_]\w*)*$/.test(sourcePath);
 }
 
 function isValidTargetMapping(table: string, column: string, entityType?: string): boolean {
@@ -205,11 +201,11 @@ function validateTransformationRules(rules: TransformationRule[]): string[] {
           errors.push(`Transformation rule ${index + 1}: input_format and output_format required for date formatting`);
         }
         break;
-      case 'pattern':
-        if (!rule.parameters?.regex) {
-          errors.push(`Transformation rule ${index + 1}: regex parameter required for pattern transformation`);
-        }
-        break;
+      // case 'pattern':
+      //   if (!rule.parameters?.regex) {
+      //     errors.push(`Transformation rule ${index + 1}: regex parameter required for pattern transformation`);
+      //   }
+      //   break;
       case 'custom':
         if (!rule.custom_function) {
           errors.push(`Transformation rule ${index + 1}: custom_function required for custom transformation`);
@@ -277,7 +273,7 @@ function testMappingWithSampleData(mapping: Partial<CustomFieldMapping>, sampleD
   try {
     // Try to extract value using source path
     const value = extractValueFromPath(sampleData, mapping.source_path!);
-    
+
     if (value === undefined || value === null) {
       warnings.push('Source path does not match any data in sample');
       return { errors, warnings };
@@ -317,7 +313,7 @@ function extractValueFromPath(data: any, path: string): any {
   if (path.startsWith('$.')) {
     path = path.substring(2);
   }
-  
+
   return path.split('.').reduce((obj, key) => {
     return obj && obj[key] !== undefined ? obj[key] : undefined;
   }, data);
@@ -343,12 +339,13 @@ function applyValidation(value: any, rule: ValidationRule): { isValid: boolean; 
         isValid: value !== null && value !== undefined && value !== '',
         message: rule.error_message || 'Field is required'
       };
-    case 'email':
+    case 'email': {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       return {
         isValid: typeof value === 'string' && emailRegex.test(value),
         message: rule.error_message || 'Invalid email format'
       };
+    }
     case 'min_length':
       return {
         isValid: typeof value === 'string' && value.length >= (rule.parameters?.length || 0),
@@ -380,7 +377,7 @@ function findMappingConflicts(mappings: Partial<CustomFieldMapping>[]): string[]
 
     if (mapping.target_table && mapping.target_column) {
       const targetKey = `${mapping.target_table}.${mapping.target_column}`;
-      const existingIndex = Array.from(pathMap.entries()).find(([k, v]) => 
+      const existingIndex = Array.from(pathMap.entries()).find(([k, v]) =>
         k.includes(targetKey) && v !== index
       );
       if (existingIndex) {

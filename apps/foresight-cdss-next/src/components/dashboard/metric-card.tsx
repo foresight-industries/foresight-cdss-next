@@ -10,11 +10,11 @@ interface MetricCardProps {
 
 export function MetricCard({ metric }: MetricCardProps) {
   return (
-    <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-white border shadow-sm">
-      <h3 className="text-sm font-medium text-gray-500 mb-1">
+    <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-card border shadow-sm">
+      <h3 className="text-sm font-medium text-muted-foreground mb-1">
         {metric.label}
       </h3>
-      <p className="text-3xl font-bold mt-1 mb-2 text-gray-900">
+      <p className="text-3xl font-bold mt-1 mb-2 text-foreground">
         {metric.value}
       </p>
       {metric.change && (
@@ -33,7 +33,7 @@ export function MetricCard({ metric }: MetricCardProps) {
         </div>
       )}
       {metric.target && (
-        <p className="text-xs text-gray-500 mt-1">Target: {metric.target}</p>
+        <p className="text-xs text-muted-foreground mt-1">Target: {metric.target}</p>
       )}
     </Card>
   );

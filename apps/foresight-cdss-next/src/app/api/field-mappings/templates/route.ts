@@ -1,21 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import type { 
-  CreateMappingTemplateRequest, 
-  FieldMappingTemplate,
-  EntityType 
+import type {
+  CreateMappingTemplateRequest,
+  EntityType
 } from '@/types/field-mapping.types';
 
 // GET - List field mapping templates
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const entityType = searchParams.get('entity_type') as EntityType;
     const ehrSystemId = searchParams.get('ehr_system_id');
@@ -38,11 +37,11 @@ export async function GET(request: NextRequest) {
     if (entityType) {
       query = query.eq('entity_type', entityType);
     }
-    
+
     if (ehrSystemId) {
       query = query.eq('ehr_system_id', ehrSystemId);
     }
-    
+
     if (defaultOnly) {
       query = query.eq('is_default', true);
     }
@@ -65,14 +64,14 @@ export async function GET(request: NextRequest) {
 }
 
 // POST - Create new field mapping template
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body: CreateMappingTemplateRequest = await request.json();
 
     // Validate request body
@@ -86,8 +85,8 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name || !mappings || mappings.length === 0) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: name, mappings' 
+      return NextResponse.json({
+        error: 'Missing required fields: name, mappings'
       }, { status: 400 });
     }
 
@@ -100,8 +99,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -115,8 +114,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingTemplate) {
-      return NextResponse.json({ 
-        error: 'Template with this name already exists' 
+      return NextResponse.json({
+        error: 'Template with this name already exists'
       }, { status: 409 });
     }
 
@@ -129,8 +128,8 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!ehrSystem) {
-        return NextResponse.json({ 
-          error: 'EHR system not found' 
+        return NextResponse.json({
+          error: 'EHR system not found'
         }, { status: 404 });
       }
     }
@@ -138,23 +137,25 @@ export async function POST(request: NextRequest) {
     // Validate mappings structure
     for (const mapping of mappings) {
       if (!mapping.field_name || !mapping.display_name || !mapping.data_type) {
-        return NextResponse.json({ 
-          error: 'Invalid mapping definition: missing required fields' 
+        return NextResponse.json({
+          error: 'Invalid mapping definition: missing required fields'
         }, { status: 400 });
       }
     }
 
     // Create field mapping template
+    const insertData = {
+      name,
+      ehr_system_id: ehr_system_id || null,
+      entity_type: entity_type || null,
+      mappings: mappings as any,
+      transformations: (transformations || null) as any,
+      is_default: is_default || null
+    };
+
     const { data: template, error } = await supabase
       .from('field_mapping_template')
-      .insert({
-        name,
-        ehr_system_id,
-        entity_type,
-        mappings,
-        transformations: transformations || [],
-        is_default: is_default || false
-      })
+      .insert(insertData)
       .select(`
         *,
         ehr_system:ehr_system_id (

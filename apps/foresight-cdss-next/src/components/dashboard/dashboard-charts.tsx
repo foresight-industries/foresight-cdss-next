@@ -26,8 +26,8 @@ const denialData = [
 export function DashboardCharts({ className = '' }: DashboardChartsProps) {
   return (
     <div className={`grid grid-cols-1 lg:grid-cols-2 gap-6 ${className}`}>
-      <Card className="bg-white p-6 border shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">ePA Volume (last 5 months)</h3>
+      <Card className="bg-card p-6 border shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-foreground">ePA Volume (last 5 months)</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={volumeData}>
@@ -52,8 +52,8 @@ export function DashboardCharts({ className = '' }: DashboardChartsProps) {
         </div>
       </Card>
 
-      <Card className="bg-white p-6 border shadow-sm">
-        <h3 className="text-lg font-semibold mb-4">Top Denial Reasons</h3>
+      <Card className="bg-card p-6 border shadow-sm">
+        <h3 className="text-lg font-semibold mb-4 text-foreground">Top Denial Reasons</h3>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

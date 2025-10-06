@@ -3,7 +3,7 @@
  * This can be called from cron jobs, API routes, or other triggers
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export interface WebhookProcessorConfig {
   processorUrl?: string;
@@ -77,14 +77,14 @@ export class WebhookProcessor {
     total: number;
   }> {
     try {
-      const supabase = createClient();
-      
+      const supabase = await createSupabaseServerClient();
+
       const { data: stats, error } = await supabase
         .from('webhook_queue')
         .select('status')
         .then(async (result) => {
           if (result.error) throw result.error;
-          
+
           const items = result.data || [];
           const stats = {
             pending: items.filter(item => item.status === 'pending').length,
@@ -92,7 +92,7 @@ export class WebhookProcessor {
             failed: items.filter(item => item.status === 'failed').length,
             total: items.length
           };
-          
+
           return { data: stats, error: null };
         });
 
@@ -111,21 +111,33 @@ export class WebhookProcessor {
    */
   async retryFailedWebhooks(): Promise<number> {
     try {
-      const supabase = createClient();
-      
+      const supabase = await createSupabaseServerClient();
+
       // Reset failed webhooks that haven't exceeded max attempts
-      const { count } = await supabase
+      // First, get webhooks that can be retried
+      const { data: retriableWebhooks } = await supabase
         .from('webhook_queue')
-        .update({ 
+        .select('id, attempts, max_attempts')
+        .eq('status', 'failed')
+        .lt('attempts', 'max_attempts');
+
+      if (!retriableWebhooks || retriableWebhooks.length === 0) {
+        return 0;
+      }
+
+      // Update the retriable webhooks
+      const { data, error } = await supabase
+        .from('webhook_queue')
+        .update({
           status: 'pending',
           scheduled_for: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
-        .eq('status', 'failed')
-        .lt('attempts', supabase.raw('max_attempts'))
-        .select('*', { count: 'exact', head: true });
+        .in('id', retriableWebhooks.map(w => w.id))
+        .select('id');
 
-      return count || 0;
+      if (error) throw error;
+      return data?.length || 0;
 
     } catch (error) {
       console.error('Error retrying failed webhooks:', error);
@@ -136,19 +148,20 @@ export class WebhookProcessor {
   /**
    * Clean up old webhook delivery logs
    */
-  async cleanupOldDeliveries(olderThanDays: number = 30): Promise<number> {
+  async cleanupOldDeliveries(olderThanDays = 30): Promise<number> {
     try {
-      const supabase = createClient();
+      const supabase = await createSupabaseServerClient();
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
-      const { count } = await supabase
+      const { data, error } = await supabase
         .from('webhook_delivery')
         .delete()
         .lt('created_at', cutoffDate.toISOString())
-        .select('*', { count: 'exact', head: true });
+        .select('id');
 
-      return count || 0;
+      if (error) throw error;
+      return data?.length || 0;
 
     } catch (error) {
       console.error('Error cleaning up old deliveries:', error);
@@ -160,13 +173,13 @@ export class WebhookProcessor {
    * Manually trigger webhook for specific event
    */
   async triggerWebhook(
-    teamId: string, 
-    eventType: string, 
+    teamId: string,
+    eventType: string,
     payload: any,
     environment: 'development' | 'production' = 'production'
   ): Promise<boolean> {
     try {
-      const supabase = createClient();
+      const supabase = await createSupabaseServerClient();
 
       // Use the database function to enqueue the webhook
       const { error } = await supabase.rpc('enqueue_webhook_event', {
@@ -200,8 +213,8 @@ export function getCurrentEnvironment(): 'development' | 'production' {
 
 // Utility to set environment context for database operations
 export async function setEnvironmentContext(environment: 'development' | 'production') {
-  const supabase = createClient();
-  
+  const supabase = await createSupabaseServerClient();
+
   try {
     await supabase.rpc('set_config', {
       setting_name: 'app.environment',

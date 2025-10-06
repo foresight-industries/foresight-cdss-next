@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 // GET - Get specific payer with all configurations
@@ -13,7 +13,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
 
     // Get payer with team verification
@@ -35,7 +35,7 @@ export async function GET(
         payer_submission_config (*),
         team!inner(id, name, slug)
       `)
-      .eq('id', payerId)
+      .eq('id', Number(payerId))
       .eq('team.team_member.user_id', userId)
       .eq('team.team_member.status', 'active')
       .single();
@@ -48,14 +48,14 @@ export async function GET(
     const { data: claimStats } = await supabase
       .from('claim')
       .select('id, status, created_at')
-      .eq('payer_id', payerId)
-      .eq('team_id', payer.team_id);
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', payer.team_id ?? '');
 
     const { data: paStats } = await supabase
       .from('prior_auth')
-      .select('id, status, created_at, decision_date')
-      .eq('payer_id', payerId)
-      .eq('team_id', payer.team_id);
+      .select('id, status, created_at, approved_at, denied_at')
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', payer.team_id ?? '');
 
     const totalClaims = claimStats?.length || 0;
     const approvedPAs = paStats?.filter(pa => pa.status === 'approved').length || 0;
@@ -64,19 +64,20 @@ export async function GET(
 
     // Calculate average response time
     const responseTimes = paStats
-      ?.filter(pa => pa.decision_date && pa.created_at)
+      ?.filter(pa => (pa.approved_at || pa.denied_at) && pa.created_at)
       .map(pa => {
-        const created = new Date(pa.created_at);
-        const decided = new Date(pa.decision_date!);
+        const created = new Date(pa.created_at!);
+        const decided = new Date(pa.approved_at || pa.denied_at!);
         return Math.ceil((decided.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
       }) || [];
 
-    const avgResponseTime = responseTimes.length > 0 
+    const avgResponseTime = responseTimes.length > 0
       ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
       : 0;
 
     const lastSubmission = [...(claimStats || []), ...(paStats || [])]
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .filter(item => item.created_at) // Filter out items with null created_at
+      .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
       [0]?.created_at || payer.created_at;
 
     return NextResponse.json({
@@ -111,7 +112,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
     const body = await request.json();
 
@@ -124,8 +125,8 @@ export async function PUT(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -133,7 +134,7 @@ export async function PUT(
     const { data: existingPayer } = await supabase
       .from('payer')
       .select('team_id')
-      .eq('id', payerId)
+      .eq('id', Number(payerId))
       .single();
 
     if (!existingPayer || existingPayer.team_id !== member.team_id) {
@@ -161,7 +162,7 @@ export async function PUT(
     const { data: payer, error } = await supabase
       .from('payer')
       .update(updates)
-      .eq('id', payerId)
+      .eq('id', Number(payerId))
       .select()
       .single();
 
@@ -191,7 +192,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
 
     // Validate permissions
@@ -203,8 +204,8 @@ export async function DELETE(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -212,28 +213,28 @@ export async function DELETE(
     const { data: activeClaims } = await supabase
       .from('claim')
       .select('id')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
-      .in('status', ['submitted', 'pending', 'processing'])
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member.team_id ?? '')
+      .in('status', ['submitted', 'in_review', 'awaiting_277ca'])
       .limit(1);
 
     if (activeClaims && activeClaims.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete payer with active claims. Please resolve all active claims first.' 
+      return NextResponse.json({
+        error: 'Cannot delete payer with active claims. Please resolve all active claims first.'
       }, { status: 400 });
     }
 
     const { data: activePAs } = await supabase
       .from('prior_auth')
       .select('id')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
-      .in('status', ['draft', 'submitted', 'under_review'])
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member.team_id ?? '')
+      .in('status', ['draft', 'submitted', 'in_review', 'peer_to_peer_required'])
       .limit(1);
 
     if (activePAs && activePAs.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete payer with active prior authorizations. Please resolve all active PAs first.' 
+      return NextResponse.json({
+        error: 'Cannot delete payer with active prior authorizations. Please resolve all active PAs first.'
       }, { status: 400 });
     }
 
@@ -241,8 +242,8 @@ export async function DELETE(
     const { data: payer, error } = await supabase
       .from('payer')
       .delete()
-      .eq('id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('id', Number(payerId))
+      .eq('team_id', member.team_id ?? '')
       .select()
       .single();
 
@@ -250,7 +251,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Payer deleted successfully',
       payer_id: payerId
     });

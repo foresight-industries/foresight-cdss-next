@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useUser } from '@clerk/nextjs';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -10,13 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Upload, 
-  Users, 
-  Building2, 
-  CheckCircle, 
+import {
+  Upload,
+  Users,
+  Building2,
+  CheckCircle,
   ArrowRight,
   UserPlus,
   X,
@@ -31,13 +30,12 @@ interface TeamMember {
 
 export default function OnboardPage() {
   const { user } = useUser();
-  const router = useRouter();
-  
+
   // Form state
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Team creation form
   const [teamForm, setTeamForm] = useState({
     name: '',
@@ -45,11 +43,11 @@ export default function OnboardPage() {
     description: '',
     logoUrl: ''
   });
-  
+
   // Avatar upload state
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  
+
   // Team invitation state
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [newMemberEmail, setNewMemberEmail] = useState('');
@@ -105,12 +103,12 @@ export default function OnboardPage() {
         const formData = new FormData();
         formData.append('file', avatarFile);
         formData.append('type', 'team-logo');
-        
+
         const uploadResponse = await fetch('/api/upload', {
           method: 'POST',
           body: formData
         });
-        
+
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
           logoUrl = uploadData.url;
@@ -150,10 +148,10 @@ export default function OnboardPage() {
 
       // Redirect to team dashboard
       const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-      const domain = process.env.NODE_ENV === 'production' 
-        ? 'have-foresight.app' 
+      const domain = process.env.NODE_ENV === 'production'
+        ? 'have-foresight.app'
         : 'foresight.local:3000';
-      
+
       const teamUrl = `${protocol}://${team.slug}.${domain}`;
       window.location.href = teamUrl;
 
@@ -197,7 +195,7 @@ export default function OnboardPage() {
             Welcome to Foresight RCM
           </h1>
           <p className="text-gray-600">
-            Let's set up your team to get started
+            Let&apos;s set up your team to get started
           </p>
         </div>
 
@@ -223,9 +221,9 @@ export default function OnboardPage() {
         {error && (
           <Alert className="mb-6 border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
-            <AlertDescription className="text-red-800">
+            <CardDescription className="text-red-800">
               {error}
-            </AlertDescription>
+            </CardDescription>
           </Alert>
         )}
 

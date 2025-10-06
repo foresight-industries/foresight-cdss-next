@@ -134,13 +134,13 @@ export default function CredentialingPage() {
   const availableStatuses = ['Planned', 'Requested', 'In Progress', 'Active'];
 
   return (
-    <div className="p-8 bg-gray-100 min-h-screen">
+    <div className="p-8 bg-background min-h-screen">
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-foreground">
           Credentialing Tracker
         </h1>
-        <p className="text-gray-600 mt-1">
+        <p className="text-muted-foreground mt-1">
           Multi-state payer credentialing status — keep operations moving across
           all markets.
         </p>
@@ -148,43 +148,43 @@ export default function CredentialingPage() {
 
       {/* Status Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Active</h3>
             <p className="text-2xl font-bold text-emerald-700">
               {statusCounts.Active}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Credentialing Complete</p>
+            <p className="text-xs text-muted-foreground mt-1">Credentialing Complete</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">In Progress</h3>
             <p className="text-2xl font-bold text-yellow-700">
               {statusCounts["In Progress"]}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Pending Steps</p>
+            <p className="text-xs text-muted-foreground mt-1">Pending Steps</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Requested</h3>
             <p className="text-2xl font-bold text-yellow-700">
               {statusCounts.Requested}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Awaiting Submission</p>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting Submission</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Planned</h3>
             <p className="text-2xl font-bold text-gray-700">
               {statusCounts.Planned}
             </p>
-            <p className="text-xs text-gray-500 mt-1">Future Initiatives</p>
+            <p className="text-xs text-muted-foreground mt-1">Future Initiatives</p>
           </CardContent>
         </Card>
       </div>
@@ -192,7 +192,7 @@ export default function CredentialingPage() {
       {/* Filters */}
       <div className="mb-4">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-700">
+          <span className="text-sm font-medium text-foreground">
             Filter by State:
           </span>
           <Select value={stateFilter} onValueChange={setStateFilter}>
@@ -207,7 +207,7 @@ export default function CredentialingPage() {
               ))}
             </SelectContent>
           </Select>
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-muted-foreground">
             Showing {filteredData.length} of {credentialingData.length}{" "}
             credentialing records
           </span>
@@ -215,7 +215,7 @@ export default function CredentialingPage() {
       </div>
 
       {/* Credentialing Table */}
-      <Card className="bg-white border shadow-sm">
+      <Card className="bg-card border shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
             Credentialing Status by State & Payer
@@ -224,7 +224,7 @@ export default function CredentialingPage() {
         <CardContent>
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
-              <thead className="text-left text-gray-500">
+              <thead className="text-left text-muted-foreground">
                 <tr>
                   <th className="py-3 px-4 font-semibold">State</th>
                   <th className="py-3 px-4 font-semibold">Payer</th>
@@ -234,16 +234,16 @@ export default function CredentialingPage() {
                   <th className="py-3 px-4 font-semibold">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {filteredData.map((item, index) => (
                   <tr
                     key={`${item.state}-${item.payer}`}
-                    className="hover:bg-gray-50"
+                    className="hover:bg-accent/50"
                   >
-                    <td className="py-3 px-4 font-medium text-gray-900">
+                    <td className="py-3 px-4 font-medium text-foreground">
                       {item.state}
                     </td>
-                    <td className="py-3 px-4 text-gray-900">{item.payer}</td>
+                    <td className="py-3 px-4 text-foreground">{item.payer}</td>
                     <td className="py-3 px-4">
                       <Badge
                         variant="outline"
@@ -252,14 +252,14 @@ export default function CredentialingPage() {
                         {item.status}
                       </Badge>
                     </td>
-                    <td className="py-3 px-4 text-gray-700 max-w-[200px]">
+                    <td className="py-3 px-4 text-muted-foreground max-w-[200px]">
                       {item.next === "—" ? (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground/60">—</span>
                       ) : (
                         item.next
                       )}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted-foreground">
                       {item.contact === "portal" && (
                         <Badge
                           variant="secondary"
@@ -285,7 +285,7 @@ export default function CredentialingPage() {
                         </Badge>
                       )}
                       {item.contact === "—" && (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-muted-foreground/60">—</span>
                       )}
                     </td>
                     <td className="py-3 px-4">
@@ -314,13 +314,13 @@ export default function CredentialingPage() {
 
       {/* Key Performance Indicators */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">
+            <h3 className="font-semibold text-foreground mb-2">
               Completion Rate
             </h3>
             <div className="flex items-center gap-2">
-              <div className="flex-1 bg-gray-200 rounded-full h-2">
+              <div className="flex-1 bg-muted rounded-full h-2">
                 <div
                   className="bg-emerald-500 h-2 rounded-full"
                   style={{
@@ -330,35 +330,35 @@ export default function CredentialingPage() {
                   }}
                 />
               </div>
-              <span className="text-sm font-medium text-gray-600">
+              <span className="text-sm font-medium text-muted-foreground">
                 {Math.round((statusCounts.Active / filteredData.length) * 100)}%
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {statusCounts.Active} of {filteredData.length} payers active
             </p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">
+            <h3 className="font-semibold text-foreground mb-2">
               Priority Actions
             </h3>
             <p className="text-2xl font-bold text-yellow-700 mb-1">
               {statusCounts["In Progress"] + statusCounts.Requested}
             </p>
-            <p className="text-xs text-gray-500">Items requiring attention</p>
+            <p className="text-xs text-muted-foreground">Items requiring attention</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-white border shadow-sm">
+        <Card className="bg-card border shadow-sm">
           <CardContent className="p-6">
-            <h3 className="font-semibold text-gray-900 mb-2">Coverage</h3>
+            <h3 className="font-semibold text-foreground mb-2">Coverage</h3>
             <p className="text-2xl font-bold text-indigo-700 mb-1">
               {new Set(filteredData.map((item) => item.state)).size}
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               States with active credentialing
             </p>
           </CardContent>
@@ -366,7 +366,7 @@ export default function CredentialingPage() {
       </div>
 
       {/* Quick Actions */}
-      <Card className="bg-white border shadow-sm mt-6">
+      <Card className="bg-card border shadow-sm mt-6">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
         </CardHeader>
@@ -418,10 +418,10 @@ export default function CredentialingPage() {
           {selectedItem && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Current Status
                 </label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   <Badge
                     variant="outline"
                     className={`${getStatusColor(
@@ -434,10 +434,10 @@ export default function CredentialingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Next Step
                 </label>
-                <div className="p-3 bg-gray-50 rounded-md text-sm">
+                <div className="p-3 bg-muted rounded-md text-sm">
                   {selectedItem.next === "—"
                     ? "No next step defined"
                     : selectedItem.next}
@@ -445,10 +445,10 @@ export default function CredentialingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Contact Method
                 </label>
-                <div className="p-3 bg-gray-50 rounded-md">
+                <div className="p-3 bg-muted rounded-md">
                   {selectedItem.contact === "portal" && (
                     <Badge
                       variant="secondary"
@@ -474,13 +474,13 @@ export default function CredentialingPage() {
                     </Badge>
                   )}
                   {selectedItem.contact === "—" && (
-                    <span className="text-gray-400">No contact method</span>
+                    <span className="text-muted-foreground/60">No contact method</span>
                   )}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Update Status
                 </label>
                 <Select value={newStatus} onValueChange={setNewStatus}>
@@ -528,20 +528,20 @@ export default function CredentialingPage() {
             </div>
 
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                <span className="text-sm font-medium">
+              <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                <span className="text-sm font-medium text-foreground">
                   Profile Completeness
                 </span>
                 <Badge className="bg-emerald-50 text-emerald-700">
                   95% Complete
                 </Badge>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                <span className="text-sm font-medium">Last Updated</span>
-                <span className="text-sm text-gray-600">2 weeks ago</span>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                <span className="text-sm font-medium text-foreground">Last Updated</span>
+                <span className="text-sm text-muted-foreground">2 weeks ago</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
-                <span className="text-sm font-medium">Expiring Documents</span>
+              <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                <span className="text-sm font-medium text-foreground">Expiring Documents</span>
                 <Badge variant="destructive">3 items</Badge>
               </div>
             </div>
@@ -581,7 +581,7 @@ export default function CredentialingPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Select Credentialing Items
               </label>
               <Select>
@@ -601,7 +601,7 @@ export default function CredentialingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Follow Up Action
               </label>
               <Select>
@@ -662,8 +662,8 @@ export default function CredentialingPage() {
 
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-gray-50 rounded-md">
-                <h4 className="font-medium text-gray-900 mb-2">
+              <div className="p-4 bg-muted rounded-md">
+                <h4 className="font-medium text-foreground mb-2">
                   Report Period
                 </h4>
                 <Select value={reportPeriod} onValueChange={setReportPeriod}>
@@ -681,12 +681,12 @@ export default function CredentialingPage() {
                 {reportPeriod === "custom" && (
                   <div className="mt-3 space-y-2">
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-foreground mb-1">
                         Start Date
                       </label>
                       <input
                         type="date"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                         value={customDateRange.startDate}
                         onChange={(e) =>
                           setCustomDateRange((prev) => ({
@@ -697,12 +697,12 @@ export default function CredentialingPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                      <label className="block text-xs font-medium text-foreground mb-1">
                         End Date
                       </label>
                       <input
                         type="date"
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                         value={customDateRange.endDate}
                         onChange={(e) =>
                           setCustomDateRange((prev) => ({
@@ -715,8 +715,8 @@ export default function CredentialingPage() {
                   </div>
                 )}
               </div>
-              <div className="p-4 bg-gray-50 rounded-md">
-                <h4 className="font-medium text-gray-900 mb-2">
+              <div className="p-4 bg-muted rounded-md">
+                <h4 className="font-medium text-foreground mb-2">
                   Include States
                 </h4>
                 <Select>
@@ -737,35 +737,35 @@ export default function CredentialingPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4 p-4 bg-gray-50 rounded-md">
+            <div className="grid grid-cols-4 gap-4 p-4 bg-muted rounded-md">
               <div className="text-center">
                 <p className="text-2xl font-bold text-emerald-700">
                   {statusCounts.Active}
                 </p>
-                <p className="text-xs text-gray-600">Active</p>
+                <p className="text-xs text-muted-foreground">Active</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-yellow-700">
                   {statusCounts["In Progress"]}
                 </p>
-                <p className="text-xs text-gray-600">In Progress</p>
+                <p className="text-xs text-muted-foreground">In Progress</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-yellow-700">
                   {statusCounts.Requested}
                 </p>
-                <p className="text-xs text-gray-600">Requested</p>
+                <p className="text-xs text-muted-foreground">Requested</p>
               </div>
               <div className="text-center">
                 <p className="text-2xl font-bold text-gray-700">
                   {statusCounts.Planned}
                 </p>
-                <p className="text-xs text-gray-600">Planned</p>
+                <p className="text-xs text-muted-foreground">Planned</p>
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-              <h4 className="font-medium text-blue-800 mb-2">Report Options</h4>
+            <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-4">
+              <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Report Options</h4>
               <div className="space-y-3 text-sm">
                 <div className="flex items-center space-x-2">
                   <Checkbox
@@ -851,7 +851,7 @@ export default function CredentialingPage() {
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 State
               </label>
               <Select>
@@ -871,7 +871,7 @@ export default function CredentialingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Payer/Health Plan
               </label>
               <Select>
@@ -893,7 +893,7 @@ export default function CredentialingPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Provider Type
               </label>
               <Select>

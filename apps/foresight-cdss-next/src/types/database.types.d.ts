@@ -7770,49 +7770,79 @@ export type Database = {
       }
       webhook_config: {
         Row: {
+          active: boolean
           created_at: string | null
           ehr_connection_id: string | null
+          environment: string
           event_type:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
+          events: string[]
           headers: Json | null
           id: string
           is_active: boolean | null
+          last_error: string | null
+          last_success_at: string | null
+          last_triggered_at: string | null
           retry_config: Json | null
+          retry_count: number
+          secret: string | null
           secret_key: string | null
           target_url: string
           team_id: string
+          timeout_seconds: number
           updated_at: string | null
+          url: string | null
         }
         Insert: {
+          active?: boolean
           created_at?: string | null
           ehr_connection_id?: string | null
+          environment?: string
           event_type?:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
+          events?: string[]
           headers?: Json | null
           id?: string
           is_active?: boolean | null
+          last_error?: string | null
+          last_success_at?: string | null
+          last_triggered_at?: string | null
           retry_config?: Json | null
+          retry_count?: number
+          secret?: string | null
           secret_key?: string | null
           target_url: string
           team_id: string
+          timeout_seconds?: number
           updated_at?: string | null
+          url?: string | null
         }
         Update: {
+          active?: boolean
           created_at?: string | null
           ehr_connection_id?: string | null
+          environment?: string
           event_type?:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
+          events?: string[]
           headers?: Json | null
           id?: string
           is_active?: boolean | null
+          last_error?: string | null
+          last_success_at?: string | null
+          last_triggered_at?: string | null
           retry_config?: Json | null
+          retry_count?: number
+          secret?: string | null
           secret_key?: string | null
           target_url?: string
           team_id?: string
+          timeout_seconds?: number
           updated_at?: string | null
+          url?: string | null
         }
         Relationships: [
           {
@@ -7842,6 +7872,59 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      webhook_delivery: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          event_type: string
+          failed_at: string | null
+          id: string
+          payload: Json
+          response_body: string | null
+          response_status: number | null
+          response_time_ms: number | null
+          webhook_config_id: string
+        }
+        Insert: {
+          attempt_number?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event_type: string
+          failed_at?: string | null
+          id?: string
+          payload: Json
+          response_body?: string | null
+          response_status?: number | null
+          response_time_ms?: number | null
+          webhook_config_id: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          event_type?: string
+          failed_at?: string | null
+          id?: string
+          payload?: Json
+          response_body?: string | null
+          response_status?: number | null
+          response_time_ms?: number | null
+          webhook_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_delivery_webhook_config_id_fkey"
+            columns: ["webhook_config_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_config"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -7891,6 +7974,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "webhook_event_webhook_config_id_fkey"
+            columns: ["webhook_config_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_config"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      webhook_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          event_type: string
+          id: string
+          max_attempts: number
+          payload: Json
+          scheduled_for: string
+          status: string
+          updated_at: string
+          webhook_config_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          event_type: string
+          id?: string
+          max_attempts?: number
+          payload: Json
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          webhook_config_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          event_type?: string
+          id?: string
+          max_attempts?: number
+          payload?: Json
+          scheduled_for?: string
+          status?: string
+          updated_at?: string
+          webhook_config_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_queue_webhook_config_id_fkey"
             columns: ["webhook_config_id"]
             isOneToOne: false
             referencedRelation: "webhook_config"
@@ -8900,6 +9030,15 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      enqueue_webhook_event: {
+        Args: {
+          p_environment?: string
+          p_event_type: string
+          p_payload: Json
+          p_team_id: string
+        }
+        Returns: undefined
+      }
       flag_claims_for_followup: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -9163,9 +9302,17 @@ export type Database = {
           title: string
         }[]
       }
+      set_app_environment: {
+        Args: { environment: string }
+        Returns: string
+      }
       set_auth_context: {
         Args: { team_id: string; user_id: string }
         Returns: undefined
+      }
+      set_config: {
+        Args: { is_local?: boolean; new_value: string; setting_name: string }
+        Returns: string
       }
       set_limit: {
         Args: { "": number }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 import type { UpdateFieldMappingRequest } from '@/types/field-mapping.types';
 
@@ -7,14 +7,14 @@ import type { UpdateFieldMappingRequest } from '@/types/field-mapping.types';
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const mappingId = params.id;
 
     // Verify user has access to this mapping
@@ -42,7 +42,7 @@ export async function GET(
         )
       `)
       .eq('id', mappingId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (error || !mapping) {
@@ -63,14 +63,14 @@ export async function GET(
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const mappingId = params.id;
     const body: UpdateFieldMappingRequest = await request.json();
 
@@ -83,8 +83,8 @@ export async function PUT(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -93,7 +93,7 @@ export async function PUT(
       .from('custom_field_mapping')
       .select('id, team_id, source_path, entity_type')
       .eq('id', mappingId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (!existingMapping) {
@@ -102,7 +102,7 @@ export async function PUT(
 
     // Validate update fields
     const allowedFields = [
-      'source_path', 'target_table', 'target_column', 
+      'source_path', 'target_table', 'target_column',
       'transformation_rules', 'validation_rules', 'is_active'
     ];
     const updates: Record<string, any> = {};
@@ -122,15 +122,15 @@ export async function PUT(
       const { data: conflictMapping } = await supabase
         .from('custom_field_mapping')
         .select('id')
-        .eq('team_id', member.team_id)
+        .eq('team_id', member?.team_id ?? '')
         .eq('entity_type', existingMapping.entity_type)
         .eq('source_path', updates.source_path)
         .neq('id', mappingId)
         .single();
 
       if (conflictMapping) {
-        return NextResponse.json({ 
-          error: 'Another mapping already exists for this source path' 
+        return NextResponse.json({
+          error: 'Another mapping already exists for this source path'
         }, { status: 409 });
       }
     }
@@ -172,14 +172,14 @@ export async function PUT(
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
-) {
+): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const mappingId = params.id;
 
     // Validate permissions
@@ -191,8 +191,8 @@ export async function DELETE(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -201,7 +201,7 @@ export async function DELETE(
       .from('custom_field_mapping')
       .delete()
       .eq('id', mappingId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .select('id, source_path, entity_type')
       .single();
 
@@ -209,7 +209,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Field mapping not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Field mapping deleted successfully',
       mapping_id: mappingId
     });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 import crypto from 'crypto';
 
@@ -7,7 +7,7 @@ import crypto from 'crypto';
 const AVAILABLE_EVENTS = [
   'all',
   'team.created',
-  'team.updated', 
+  'team.updated',
   'team.deleted',
   'team_member.added',
   'team_member.updated',
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const environment = searchParams.get('environment') || 'production';
 
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const webhooksWithStats = webhooks?.map(webhook => {
       const deliveries = webhook.webhook_delivery || [];
       const recentDeliveries = deliveries.slice(0, 10);
-      
+
       return {
         ...webhook,
         webhook_delivery: undefined, // Remove the raw data
@@ -95,12 +95,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body = await request.json();
 
     // Validate request body
     const {
-      name,
       url,
       events,
       environment = 'production',
@@ -108,9 +107,9 @@ export async function POST(request: NextRequest) {
       timeout_seconds = 30
     } = body;
 
-    if (!name || !url || !events || !Array.isArray(events)) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: name, url, events' 
+    if (!url || !events || !Array.isArray(events)) {
+      return NextResponse.json({
+        error: 'Missing required fields: url, events'
       }, { status: 400 });
     }
 
@@ -124,8 +123,8 @@ export async function POST(request: NextRequest) {
     // Validate events
     const invalidEvents = events.filter(event => !AVAILABLE_EVENTS.includes(event));
     if (invalidEvents.length > 0) {
-      return NextResponse.json({ 
-        error: `Invalid events: ${invalidEvents.join(', ')}` 
+      return NextResponse.json({
+        error: `Invalid events: ${invalidEvents.join(', ')}`
       }, { status: 400 });
     }
 
@@ -138,8 +137,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -147,27 +146,28 @@ export async function POST(request: NextRequest) {
     const secret = crypto.randomBytes(32).toString('hex');
 
     // Create webhook configuration
+    const insertData = {
+      team_id: member.team_id!,
+      environment: environment || 'production',
+      target_url: url,
+      secret: secret || null,
+      events: events || [],
+      retry_count: Math.min(Math.max(retry_count || 3, 1), 10), // Clamp between 1-10
+      timeout_seconds: Math.min(Math.max(timeout_seconds || 30, 5), 300), // Clamp between 5-300
+      active: true
+    };
+
     const { data: webhook, error } = await supabase
       .from('webhook_config')
-      .insert({
-        team_id: member.team_id,
-        name,
-        environment,
-        url,
-        secret,
-        events,
-        retry_count: Math.min(Math.max(retry_count, 1), 10), // Clamp between 1-10
-        timeout_seconds: Math.min(Math.max(timeout_seconds, 5), 300), // Clamp between 5-300
-        active: true
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (error) {
       console.error('Error creating webhook:', error);
       if (error.code === '23505') { // Unique constraint violation
-        return NextResponse.json({ 
-          error: 'Webhook name already exists for this environment' 
+        return NextResponse.json({
+          error: 'Webhook configuration already exists'
         }, { status: 409 });
       }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
 
     // Return webhook config without the secret for security
     const { secret: _, ...webhookResponse } = webhook;
-    
+
     return NextResponse.json({
       webhook: webhookResponse,
       secret_hint: `${secret.substring(0, 8)}...` // Only show first 8 chars

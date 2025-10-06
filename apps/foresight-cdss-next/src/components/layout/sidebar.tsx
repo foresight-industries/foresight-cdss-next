@@ -55,14 +55,14 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
   return (
     <aside
       className={cn(
-        "flex flex-col bg-white border-r border-gray-200 transition-all duration-300 ease-in-out h-screen",
+        "flex flex-col bg-background border-r border-border transition-all duration-300 ease-in-out h-screen",
         sidebarOpen ? "w-64" : "w-20"
       )}
     >
       {/* Header */}
       <div
         className={cn(
-          "flex items-center p-4 border-b border-gray-200",
+          "flex items-center p-4 border-b border-border",
           sidebarOpen ? "justify-between" : "justify-center"
         )}
       >
@@ -82,9 +82,9 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
         )}
         <button
           onClick={onToggleSidebar}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="p-2 rounded-lg hover:bg-accent transition-colors"
         >
-          <Menu className="h-5 w-5 text-gray-600" />
+          <Menu className="h-5 w-5 text-muted-foreground" />
         </button>
       </div>
 
@@ -104,7 +104,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
                 "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-200",
                 isActive
                   ? "bg-primary/10 text-primary font-semibold shadow-sm"
-                  : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
               onClick={() => {
                 // Scroll to top when switching tabs
@@ -116,7 +116,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
               <Icon
                 className={cn(
                   "h-5 w-5 flex-shrink-0",
-                  isActive ? "text-primary" : "text-gray-500"
+                  isActive ? "text-primary" : "text-muted-foreground"
                 )}
               />
               {sidebarOpen && <span className="truncate">{item.name}</span>}
@@ -128,7 +128,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
       {/* User Profile Section */}
       <div
         className={cn(
-          "p-4 border-t border-gray-200",
+          "p-4 border-t border-border",
           sidebarOpen ? "space-y-3" : "flex justify-center"
         )}
       >

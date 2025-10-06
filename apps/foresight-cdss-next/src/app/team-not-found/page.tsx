@@ -43,21 +43,21 @@ export default function TeamNotFound({ searchParams }: TeamNotFoundProps) {
                 </h2>
                 {attemptedSlug ? (
                   <p className="text-orange-800 mb-4">
-                    We couldn't find a team with the identifier "<strong>{attemptedSlug}</strong>". 
+                    We couldn&apos;t find a team with the identifier &quot;<strong>{attemptedSlug}</strong>&quot;.
                     This team may not exist, may be inactive, or you may not have access to it.
                   </p>
                 ) : (
                   <p className="text-orange-800 mb-4">
-                    The team you're looking for doesn't exist or may be inactive.
+                    The team you&apos;re looking for doesn&apos;t exist or may be inactive.
                   </p>
                 )}
-                
+
                 <div className="space-y-3">
                   <h3 className="font-medium text-orange-900">Possible reasons:</h3>
                   <ul className="list-disc list-inside space-y-1 text-sm text-orange-800">
                     <li>The team URL was typed incorrectly</li>
                     <li>The team has been deactivated or deleted</li>
-                    <li>You don't have permission to access this team</li>
+                    <li>You don&apos;t have permission to access this team</li>
                     <li>The team identifier has changed</li>
                   </ul>
                 </div>
@@ -74,9 +74,9 @@ export default function TeamNotFound({ searchParams }: TeamNotFoundProps) {
               Go to Main Site
             </Link>
           </Button>
-          
+
           <Button variant="outline" asChild size="lg">
-            <a 
+            <a
               href="mailto:support@have-foresight.com?subject=Team Access Issue"
               className="flex items-center gap-2"
             >
@@ -94,12 +94,12 @@ export default function TeamNotFound({ searchParams }: TeamNotFoundProps) {
                 Need Help Finding Your Team?
               </h3>
               <p className="text-blue-800 text-sm mb-4">
-                If you believe you should have access to this team, please contact your team administrator 
+                If you believe you should have access to this team, please contact your team administrator
                 or reach out to our support team with the team identifier.
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   asChild
                   className="border-blue-300 text-blue-700 hover:bg-blue-100"
@@ -108,9 +108,9 @@ export default function TeamNotFound({ searchParams }: TeamNotFoundProps) {
                     View Help Center
                   </Link>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   size="sm"
                   asChild
                   className="border-blue-300 text-blue-700 hover:bg-blue-100"

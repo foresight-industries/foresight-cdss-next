@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 // POST - Create new team
@@ -10,22 +10,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body = await request.json();
-    
+
     const { name, slug, description, logo_url } = body;
 
     // Validate required fields
     if (!name || !slug) {
-      return NextResponse.json({ 
-        error: 'Team name and slug are required' 
+      return NextResponse.json({
+        error: 'Team name and slug are required'
       }, { status: 400 });
     }
 
     // Validate slug format (alphanumeric and hyphens only)
     if (!/^[a-z0-9-]+$/.test(slug)) {
-      return NextResponse.json({ 
-        error: 'Slug can only contain lowercase letters, numbers, and hyphens' 
+      return NextResponse.json({
+        error: 'Slug can only contain lowercase letters, numbers, and hyphens'
       }, { status: 400 });
     }
 
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingTeam) {
-      return NextResponse.json({ 
-        error: 'This team URL is already taken. Please choose a different one.' 
+      return NextResponse.json({
+        error: 'This team URL is already taken. Please choose a different one.'
       }, { status: 409 });
     }
 
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingMembership) {
-      return NextResponse.json({ 
-        error: 'You are already a member of a team' 
+      return NextResponse.json({
+        error: 'You are already a member of a team'
       }, { status: 400 });
     }
 
@@ -93,9 +93,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to set up team membership' }, { status: 500 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       team,
-      message: 'Team created successfully' 
+      message: 'Team created successfully'
     }, { status: 201 });
 
   } catch (error) {
@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
 
     // Get user's team memberships
     const { data: memberships, error } = await supabase

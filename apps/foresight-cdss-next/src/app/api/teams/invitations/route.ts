@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 interface TeamInvitation {
   email: string;
-  role: 'admin' | 'member';
+  role: 'org_admin' | 'viewer';
 }
 
 // POST - Send team invitations
-export async function POST(request: NextRequest) {
+export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body = await request.json();
-    
+
     const { team_id, invitations }: { team_id: string; invitations: TeamInvitation[] } = body;
 
     // Validate required fields
     if (!team_id || !invitations || !Array.isArray(invitations)) {
-      return NextResponse.json({ 
-        error: 'Team ID and invitations array are required' 
+      return NextResponse.json({
+        error: 'Team ID and invitations array are required'
       }, { status: 400 });
     }
 
@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!membership || !['super_admin', 'admin'].includes(membership.role)) {
-      return NextResponse.json({ 
-        error: 'You do not have permission to invite members to this team' 
+      return NextResponse.json({
+        error: 'You do not have permission to invite members to this team'
       }, { status: 403 });
     }
 
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
           .insert({
             team_id,
             email: invitation.email,
-            role: invitation.role === 'admin' ? 'admin' : 'member',
+            role: invitation.role.includes('admin') ? 'org_admin' : 'viewer',
             status: 'invited',
             invited_by: userId,
             invited_at: new Date().toISOString()
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: results,
       errors,
       message: `${results.length} invitation(s) sent successfully`
@@ -136,14 +136,14 @@ export async function POST(request: NextRequest) {
 }
 
 // GET - List pending invitations for a team
-export async function GET(request: NextRequest) {
+export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('team_id');
 
@@ -161,8 +161,8 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (!membership || !['super_admin', 'admin'].includes(membership.role)) {
-      return NextResponse.json({ 
-        error: 'You do not have permission to view team invitations' 
+      return NextResponse.json({
+        error: 'You do not have permission to view team invitations'
       }, { status: 403 });
     }
 

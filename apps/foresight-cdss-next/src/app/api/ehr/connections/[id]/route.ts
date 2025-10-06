@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import type { UpdateEHRConnectionRequest } from '@/types/ehr.types';
+import type {
+  UpdateEHRConnectionRequest,
+  EHRAuthConfig,
+  EHRConnection,
+} from "@/types/ehr.types";
 
 // GET - Get specific EHR connection
 export async function GET(
@@ -14,7 +18,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const connectionId = params.id;
 
     // Get connection with team verification
@@ -43,24 +47,25 @@ export async function GET(
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
-    // Remove sensitive auth data but include more details for editing
+    // Cast auth_config to proper type and remove sensitive auth data
+    const authConfig = connection.auth_config as unknown as EHRAuthConfig;
     const safeConnection = {
       ...connection,
       auth_config: {
-        type: connection.auth_config?.type,
+        type: authConfig?.type,
         // Include field names but not values for form population
-        client_id: connection.auth_config?.client_id ? '••••••••' : undefined,
-        api_key: connection.auth_config?.api_key ? '••••••••' : undefined,
-        username: connection.auth_config?.username || undefined,
-        authorization_url: connection.auth_config?.authorization_url,
-        token_url: connection.auth_config?.token_url,
-        scope: connection.auth_config?.scope,
-        api_key_header: connection.auth_config?.api_key_header,
-        expires_at: connection.auth_config?.expires_at,
+        client_id: authConfig?.client_id ? '••••••••' : undefined,
+        api_key: authConfig?.api_key ? '••••••••' : undefined,
+        username: authConfig?.username || undefined,
+        authorization_url: authConfig?.authorization_url,
+        token_url: authConfig?.token_url,
+        scope: authConfig?.scope,
+        api_key_header: authConfig?.api_key_header,
+        expires_at: authConfig?.expires_at,
         has_credentials: !!(
-          connection.auth_config?.client_id || 
-          connection.auth_config?.api_key || 
-          connection.auth_config?.username
+          authConfig?.client_id ||
+          authConfig?.api_key ||
+          authConfig?.username
         )
       }
     };
@@ -86,7 +91,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const connectionId = params.id;
     const body: UpdateEHRConnectionRequest = await request.json();
 
@@ -99,8 +104,8 @@ export async function PUT(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -117,7 +122,7 @@ export async function PUT(
 
     // Validate update fields
     const allowedFields = [
-      'connection_name', 'base_url', 'environment', 'status', 
+      'connection_name', 'base_url', 'environment', 'status',
       'auth_config', 'custom_headers', 'sync_config', 'metadata'
     ];
     const updates: Record<string, any> = {};
@@ -130,8 +135,8 @@ export async function PUT(
 
     // Handle auth_config updates carefully
     if (updates.auth_config) {
-      const currentAuthConfig = existingConnection.auth_config || {};
-      const newAuthConfig = { ...currentAuthConfig };
+      const currentAuthConfig = (existingConnection.auth_config || {}) as unknown as EHRAuthConfig;
+      const newAuthConfig = { ...currentAuthConfig } as Record<string, any>;
 
       // Only update fields that are provided and not masked
       for (const [key, value] of Object.entries(updates.auth_config)) {
@@ -140,20 +145,20 @@ export async function PUT(
         }
       }
 
-      updates.auth_config = newAuthConfig;
+      updates.auth_config = newAuthConfig as EHRAuthConfig;
     }
 
     // Validate environment if provided
     if (updates.environment && !['development', 'staging', 'production'].includes(updates.environment)) {
-      return NextResponse.json({ 
-        error: 'Invalid environment. Must be development, staging, or production' 
+      return NextResponse.json({
+        error: 'Invalid environment. Must be development, staging, or production'
       }, { status: 400 });
     }
 
     // Validate status if provided
     if (updates.status && !['active', 'inactive', 'testing', 'error'].includes(updates.status)) {
-      return NextResponse.json({ 
-        error: 'Invalid status. Must be active, inactive, testing, or error' 
+      return NextResponse.json({
+        error: 'Invalid status. Must be active, inactive, testing, or error'
       }, { status: 400 });
     }
 
@@ -165,7 +170,7 @@ export async function PUT(
     updates.updated_at = new Date().toISOString();
 
     // Update connection
-    const { data: connection, error } = await supabase
+    const { data, error } = await supabase
       .from('ehr_connection')
       .update(updates)
       .eq('id', connectionId)
@@ -182,11 +187,13 @@ export async function PUT(
       `)
       .single();
 
+    const connection = data as unknown as EHRConnection;
+
     if (error) {
       console.error('Error updating EHR connection:', error);
       if (error.code === '23505') {
-        return NextResponse.json({ 
-          error: 'Connection name already exists for this team' 
+        return NextResponse.json({
+          error: 'Connection name already exists for this team'
         }, { status: 409 });
       }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
@@ -198,8 +205,8 @@ export async function PUT(
       auth_config: {
         type: connection.auth_config?.type,
         has_credentials: !!(
-          connection.auth_config?.client_id || 
-          connection.auth_config?.api_key || 
+          connection.auth_config?.client_id ||
+          connection.auth_config?.api_key ||
           connection.auth_config?.username
         ),
         scope: connection.auth_config?.scope
@@ -227,7 +234,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const connectionId = params.id;
 
     // Validate permissions
@@ -239,8 +246,8 @@ export async function DELETE(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -253,8 +260,8 @@ export async function DELETE(
       .limit(1);
 
     if (activeSyncJobs && activeSyncJobs.length > 0) {
-      return NextResponse.json({ 
-        error: 'Cannot delete connection with active sync jobs. Please stop all sync jobs first.' 
+      return NextResponse.json({
+        error: 'Cannot delete connection with active sync jobs. Please stop all sync jobs first.'
       }, { status: 400 });
     }
 
@@ -263,7 +270,7 @@ export async function DELETE(
       .from('ehr_connection')
       .delete()
       .eq('id', connectionId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .select()
       .single();
 
@@ -271,7 +278,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'EHR connection deleted successfully',
       connection_id: connectionId
     });

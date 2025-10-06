@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 import type { CreatePayerRequest, PayerWithConfig } from '@/types/payer.types';
 
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const includePopular = searchParams.get('include_popular') === 'true';
 
@@ -56,27 +56,78 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    // Transform data to include performance stats
-    const payersWithConfig: PayerWithConfig[] = (payers || []).map(payer => ({
-      payer: {
-        id: payer.id,
-        name: payer.name,
-        external_payer_id: payer.external_payer_id,
-        payer_type: payer.payer_type,
-        team_id: payer.team_id,
-        created_at: payer.created_at,
-        updated_at: payer.updated_at
-      },
-      config: payer.payer_config?.[0] || undefined,
-      portal_credential: payer.payer_portal_credential?.[0] || undefined,
-      submission_config: payer.payer_submission_config?.[0] || undefined,
-      performance_stats: {
-        total_claims: 0, // TODO: Calculate from claims table
-        approval_rate: 0, // TODO: Calculate from prior_auth table
-        avg_response_time_days: 0, // TODO: Calculate from prior_auth table
-        last_submission: payer.updated_at || payer.created_at
+    // Calculate performance stats for each payer
+    const payersWithConfig: PayerWithConfig[] = [];
+    
+    for (const payer of payers || []) {
+      // Get total claims count
+      const { count: totalClaims } = await supabase
+        .from('claim')
+        .select('*', { count: 'exact', head: true })
+        .eq('payer_id', payer.id)
+        .eq('team_id', profile.current_team_id);
+
+      // Get prior auth stats for approval rate calculation
+      const { data: priorAuthStats } = await supabase
+        .from('prior_auth')
+        .select('status, created_at, approved_at, denied_at')
+        .eq('payer_id', payer.id)
+        .eq('team_id', profile.current_team_id);
+
+      // Calculate approval rate
+      const totalPriorAuths = priorAuthStats?.length || 0;
+      const approvedPriorAuths = priorAuthStats?.filter(pa => pa.status === 'approved').length || 0;
+      const approvalRate = totalPriorAuths > 0 ? (approvedPriorAuths / totalPriorAuths) * 100 : 0;
+
+      // Calculate average response time in days
+      const approvedAuths = priorAuthStats?.filter(pa => 
+        pa.approved_at && pa.created_at
+      ) || [];
+      
+      let avgResponseTimeDays = 0;
+      if (approvedAuths.length > 0) {
+        const totalResponseTime = approvedAuths.reduce((sum, pa) => {
+          const createdAt = new Date(pa.created_at!);
+          const approvedAt = new Date(pa.approved_at!);
+          const diffMs = approvedAt.getTime() - createdAt.getTime();
+          const diffDays = diffMs / (1000 * 60 * 60 * 24);
+          return sum + diffDays;
+        }, 0);
+        avgResponseTimeDays = Math.round(totalResponseTime / approvedAuths.length * 10) / 10;
       }
-    }));
+
+      // Get last submission date
+      const { data: lastSubmission } = await supabase
+        .from('claim')
+        .select('submitted_at')
+        .eq('payer_id', payer.id)
+        .eq('team_id', profile.current_team_id)
+        .not('submitted_at', 'is', null)
+        .order('submitted_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      payersWithConfig.push({
+        payer: {
+          id: payer.id,
+          name: payer.name,
+          external_payer_id: payer.external_payer_id,
+          payer_type: payer.payer_type || undefined,
+          team_id: payer.team_id || undefined,
+          created_at: payer.created_at || undefined,
+          updated_at: payer.updated_at || undefined
+        },
+        config: payer.payer_config?.[0] as any || undefined,
+        portal_credential: payer.payer_portal_credential?.[0] as any || undefined,
+        submission_config: payer.payer_submission_config?.[0] as any || undefined,
+        performance_stats: {
+          total_claims: totalClaims || 0,
+          approval_rate: Math.round(approvalRate * 10) / 10,
+          avg_response_time_days: avgResponseTimeDays,
+          last_submission: lastSubmission?.submitted_at || payer.updated_at || payer.created_at || ''
+        }
+      });
+    }
 
     return NextResponse.json({
       payers: payersWithConfig,
@@ -97,7 +148,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body: CreatePayerRequest = await request.json();
 
     // Validate request body
@@ -108,8 +159,8 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!name || !external_payer_id) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: name, external_payer_id' 
+      return NextResponse.json({
+        error: 'Missing required fields: name, external_payer_id'
       }, { status: 400 });
     }
 
@@ -122,8 +173,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -131,13 +182,13 @@ export async function POST(request: NextRequest) {
     const { data: existingPayer } = await supabase
       .from('payer')
       .select('id')
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .eq('external_payer_id', external_payer_id)
       .single();
 
     if (existingPayer) {
-      return NextResponse.json({ 
-        error: 'Payer already exists for this team' 
+      return NextResponse.json({
+        error: 'Payer already exists for this team'
       }, { status: 409 });
     }
 

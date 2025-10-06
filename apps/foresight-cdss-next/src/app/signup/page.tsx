@@ -43,10 +43,10 @@ export default function SignupPage() {
 
             <div className="space-y-3">
               <Button asChild className="w-full">
-                <a href="mailto:support@have-foresight.com?subject=Account Access Request&body=Hello, I would like to request access to the Foresight RCM platform.">
+                <Link href="mailto:support@have-foresight.com?subject=Account Access Request&body=Hello, I would like to request access to the Foresight RCM platform.">
                   <Mail className="mr-2 h-4 w-4" />
                   Contact Support
-                </a>
+                </Link>
               </Button>
 
               <Button asChild variant="outline" className="w-full">

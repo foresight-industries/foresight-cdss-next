@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 import type { EHRConnectionTestResult } from '@/types/ehr.types';
 
@@ -14,7 +14,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const connectionId = params.id;
 
     // Validate permissions
@@ -26,8 +26,8 @@ export async function POST(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -47,7 +47,7 @@ export async function POST(
         )
       `)
       .eq('id', connectionId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (connectionError || !connection) {
@@ -57,7 +57,7 @@ export async function POST(
     // Update connection status to testing
     await supabase
       .from('ehr_connection')
-      .update({ 
+      .update({
         status: 'testing',
         updated_at: new Date().toISOString()
       })
@@ -67,7 +67,7 @@ export async function POST(
 
     // Update connection status based on test result
     const newStatus = testResult.success ? 'active' : 'error';
-    const updateData: any = { 
+    const updateData: any = {
       status: newStatus,
       updated_at: new Date().toISOString()
     };
@@ -90,13 +90,13 @@ export async function POST(
 
   } catch (error) {
     console.error('EHR connection test error:', error);
-    
+
     // Ensure connection status is updated on error
     try {
-      const supabase = createClient();
+      const supabase = await createSupabaseServerClient();
       await supabase
         .from('ehr_connection')
-        .update({ 
+        .update({
           status: 'error',
           last_error: error instanceof Error ? error.message : 'Test failed',
           updated_at: new Date().toISOString()
@@ -112,10 +112,10 @@ export async function POST(
 
 async function testEHRConnection(connection: any): Promise<EHRConnectionTestResult> {
   const startTime = Date.now();
-  
+
   try {
     const { ehr_system, auth_config, base_url } = connection;
-    
+
     if (!auth_config || !auth_config.type) {
       return {
         success: false,
@@ -125,7 +125,7 @@ async function testEHRConnection(connection: any): Promise<EHRConnectionTestResu
 
     // Determine the endpoint to test
     const testUrl = base_url || getDefaultEndpoint(ehr_system, connection.environment);
-    
+
     if (!testUrl) {
       return {
         success: false,
@@ -133,10 +133,10 @@ async function testEHRConnection(connection: any): Promise<EHRConnectionTestResu
       };
     }
 
-    const testResults: EHRConnectionTestResult = {
-      success: false,
-      endpoints_tested: [testUrl]
-    };
+    // const testResults: EHRConnectionTestResult = {
+    //   success: false,
+    //   endpoints_tested: [testUrl]
+    // };
 
     // Test based on API type
     switch (ehr_system.api_type) {
@@ -163,15 +163,15 @@ async function testEHRConnection(connection: any): Promise<EHRConnectionTestResu
 }
 
 async function testFHIRConnection(
-  baseUrl: string, 
-  authConfig: any, 
-  ehrSystem: any, 
+  baseUrl: string,
+  authConfig: any,
+  ehrSystem: any,
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
     // Test metadata endpoint first (usually doesn't require auth)
     const metadataUrl = `${baseUrl.replace(/\/$/, '')}/metadata`;
-    
+
     const metadataResponse = await fetch(metadataUrl, {
       method: 'GET',
       headers: {
@@ -194,10 +194,10 @@ async function testFHIRConnection(
     }
 
     const metadata = await metadataResponse.json();
-    
+
     // Extract capabilities
     const capabilities = metadata?.rest?.[0]?.resource?.map((r: any) => r.type) || [];
-    
+
     // Test authentication if credentials are provided
     let authTestResult = null;
     if (authConfig.client_id || authConfig.api_key) {
@@ -232,7 +232,7 @@ async function testFHIRAuth(baseUrl: string, authConfig: any) {
     // For OAuth2, we can test if the authorization endpoint is reachable
     if (authConfig.authorization_url) {
       try {
-        const response = await fetch(authConfig.authorization_url, { 
+        const response = await fetch(authConfig.authorization_url, {
           method: 'HEAD',
           signal: AbortSignal.timeout(5000)
         });
@@ -248,14 +248,14 @@ async function testFHIRAuth(baseUrl: string, authConfig: any) {
       }
     }
   }
-  
+
   return { auth_test_skipped: 'No testable auth configuration' };
 }
 
 async function testRESTConnection(
-  baseUrl: string, 
-  authConfig: any, 
-  ehrSystem: any, 
+  baseUrl: string,
+  authConfig: any,
+  ehrSystem: any,
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
@@ -268,8 +268,8 @@ async function testRESTConnection(
     // Add authentication headers if available
     if (authConfig.type === 'api_key' && authConfig.api_key) {
       const headerName = authConfig.api_key_header || 'Authorization';
-      headers[headerName] = authConfig.api_key.startsWith('Bearer ') 
-        ? authConfig.api_key 
+      headers[headerName] = authConfig.api_key.startsWith('Bearer ')
+        ? authConfig.api_key
         : `Bearer ${authConfig.api_key}`;
     }
 
@@ -299,9 +299,9 @@ async function testRESTConnection(
 }
 
 async function testCustomConnection(
-  baseUrl: string, 
-  authConfig: any, 
-  ehrSystem: any, 
+  baseUrl: string,
+  authConfig: any,
+  ehrSystem: any,
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
@@ -332,7 +332,7 @@ async function testCustomConnection(
 
 function getDefaultEndpoint(ehrSystem: any, environment: string): string | null {
   const baseUrls = ehrSystem.base_urls;
-  
+
   if (!baseUrls || typeof baseUrls !== 'object') {
     return null;
   }

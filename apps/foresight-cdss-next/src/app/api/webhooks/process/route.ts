@@ -1,38 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import crypto from 'crypto';
 
 // This endpoint processes the webhook queue and sends HTTP requests
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
-    
+    const supabase = await createSupabaseServerClient();
+
     // Get authorization header for simple API protection
     const authHeader = request.headers.get('authorization');
     const expectedToken = process.env.WEBHOOK_PROCESSOR_TOKEN;
-    
+
     if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get pending webhook events from queue
-    const { data: queueItems, error: queueError } = await supabase
+    const { data: allItems, error: queueError } = await supabase
       .from('webhook_queue')
       .select(`
         *,
         webhook_config (
           id,
           url,
+          target_url,
           secret,
           timeout_seconds,
           team_id
         )
       `)
       .eq('status', 'pending')
-      .lt('attempts', supabase.raw('max_attempts'))
       .lte('scheduled_for', new Date().toISOString())
       .order('created_at', { ascending: true })
-      .limit(50); // Process in batches
+      .limit(100); // Get more items, then filter in JS
+
+    // Filter items where attempts < max_attempts in JavaScript
+    const queueItems = allItems?.filter(item => item.attempts < item.max_attempts).slice(0, 50) || [];
 
     if (queueError) {
       console.error('Error fetching webhook queue:', queueError);
@@ -51,24 +54,24 @@ export async function POST(request: NextRequest) {
         // Update status to processing
         await supabase
           .from('webhook_queue')
-          .update({ 
+          .update({
             status: 'processing',
             attempts: item.attempts + 1,
             updated_at: new Date().toISOString()
           })
           .eq('id', item.id);
 
-        const result = await processWebhook(item, supabase);
+        const result = await processWebhook(item);
         results.push(result);
         processedCount++;
 
         // Update final status
-        const finalStatus = result.success ? 'completed' : 
+        const finalStatus = result.success ? 'completed' :
           (item.attempts + 1 >= item.max_attempts ? 'failed' : 'pending');
-        
+
         await supabase
           .from('webhook_queue')
-          .update({ 
+          .update({
             status: finalStatus,
             updated_at: new Date().toISOString()
           })
@@ -102,12 +105,12 @@ export async function POST(request: NextRequest) {
 
       } catch (error) {
         console.error(`Error processing webhook ${item.id}:`, error);
-        
+
         // Mark as failed if max attempts reached
         const finalStatus = item.attempts + 1 >= item.max_attempts ? 'failed' : 'pending';
         await supabase
           .from('webhook_queue')
-          .update({ 
+          .update({
             status: finalStatus,
             updated_at: new Date().toISOString()
           })
@@ -146,9 +149,10 @@ interface WebhookQueueItem {
   max_attempts: number;
   webhook_config: {
     id: string;
-    url: string;
-    secret: string;
-    timeout_seconds: number;
+    url: string | null;
+    target_url: string;
+    secret: string | null;
+    timeout_seconds: number | null;
     team_id: string;
   };
 }
@@ -163,36 +167,48 @@ interface WebhookResult {
 }
 
 async function processWebhook(
-  item: WebhookQueueItem,
-  supabase: any
+  item: WebhookQueueItem
 ): Promise<WebhookResult> {
   const startTime = Date.now();
-  
+
   try {
     const { webhook_config } = item;
-    
-    // Create HMAC signature for security
-    const signature = createHmacSignature(item.payload, webhook_config.secret);
-    
+
+    // Use target_url as primary, fallback to url
+    const webhookUrl = webhook_config.target_url || webhook_config.url;
+    if (!webhookUrl) {
+      throw new Error('No webhook URL configured');
+    }
+
+    // Create HMAC signature for security (skip if no secret)
+    const signature = webhook_config.secret 
+      ? createHmacSignature(item.payload, webhook_config.secret)
+      : '';
+
     // Prepare headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'Foresight-CDSS-Webhook/1.0',
       'X-Foresight-Event': item.event_type,
-      'X-Foresight-Signature': signature,
       'X-Foresight-Team-ID': webhook_config.team_id,
       'X-Foresight-Delivery': crypto.randomUUID()
     };
 
+    // Only add signature header if we have a secret
+    if (signature) {
+      headers['X-Foresight-Signature'] = signature;
+    }
+
     // Send HTTP request
     const controller = new AbortController();
+    const timeoutSeconds = webhook_config.timeout_seconds || 30;
     const timeoutId = setTimeout(
       () => controller.abort(),
-      webhook_config.timeout_seconds * 1000
+      timeoutSeconds * 1000
     );
 
     try {
-      const response = await fetch(webhook_config.url, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(item.payload),
@@ -200,7 +216,7 @@ async function processWebhook(
       });
 
       clearTimeout(timeoutId);
-      
+
       const responseTime = Date.now() - startTime;
       const responseBody = await response.text();
 
@@ -219,7 +235,7 @@ async function processWebhook(
 
   } catch (error) {
     const responseTime = Date.now() - startTime;
-    
+
     return {
       webhook_id: item.id,
       success: false,

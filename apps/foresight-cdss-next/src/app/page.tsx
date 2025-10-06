@@ -102,11 +102,11 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-8 bg-gray-100 min-h-screen">
+    <div className="p-8 bg-background min-h-screen">
       {/* Header */}
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Foresight Overview</h1>
-        <p className="text-gray-600 mt-1">Automated RCM System — Multi-state operations. Focus: Prior Authorization, E/M optimization, high automation rate.</p>
+        <h1 className="text-3xl font-bold text-foreground">Foresight Overview</h1>
+        <p className="text-muted-foreground mt-1">Automated RCM System — Multi-state operations. Focus: Prior Authorization, E/M optimization, high automation rate.</p>
       </header>
 
       {/* Core KPI Metrics */}
@@ -134,7 +134,7 @@ export default function DashboardPage() {
       )}
 
       {/* Recent Activity */}
-      <Card className="bg-white border shadow-sm mb-8">
+      <Card className="bg-card border shadow-sm mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">Recent PA Activity</CardTitle>
@@ -148,7 +148,7 @@ export default function DashboardPage() {
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-gray-500">
+              <thead className="text-left text-muted-foreground">
                 <tr>
                   <th className="py-2">Case ID</th>
                   <th>Patient</th>
@@ -159,31 +159,31 @@ export default function DashboardPage() {
                   <th>Updated</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-border">
                 {recentActivity?.map((activity) => (
-                  <tr key={activity.id} className="hover:bg-gray-50">
+                  <tr key={activity.id} className="hover:bg-accent/50">
                     <td className="py-2">
                       <Link
                         href={`/pa/${activity.id}`}
-                        className="text-indigo-600 font-semibold hover:underline"
+                        className="text-primary font-semibold hover:underline"
                       >
                         {activity.id}
                       </Link>
                     </td>
                     <td>
                       <div>
-                        <p className="font-medium text-gray-900">{activity.patientName}</p>
-                        <p className="text-xs text-gray-500">{activity.patientId}</p>
+                        <p className="font-medium text-foreground">{activity.patientName}</p>
+                        <p className="text-xs text-muted-foreground">{activity.patientId}</p>
                         <p className="text-xs text-green-600 font-medium">{activity.conditions}</p>
                       </div>
                     </td>
                     <td>
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{activity.attempt}</p>
-                        <p className="text-xs text-gray-500">{activity.medication}</p>
+                        <p className="text-sm font-semibold text-foreground">{activity.attempt}</p>
+                        <p className="text-xs text-muted-foreground">{activity.medication}</p>
                       </div>
                     </td>
-                    <td className="text-gray-900">{activity.payer}</td>
+                    <td className="text-foreground">{activity.payer}</td>
                     <td>
                       <Badge variant={activity.status === 'auto-approved' ? 'secondary' : 'default'}>
                         {activity.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
@@ -191,22 +191,22 @@ export default function DashboardPage() {
                     </td>
                     <td>
                       <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                        <div className="w-16 bg-muted rounded-full h-1.5">
                           <div
                             className="bg-gradient-to-r from-cyan-500 to-blue-600 h-1.5 rounded-full"
                             style={{ width: `${activity.confidence}%` }}
                           />
                         </div>
-                        <span className="text-sm font-medium text-gray-600">
+                        <span className="text-sm font-medium text-muted-foreground">
                           {activity.confidence}%
                         </span>
                       </div>
                     </td>
-                    <td className="text-gray-500">{activity.updatedAt}</td>
+                    <td className="text-muted-foreground">{activity.updatedAt}</td>
                   </tr>
                 )) || (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-gray-500">
+                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                       No recent activity found
                     </td>
                   </tr>

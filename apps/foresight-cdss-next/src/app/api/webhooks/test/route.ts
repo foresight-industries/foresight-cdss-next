@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 // POST - Test webhook by sending a test event
@@ -10,12 +10,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { webhook_id } = await request.json();
 
     if (!webhook_id) {
-      return NextResponse.json({ 
-        error: 'webhook_id is required' 
+      return NextResponse.json({
+        error: 'webhook_id is required'
       }, { status: 400 });
     }
 
@@ -28,8 +28,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
       .from('webhook_config')
       .select('*')
       .eq('id', webhook_id)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member.team_id ?? '')
       .single();
 
     if (webhookError || !webhook) {
@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
       test: true,
       data: {
         message: 'This is a test webhook event',
-        webhook_name: webhook.name,
+        webhook_id: webhook.id,
+        webhook_url: webhook.target_url || webhook.url,
         environment: webhook.environment,
         triggered_by: userId,
         triggered_at: new Date().toISOString()
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
             test: true,
             data: {
               message: 'This is a test webhook event',
-              webhook_name: 'example-webhook',
+              webhook_id: 'uuid',
               environment: 'production'
             }
           },
@@ -136,7 +137,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
 
     // Get recent test deliveries for this webhook
     const { data: deliveries, error } = await supabase

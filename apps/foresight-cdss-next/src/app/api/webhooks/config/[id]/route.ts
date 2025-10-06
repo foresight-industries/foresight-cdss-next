@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
 // Available webhook events
 const AVAILABLE_EVENTS = [
   'all',
   'team.created',
-  'team.updated', 
+  'team.updated',
   'team.deleted',
   'team_member.added',
   'team_member.updated',
@@ -24,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const webhookId = params.id;
 
     // Get webhook with team verification
@@ -90,7 +90,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const webhookId = params.id;
     const body = await request.json();
 
@@ -103,8 +103,8 @@ export async function PUT(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -143,11 +143,11 @@ export async function PUT(
       if (!Array.isArray(updates.events)) {
         return NextResponse.json({ error: 'Events must be an array' }, { status: 400 });
       }
-      
+
       const invalidEvents = updates.events.filter(event => !AVAILABLE_EVENTS.includes(event));
       if (invalidEvents.length > 0) {
-        return NextResponse.json({ 
-          error: `Invalid events: ${invalidEvents.join(', ')}` 
+        return NextResponse.json({
+          error: `Invalid events: ${invalidEvents.join(', ')}`
         }, { status: 400 });
       }
     }
@@ -175,8 +175,8 @@ export async function PUT(
     if (error) {
       console.error('Error updating webhook:', error);
       if (error.code === '23505') {
-        return NextResponse.json({ 
-          error: 'Webhook name already exists for this environment' 
+        return NextResponse.json({
+          error: 'Webhook name already exists for this environment'
         }, { status: 409 });
       }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
@@ -209,7 +209,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const webhookId = params.id;
 
     // Validate permissions
@@ -221,8 +221,8 @@ export async function DELETE(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -231,7 +231,7 @@ export async function DELETE(
       .from('webhook_config')
       .delete()
       .eq('id', webhookId)
-      .eq('team_id', member.team_id)
+      .eq('team_id', member.team_id ?? '')
       .select()
       .single();
 
@@ -239,7 +239,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: 'Webhook deleted successfully',
       webhook_id: webhookId
     });

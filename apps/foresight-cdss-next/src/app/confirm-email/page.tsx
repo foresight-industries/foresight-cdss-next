@@ -143,10 +143,10 @@ function ConfirmEmailContent() {
                 </Button>
 
                 <Button asChild variant="outline" className="w-full">
-                  <a href="mailto:support@have-foresight.com?subject=Email Confirmation Issue">
+                  <Link href="mailto:support@have-foresight.com?subject=Email Confirmation Issue">
                     <Mail className="mr-2 h-4 w-4" />
                     Contact Support
-                  </a>
+                  </Link>
                 </Button>
               </div>
             </CardContent>

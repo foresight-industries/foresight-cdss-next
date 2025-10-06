@@ -1,17 +1,18 @@
 import { headers } from 'next/headers';
+import Link from "next/link";
 
 interface TeamSpecificDashboardProps {
   params: { slug: string };
 }
 
 export default async function TeamSpecificDashboard({ params }: TeamSpecificDashboardProps) {
-  const headersList = headers();
-  
+  const headersList = await headers();
+
   // Get team info from middleware headers
   const teamSlug = headersList.get('x-team-slug') || params.slug;
   const teamId = headersList.get('x-team-id');
   const teamName = headersList.get('x-team-name');
-  
+
   return (
     <div className="p-6">
       <div className="mb-8">
@@ -19,10 +20,10 @@ export default async function TeamSpecificDashboard({ params }: TeamSpecificDash
           Welcome to {teamName || teamSlug}
         </h1>
         <p className="text-gray-600 mt-2">
-          Team Dashboard - You're accessing via subdomain: {teamSlug}.have-foresight.app
+          Team Dashboard - You&apos;re accessing via subdomain: {teamSlug}.have-foresight.app
         </p>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">Team Info</h3>
@@ -30,22 +31,22 @@ export default async function TeamSpecificDashboard({ params }: TeamSpecificDash
           <p><strong>Team Slug:</strong> {teamSlug}</p>
           <p><strong>Team Name:</strong> {teamName}</p>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
           <div className="space-y-2">
-            <a href={`/team/${teamSlug}/settings`} className="block text-blue-600 hover:underline">
+            <Link href={`/team/${teamSlug}/settings`} className="block text-blue-600 hover:underline">
               Team Settings
-            </a>
-            <a href={`/team/${teamSlug}/queue`} className="block text-blue-600 hover:underline">
+            </Link>
+            <Link href={`/team/${teamSlug}/queue`} className="block text-blue-600 hover:underline">
               ePA Queue
-            </a>
-            <a href={`/team/${teamSlug}/analytics`} className="block text-blue-600 hover:underline">
+            </Link>
+            <Link href={`/team/${teamSlug}/analytics`} className="block text-blue-600 hover:underline">
               Analytics
-            </a>
+            </Link>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-2">URL Examples</h3>
           <div className="text-sm space-y-1">

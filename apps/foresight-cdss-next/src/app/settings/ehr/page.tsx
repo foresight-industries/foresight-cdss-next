@@ -104,7 +104,7 @@ export default function EhrConnectionsPage() {
       setLoading(true);
 
       // Load connections
-      const connectionsResponse = await fetch('/api/ehr-connections');
+      const connectionsResponse = await fetch('/api/ehr/connections');
       if (!connectionsResponse.ok) throw new Error('Failed to load connections');
       const connectionsData = await connectionsResponse.json();
 
@@ -112,7 +112,7 @@ export default function EhrConnectionsPage() {
       setStats(connectionsData.stats);
 
       // Load EHR systems
-      const systemsResponse = await fetch('/api/ehr-systems');
+      const systemsResponse = await fetch('/api/ehr/systems');
       if (!systemsResponse.ok) throw new Error('Failed to load EHR systems');
       const systemsData = await systemsResponse.json();
       setEhrSystems(systemsData.ehr_systems);
@@ -144,7 +144,7 @@ export default function EhrConnectionsPage() {
         metadata
       };
 
-      const response = await fetch('/api/ehr-connections', {
+      const response = await fetch('/api/ehr/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
@@ -169,7 +169,7 @@ export default function EhrConnectionsPage() {
     }
 
     try {
-      const response = await fetch(`/api/ehr-connections/${connection.id}`, {
+      const response = await fetch(`/api/ehr/connections/${connection.id}`, {
         method: 'DELETE'
       });
 
@@ -191,7 +191,7 @@ export default function EhrConnectionsPage() {
     setShowTestDialog(true);
 
     try {
-      const response = await fetch(`/api/ehr-connections/${connection.id}/test`, {
+      const response = await fetch(`/api/ehr/connections/${connection.id}/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ test_type: 'comprehensive' })

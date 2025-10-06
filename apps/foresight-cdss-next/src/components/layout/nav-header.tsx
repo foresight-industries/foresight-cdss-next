@@ -144,10 +144,10 @@ export function NavHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <a href="mailto:support@have-foresight.com?subject=Foresight RCM Support Request" className="cursor-pointer">
+                    <Link href="mailto:support@have-foresight.com?subject=Foresight RCM Support Request" className="cursor-pointer">
                       <HelpCircle className="mr-2 h-4 w-4" />
                       <span>Support</span>
-                    </a>
+                    </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

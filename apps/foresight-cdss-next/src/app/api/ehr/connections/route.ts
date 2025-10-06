@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import type { CreateEHRConnectionRequest } from '@/types/ehr.types';
+import type {
+  CreateEHRConnectionRequest,
+  EHRConnection,
+} from "@/types/ehr.types";
 
 // GET - List EHR connections for current team
 export async function GET(request: NextRequest) {
@@ -11,7 +14,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const { searchParams } = new URL(request.url);
     const environment = searchParams.get('environment');
 
@@ -46,15 +49,17 @@ export async function GET(request: NextRequest) {
 
     // Filter by environment if provided
     if (environment) {
-      query = query.eq('environment', environment);
+      query = query.eq('environment', environment as 'production' | 'staging' | 'development');
     }
 
-    const { data: connections, error } = await query;
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching EHR connections:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
+
+    const connections = data as unknown as EHRConnection[];
 
     // Remove sensitive auth data from response
     const safeConnections = connections?.map(conn => ({
@@ -63,8 +68,8 @@ export async function GET(request: NextRequest) {
         type: conn.auth_config?.type,
         // Only include non-sensitive metadata
         has_credentials: !!(
-          conn.auth_config?.client_id || 
-          conn.auth_config?.api_key || 
+          conn.auth_config?.client_id ||
+          conn.auth_config?.api_key ||
           conn.auth_config?.username
         ),
         expires_at: conn.auth_config?.expires_at,
@@ -90,7 +95,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const body: CreateEHRConnectionRequest = await request.json();
 
     // Validate request body
@@ -106,15 +111,15 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!ehr_system_id || !connection_name || !auth_config) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: ehr_system_id, connection_name, auth_config' 
+      return NextResponse.json({
+        error: 'Missing required fields: ehr_system_id, connection_name, auth_config'
       }, { status: 400 });
     }
 
     // Validate auth_config based on type
     if (!auth_config.type) {
-      return NextResponse.json({ 
-        error: 'auth_config.type is required' 
+      return NextResponse.json({
+        error: 'auth_config.type is required'
       }, { status: 400 });
     }
 
@@ -127,8 +132,8 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -140,15 +145,15 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (ehrError || !ehrSystem) {
-      return NextResponse.json({ 
-        error: 'Invalid EHR system ID' 
+      return NextResponse.json({
+        error: 'Invalid EHR system ID'
       }, { status: 400 });
     }
 
     // Validate auth config matches EHR system requirements
     if (ehrSystem.auth_method !== auth_config.type) {
-      return NextResponse.json({ 
-        error: `EHR system requires ${ehrSystem.auth_method} authentication` 
+      return NextResponse.json({
+        error: `EHR system requires ${ehrSystem.auth_method} authentication`
       }, { status: 400 });
     }
 
@@ -164,10 +169,10 @@ export async function POST(request: NextRequest) {
     };
 
     // Create EHR connection
-    const { data: connection, error } = await supabase
+    const { data, error } = await supabase
       .from('ehr_connection')
       .insert({
-        team_id: member.team_id,
+        team_id: member?.team_id ?? '',
         ehr_system_id,
         connection_name,
         base_url,
@@ -194,12 +199,14 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error('Error creating EHR connection:', error);
       if (error.code === '23505') { // Unique constraint violation
-        return NextResponse.json({ 
-          error: 'Connection name already exists for this team' 
+        return NextResponse.json({
+          error: 'Connection name already exists for this team'
         }, { status: 409 });
       }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
+
+    const connection = data as unknown as EHRConnection;
 
     // Remove sensitive auth data from response
     const safeConnection = {

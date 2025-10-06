@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from "next/link";
 
 interface ResetPasswordEmailProps {
   firstName?: string;
@@ -25,9 +26,9 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
       padding: '32px 24px',
       textAlign: 'center' as const,
     }}>
-      <img 
-        src="https://your-domain.com/android-chrome-192x192.png" 
-        alt="Foresight RCM" 
+      <img
+        src="https://your-domain.com/android-chrome-192x192.png"
+        alt="Foresight RCM"
         style={{
           width: '48px',
           height: '48px',
@@ -60,13 +61,13 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
         margin: '0 0 24px 0',
         color: '#4b5563',
       }}>
-        We received a request to reset the password for your Foresight RCM account. 
+        We received a request to reset the password for your Foresight RCM account.
         If you made this request, click the button below to reset your password.
       </p>
 
       {/* Reset Button */}
       <div style={{ textAlign: 'center' as const, margin: '32px 0' }}>
-        <a 
+        <Link
           href={resetUrl}
           style={{
             display: 'inline-block',
@@ -82,7 +83,7 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
           }}
         >
           Reset Password
-        </a>
+        </Link>
       </div>
 
       <p style={{
@@ -94,8 +95,8 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
         borderRadius: '6px',
         border: '1px solid #e5e7eb',
       }}>
-        <strong>Security Notice:</strong> This link will expire in {expirationTime}. 
-        If you didn't request this password reset, you can safely ignore this email. 
+        <strong>Security Notice:</strong> This link will expire in {expirationTime}.
+        If you didn&apos;t request this password reset, you can safely ignore this email.
         Your password will remain unchanged.
       </p>
 
@@ -104,9 +105,9 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
         margin: '16px 0',
         color: '#6b7280',
       }}>
-        If the button above doesn't work, copy and paste this link into your browser:
+        If the button above doesn&apos;t work, copy and paste this link into your browser:
       </p>
-      
+
       <div style={{
         backgroundColor: '#f3f4f6',
         padding: '12px',
@@ -137,14 +138,14 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
           margin: '0 0 8px 0',
           color: '#6b7280',
         }}>
-          If you're having trouble or didn't request this reset, please contact our support team:
+          If you&apos;re having trouble or didn&apos;t request this reset, please contact our support team:
         </p>
         <p style={{
           fontSize: '14px',
           margin: '0',
           color: '#6b7280',
         }}>
-          Email: <a href="mailto:support@have-foresight.com" style={{ color: '#2563eb', textDecoration: 'none' }}>support@have-foresight.com</a>
+          Email: <Link href="mailto:support@have-foresight.com" style={{ color: '#2563eb', textDecoration: 'none' }}>support@have-foresight.com</Link>
         </p>
       </div>
     </div>
@@ -171,22 +172,22 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
         This email was sent from an automated system. Please do not reply to this email.
       </p>
       <div style={{ marginTop: '16px' }}>
-        <a href="https://have-foresight.com/privacy" style={{
+        <Link href="https://have-foresight.com/privacy" style={{
           fontSize: '12px',
           color: '#6b7280',
           textDecoration: 'none',
           margin: '0 8px',
         }}>
           Privacy Policy
-        </a>
-        <a href="https://have-foresight.com/terms" style={{
+        </Link>
+        <Link href="https://have-foresight.com/terms" style={{
           fontSize: '12px',
           color: '#6b7280',
           textDecoration: 'none',
           margin: '0 8px',
         }}>
           Terms of Service
-        </a>
+        </Link>
       </div>
     </div>
   </div>

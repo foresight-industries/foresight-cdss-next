@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
-import type { CreatePayerConfigRequest, UpdatePayerConfigRequest } from '@/types/payer.types';
+import type { CreatePayerConfigRequest } from '@/types/payer.types';
 
 // GET - Get payer configurations
 export async function GET(
@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
 
     // Verify user has access to this payer
@@ -33,8 +33,8 @@ export async function GET(
     const { data: configs, error } = await supabase
       .from('payer_config')
       .select('*')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .order('config_type');
 
     if (error) {
@@ -63,7 +63,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = createClient();
+    const supabase = await createSupabaseServerClient();
     const payerId = params.id;
     const body: CreatePayerConfigRequest = await request.json();
 
@@ -81,8 +81,8 @@ export async function POST(
     } = body;
 
     if (!config_type) {
-      return NextResponse.json({ 
-        error: 'config_type is required' 
+      return NextResponse.json({
+        error: 'config_type is required'
       }, { status: 400 });
     }
 
@@ -95,8 +95,8 @@ export async function POST(
       .single();
 
     if (!member || !['super_admin', 'admin'].includes(member.role)) {
-      return NextResponse.json({ 
-        error: 'Admin permissions required' 
+      return NextResponse.json({
+        error: 'Admin permissions required'
       }, { status: 403 });
     }
 
@@ -104,8 +104,8 @@ export async function POST(
     const { data: payer } = await supabase
       .from('payer')
       .select('id, team_id')
-      .eq('id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .single();
 
     if (!payer) {
@@ -116,33 +116,35 @@ export async function POST(
     const { data: existingConfig } = await supabase
       .from('payer_config')
       .select('id')
-      .eq('payer_id', payerId)
-      .eq('team_id', member.team_id)
+      .eq('payer_id', Number(payerId))
+      .eq('team_id', member?.team_id ?? '')
       .eq('config_type', config_type)
       .single();
 
     if (existingConfig) {
-      return NextResponse.json({ 
-        error: `Configuration for ${config_type} already exists. Use PUT to update.` 
+      return NextResponse.json({
+        error: `Configuration for ${config_type} already exists. Use PUT to update.`
       }, { status: 409 });
     }
 
     // Create payer configuration
+    const insertData = {
+      payer_id: Number(payerId),
+      team_id: member.team_id ?? '',
+      config_type,
+      auto_submit_claims: auto_submit_claims || null,
+      auto_submit_pa: auto_submit_pa || null,
+      timely_filing_days: timely_filing_days || null,
+      eligibility_cache_hours: eligibility_cache_hours || null,
+      submission_batch_size: submission_batch_size || null,
+      submission_schedule: submission_schedule || null,
+      portal_config: (portal_config || null) as any,
+      special_rules: (special_rules || null) as any
+    };
+
     const { data: config, error } = await supabase
       .from('payer_config')
-      .insert({
-        payer_id: parseInt(payerId),
-        team_id: member.team_id,
-        config_type,
-        auto_submit_claims,
-        auto_submit_pa,
-        timely_filing_days,
-        eligibility_cache_hours,
-        submission_batch_size,
-        submission_schedule,
-        portal_config,
-        special_rules
-      })
+      .insert(insertData)
       .select()
       .single();
 
