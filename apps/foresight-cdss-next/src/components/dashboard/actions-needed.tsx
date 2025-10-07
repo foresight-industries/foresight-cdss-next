@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -43,6 +44,9 @@ interface ActionsNeededCardProps {
 }
 
 export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardProps) {
+  const params = useParams();
+  const teamSlug = params?.slug as string;
+
   const needsReviewEpa = [...epaItems]
     .filter((item) => item.status === 'needs-review')
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -61,7 +65,7 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 lg:grid-cols-2">
-          <Link href="/claims" className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
+          <Link href={teamSlug ? `/team/${teamSlug}/claims` : "/claims"} className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-foreground">Claims — Review queue</p>
@@ -95,7 +99,7 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
             </div>
           </Link>
 
-          <Link href="/queue" className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
+          <Link href={teamSlug ? `/team/${teamSlug}/queue` : "/queue"} className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="text-sm font-semibold text-foreground">Prior auth — Review queue</p>
@@ -117,11 +121,13 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
                       <span className="text-xs text-muted-foreground">{formatRelativeTime(item.updatedAt)}</span>
                     </div>
                     <p className="mt-2 text-sm text-muted-foreground">{getEpaSummary(item)}</p>
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="mt-3 gap-2 flex items-center justify-between text-xs text-muted-foreground">
                       <span>{item.patientName}</span>
-                      <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
-                        {item.confidence}% confidence
-                      </Badge>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                          Needs review
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 ))
