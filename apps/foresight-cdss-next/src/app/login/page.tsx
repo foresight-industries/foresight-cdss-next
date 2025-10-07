@@ -30,7 +30,7 @@ export default function LoginPage() {
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return;
-    
+
     setError("");
     setStep("password");
   };
@@ -119,7 +119,7 @@ export default function LoginPage() {
               {step === "email" ? "Welcome back" : "Enter your password"}
             </CardTitle>
             <CardDescription>
-              {step === "email" 
+              {step === "email"
                 ? "Enter your email address to continue"
                 : `Enter the password for ${email}`
               }
@@ -127,7 +127,7 @@ export default function LoginPage() {
           </CardHeader>
           <CardContent>
             {error && (
-              <Alert variant="error" className="mb-4">
+              <Alert variant="destructive" className="mb-4">
                 <strong>{error}</strong>
               </Alert>
             )}

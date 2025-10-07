@@ -35,7 +35,7 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <Alert variant="info" className="p-4">
+            <Alert variant="default" className="p-4">
               <p>
                 To request access to the Foresight RCM platform, please contact your system administrator or reach out to our support team.
               </p>

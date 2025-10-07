@@ -200,14 +200,14 @@ function ResetPasswordContent() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <Alert variant="error">
+                <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   {error}
                 </Alert>
               )}
 
               {validationErrors.length > 0 && (
-                <Alert variant="error">
+                <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <div>
                     <p className="font-medium mb-2">

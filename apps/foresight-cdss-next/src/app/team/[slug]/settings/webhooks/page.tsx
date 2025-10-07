@@ -166,7 +166,7 @@ export default function WebhooksPage() {
       </div>
 
       {error && (
-        <Alert variant="error">
+        <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <CardDescription>{error}</CardDescription>
         </Alert>
@@ -403,7 +403,7 @@ function WebhookCard({
           </div>
 
           {webhook.last_error && (
-            <Alert variant="error">
+            <Alert variant="destructive">
               <XCircle className="h-4 w-4" />
               <CardDescription>
                 Last error: {webhook.last_error}
