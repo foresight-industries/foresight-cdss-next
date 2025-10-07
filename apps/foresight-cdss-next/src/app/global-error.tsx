@@ -121,7 +121,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
 
             {/* Support Information */}
             <div className="pt-8 border-t border-border">
-              <p className="text-sm text-muted-foreground mb-2">
+              <p className="text-sm text-muted-foreground mb-4">
                 If this error persists, please contact support:
               </p>
               <a
