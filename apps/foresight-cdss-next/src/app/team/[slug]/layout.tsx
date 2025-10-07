@@ -42,13 +42,15 @@ export default async function TeamLayout({ children, params }: TeamLayoutProps) 
 }
 
 // Dynamic metadata based on team
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const supabase = await createSupabaseServerClient();
+
+  const { slug } = await params;
 
   const { data: team } = await supabase
     .from('team')
     .select('name, slug')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single();
 
   return {

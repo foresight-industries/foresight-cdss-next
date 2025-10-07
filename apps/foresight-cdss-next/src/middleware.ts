@@ -1,6 +1,7 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/server";
+import { shouldRedirectToTeam, createTeamPath } from "@/lib/team-routing";
 
 // Only match auth routes
 const isUnauthenticatedRoute = createRouteMatcher([
@@ -10,8 +11,10 @@ const isUnauthenticatedRoute = createRouteMatcher([
 // Routes that should be accessible to authenticated users even without team membership
 const isOnboardingRoute = createRouteMatcher([
   "/onboard(.*)",
+  "/accept-invitation(.*)",
   "/api/teams(.*)",
-  "/api/upload(.*)"
+  "/api/upload(.*)",
+  "/api/invitations(.*)"
 ]);
 
 
@@ -73,8 +76,21 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
     treatPendingAsSignedOut: false
   });
 
-  // If user is authenticated and trying to access auth pages, redirect to dashboard
+  // If user is authenticated and trying to access auth pages, redirect to their team or dashboard
   if (isAuthenticated && isUnauthenticatedRoute(req)) {
+    try {
+      const { userId } = await auth();
+      if (userId) {
+        const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(userId, '/');
+        if (shouldRedirect && teamSlug) {
+          console.log("Redirecting authenticated user from auth page to team dashboard");
+          return NextResponse.redirect(new URL(`/team/${teamSlug}`, req.url));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking team for auth redirect:', error);
+    }
+
     console.log("Redirecting authenticated user from auth page to dashboard");
     return NextResponse.redirect(new URL("/", req.url));
   }
@@ -85,12 +101,25 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Check if authenticated user needs team onboarding
+  // Check if authenticated user needs team onboarding or team redirection
   if (isAuthenticated && !isUnauthenticatedRoute(req) && !isOnboardingRoute(req)) {
     try {
       const { userId } = await auth();
 
       if (userId) {
+        // Check if user should be redirected to their team route
+        const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(
+          userId,
+          req.nextUrl.pathname
+        );
+
+        if (shouldRedirect && teamSlug) {
+          const teamPath = createTeamPath(teamSlug, req.nextUrl.pathname);
+          console.log(`Redirecting user to team route: ${teamPath}`);
+          return NextResponse.redirect(new URL(teamPath, req.url));
+        }
+
+        // If not redirecting to team, check for team membership for onboarding
         const supabase = await createSupabaseMiddlewareClient();
 
         // Check if user has an active team membership
@@ -101,8 +130,8 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
           .eq('status', 'active')
           .single();
 
-        // If no active team membership, redirect to onboarding
-        if (!membership) {
+        // If no active team membership and no Clerk org, redirect to onboarding
+        if (!membership && !teamSlug) {
           console.log("Redirecting user without team to onboarding");
           return NextResponse.redirect(new URL("/onboard", req.url));
         }

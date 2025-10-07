@@ -263,11 +263,13 @@ function SettingsPageContent({
   const [activeSection, setActiveSection] = useState("automation");
   const [hasChanges, setHasChanges] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteForm, setInviteForm] = useState({
     email: "",
     firstName: "",
     lastName: "",
-    role: "PA Coordinator",
+    role: "provider",
     sendWelcomeEmail: true,
   });
 
@@ -620,17 +622,48 @@ function SettingsPageContent({
     }
   };
 
-  const handleInviteUser = () => {
-    console.log("Inviting user:", inviteForm);
-    setInviteForm({
-      email: "",
-      firstName: "",
-      lastName: "",
-      role: "PA Coordinator",
-      sendWelcomeEmail: true,
-    });
-    setShowInviteModal(false);
-    alert(`Invitation sent to ${inviteForm.email}`);
+  const handleInviteUser = async () => {
+    setInviteLoading(true);
+    setInviteError(null);
+
+    try {
+      const response = await fetch('/api/invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: inviteForm.email,
+          firstName: inviteForm.firstName,
+          lastName: inviteForm.lastName,
+          role: inviteForm.role,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send invitation');
+      }
+
+      // Reset form and close modal on success
+      setInviteForm({
+        email: "",
+        firstName: "",
+        lastName: "",
+        role: "provider",
+        sendWelcomeEmail: true,
+      });
+      setShowInviteModal(false);
+
+      // Show success message
+      alert(`Invitation sent successfully to ${inviteForm.email}!`);
+
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      setInviteError(error instanceof Error ? error.message : 'Failed to send invitation');
+    } finally {
+      setInviteLoading(false);
+    }
   };
 
   const handleInviteFormChange = (key: string, value: any) => {
@@ -4043,20 +4076,49 @@ function SettingsPageContent({
             </div>
           </div>
 
+          {inviteError && (
+            <div className="rounded-md bg-red-50 p-4 border border-red-200">
+              <div className="flex">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Invitation Failed
+                  </h3>
+                  <div className="mt-2 text-sm text-red-700">
+                    <p>{inviteError}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowInviteModal(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowInviteModal(false)}
+              disabled={inviteLoading}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleInviteUser}
               disabled={
+                inviteLoading ||
                 !inviteForm.email ||
                 !inviteForm.firstName ||
                 !inviteForm.lastName
               }
             >
-              <Mail className="w-4 h-4 mr-2" />
-              Send Invitation
+              {inviteLoading ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="w-4 h-4 mr-2" />
+                  Send Invitation
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -478,6 +478,7 @@ export const createPatientSlice: StateCreator<
       set({ patientDiagnosesLoading: false });
     } catch (error) {
       set({ patientDiagnosesLoading: false });
+      console.error("Failed to fetch patient diagnoses:", error);
     }
   },
 
@@ -494,6 +495,7 @@ export const createPatientSlice: StateCreator<
       set({ patientDocumentsLoading: false });
     } catch (error) {
       set({ patientDocumentsLoading: false });
+      console.error("Failed to fetch patient documents:", error);
     }
   },
 
@@ -510,6 +512,7 @@ export const createPatientSlice: StateCreator<
       set({ patientPaymentsLoading: false });
     } catch (error) {
       set({ patientPaymentsLoading: false });
+      console.error("Failed to fetch patient payments:", error);
     }
   },
 

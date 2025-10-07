@@ -5,13 +5,14 @@ import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { useUser } from '@clerk/nextjs';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InvitationBanner } from '@/components/invitation/invitation-banner';
 
 export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
   const { isLoaded } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Don't show nav on auth pages
+  // Don't show nav on auth pages or invitation page
   const isAuthPage =
     pathname === "/login" ||
     pathname === "/signup" ||
@@ -19,7 +20,8 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
     pathname === "/reset-password" ||
     pathname === "/confirm-email" ||
     pathname === "/error" ||
-    pathname === '/onboard';
+    pathname === '/onboard' ||
+    pathname === '/accept-invitation';
 
   if (!isLoaded) {
     return (
@@ -73,6 +75,7 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
           <div className="flex-1 flex flex-col overflow-hidden">
+            <InvitationBanner />
             <main className="flex-1 overflow-auto">{children}</main>
           </div>
         </div>
