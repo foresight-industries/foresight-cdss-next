@@ -43,12 +43,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Select,
   SelectContent,
@@ -941,8 +941,9 @@ const sortClaims = (claims: Claim[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
-const ClaimDetailDrawer: React.FC<{
+const ClaimDetailSheet: React.FC<{
   claim: Claim | null;
+  open: boolean;
   onClose: () => void;
   threshold: number;
   onApplyAllFixes: (id: string) => void;
@@ -951,6 +952,7 @@ const ClaimDetailDrawer: React.FC<{
   onApplySuggestion: (id: string, field: string) => void;
 }> = ({
   claim,
+  open,
   onClose,
   threshold,
   onApplyAllFixes,
@@ -992,15 +994,15 @@ const ClaimDetailDrawer: React.FC<{
   });
 
   return (
-    <Drawer open={open} onOpenChange={onClose}>
-n      <DrawerContent className="fixed inset-y-0 right-0 h-full w-full max-w-3xl flex flex-col border-l bg-background mt-0 rounded-t-none rounded-l-lg">
-        <DrawerHeader className="space-y-1 pb-4 border-b">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1">
+    <Sheet open={open} onOpenChange={onClose}>
+n      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-8 gap-6" side="right">
+        <SheetHeader className="space-y-6 pb-8 border-b">
+          <div className="flex items-start justify-between gap-8">
+            <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <DrawerTitle className="text-2xl font-semibold text-foreground">
+                <SheetTitle className="text-2xl font-semibold text-foreground">
                   {claim.id}
-                </DrawerTitle>
+                </SheetTitle>
                 <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
                   {STATUS_LABELS[claim.status]}
                 </Badge>
@@ -1010,7 +1012,7 @@ n      <DrawerContent className="fixed inset-y-0 right-0 h-full w-full max-w-3xl
                   </span>
                 )}
               </div>
-              <DrawerDescription className="flex flex-wrap items-center gap-3 text-sm">
+              <SheetDescription className="flex flex-wrap items-center gap-3 text-sm">
                 <span>
                   Confidence:
                   <span
@@ -1024,7 +1026,7 @@ n      <DrawerContent className="fixed inset-y-0 right-0 h-full w-full max-w-3xl
                 </span>
                 <span>Charge {formatCurrency(claim.total_amount)}</span>
                 <span>Attempt #{claim.attempt_count}</span>
-              </DrawerDescription>
+              </SheetDescription>
             </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
@@ -1049,9 +1051,9 @@ n      <DrawerContent className="fixed inset-y-0 right-0 h-full w-full max-w-3xl
             </Button>
             </div>
           </div>
-        </DrawerHeader>
-        <ScrollArea className="flex-1 px-6">
-          <div className="space-y-8 pb-10">
+        </SheetHeader>
+        <ScrollArea className="flex-1 px-4">
+          <div className="space-y-10 py-8">
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -1372,8 +1374,8 @@ n      <DrawerContent className="fixed inset-y-0 right-0 h-full w-full max-w-3xl
             )}
           </div>
         </ScrollArea>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 };
 
@@ -1853,8 +1855,8 @@ export default function ClaimsPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-bold text-foreground">Claims Workbench</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">Claims Workbench</h1>
+        <p>
           Automation-first queue that surfaces only claims requiring human attention.
         </p>
       </header>
@@ -2072,7 +2074,7 @@ export default function ClaimsPage() {
                 </div>
               )}
 
-              <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-5">
                 <div className="relative lg:col-span-2 xl:col-span-2">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
@@ -2128,7 +2130,7 @@ export default function ClaimsPage() {
                   <SelectTrigger className="cursor-pointer">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="min-w-[180px]">
                     <SelectItem value="all">All statuses</SelectItem>
                     {STATUS_FILTER_OPTIONS.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
@@ -2182,7 +2184,7 @@ export default function ClaimsPage() {
                   <SelectTrigger className="cursor-pointer">
                     <SelectValue placeholder="Visit type" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="min-w-[160px]">
                     <SelectItem value="all">All visit types</SelectItem>
                     {visitTypes.map((visit) => (
                       <SelectItem key={visit} value={visit}>
@@ -2191,12 +2193,12 @@ export default function ClaimsPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="grid gap-2 sm:grid-cols-2 min-w-0">
+                <div className="grid gap-8 sm:grid-cols-2 min-w-0 xl:col-span-2">
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal min-w-[140px] truncate cursor-pointer"
+                        className="w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="truncate">
@@ -2227,7 +2229,7 @@ export default function ClaimsPage() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal min-w-[140px] truncate cursor-pointer"
+                        className="w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="truncate">
@@ -2757,7 +2759,7 @@ export default function ClaimsPage() {
         </CardContent>
       </Card>
 
-      <ClaimDetailDrawer
+      <ClaimDetailSheet
         claim={activeClaim}
         open={!!activeClaimId}
         onClose={() => setActiveClaimId(null)}
