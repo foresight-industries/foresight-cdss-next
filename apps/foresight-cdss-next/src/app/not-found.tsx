@@ -49,7 +49,7 @@ export default function NotFound() {
           <Card className="bg-blue-50 border-blue-200">
             <CardContent className="p-6">
               <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                   <Search className="h-6 w-6 text-blue-600" />
                 </div>
                 <div className="flex-1 text-left">

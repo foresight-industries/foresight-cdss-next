@@ -78,7 +78,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             <div className="space-y-4">
               <button
                 onClick={reset}
-                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -99,7 +99,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               <div>
                 <Link
                   href="/"
-                  className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-background hover:bg-accent focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
+                  className="inline-flex items-center px-4 py-2 border border-border text-sm font-medium rounded-md text-foreground bg-background hover:bg-accent focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors"
                 >
                   <svg
                     className="w-4 h-4 mr-2"

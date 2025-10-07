@@ -44,13 +44,13 @@ const defaultEntries: AuditEntry[] = [
 
 export function AuditTrail({ entries = defaultEntries, className = '' }: AuditTrailProps) {
   return (
-    <Card className={`bg-card p-4 border shadow-sm ${className}`}>
+    <Card className={`bg-card p-4 border shadow-xs ${className}`}>
       <h3 className="font-semibold mb-2 text-foreground">Audit Trail</h3>
       <ul className="text-sm space-y-1 max-h-40 overflow-y-auto">
         {entries.map((item, index) => (
           <li key={index} className="flex items-center justify-between py-1 border-b border-border last:border-b-0">
             <span className="text-foreground">{item.message}</span>
-            <span className="text-muted-foreground text-xs ml-4 flex-shrink-0">{item.timestamp}</span>
+            <span className="text-muted-foreground text-xs ml-4 shrink-0">{item.timestamp}</span>
           </li>
         ))}
       </ul>

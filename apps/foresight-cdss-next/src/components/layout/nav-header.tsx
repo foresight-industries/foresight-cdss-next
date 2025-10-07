@@ -37,7 +37,7 @@ export function NavHeader() {
   const userEmail = user?.emailAddresses?.[0].emailAddress ?? '';
 
   return (
-    <div className="bg-background border-b border-gray-200 shadow-sm sticky top-0 z-40">
+    <div className="bg-background border-b border-gray-200 shadow-xs sticky top-0 z-40">
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
@@ -93,7 +93,7 @@ export function NavHeader() {
               <span className="text-sm text-muted-foreground hidden sm:block">PA Coordinator</span>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
+                  <button className="w-9 h-9 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2">
                     {userEmail ? userEmail.slice(0, 2).toUpperCase() : 'U'}
                   </button>
                 </DropdownMenuTrigger>

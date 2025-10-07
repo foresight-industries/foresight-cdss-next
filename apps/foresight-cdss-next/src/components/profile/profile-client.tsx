@@ -238,7 +238,7 @@ export default function ProfileClient({
           <Card className="p-6">
             <div className="text-center">
               <div className="relative mx-auto w-24 h-24 mb-4">
-                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-2xl">
+                <div className="w-24 h-24 rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-2xl">
                   {getUserInitials()}
                 </div>
                 <button className="absolute bottom-0 right-0 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white hover:bg-primary/90 transition-colors">
@@ -427,7 +427,7 @@ export default function ProfileClient({
                 id="bio"
                 value={profileForm.bio}
                 onChange={(e) => handleProfileChange("bio", e.target.value)}
-                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="w-full px-3 py-2 border border-input bg-background rounded-md text-sm resize-none focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 rows={3}
                 placeholder="Tell us a bit about yourself..."
               />

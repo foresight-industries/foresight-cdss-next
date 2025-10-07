@@ -148,7 +148,7 @@ export default function CredentialingPage() {
 
       {/* Status Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Active</h3>
             <p className="text-2xl font-bold text-emerald-700">
@@ -158,7 +158,7 @@ export default function CredentialingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">In Progress</h3>
             <p className="text-2xl font-bold text-yellow-700">
@@ -168,7 +168,7 @@ export default function CredentialingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Requested</h3>
             <p className="text-2xl font-bold text-yellow-700">
@@ -178,7 +178,7 @@ export default function CredentialingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-4 text-center">
             <h3 className="font-semibold text-sm mb-1">Planned</h3>
             <p className="text-2xl font-bold text-gray-700">
@@ -215,7 +215,7 @@ export default function CredentialingPage() {
       </div>
 
       {/* Credentialing Table */}
-      <Card className="bg-card border shadow-sm">
+      <Card className="bg-card border shadow-xs">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">
             Credentialing Status by State & Payer
@@ -314,7 +314,7 @@ export default function CredentialingPage() {
 
       {/* Key Performance Indicators */}
       <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-6">
             <h3 className="font-semibold text-foreground mb-2">
               Completion Rate
@@ -340,7 +340,7 @@ export default function CredentialingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-6">
             <h3 className="font-semibold text-foreground mb-2">
               Priority Actions
@@ -352,7 +352,7 @@ export default function CredentialingPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border shadow-sm">
+        <Card className="bg-card border shadow-xs">
           <CardContent className="p-6">
             <h3 className="font-semibold text-foreground mb-2">Coverage</h3>
             <p className="text-2xl font-bold text-indigo-700 mb-1">
@@ -366,7 +366,7 @@ export default function CredentialingPage() {
       </div>
 
       {/* Quick Actions */}
-      <Card className="bg-card border shadow-sm mt-6">
+      <Card className="bg-card border shadow-xs mt-6">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
         </CardHeader>
@@ -686,7 +686,7 @@ export default function CredentialingPage() {
                       </label>
                       <input
                         type="date"
-                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary"
                         value={customDateRange.startDate}
                         onChange={(e) =>
                           setCustomDateRange((prev) => ({
@@ -702,7 +702,7 @@ export default function CredentialingPage() {
                       </label>
                       <input
                         type="date"
-                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                        className="w-full px-3 py-2 text-sm border border-border rounded-md bg-background text-foreground focus:outline-hidden focus:ring-1 focus:ring-primary focus:border-primary"
                         value={customDateRange.endDate}
                         onChange={(e) =>
                           setCustomDateRange((prev) => ({

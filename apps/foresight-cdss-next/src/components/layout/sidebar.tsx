@@ -103,7 +103,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
               className={cn(
                 "w-full flex items-center gap-3 p-3 rounded-lg text-left transition-all duration-200",
                 isActive
-                  ? "bg-primary/10 text-primary font-semibold shadow-sm"
+                  ? "bg-primary/10 text-primary font-semibold shadow-xs"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
               onClick={() => {
@@ -115,7 +115,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
             >
               <Icon
                 className={cn(
-                  "h-5 w-5 flex-shrink-0",
+                  "h-5 w-5 shrink-0",
                   isActive ? "text-primary" : "text-muted-foreground"
                 )}
               />
@@ -140,7 +140,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
           <DropdownMenuTrigger asChild>
             <button
               className={cn(
-                "rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+                "rounded-full bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm hover:shadow-lg transition-shadow focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2",
                 sidebarOpen ? "w-full h-10 gap-3 pl-3 pr-3" : "w-9 h-9"
               )}
             >

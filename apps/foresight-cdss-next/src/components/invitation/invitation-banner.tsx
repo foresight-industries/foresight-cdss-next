@@ -92,7 +92,7 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
       return (
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="flex-shrink-0">
+            <div className="shrink-0">
               <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                 <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
@@ -185,7 +185,7 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
 
   // Default banner style
   return (
-    <div className={`bg-white dark:bg-gray-800 shadow-sm border-b p-4 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 shadow-xs border-b p-4 ${className}`}>
       {renderContent()}
     </div>
   );

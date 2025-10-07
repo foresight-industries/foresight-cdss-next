@@ -34,7 +34,7 @@ export default function TeamNotFound({ searchParams }: TeamNotFoundProps) {
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-8">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <AlertTriangle className="h-8 w-8 text-orange-600" />
               </div>
               <div className="flex-1 min-w-0">

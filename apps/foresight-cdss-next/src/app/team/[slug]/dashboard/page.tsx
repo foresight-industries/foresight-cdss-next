@@ -25,14 +25,14 @@ export default async function TeamSpecificDashboard({ params }: TeamSpecificDash
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-semibold mb-2">Team Info</h3>
           <p><strong>Team ID:</strong> {teamId}</p>
           <p><strong>Team Slug:</strong> {teamSlug}</p>
           <p><strong>Team Name:</strong> {teamName}</p>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-semibold mb-2">Quick Actions</h3>
           <div className="space-y-2">
             <Link href={`/team/${teamSlug}/settings`} className="block text-blue-600 hover:underline">
@@ -47,7 +47,7 @@ export default async function TeamSpecificDashboard({ params }: TeamSpecificDash
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="text-lg font-semibold mb-2">URL Examples</h3>
           <div className="text-sm space-y-1">
             <p>Dashboard: {teamSlug}.have-foresight.app</p>

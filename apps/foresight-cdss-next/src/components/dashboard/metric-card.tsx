@@ -10,7 +10,7 @@ interface MetricCardProps {
 
 export function MetricCard({ metric }: MetricCardProps) {
   return (
-    <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-card border shadow-sm">
+    <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-card border shadow-xs">
       <h3 className="text-sm font-medium text-muted-foreground mb-1">
         {metric.label}
       </h3>
