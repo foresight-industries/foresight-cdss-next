@@ -1,59 +1,47 @@
 import React from 'react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-interface AuditEntry {
+export interface AuditEntry {
+  id?: string;
   message: string;
-  actor: string;
+  actor?: string | null;
   timestamp: string;
 }
 
 interface AuditTrailProps {
-  entries?: AuditEntry[];
+  entries: AuditEntry[];
   className?: string;
 }
 
-const defaultEntries: AuditEntry[] = [
-  {
-    message: 'Foresight demo loaded; PA automation rules active',
-    actor: 'auto',
-    timestamp: new Date().toLocaleString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  },
-  {
-    message: 'System health check completed - all services operational',
-    actor: 'auto',
-    timestamp: new Date(Date.now() - 300000).toLocaleString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  },
-  {
-    message: 'PA workflow automation enabled for Suboxone prescriptions',
-    actor: 'auto',
-    timestamp: new Date(Date.now() - 600000).toLocaleString('en-GB', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
-];
-
-export function AuditTrail({ entries = defaultEntries, className = '' }: AuditTrailProps) {
+export function AuditTrail({ entries, className = '' }: AuditTrailProps) {
   return (
-    <Card className={`bg-card p-4 border shadow-xs ${className}`}>
-      <h3 className="font-semibold mb-2 text-foreground">Audit Trail</h3>
-      <ul className="text-sm space-y-1 max-h-40 overflow-y-auto">
-        {entries.map((item, index) => (
-          <li key={index} className="flex items-center justify-between py-1 border-b border-border last:border-b-0">
-            <span className="text-foreground">{item.message}</span>
-            <span className="text-muted-foreground text-xs ml-4 shrink-0">{item.timestamp}</span>
-          </li>
-        ))}
-      </ul>
+    <Card className={`bg-card border shadow-xs ${className}`}>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-lg font-semibold">Audit trail</CardTitle>
+          <p className="text-sm text-muted-foreground">Latest events across claims and ePA automations</p>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ul className="text-sm space-y-3">
+          {entries.length === 0 ? (
+            <li className="text-muted-foreground">No audit events found.</li>
+          ) : (
+            entries.map((item) => (
+              <li key={item.id ?? `${item.message}-${item.timestamp}`}
+                  className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-foreground font-medium">{item.message}</p>
+                  {item.actor ? (
+                    <p className="text-xs text-muted-foreground">By {item.actor}</p>
+                  ) : null}
+                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{item.timestamp}</span>
+              </li>
+            ))
+          )}
+        </ul>
+      </CardContent>
     </Card>
   );
 }

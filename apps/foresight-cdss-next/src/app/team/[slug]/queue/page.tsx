@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import { epaQueueItems } from '@/data/epa-queue';
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
@@ -40,6 +41,27 @@ const statusConfig = {
   'denied': { color: 'bg-red-50 text-red-900 border-red-200', icon: XCircle }
 } as const;
 
+const formatRelativeTime = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const diffMs = Date.now() - parsed.getTime();
+  const minutes = Math.round(diffMs / (1000 * 60));
+  if (minutes < 1) {
+    return 'just now';
+  }
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
 export default function QueuePage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
@@ -61,131 +83,8 @@ export default function QueuePage() {
   const [showFilters, setShowFilters] = useState(false);
 
   // Mock data for demonstration
-  const mockQueueData = [
-    {
-      id: 'PA-2025-001',
-      patientName: 'Sarah Johnson',
-      patientId: 'P12345',
-      conditions: 'Type 2 Diabetes',
-      attempt: 'Initial PA Request',
-      medication: 'Ozempic 0.5mg/dose pen',
-      payer: 'Aetna',
-      status: 'needs-review' as const,
-      confidence: 85,
-      updatedAt: '2 hours ago'
-    },
-    {
-      id: 'PA-2025-002',
-      patientName: 'Michael Chen',
-      patientId: 'P12346',
-      conditions: 'Hypertension',
-      attempt: 'Prior Auth - Resubmission',
-      medication: 'Eliquis 5mg',
-      payer: 'UnitedHealth',
-      status: 'auto-processing' as const,
-      confidence: 92,
-      updatedAt: '1 hour ago'
-    },
-    {
-      id: 'PA-2025-003',
-      patientName: 'Emma Rodriguez',
-      patientId: 'P12347',
-      conditions: 'Rheumatoid Arthritis',
-      attempt: 'Step Therapy Override',
-      medication: 'Humira 40mg/0.8mL',
-      payer: 'Cigna',
-      status: 'auto-approved' as const,
-      confidence: 96,
-      updatedAt: '30 minutes ago'
-    },
-    {
-      id: 'PA-2025-004',
-      patientName: 'James Wilson',
-      patientId: 'P12348',
-      conditions: 'Depression',
-      attempt: 'Initial PA Request',
-      medication: 'Trintellix 20mg',
-      payer: 'Anthem',
-      status: 'denied' as const,
-      confidence: 65,
-      updatedAt: '3 hours ago'
-    },
-    {
-      id: 'PA-2025-005',
-      patientName: 'Lisa Thompson',
-      patientId: 'P12349',
-      conditions: 'Migraine',
-      attempt: 'Appeal Request',
-      medication: 'Aimovig 70mg/mL',
-      payer: 'Aetna',
-      status: 'needs-review' as const,
-      confidence: 78,
-      updatedAt: '45 minutes ago'
-    },
-    {
-      id: 'PA-2025-006',
-      patientName: 'Robert Davis',
-      patientId: 'P12350',
-      conditions: 'COPD',
-      attempt: 'Initial PA Request',
-      medication: 'Spiriva Respimat',
-      payer: 'UnitedHealth',
-      status: 'auto-processing' as const,
-      confidence: 89,
-      updatedAt: '1.5 hours ago'
-    },
-    {
-      id: 'PA-2025-007',
-      patientName: 'Jennifer Lee',
-      patientId: 'P12351',
-      conditions: 'Psoriasis',
-      attempt: 'Prior Auth - Resubmission',
-      medication: 'Cosentyx 150mg/mL',
-      payer: 'Cigna',
-      status: 'auto-approved' as const,
-      confidence: 94,
-      updatedAt: '20 minutes ago'
-    },
-    {
-      id: 'PA-2025-008',
-      patientName: 'David Martinez',
-      patientId: 'P12352',
-      conditions: 'High Cholesterol',
-      attempt: 'Initial PA Request',
-      medication: 'Repatha 140mg/mL',
-      payer: 'Anthem',
-      status: 'needs-review' as const,
-      confidence: 72,
-      updatedAt: '2.5 hours ago'
-    },
-    {
-      id: 'PA-2025-009',
-      patientName: 'Amanda White',
-      patientId: 'P12353',
-      conditions: 'Asthma',
-      attempt: 'Step Therapy Override',
-      medication: 'Dupixent 300mg/2mL',
-      payer: 'Aetna',
-      status: 'auto-processing' as const,
-      confidence: 87,
-      updatedAt: '40 minutes ago'
-    },
-    {
-      id: 'PA-2025-010',
-      patientName: 'Christopher Brown',
-      patientId: 'P12354',
-      conditions: 'Crohn\'s Disease',
-      attempt: 'Initial PA Request',
-      medication: 'Stelara 90mg/mL',
-      payer: 'UnitedHealth',
-      status: 'auto-approved' as const,
-      confidence: 91,
-      updatedAt: '15 minutes ago'
-    }
-  ];
-
-  // Use mock data instead of API call
-  const queueData = mockQueueData;
+  // Use shared mock data instead of API call
+  const queueData = epaQueueItems;
   const isLoading = false;
   const error = null;
 
@@ -225,16 +124,9 @@ export default function QueuePage() {
           aValue = a.confidence;
           bValue = b.confidence;
         } else if (sortConfig.field === 'updatedAt') {
-          // Convert "X hours ago" to comparable numbers
-          const extractTime = (str: string) => {
-            const match = str.match(/(\d+(?:\.\d+)?)\s*(minute|hour)s?\s*ago/);
-            if (!match) return 0;
-            const value = parseFloat(match[1]);
-            const unit = match[2];
-            return unit === 'hour' ? value * 60 : value;
-          };
-          aValue = extractTime(a.updatedAt);
-          bValue = extractTime(b.updatedAt);
+          const parseTime = (value: string) => new Date(value).getTime();
+          aValue = parseTime(a.updatedAt);
+          bValue = parseTime(b.updatedAt);
         } else {
           aValue = String(aValue).toLowerCase();
           bValue = String(bValue).toLowerCase();
@@ -1000,7 +892,7 @@ export default function QueuePage() {
                         {getConfidenceBadge(item.confidence)}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-sm text-muted-foreground">
-                        {item.updatedAt}
+                        {formatRelativeTime(item.updatedAt)}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
                         <DropdownMenu>
