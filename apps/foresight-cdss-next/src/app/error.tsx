@@ -87,7 +87,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button
             onClick={reset}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 cursor-pointer"
             size="lg"
           >
             <RotateCcw className="h-4 w-4" />

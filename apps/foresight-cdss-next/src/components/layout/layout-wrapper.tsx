@@ -6,6 +6,7 @@ import { Sidebar } from './sidebar';
 import { useUser } from '@clerk/nextjs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InvitationBanner } from '@/components/invitation/invitation-banner';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 
 export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
@@ -69,16 +70,21 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
   return (
     <div className="min-h-screen bg-muted/40">
       {!isAuthPage ? (
-        <div className="flex h-screen">
+        <SidebarProvider defaultOpen={sidebarOpen}>
           <Sidebar
             sidebarOpen={sidebarOpen}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <SidebarInset className="flex flex-col overflow-hidden">
+            {/* Mobile trigger - only visible on small screens */}
+            <div className="flex md:hidden items-center p-4 border-b border-border bg-background">
+              <SidebarTrigger className="mr-4 cursor-pointer" />
+              <h1 className="text-lg font-semibold">Foresight RCM</h1>
+            </div>
             <InvitationBanner />
             <main className="flex-1 overflow-auto">{children}</main>
-          </div>
-        </div>
+          </SidebarInset>
+        </SidebarProvider>
       ) : (
         <main className="flex-1">{children}</main>
       )}

@@ -19,4 +19,5 @@ export const Tables = {
   MEDICATION: 'medication' as const,
   PATIENT_DIAGNOSIS: 'patient_diagnosis' as const,
   CLINICIAN_NOTE: 'clinician_note' as const,
+  AUDIT_LOG: 'audit_log' as const,
 } as const;
