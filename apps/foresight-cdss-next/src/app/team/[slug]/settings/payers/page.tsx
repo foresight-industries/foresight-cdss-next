@@ -149,7 +149,7 @@ export default function PayersPage() {
       </div>
 
       {error && (
-        <Alert variant="error">
+        <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <CardDescription>{error}</CardDescription>
         </Alert>
@@ -595,7 +595,7 @@ function PayerConfigurationForm({
 
       <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
         {error && (
-          <Alert variant="error">
+          <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <CardDescription>{error}</CardDescription>
           </Alert>
@@ -827,7 +827,7 @@ function PayerCredentialsForm({
 
       <div className="space-y-4 py-4">
         {error && (
-          <Alert variant="error">
+          <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <CardDescription>{error}</CardDescription>
           </Alert>

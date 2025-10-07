@@ -84,7 +84,7 @@ export default function ForgotPasswordPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert variant="info" className="p-4">
+              <Alert variant="default" className="p-4">
                 <Mail className="h-4 w-4" />
                 <p>
                   Check your email at <strong>{email}</strong> for a link to
@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <Alert variant="error">
+                <Alert variant="destructive">
                   <AlertCircle className="h-4 w-4" />
                   <strong>{error}</strong>
                 </Alert>

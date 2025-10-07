@@ -130,7 +130,7 @@ function ConfirmEmailContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Alert variant="error">
+              <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
                 <p>{error}</p>
               </Alert>
