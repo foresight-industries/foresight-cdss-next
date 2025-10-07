@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, Play, Zap } from 'lucide-react';
+import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 // import { useRecentActivity } from '@/hooks/use-dashboard-data';
 import { Card, CardContent } from '@/components/ui/card';
@@ -12,9 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Alert } from '@/components/ui/alert';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
@@ -22,6 +20,147 @@ interface QueueFilters {
   payer: 'all' | 'Aetna' | 'UnitedHealth' | 'Cigna' | 'Anthem';
   confidence: 'all' | 'high' | 'medium' | 'low';
 }
+
+interface QueueItem {
+  id: string;
+  patientName: string;
+  patientId: string;
+  conditions: string;
+  attempt: string;
+  medication: string;
+  payer: string;
+  status: 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
+  confidence: number;
+  updatedAt: string;
+}
+
+const createMockQueueData = (): QueueItem[] => {
+  const now = new Date();
+  const subtractMinutes = (minutes: number) => new Date(now.getTime() - minutes * 60 * 1000).toISOString();
+
+  return [
+    {
+      id: 'PA-2025-001',
+      patientName: 'Sarah Johnson',
+      patientId: 'P12345',
+      conditions: 'Type 2 Diabetes',
+      attempt: 'Initial PA Request',
+      medication: 'Ozempic 0.5mg/dose pen',
+      payer: 'Aetna',
+      status: 'needs-review',
+      confidence: 85,
+      updatedAt: subtractMinutes(120)
+    },
+    {
+      id: 'PA-2025-002',
+      patientName: 'Michael Chen',
+      patientId: 'P12346',
+      conditions: 'Hypertension',
+      attempt: 'Prior Auth - Resubmission',
+      medication: 'Eliquis 5mg',
+      payer: 'UnitedHealth',
+      status: 'auto-processing',
+      confidence: 92,
+      updatedAt: subtractMinutes(60)
+    },
+    {
+      id: 'PA-2025-003',
+      patientName: 'Emma Rodriguez',
+      patientId: 'P12347',
+      conditions: 'Rheumatoid Arthritis',
+      attempt: 'Step Therapy Override',
+      medication: 'Humira 40mg/0.8mL',
+      payer: 'Cigna',
+      status: 'auto-approved',
+      confidence: 96,
+      updatedAt: subtractMinutes(30)
+    },
+    {
+      id: 'PA-2025-004',
+      patientName: 'James Wilson',
+      patientId: 'P12348',
+      conditions: 'Depression',
+      attempt: 'Initial PA Request',
+      medication: 'Trintellix 20mg',
+      payer: 'Anthem',
+      status: 'denied',
+      confidence: 65,
+      updatedAt: subtractMinutes(180)
+    },
+    {
+      id: 'PA-2025-005',
+      patientName: 'Lisa Thompson',
+      patientId: 'P12349',
+      conditions: 'Migraine',
+      attempt: 'Appeal Request',
+      medication: 'Aimovig 70mg/mL',
+      payer: 'Aetna',
+      status: 'needs-review',
+      confidence: 78,
+      updatedAt: subtractMinutes(45)
+    },
+    {
+      id: 'PA-2025-006',
+      patientName: 'Robert Davis',
+      patientId: 'P12350',
+      conditions: 'COPD',
+      attempt: 'Initial PA Request',
+      medication: 'Spiriva Respimat',
+      payer: 'UnitedHealth',
+      status: 'auto-processing',
+      confidence: 89,
+      updatedAt: subtractMinutes(90)
+    },
+    {
+      id: 'PA-2025-007',
+      patientName: 'Jennifer Lee',
+      patientId: 'P12351',
+      conditions: 'Psoriasis',
+      attempt: 'Prior Auth - Resubmission',
+      medication: 'Cosentyx 150mg/mL',
+      payer: 'Cigna',
+      status: 'auto-approved',
+      confidence: 94,
+      updatedAt: subtractMinutes(20)
+    },
+    {
+      id: 'PA-2025-008',
+      patientName: 'David Martinez',
+      patientId: 'P12352',
+      conditions: 'High Cholesterol',
+      attempt: 'Initial PA Request',
+      medication: 'Repatha 140mg/mL',
+      payer: 'Anthem',
+      status: 'needs-review',
+      confidence: 72,
+      updatedAt: subtractMinutes(150)
+    },
+    {
+      id: 'PA-2025-009',
+      patientName: 'Amanda White',
+      patientId: 'P12353',
+      conditions: 'Asthma',
+      attempt: 'Step Therapy Override',
+      medication: 'Dupixent 300mg/2mL',
+      payer: 'Aetna',
+      status: 'auto-processing',
+      confidence: 87,
+      updatedAt: subtractMinutes(40)
+    },
+    {
+      id: 'PA-2025-010',
+      patientName: 'Christopher Brown',
+      patientId: 'P12354',
+      conditions: 'Crohn\'s Disease',
+      attempt: 'Initial PA Request',
+      medication: 'Stelara 90mg/mL',
+      payer: 'UnitedHealth',
+      status: 'auto-approved',
+      confidence: 91,
+      updatedAt: subtractMinutes(15)
+    }
+  ];
+};
 
 const statusConfig = {
   'needs-review': { color: 'bg-yellow-50 text-yellow-900 border-yellow-200', icon: AlertCircle },
@@ -40,143 +179,18 @@ export default function QueuePage() {
     confidence: 'all'
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [showBatchModal, setShowBatchModal] = useState(false);
-  const [batchCriteria, setBatchCriteria] = useState('current');
-  const [autoApprove, setAutoApprove] = useState(true);
-  const [sendNotifications, setSendNotifications] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
 
-  // Mock data for demonstration
-  const mockQueueData = [
-    {
-      id: 'PA-2025-001',
-      patientName: 'Sarah Johnson',
-      patientId: 'P12345',
-      conditions: 'Type 2 Diabetes',
-      attempt: 'Initial PA Request',
-      medication: 'Ozempic 0.5mg/dose pen',
-      payer: 'Aetna',
-      status: 'needs-review' as const,
-      confidence: 85,
-      updatedAt: '2 hours ago'
-    },
-    {
-      id: 'PA-2025-002',
-      patientName: 'Michael Chen',
-      patientId: 'P12346',
-      conditions: 'Hypertension',
-      attempt: 'Prior Auth - Resubmission',
-      medication: 'Eliquis 5mg',
-      payer: 'UnitedHealth',
-      status: 'auto-processing' as const,
-      confidence: 92,
-      updatedAt: '1 hour ago'
-    },
-    {
-      id: 'PA-2025-003',
-      patientName: 'Emma Rodriguez',
-      patientId: 'P12347',
-      conditions: 'Rheumatoid Arthritis',
-      attempt: 'Step Therapy Override',
-      medication: 'Humira 40mg/0.8mL',
-      payer: 'Cigna',
-      status: 'auto-approved' as const,
-      confidence: 96,
-      updatedAt: '30 minutes ago'
-    },
-    {
-      id: 'PA-2025-004',
-      patientName: 'James Wilson',
-      patientId: 'P12348',
-      conditions: 'Depression',
-      attempt: 'Initial PA Request',
-      medication: 'Trintellix 20mg',
-      payer: 'Anthem',
-      status: 'denied' as const,
-      confidence: 65,
-      updatedAt: '3 hours ago'
-    },
-    {
-      id: 'PA-2025-005',
-      patientName: 'Lisa Thompson',
-      patientId: 'P12349',
-      conditions: 'Migraine',
-      attempt: 'Appeal Request',
-      medication: 'Aimovig 70mg/mL',
-      payer: 'Aetna',
-      status: 'needs-review' as const,
-      confidence: 78,
-      updatedAt: '45 minutes ago'
-    },
-    {
-      id: 'PA-2025-006',
-      patientName: 'Robert Davis',
-      patientId: 'P12350',
-      conditions: 'COPD',
-      attempt: 'Initial PA Request',
-      medication: 'Spiriva Respimat',
-      payer: 'UnitedHealth',
-      status: 'auto-processing' as const,
-      confidence: 89,
-      updatedAt: '1.5 hours ago'
-    },
-    {
-      id: 'PA-2025-007',
-      patientName: 'Jennifer Lee',
-      patientId: 'P12351',
-      conditions: 'Psoriasis',
-      attempt: 'Prior Auth - Resubmission',
-      medication: 'Cosentyx 150mg/mL',
-      payer: 'Cigna',
-      status: 'auto-approved' as const,
-      confidence: 94,
-      updatedAt: '20 minutes ago'
-    },
-    {
-      id: 'PA-2025-008',
-      patientName: 'David Martinez',
-      patientId: 'P12352',
-      conditions: 'High Cholesterol',
-      attempt: 'Initial PA Request',
-      medication: 'Repatha 140mg/mL',
-      payer: 'Anthem',
-      status: 'needs-review' as const,
-      confidence: 72,
-      updatedAt: '2.5 hours ago'
-    },
-    {
-      id: 'PA-2025-009',
-      patientName: 'Amanda White',
-      patientId: 'P12353',
-      conditions: 'Asthma',
-      attempt: 'Step Therapy Override',
-      medication: 'Dupixent 300mg/2mL',
-      payer: 'Aetna',
-      status: 'auto-processing' as const,
-      confidence: 87,
-      updatedAt: '40 minutes ago'
-    },
-    {
-      id: 'PA-2025-010',
-      patientName: 'Christopher Brown',
-      patientId: 'P12354',
-      conditions: 'Crohn\'s Disease',
-      attempt: 'Initial PA Request',
-      medication: 'Stelara 90mg/mL',
-      payer: 'UnitedHealth',
-      status: 'auto-approved' as const,
-      confidence: 91,
-      updatedAt: '15 minutes ago'
-    }
-  ];
-
-  // Use mock data instead of API call
-  const queueData = mockQueueData;
+  const queueData = useMemo<QueueItem[]>(() => createMockQueueData(), []);
   const isLoading = false;
   const error = null;
 
+  const sortedData = useMemo(() => {
+    return [...queueData].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [queueData]);
+
   const filteredData = useMemo(() => {
-    return queueData.filter(item => {
+    return sortedData.filter(item => {
       const matchesSearch =
         item.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -191,7 +205,7 @@ export default function QueuePage() {
 
       return matchesSearch && matchesStatus && matchesPayer && matchesConfidence;
     });
-  }, [queueData, searchTerm, filters]);
+  }, [sortedData, searchTerm, filters]);
 
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 90) return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">High ({confidence}%)</Badge>;
@@ -199,12 +213,58 @@ export default function QueuePage() {
     return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100">Low ({confidence}%)</Badge>;
   };
 
+  const formatUpdatedAt = (dateString: string) => {
+    const updatedDate = new Date(dateString);
+
+    if (Number.isNaN(updatedDate.getTime())) {
+      return dateString;
+    }
+
+    const now = new Date();
+    const diffMs = now.getTime() - updatedDate.getTime();
+
+    if (diffMs <= 0) {
+      return 'Just now';
+    }
+
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+
+    if (diffMinutes < 1) {
+      return 'Just now';
+    }
+
+    if (diffMinutes < 60) {
+      return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+    }
+
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) {
+      return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) {
+      return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+    }
+
+    const diffWeeks = Math.floor(diffDays / 7);
+    if (diffWeeks < 4) {
+      return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'} ago`;
+    }
+
+    return new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    }).format(updatedDate);
+  };
+
 
   const handleAction = (action: string, paId: string) => {
     // Handle different actions
     switch (action) {
       case 'view':
-        router.push(`/pa/${paId}`);
+        setSelectedPaId(paId);
         break;
       case 'edit':
         router.push(`/pa/${paId}?action=edit`);
@@ -244,10 +304,6 @@ export default function QueuePage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" onClick={() => setShowBatchModal(true)}>
-            <Zap className="w-4 h-4 mr-2" />
-            Batch Process
-          </Button>
           <Button size="sm">
             <Download className="w-4 h-4 mr-2" />
             Export
@@ -373,7 +429,10 @@ export default function QueuePage() {
                     Patient
                   </TableHead>
                   <TableHead className="px-6 py-3">
-                    Medication & Payer
+                    Medication
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    Payer
                   </TableHead>
                   <TableHead className="px-6 py-3">
                     Status
@@ -396,7 +455,7 @@ export default function QueuePage() {
                     <TableRow
                       key={item.id}
                       className="cursor-pointer"
-                      onClick={() => router.push(`/pa/${item.id}`)}
+                      onClick={() => setSelectedPaId(item.id)}
                     >
                       <TableCell className="px-6 py-4">
                         <div>
@@ -418,8 +477,10 @@ export default function QueuePage() {
                       <TableCell className="px-6 py-4">
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.medication}</div>
-                          <div className="text-sm text-muted-foreground">{item.payer}</div>
                         </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.payer}</div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center">
@@ -433,7 +494,7 @@ export default function QueuePage() {
                         {getConfidenceBadge(item.confidence)}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-sm text-muted-foreground">
-                        {item.updatedAt}
+                        {formatUpdatedAt(item.updatedAt)}
                       </TableCell>
                       <TableCell className="px-6 py-4 text-right">
                         <DropdownMenu>
@@ -529,132 +590,24 @@ export default function QueuePage() {
         </CardContent>
       </Card>
 
-      {/* Batch Processing Modal */}
-      <Dialog open={showBatchModal} onOpenChange={setShowBatchModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center">
-              <Zap className="w-5 h-5 mr-2 text-primary" />
-              Batch Process PAs
-            </DialogTitle>
-            <DialogDescription>
-              Select criteria and options for batch processing prior authorization requests.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="criteria-select">Processing Criteria</Label>
-              <Select value={batchCriteria} onValueChange={setBatchCriteria}>
-                <SelectTrigger id="criteria-select">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="current">Current filtered results ({filteredData.length} PAs)</SelectItem>
-                  <SelectItem value="pending">All pending PAs ({mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length} PAs)</SelectItem>
-                  <SelectItem value="high-confidence">High confidence PAs (≥90%) ({mockQueueData.filter(pa => pa.confidence >= 90).length} PAs)</SelectItem>
-                  <SelectItem value="old">PAs older than 24 hours ({mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length} PAs)</SelectItem>
-                  <SelectItem value="payer">Specific payer PAs</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="autoApprove"
-                checked={autoApprove}
-                onCheckedChange={(checked) => setAutoApprove(checked === true)}
-              />
-              <Label htmlFor="autoApprove">Auto-approve eligible PAs</Label>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="sendNotifications"
-                checked={sendNotifications}
-                onCheckedChange={(checked) => setSendNotifications(checked === true)}
-              />
-              <Label htmlFor="sendNotifications">Send notifications on completion</Label>
-            </div>
-
-            <Alert variant="info">
-              {batchCriteria === 'current' && `This will process ${filteredData.length} PAs based on your current filters.`}
-              {batchCriteria === 'pending' && `This will process ${mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length} pending PAs.`}
-              {batchCriteria === 'high-confidence' && `This will process ${mockQueueData.filter(pa => pa.confidence >= 90).length} high-confidence PAs.`}
-              {batchCriteria === 'old' && `This will process ${mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length} PAs older than 24 hours.`}
-              {batchCriteria === 'payer' && 'This will process PAs from the selected payer.'}
-              {autoApprove && ' High-confidence PAs (≥90%) will be automatically approved.'}
-            </Alert>
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowBatchModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={async () => {
-                setIsProcessing(true);
-
-                // Get the count based on selected criteria
-                let processCount = 0;
-                switch (batchCriteria) {
-                  case 'current':
-                    processCount = filteredData.length;
-                    break;
-                  case 'pending':
-                    processCount = mockQueueData.filter(pa => pa.status === 'needs-review' || pa.status === 'auto-processing').length;
-                    break;
-                  case 'high-confidence':
-                    processCount = mockQueueData.filter(pa => pa.confidence >= 90).length;
-                    break;
-                  case 'old':
-                    processCount = mockQueueData.filter(pa => pa.updatedAt.includes('hours') && parseInt(pa.updatedAt) > 1).length;
-                    break;
-                  default:
-                    processCount = filteredData.length;
-                }
-
-                // Simulate processing delay
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                // Show success message
-                const approvedCount = autoApprove ? Math.floor(processCount * 0.7) : 0;
-                const reviewCount = processCount - approvedCount;
-
-                let message = `Batch processing completed!\n\n`;
-                message += `• Processed: ${processCount} PAs\n`;
-                if (autoApprove && approvedCount > 0) {
-                  message += `• Auto-approved: ${approvedCount} PAs\n`;
-                }
-                if (reviewCount > 0) {
-                  message += `• Sent for review: ${reviewCount} PAs\n`;
-                }
-                if (sendNotifications) {
-                  message += `• Notifications sent to team members`;
-                }
-
-                alert(message);
-                setIsProcessing(false);
-                setShowBatchModal(false);
-              }}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-2" />
-                  Start Processing
-                </>
-              )}
-            </Button>
-          </DialogFooter>
+      {/* PA Details Modal */}
+      <Dialog
+        open={Boolean(selectedPaId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPaId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-6xl w-[92vw] h-[88vh] p-0 overflow-hidden">
+          {selectedPaId && (
+            <iframe
+              key={selectedPaId}
+              src={`/pa/${selectedPaId}`}
+              title={`Prior authorization ${selectedPaId}`}
+              className="w-full h-full border-0 rounded-lg"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
