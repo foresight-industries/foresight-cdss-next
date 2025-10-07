@@ -1,107 +1,176 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
-import { requireTeamMembership } from '@/lib/team';
+// Updated API route for normalized settings
+import { NextRequest, NextResponse } from "next/server";
+import { requireTeamMembership } from "@/lib/team";
+import { SettingsService } from "@/lib/services/settings.service";
 
-export async function GET(req: NextRequest) {
+// Initialize the settings service
+const settingsService = new SettingsService(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function GET(request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
-    const supabase = await createSupabaseServerClient();
 
-    // Get all settings for the team
-    const { data: settings, error } = await supabase
-      .from('team_settings')
-      .select('key, value')
-      .eq('team_id', membership.team_id);
+    // Use organization_id from team membership (assuming team = organization)
+    const organizationId = membership.team_id;
 
-    if (error) {
-      console.error('Error fetching team settings:', error);
-      return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 });
-    }
+    // Fetch all settings for the organization using normalized schema
+    const settings = await settingsService.getTeamSettings(organizationId);
 
-    // Convert array of settings to object
-    const settingsMap = settings?.reduce((acc, setting) => {
-      acc[setting.key] = setting.value;
-      return acc;
-    }, {} as Record<string, any>) || {};
+    return NextResponse.json({
+      success: true,
+      data: settings
+    });
 
-    return NextResponse.json({ settings: settingsMap });
   } catch (error) {
-    console.error('Settings fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error fetching settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch settings' },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(req: NextRequest) {
+export async function PUT(request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
-    const { key, value } = await req.json();
+    const organizationId = membership.team_id;
 
-    if (!key || value === undefined) {
-      return NextResponse.json({ error: 'Missing key or value' }, { status: 400 });
+    const body = await request.json();
+    const { settingType, updates } = body;
+
+    let result;
+
+    switch (settingType) {
+      case 'automation':
+        result = await settingsService.updateAutomationConfig(organizationId, updates);
+        break;
+
+      case 'notifications':
+        result = await settingsService.updateNotificationSettings(organizationId, updates);
+        break;
+
+      case 'validation':
+        result = await settingsService.updateValidationConfig(organizationId, updates);
+        break;
+
+      default:
+        return NextResponse.json({ error: 'Invalid setting type' }, { status: 400 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    return NextResponse.json({
+      success: true,
+      data: result
+    });
 
-    // Upsert the setting
-    const { data, error } = await supabase
-      .from('team_settings')
-      .upsert({
-        team_id: membership.team_id,
-        key,
-        value: value as any,
-        updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'team_id,key'
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error saving team setting:', error);
-      return NextResponse.json({ error: 'Failed to save setting' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, setting: data });
   } catch (error) {
-    console.error('Settings save error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error updating settings:', error);
+    return NextResponse.json(
+      { error: 'Failed to update settings' },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(req: NextRequest) {
+// Handle individual rule operations
+export async function POST(request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
-    const { settings } = await req.json();
+    const organizationId = membership.team_id;
 
-    if (!settings || typeof settings !== 'object') {
-      return NextResponse.json({ error: 'Invalid settings object' }, { status: 400 });
+    const body = await request.json();
+    const { ruleType, ruleData } = body;
+
+    let result;
+
+    switch (ruleType) {
+      case 'conflict_rule':
+        result = await settingsService.createConflictRule(organizationId, ruleData);
+        break;
+
+      case 'time_based_rule':
+        result = await settingsService.createEmTimeRule(organizationId, ruleData);
+        break;
+
+      case 'denial_rule':
+        result = await settingsService.createDenialRule(organizationId, ruleData);
+        break;
+
+      case 'payer_override_rule':
+        result = await settingsService.createPayerOverrideRule(organizationId, ruleData);
+        break;
+
+      case 'field_mapping':
+        result = await settingsService.createFieldMapping(organizationId, ruleData);
+        break;
+
+      default:
+        return NextResponse.json({ error: 'Invalid rule type' }, { status: 400 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    return NextResponse.json({
+      success: true,
+      data: result
+    });
 
-    // Convert settings object to array of upsert operations
-    const settingsArray = Object.entries(settings).map(([key, value]) => ({
-      team_id: membership.team_id,
-      key,
-      value: value as any,
-      updated_at: new Date().toISOString()
-    }));
-
-    const { data, error } = await supabase
-      .from('team_settings')
-      .upsert(settingsArray, {
-        onConflict: 'team_id,key'
-      })
-      .select();
-
-    if (error) {
-      console.error('Error saving team settings:', error);
-      return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, count: data?.length || 0 });
   } catch (error) {
-    console.error('Settings bulk save error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error creating rule:', error);
+    return NextResponse.json(
+      { error: 'Failed to create rule' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireTeamMembership(); // Ensure user has access
+
+    const { searchParams } = new URL(request.url);
+    const ruleType = searchParams.get('ruleType');
+    const ruleId = searchParams.get('ruleId');
+
+    if (!ruleType || !ruleId) {
+      return NextResponse.json({ error: 'Missing ruleType or ruleId' }, { status: 400 });
+    }
+
+    switch (ruleType) {
+      case 'conflict_rule':
+        await settingsService.deleteConflictRule(ruleId);
+        break;
+
+      case 'time_based_rule':
+        await settingsService.deleteTimeBasedRule(ruleId);
+        break;
+
+      case 'denial_rule':
+        await settingsService.deleteDenialRule(ruleId);
+        break;
+
+      case 'payer_override_rule':
+        await settingsService.deletePayerOverrideRule(ruleId);
+        break;
+
+      case 'field_mapping':
+        await settingsService.deleteFieldMapping(ruleId);
+        break;
+
+      default:
+        return NextResponse.json({ error: 'Invalid rule type' }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Rule deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting rule:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete rule' },
+      { status: 500 }
+    );
   }
 }

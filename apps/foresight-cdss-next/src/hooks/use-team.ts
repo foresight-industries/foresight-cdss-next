@@ -55,7 +55,7 @@ async function fetchTeamData(userId: string) {
     .select(
       `
       *,
-      user_profile!user_id(email, first_name, last_name)
+      user_profile(email, first_name, last_name)
     `
     )
     .eq("team_id", profile.current_team_id)
@@ -87,7 +87,7 @@ async function fetchTeamData(userId: string) {
   };
 
   // Transform members with proper defaults
-  const membersWithDefaults: TeamMember[] = (members || []).map((member) => ({
+  const membersWithDefaults = (members || []).map((member) => ({
     id: member.id,
     team_id: member.team_id || "",
     user_id: member.user_id || "",
@@ -99,7 +99,7 @@ async function fetchTeamData(userId: string) {
     created_at: member.created_at || new Date().toISOString(),
     updated_at: member.updated_at || new Date().toISOString(),
     user_profile: member.user_profile || undefined,
-  }));
+  })) as unknown as TeamMember[];
 
   // Transform invitations with proper defaults
   const invitationsWithDefaults: TeamInvitation[] = (invitations || []).map(

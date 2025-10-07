@@ -20,6 +20,7 @@ async function fetchUserProfile(userId: string): Promise<UserProfile> {
   return {
     ...data,
     timezone: data.timezone ?? "America/New_York",
+    role: data.role ?? "user",
   };
 }
 
@@ -43,6 +44,7 @@ async function updateUserProfileFn(params: { userId: string; updates: UserProfil
   return {
     ...data,
     timezone: data.timezone || "America/New_York",
+    role: data.role || "user",
   };
 }
 
