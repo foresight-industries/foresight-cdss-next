@@ -995,7 +995,7 @@ const ClaimDetailSheet: React.FC<{
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-n      <SheetContent className="w-full max-w-[80vw] sm:max-w-[80vw] flex flex-col p-8 gap-6" side="right">
+n      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-8 gap-6" side="right">
         <SheetHeader className="space-y-6 pb-8 border-b">
           <div className="flex items-start justify-between gap-8">
             <div className="space-y-3">
@@ -1855,8 +1855,8 @@ export default function ClaimsPage() {
   return (
     <div className="min-h-screen bg-background p-8">
       <header className="mb-6 space-y-1">
-        <h1 className="text-3xl font-bold text-foreground">Claims Workbench</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">Claims Workbench</h1>
+        <p>
           Automation-first queue that surfaces only claims requiring human attention.
         </p>
       </header>
