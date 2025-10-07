@@ -66,7 +66,7 @@ export default function DashboardClient({
       )}
 
       {/* Recent Activity */}
-      <Card className="bg-card border shadow-sm mb-8">
+      <Card className="bg-card border shadow-xs mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-semibold">
@@ -149,7 +149,7 @@ export default function DashboardClient({
                       <div className="flex items-center gap-2">
                         <div className="w-16 bg-muted rounded-full h-1.5">
                           <div
-                            className="bg-gradient-to-r from-cyan-500 to-blue-600 h-1.5 rounded-full"
+                            className="bg-linear-to-r from-cyan-500 to-blue-600 h-1.5 rounded-full"
                             style={{ width: `${activity.confidence}%` }}
                           />
                         </div>

@@ -20,7 +20,7 @@ interface ActionableQueuesProps {
 
 export function ActionableQueues({ queueData }: ActionableQueuesProps) {
   return (
-    <Card className="bg-card p-6 border shadow-sm">
+    <Card className="bg-card p-6 border shadow-xs">
       <h3 className="text-lg font-semibold mb-2 text-foreground">Actionable Queues</h3>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {queueData.map((queue, index) => (

@@ -2020,7 +2020,7 @@ function SettingsPageContent({
           {validationSettings.modifierRules?.enablePayerSpecificRules && (
             <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center shrink-0 mt-0.5">
                   <span className="text-white text-xs font-bold">i</span>
                 </div>
                 <div>
@@ -4630,7 +4630,7 @@ function SettingsPageContent({
         onOpenChange={setShowPayerOverrideDialog}
       >
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center">
               <Building2 className="w-5 h-5 mr-2 text-primary" />
               {editingPayerRule
@@ -4968,7 +4968,7 @@ function SettingsPageContent({
             </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0">
+          <DialogFooter className="shrink-0">
             <Button
               variant="outline"
               onClick={() => setShowPayerOverrideDialog(false)}
@@ -4998,7 +4998,7 @@ function SettingsPageContent({
         onOpenChange={setShowPayerConfigDialog}
       >
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center">
               <Building2 className="w-5 h-5 mr-2 text-primary" />
               Configure {selectedPayer}
@@ -5263,7 +5263,7 @@ function SettingsPageContent({
             </div>
           </div>
 
-          <DialogFooter className="flex-shrink-0">
+          <DialogFooter className="shrink-0">
             <Button
               variant="outline"
               onClick={() => setShowPayerConfigDialog(false)}

@@ -46,7 +46,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-8">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0">
+              <div className="shrink-0">
                 <AlertTriangle className="h-8 w-8 text-red-600" />
               </div>
               <div className="flex-1 min-w-0">
