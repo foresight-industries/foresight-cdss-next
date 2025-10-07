@@ -35,5 +35,6 @@ export const Tables = {
   TEAM_MEMBER: 'team_member',
   CLERK_USER_SYNC: 'clerk_user_sync',
   USER_PROFILE: 'user_profile',
-  TEAM: 'team'
+  TEAM: 'team',
+  AUDIT_LOG: 'audit_log'
 } as const;
