@@ -2,7 +2,33 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Save, Bell, Shield, Database, Users, AlertTriangle, CheckCircle, Mail, UserPlus, Edit, Globe, Webhook, CreditCard, Settings, Gauge, Video, Code2, Clock, ShieldCheck, RefreshCw, Building2, Stethoscope, Plus, Trash2, X } from 'lucide-react';
+import {
+  Save,
+  Bell,
+  Shield,
+  Database,
+  Users,
+  AlertTriangle,
+  CheckCircle,
+  Mail,
+  UserPlus,
+  Edit,
+  Globe,
+  Webhook,
+  CreditCard,
+  Settings,
+  Gauge,
+  Video,
+  Code2,
+  Clock,
+  ShieldCheck,
+  RefreshCw,
+  Building2,
+  Stethoscope,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,7 +98,12 @@ interface SettingsProps {
         id: string;
         name: string;
         conflictingModifiers: string[];
-        resolution: 'remove_conflicting' | 'prefer_first' | 'prefer_last' | 'block_submission' | 'manual_review';
+        resolution:
+          | "remove_conflicting"
+          | "prefer_first"
+          | "prefer_last"
+          | "block_submission"
+          | "manual_review";
         description?: string;
         enabled: boolean;
       }>;
@@ -126,161 +157,187 @@ interface SettingsProps {
 
 const settingsSections: SettingsSection[] = [
   {
-    id: 'automation',
-    title: 'Automation & Confidence',
+    id: "automation",
+    title: "Automation & Confidence",
     icon: Gauge,
-    description: 'Control when claims and ePAs require human review'
+    description: "Control when claims and ePAs require human review",
   },
   {
-    id: 'visit-types',
-    title: 'Visit Types & POS',
+    id: "visit-types",
+    title: "Visit Types & POS",
     icon: Video,
-    description: 'Define supported visit types and required POS codes'
+    description: "Define supported visit types and required POS codes",
   },
   {
-    id: 'modifiers',
-    title: 'Modifiers',
+    id: "modifiers",
+    title: "Modifiers",
     icon: Code2,
-    description: 'Configure required modifiers and conflict resolution'
+    description: "Configure required modifiers and conflict resolution",
   },
   {
-    id: 'required-fields',
-    title: 'Required Fields',
+    id: "required-fields",
+    title: "Required Fields",
     icon: CheckCircle,
-    description: 'Define minimum data requirements before submission'
+    description: "Define minimum data requirements before submission",
   },
   {
-    id: 'time-based',
-    title: 'Time-Based Coding',
+    id: "time-based",
+    title: "Time-Based Coding",
     icon: Clock,
-    description: 'Configure time requirements for E/M codes'
+    description: "Configure time requirements for E/M codes",
   },
   {
-    id: 'credentialing',
-    title: 'Credentialing',
+    id: "credentialing",
+    title: "Credentialing",
     icon: ShieldCheck,
-    description: 'Enforce provider credentialing and licensing requirements'
+    description: "Enforce provider credentialing and licensing requirements",
   },
   {
-    id: 'denial-playbook',
-    title: 'Denial Playbook',
+    id: "denial-playbook",
+    title: "Denial Playbook",
     icon: RefreshCw,
-    description: 'Configure automatic denial resolution strategies'
+    description: "Configure automatic denial resolution strategies",
   },
   {
-    id: 'diagnosis-validation',
-    title: 'Diagnosis Validation',
+    id: "diagnosis-validation",
+    title: "Diagnosis Validation",
     icon: Stethoscope,
-    description: 'Validate medical necessity and ICD-10 to CPT compatibility'
+    description: "Validate medical necessity and ICD-10 to CPT compatibility",
   },
   {
-    id: 'notifications',
-    title: 'Notifications',
+    id: "notifications",
+    title: "Notifications",
     icon: Bell,
-    description: 'Manage alerts and notification preferences'
+    description: "Manage alerts and notification preferences",
   },
   {
-    id: 'ehr',
-    title: 'EHR Integration',
+    id: "ehr",
+    title: "EHR Integration",
     icon: Globe,
-    description: 'Electronic Health Record system connections'
+    description: "Electronic Health Record system connections",
   },
   {
-    id: 'webhooks',
-    title: 'Webhooks',
+    id: "webhooks",
+    title: "Webhooks",
     icon: Webhook,
-    description: 'Real-time data synchronization webhooks'
+    description: "Real-time data synchronization webhooks",
   },
   {
-    id: 'payers',
-    title: 'Payer Configuration',
+    id: "payers",
+    title: "Payer Configuration",
     icon: CreditCard,
-    description: 'Manage insurance payer configurations'
+    description: "Manage insurance payer configurations",
   },
   {
-    id: 'field-mappings',
-    title: 'Field Mappings',
+    id: "field-mappings",
+    title: "Field Mappings",
     icon: Settings,
-    description: 'Configure custom field mapping rules'
+    description: "Configure custom field mapping rules",
   },
   {
-    id: 'integrations',
-    title: 'Other Integrations',
+    id: "integrations",
+    title: "Other Integrations",
     icon: Database,
-    description: 'API connections and data sync settings'
+    description: "API connections and data sync settings",
   },
   {
-    id: 'security',
-    title: 'Security & Access',
+    id: "security",
+    title: "Security & Access",
     icon: Shield,
-    description: 'User permissions and security settings'
+    description: "User permissions and security settings",
   },
   {
-    id: 'users',
-    title: 'User Management',
+    id: "users",
+    title: "User Management",
     icon: Users,
-    description: 'Manage team members and roles'
-  }
+    description: "Manage team members and roles",
+  },
 ];
 
-function SettingsPageContent({ initialAutomationSettings, initialNotificationSettings, initialValidationSettings }: SettingsProps) {
+function SettingsPageContent({
+  initialAutomationSettings,
+  initialNotificationSettings,
+  initialValidationSettings,
+}: SettingsProps) {
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState('automation');
+  const [activeSection, setActiveSection] = useState("automation");
   const [hasChanges, setHasChanges] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    role: 'PA Coordinator',
-    sendWelcomeEmail: true
+    email: "",
+    firstName: "",
+    lastName: "",
+    role: "PA Coordinator",
+    sendWelcomeEmail: true,
   });
 
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<{index: number; name: string; email: string; role: string; status: string} | null>(null);
+  const [editingUser, setEditingUser] = useState<{
+    index: number;
+    name: string;
+    email: string;
+    role: string;
+    status: string;
+  } | null>(null);
   const [editForm, setEditForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    role: 'PA Coordinator',
-    status: 'Active'
+    firstName: "",
+    lastName: "",
+    email: "",
+    role: "PA Coordinator",
+    status: "Active",
   });
 
   // Conflict Rule Modal State
   const [showConflictRuleModal, setShowConflictRuleModal] = useState(false);
-  const [editingConflictRule, setEditingConflictRule] = useState<{id: string; name: string; conflictingModifiers: string[]; resolution: string; description?: string; enabled: boolean} | null>(null);
+  const [editingConflictRule, setEditingConflictRule] = useState<{
+    id: string;
+    name: string;
+    conflictingModifiers: string[];
+    resolution: string;
+    description?: string;
+    enabled: boolean;
+  } | null>(null);
   const [conflictRuleForm, setConflictRuleForm] = useState({
-    name: '',
-    conflictingModifiers: [''],
-    resolution: 'remove_conflicting' as 'remove_conflicting' | 'prefer_first' | 'prefer_last' | 'block_submission' | 'manual_review',
-    description: '',
-    enabled: true
+    name: "",
+    conflictingModifiers: [""],
+    resolution: "remove_conflicting" as
+      | "remove_conflicting"
+      | "prefer_first"
+      | "prefer_last"
+      | "block_submission"
+      | "manual_review",
+    description: "",
+    enabled: true,
   });
 
   const [showCptRuleModal, setShowCptRuleModal] = useState(false);
   const [cptRuleForm, setCptRuleForm] = useState({
-    cptCode: '',
-    description: '',
+    cptCode: "",
+    description: "",
     minMinutes: 15,
     maxMinutes: 30,
     enabled: true,
-    flagIfNotDocumented: true
+    flagIfNotDocumented: true,
   });
 
-  const [automationSettings, setAutomationSettings] = useState(initialAutomationSettings);
-  const [notificationSettings, setNotificationSettings] = useState(initialNotificationSettings);
+  const [automationSettings, setAutomationSettings] = useState(
+    initialAutomationSettings
+  );
+  const [notificationSettings, setNotificationSettings] = useState(
+    initialNotificationSettings
+  );
 
   // Default validation settings
   const defaultValidationSettings = {
     visitTypes: {
       telehealth: true,
       inPerson: true,
-      home: false
+      home: false,
     },
     posRules: {
       enforceTelehealthPOS: true,
       enforceInPersonPOS: true,
-      enforceHomePOS: true
+      enforceHomePOS: true,
     },
     modifierRules: {
       modifier95Required: true,
@@ -290,187 +347,221 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       requireModifierDocumentation: false,
       blockInvalidModifiers: true,
       enablePayerSpecificRules: false,
-      conflictRules: []
+      conflictRules: [],
     },
     requiredFields: {
-      blockOnMissingFields: true
+      blockOnMissingFields: true,
     },
     timeBasedValidation: {
       enabled: true,
       extractTimeFromNotes: true,
       cptRules: [
         {
-          id: '99213',
-          cptCode: '99213',
-          description: 'Office Visit, Level 3',
+          id: "99213",
+          cptCode: "99213",
+          description: "Office Visit, Level 3",
           minMinutes: 20,
           maxMinutes: 29,
           enabled: true,
-          flagIfNotDocumented: true
+          flagIfNotDocumented: true,
         },
         {
-          id: '99214',
-          cptCode: '99214',
-          description: 'Office Visit, Level 4',
+          id: "99214",
+          cptCode: "99214",
+          description: "Office Visit, Level 4",
           minMinutes: 30,
           maxMinutes: 39,
           enabled: true,
-          flagIfNotDocumented: true
+          flagIfNotDocumented: true,
         },
         {
-          id: '99215',
-          cptCode: '99215',
-          description: 'Office Visit, Level 5',
+          id: "99215",
+          cptCode: "99215",
+          description: "Office Visit, Level 5",
           minMinutes: 40,
           maxMinutes: 54,
           enabled: true,
-          flagIfNotDocumented: true
-        }
-      ]
+          flagIfNotDocumented: true,
+        },
+      ],
     },
     credentialingRules: {
       enforceCredentialing: true,
-      allowedStatuses: ['Active'],
+      allowedStatuses: ["Active"],
       multiStateLicensure: true,
-      showCredentialingAlerts: true
+      showCredentialingAlerts: true,
     },
     denialPlaybook: {
       autoRetryEnabled: true,
       maxRetryAttempts: 3,
-      customRules: []
+      customRules: [],
     },
     diagnosisValidation: {
       validateIcdToCpt: true,
       medicalNecessityThreshold: 80,
-      suggestAlternativeDx: true
+      suggestAlternativeDx: true,
     },
     auditLogging: {
       logRuleApplications: true,
       logAutoFixes: true,
-      retentionPeriod: '1 year'
-    }
+      retentionPeriod: "1 year",
+    },
   };
 
-  const [validationSettings, setValidationSettings] = useState(initialValidationSettings || defaultValidationSettings);
+  const [validationSettings, setValidationSettings] = useState(
+    initialValidationSettings || defaultValidationSettings
+  );
 
   const [teamMembers, setTeamMembers] = useState([
-    { name: 'Jane Doe', email: 'jane@foresight.health', role: 'Administrator', status: 'Active' },
-    { name: 'John Smith', email: 'john@foresight.health', role: 'PA Coordinator', status: 'Active' },
-    { name: 'Sarah Wilson', email: 'sarah@foresight.health', role: 'PA Reviewer', status: 'Pending' }
+    {
+      name: "Jane Doe",
+      email: "jane@foresight.health",
+      role: "Administrator",
+      status: "Active",
+    },
+    {
+      name: "John Smith",
+      email: "john@foresight.health",
+      role: "PA Coordinator",
+      status: "Active",
+    },
+    {
+      name: "Sarah Wilson",
+      email: "sarah@foresight.health",
+      role: "PA Reviewer",
+      status: "Pending",
+    },
   ]);
 
   const [integrationStatus] = useState({
-    cmm: { connected: true, lastSync: '2 minutes ago', status: 'healthy' },
-    supabase: { connected: true, lastSync: 'Real-time', status: 'healthy' },
-    gemini: { connected: true, lastSync: '1 minute ago', status: 'healthy' },
-    webhooks: { connected: true, lastSync: '30 seconds ago', status: 'healthy' }
+    cmm: { connected: true, lastSync: "2 minutes ago", status: "healthy" },
+    supabase: { connected: true, lastSync: "Real-time", status: "healthy" },
+    gemini: { connected: true, lastSync: "1 minute ago", status: "healthy" },
+    webhooks: {
+      connected: true,
+      lastSync: "30 seconds ago",
+      status: "healthy",
+    },
   });
 
   const [showCustomRuleDialog, setShowCustomRuleDialog] = useState(false);
   const [customRuleForm, setCustomRuleForm] = useState({
-    code: '',
-    description: '',
-    strategy: '',
+    code: "",
+    description: "",
+    strategy: "",
     enabled: true,
-    autoFix: false
+    autoFix: false,
   });
 
   // Built-in denial rules state
   const [builtInDenialRules, setBuiltInDenialRules] = useState({
     carc96: { enabled: true, autoFix: true },
     carc11: { enabled: true, autoFix: false },
-    carc197: { enabled: true, autoFix: true }
+    carc197: { enabled: true, autoFix: true },
   });
 
   const [showPayerOverrideDialog, setShowPayerOverrideDialog] = useState(false);
   const [payerOverrideForm, setPayerOverrideForm] = useState({
-    payerName: '',
-    ruleName: '',
-    description: '',
-    ruleType: 'validation' as 'validation' | 'field_mapping' | 'modifier' | 'pos',
-    conditions: [''],
-    actions: [''],
-    enabled: true
+    payerName: "",
+    ruleName: "",
+    description: "",
+    ruleType: "validation" as
+      | "validation"
+      | "field_mapping"
+      | "modifier"
+      | "pos",
+    conditions: [""],
+    actions: [""],
+    enabled: true,
   });
 
   // Payer Configuration State
   const [showPayerConfigDialog, setShowPayerConfigDialog] = useState(false);
-  const [selectedPayer, setSelectedPayer] = useState<string>('');
-  const [authType, setAuthType] = useState<string>('api_key');
+  const [selectedPayer, setSelectedPayer] = useState<string>("");
+  const [authType, setAuthType] = useState<string>("api_key");
   const [showFieldMappingDialog, setShowFieldMappingDialog] = useState(false);
   const [showDeleteMappingDialog, setShowDeleteMappingDialog] = useState(false);
   const [mappingToDelete, setMappingToDelete] = useState<number | null>(null);
-  const [editingFieldMappingIndex, setEditingFieldMappingIndex] = useState<number | null>(null);
+  const [editingFieldMappingIndex, setEditingFieldMappingIndex] = useState<
+    number | null
+  >(null);
   const [editingPayerRule, setEditingPayerRule] = useState<string | null>(null);
 
   const [fieldMappingForm, setFieldMappingForm] = useState({
-    payer: '',
-    field: '',
-    mapping: '',
-    enabled: true
+    payer: "",
+    field: "",
+    mapping: "",
+    enabled: true,
   });
 
   // Payer Rules State
   const [payerRules, setPayerRules] = useState([
     {
-      id: 'medicare-part-b',
-      payerName: 'Medicare',
-      ruleName: 'Part B Claims',
-      description: 'Custom validation rules for Medicare Part B submissions',
+      id: "medicare-part-b",
+      payerName: "Medicare",
+      ruleName: "Part B Claims",
+      description: "Custom validation rules for Medicare Part B submissions",
       enabled: true,
-      rules: ['Require NPI validation', 'Block modifier GT', 'Mandatory place of service 11']
+      rules: [
+        "Require NPI validation",
+        "Block modifier GT",
+        "Mandatory place of service 11",
+      ],
     },
     {
-      id: 'aetna-pa',
-      payerName: 'Aetna',
-      ruleName: 'Prior Authorization',
-      description: 'Enhanced validation for Aetna PA requirements',
+      id: "aetna-pa",
+      payerName: "Aetna",
+      ruleName: "Prior Authorization",
+      description: "Enhanced validation for Aetna PA requirements",
       enabled: true,
-      rules: ['Require step therapy documentation', 'Custom authorization numbers']
+      rules: [
+        "Require step therapy documentation",
+        "Custom authorization numbers",
+      ],
     },
     {
-      id: 'bcbs-telehealth',
-      payerName: 'Blue Cross Blue Shield',
-      ruleName: 'Telehealth',
-      description: 'State-specific telehealth requirements',
+      id: "bcbs-telehealth",
+      payerName: "Blue Cross Blue Shield",
+      ruleName: "Telehealth",
+      description: "State-specific telehealth requirements",
       enabled: false,
-      rules: ['State-specific POS codes', 'Enhanced modifier 95 validation']
-    }
+      rules: ["State-specific POS codes", "Enhanced modifier 95 validation"],
+    },
   ]);
 
   // Field Mappings State
   const [fieldMappings, setFieldMappings] = useState([
     {
-      payer: 'UnitedHealthcare',
-      field: 'Provider ID',
-      mapping: 'Use Tax ID instead of NPI for certain claim types',
-      enabled: true
+      payer: "UnitedHealthcare",
+      field: "Provider ID",
+      mapping: "Use Tax ID instead of NPI for certain claim types",
+      enabled: true,
     },
     {
-      payer: 'Cigna',
-      field: 'Diagnosis Code',
-      mapping: 'Require primary diagnosis in position 1 only',
-      enabled: true
+      payer: "Cigna",
+      field: "Diagnosis Code",
+      mapping: "Require primary diagnosis in position 1 only",
+      enabled: true,
     },
     {
-      payer: 'Medicare',
-      field: 'Service Date',
-      mapping: 'Use encounter date when service date is missing',
-      enabled: false
-    }
+      payer: "Medicare",
+      field: "Service Date",
+      mapping: "Use encounter date when service date is missing",
+      enabled: false,
+    },
   ]);
 
   // Special Handling Rules State
   const [specialHandlingRules, setSpecialHandlingRules] = useState({
     autoRetryFailedClaims: true,
     priorityProcessingHighValue: false,
-    batchProcessingMedicare: true
+    batchProcessingMedicare: true,
   });
 
   // Handle URL parameters to navigate to specific sections
   useEffect(() => {
-    const section = searchParams.get('section');
-    if (section && settingsSections.some(s => s.id === section)) {
+    const section = searchParams.get("section");
+    if (section && settingsSections.some((s) => s.id === section)) {
       setActiveSection(section);
     }
   }, [searchParams]);
@@ -480,14 +571,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasChanges) {
         e.preventDefault();
-        e.returnValue = '';
+        e.returnValue = "";
       }
     };
 
-    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasChanges]);
 
@@ -496,113 +587,126 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       const settingsToSave = {
         automation: automationSettings,
         notifications: notificationSettings,
-        validation: validationSettings
+        validation: validationSettings,
       };
 
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
+      const response = await fetch("/api/settings", {
+        method: "PUT",
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ settings: settingsToSave })
+        body: JSON.stringify({ settings: settingsToSave }),
       });
 
       if (response.ok) {
         setHasChanges(false);
-        console.log('Settings saved successfully');
+        console.log("Settings saved successfully");
       } else {
-        console.error('Failed to save settings');
+        console.error("Failed to save settings");
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error("Error saving settings:", error);
     }
   };
 
   const handleSettingChange = (section: string, key: string, value: any) => {
     setHasChanges(true);
-    if (section === 'automation') {
-      setAutomationSettings(prev => ({ ...prev, [key]: value }));
-    } else if (section === 'notifications') {
-      setNotificationSettings(prev => ({ ...prev, [key]: value }));
-    } else if (section === 'validation') {
-      setValidationSettings(prev => ({ ...prev, [key]: value }));
+    if (section === "automation") {
+      setAutomationSettings((prev) => ({ ...prev, [key]: value }));
+    } else if (section === "notifications") {
+      setNotificationSettings((prev) => ({ ...prev, [key]: value }));
+    } else if (section === "validation") {
+      setValidationSettings((prev) => ({ ...prev, [key]: value }));
     }
   };
 
   const handleInviteUser = () => {
-    console.log('Inviting user:', inviteForm);
+    console.log("Inviting user:", inviteForm);
     setInviteForm({
-      email: '',
-      firstName: '',
-      lastName: '',
-      role: 'PA Coordinator',
-      sendWelcomeEmail: true
+      email: "",
+      firstName: "",
+      lastName: "",
+      role: "PA Coordinator",
+      sendWelcomeEmail: true,
     });
     setShowInviteModal(false);
     alert(`Invitation sent to ${inviteForm.email}`);
   };
 
   const handleInviteFormChange = (key: string, value: any) => {
-    setInviteForm(prev => ({ ...prev, [key]: value }));
+    setInviteForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleEditUser = (index: number) => {
     const user = teamMembers[index];
-    const [firstName, lastName] = user.name.split(' ');
+    const [firstName, lastName] = user.name.split(" ");
 
     setEditingUser({ index, ...user });
     setEditForm({
-      firstName: firstName || '',
-      lastName: lastName || '',
+      firstName: firstName || "",
+      lastName: lastName || "",
       email: user.email,
       role: user.role,
-      status: user.status
+      status: user.status,
     });
     setShowEditModal(true);
   };
 
   const handleSaveEditUser = () => {
-    if (!editingUser || !editForm.email || !editForm.firstName || !editForm.lastName) return;
+    if (
+      !editingUser ||
+      !editForm.email ||
+      !editForm.firstName ||
+      !editForm.lastName
+    )
+      return;
 
     const updatedMembers = [...teamMembers];
     updatedMembers[editingUser.index] = {
       name: `${editForm.firstName} ${editForm.lastName}`,
       email: editForm.email,
       role: editForm.role,
-      status: editForm.status
+      status: editForm.status,
     };
 
     setTeamMembers(updatedMembers);
     setShowEditModal(false);
     setEditingUser(null);
     setEditForm({
-      firstName: '',
-      lastName: '',
-      email: '',
-      role: 'PA Coordinator',
-      status: 'Active'
+      firstName: "",
+      lastName: "",
+      email: "",
+      role: "PA Coordinator",
+      status: "Active",
     });
 
-    alert(`User ${editForm.firstName} ${editForm.lastName} updated successfully`);
+    alert(
+      `User ${editForm.firstName} ${editForm.lastName} updated successfully`
+    );
   };
 
   const handleEditFormChange = (key: string, value: any) => {
-    setEditForm(prev => ({ ...prev, [key]: value }));
+    setEditForm((prev) => ({ ...prev, [key]: value }));
   };
 
   // Conflict Rule Handlers
   const handleSaveConflictRule = () => {
-    if (!conflictRuleForm.name || conflictRuleForm.conflictingModifiers.filter(m => m.trim()).length < 2) {
+    if (
+      !conflictRuleForm.name ||
+      conflictRuleForm.conflictingModifiers.filter((m) => m.trim()).length < 2
+    ) {
       return;
     }
 
     const newRule = {
       id: editingConflictRule?.id || `rule_${Date.now()}`,
       name: conflictRuleForm.name,
-      conflictingModifiers: conflictRuleForm.conflictingModifiers.filter(m => m.trim()),
+      conflictingModifiers: conflictRuleForm.conflictingModifiers.filter((m) =>
+        m.trim()
+      ),
       resolution: conflictRuleForm.resolution,
       description: conflictRuleForm.description,
-      enabled: conflictRuleForm.enabled
+      enabled: conflictRuleForm.enabled,
     };
 
     const existingRules = validationSettings.modifierRules?.conflictRules || [];
@@ -610,7 +714,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
     if (editingConflictRule) {
       // Edit existing rule
-      const index = existingRules.findIndex(r => r.id === editingConflictRule.id);
+      const index = existingRules.findIndex(
+        (r) => r.id === editingConflictRule.id
+      );
       updatedRules = [...existingRules];
       updatedRules[index] = newRule;
     } else {
@@ -618,44 +724,48 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       updatedRules = [...existingRules, newRule];
     }
 
-    handleSettingChange('validation', 'modifierRules', {
+    handleSettingChange("validation", "modifierRules", {
       ...validationSettings.modifierRules,
-      conflictRules: updatedRules
+      conflictRules: updatedRules,
     });
 
     setShowConflictRuleModal(false);
     setEditingConflictRule(null);
     setConflictRuleForm({
-      name: '',
-      conflictingModifiers: [''],
-      resolution: 'remove_conflicting',
-      description: '',
-      enabled: true
+      name: "",
+      conflictingModifiers: [""],
+      resolution: "remove_conflicting",
+      description: "",
+      enabled: true,
     });
   };
 
   const handleConflictRuleFormChange = (key: string, value: any) => {
-    setConflictRuleForm(prev => ({ ...prev, [key]: value }));
+    setConflictRuleForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const addConflictingModifier = () => {
-    setConflictRuleForm(prev => ({
+    setConflictRuleForm((prev) => ({
       ...prev,
-      conflictingModifiers: [...prev.conflictingModifiers, '']
+      conflictingModifiers: [...prev.conflictingModifiers, ""],
     }));
   };
 
   const removeConflictingModifier = (index: number) => {
-    setConflictRuleForm(prev => ({
+    setConflictRuleForm((prev) => ({
       ...prev,
-      conflictingModifiers: prev.conflictingModifiers.filter((_, i) => i !== index)
+      conflictingModifiers: prev.conflictingModifiers.filter(
+        (_, i) => i !== index
+      ),
     }));
   };
 
   const updateConflictingModifier = (index: number, value: string) => {
-    setConflictRuleForm(prev => ({
+    setConflictRuleForm((prev) => ({
       ...prev,
-      conflictingModifiers: prev.conflictingModifiers.map((mod, i) => i === index ? value : mod)
+      conflictingModifiers: prev.conflictingModifiers.map((mod, i) =>
+        i === index ? value : mod
+      ),
     }));
   };
 
@@ -672,56 +782,63 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       minMinutes: cptRuleForm.minMinutes,
       maxMinutes: cptRuleForm.maxMinutes,
       enabled: cptRuleForm.enabled,
-      flagIfNotDocumented: cptRuleForm.flagIfNotDocumented
+      flagIfNotDocumented: cptRuleForm.flagIfNotDocumented,
     };
 
-    const existingRules = validationSettings.timeBasedValidation?.cptRules || [];
+    const existingRules =
+      validationSettings.timeBasedValidation?.cptRules || [];
     const updatedRules = [...existingRules, newRule];
 
-    handleSettingChange('validation', 'timeBasedValidation', {
+    handleSettingChange("validation", "timeBasedValidation", {
       ...validationSettings.timeBasedValidation,
-      cptRules: updatedRules
+      cptRules: updatedRules,
     });
 
     setShowCptRuleModal(false);
     setCptRuleForm({
-      cptCode: '',
-      description: '',
+      cptCode: "",
+      description: "",
       minMinutes: 15,
       maxMinutes: 30,
       enabled: true,
-      flagIfNotDocumented: true
+      flagIfNotDocumented: true,
     });
   };
 
   const handleCptRuleFormChange = (key: string, value: any) => {
-    setCptRuleForm(prev => ({ ...prev, [key]: value }));
+    setCptRuleForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const updateCptRule = (index: number, updatedRule: any) => {
-    const existingRules = validationSettings.timeBasedValidation?.cptRules || [];
+    const existingRules =
+      validationSettings.timeBasedValidation?.cptRules || [];
     const updatedRules = [...existingRules];
     updatedRules[index] = { ...updatedRules[index], ...updatedRule };
 
-    handleSettingChange('validation', 'timeBasedValidation', {
+    handleSettingChange("validation", "timeBasedValidation", {
       ...validationSettings.timeBasedValidation,
-      cptRules: updatedRules
+      cptRules: updatedRules,
     });
   };
 
   const removeCptRule = (index: number) => {
-    const existingRules = validationSettings.timeBasedValidation?.cptRules || [];
+    const existingRules =
+      validationSettings.timeBasedValidation?.cptRules || [];
     const updatedRules = existingRules.filter((_, i) => i !== index);
 
-    handleSettingChange('validation', 'timeBasedValidation', {
+    handleSettingChange("validation", "timeBasedValidation", {
       ...validationSettings.timeBasedValidation,
-      cptRules: updatedRules
+      cptRules: updatedRules,
     });
   };
 
   // Custom Denial Rule Handlers
   const handleSaveCustomRule = () => {
-    if (!customRuleForm.code || !customRuleForm.description || !customRuleForm.strategy) {
+    if (
+      !customRuleForm.code ||
+      !customRuleForm.description ||
+      !customRuleForm.strategy
+    ) {
       return;
     }
 
@@ -731,38 +848,38 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       description: customRuleForm.description,
       strategy: customRuleForm.strategy,
       enabled: customRuleForm.enabled,
-      autoFix: customRuleForm.autoFix
+      autoFix: customRuleForm.autoFix,
     };
 
     const existingRules = validationSettings.denialPlaybook?.customRules || [];
     const updatedRules = [...existingRules, newRule];
 
-    handleSettingChange('validation', 'denialPlaybook', {
+    handleSettingChange("validation", "denialPlaybook", {
       ...validationSettings.denialPlaybook,
-      customRules: updatedRules
+      customRules: updatedRules,
     });
 
     setShowCustomRuleDialog(false);
     setCustomRuleForm({
-      code: '',
-      description: '',
-      strategy: '',
+      code: "",
+      description: "",
+      strategy: "",
       enabled: true,
-      autoFix: false
+      autoFix: false,
     });
   };
 
   const handleCustomRuleFormChange = (key: string, value: any) => {
-    setCustomRuleForm(prev => ({ ...prev, [key]: value }));
+    setCustomRuleForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const removeCustomRule = (index: number) => {
     const existingRules = validationSettings.denialPlaybook?.customRules || [];
     const updatedRules = existingRules.filter((_, i) => i !== index);
 
-    handleSettingChange('validation', 'denialPlaybook', {
+    handleSettingChange("validation", "denialPlaybook", {
       ...validationSettings.denialPlaybook,
-      customRules: updatedRules
+      customRules: updatedRules,
     });
   };
 
@@ -771,96 +888,102 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     const updatedRules = [...existingRules];
     updatedRules[index] = { ...updatedRules[index], ...updatedRule };
 
-    handleSettingChange('validation', 'denialPlaybook', {
+    handleSettingChange("validation", "denialPlaybook", {
       ...validationSettings.denialPlaybook,
-      customRules: updatedRules
+      customRules: updatedRules,
     });
   };
 
   // Payer Override Rule Handlers
   const handleSavePayerOverride = async () => {
-    if (!payerOverrideForm.payerName || !payerOverrideForm.ruleName || !payerOverrideForm.description) {
+    if (
+      !payerOverrideForm.payerName ||
+      !payerOverrideForm.ruleName ||
+      !payerOverrideForm.description
+    ) {
       return;
     }
 
     try {
-      const response = await fetch('/api/payer-override-rules', {
-        method: 'POST',
+      const response = await fetch("/api/payer-override-rules", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           payer_name: payerOverrideForm.payerName,
           rule_name: payerOverrideForm.ruleName,
           description: payerOverrideForm.description,
           rule_type: payerOverrideForm.ruleType,
-          conditions: payerOverrideForm.conditions.filter(c => c.trim()),
-          actions: payerOverrideForm.actions.filter(a => a.trim()),
-          enabled: payerOverrideForm.enabled
+          conditions: payerOverrideForm.conditions.filter((c) => c.trim()),
+          actions: payerOverrideForm.actions.filter((a) => a.trim()),
+          enabled: payerOverrideForm.enabled,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create payer override rule');
+        throw new Error("Failed to create payer override rule");
       }
 
       const result = await response.json();
-      console.log('Payer override rule created:', result);
+      console.log("Payer override rule created:", result);
 
       setShowPayerOverrideDialog(false);
       setPayerOverrideForm({
-        payerName: '',
-        ruleName: '',
-        description: '',
-        ruleType: 'validation',
-        conditions: [''],
-        actions: [''],
-        enabled: true
+        payerName: "",
+        ruleName: "",
+        description: "",
+        ruleType: "validation",
+        conditions: [""],
+        actions: [""],
+        enabled: true,
       });
     } catch (error) {
-      console.error('Error creating payer override rule:', error);
+      console.error("Error creating payer override rule:", error);
     }
   };
 
   const addPayerCondition = (): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      conditions: [...prev.conditions, '']
+      conditions: [...prev.conditions, ""],
     }));
   };
 
   const removePayerCondition = (index: number): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      conditions: prev.conditions.filter((_, i) => i !== index)
+      conditions: prev.conditions.filter((_, i) => i !== index),
     }));
   };
 
   const updatePayerCondition = (index: number, value: string): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      conditions: prev.conditions.map((condition, i) => i === index ? value : condition)
+      conditions: prev.conditions.map((condition, i) =>
+        i === index ? value : condition
+      ),
     }));
   };
 
   const addPayerAction = (): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      actions: [...prev.actions, '']
+      actions: [...prev.actions, ""],
     }));
   };
 
   const removePayerAction = (index: number): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      actions: prev.actions.filter((_, i) => i !== index)
+      actions: prev.actions.filter((_, i) => i !== index),
     }));
   };
 
   const updatePayerAction = (index: number, value: string): void => {
-    setPayerOverrideForm(prev => ({
+    setPayerOverrideForm((prev) => ({
       ...prev,
-      actions: prev.actions.map((action, i) => i === index ? value : action)
+      actions: prev.actions.map((action, i) => (i === index ? value : action)),
     }));
   };
 
@@ -871,23 +994,23 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   };
 
   const handleTogglePayerRule = (ruleId: string, enabled: boolean) => {
-    setPayerRules(prev => prev.map(rule =>
-      rule.id === ruleId ? { ...rule, enabled } : rule
-    ));
+    setPayerRules((prev) =>
+      prev.map((rule) => (rule.id === ruleId ? { ...rule, enabled } : rule))
+    );
   };
 
   const handleEditPayerRule = (ruleId: string) => {
-    const rule = payerRules.find(r => r.id === ruleId);
+    const rule = payerRules.find((r) => r.id === ruleId);
     if (rule) {
       setEditingPayerRule(ruleId);
       setPayerOverrideForm({
         payerName: rule.payerName.toLowerCase(),
         ruleName: rule.ruleName,
         description: rule.description,
-        ruleType: 'validation',
+        ruleType: "validation",
         conditions: rule.rules,
-        actions: ['Apply validation rules'],
-        enabled: rule.enabled
+        actions: ["Apply validation rules"],
+        enabled: rule.enabled,
       });
       setShowPayerOverrideDialog(true);
     }
@@ -895,49 +1018,62 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
   // Field Mapping Handlers
   const handleSaveFieldMapping = () => {
-    if (!fieldMappingForm.payer || !fieldMappingForm.field || !fieldMappingForm.mapping) {
+    if (
+      !fieldMappingForm.payer ||
+      !fieldMappingForm.field ||
+      !fieldMappingForm.mapping
+    ) {
       return;
     }
 
-    const payerDisplayName = fieldMappingForm.payer === 'unitedhealth' ? 'UnitedHealthcare' :
-                            fieldMappingForm.payer === 'bcbs' ? 'Blue Cross Blue Shield' :
-                            fieldMappingForm.payer.charAt(0).toUpperCase() + fieldMappingForm.payer.slice(1);
+    const payerDisplayName =
+      fieldMappingForm.payer === "unitedhealth"
+        ? "UnitedHealthcare"
+        : fieldMappingForm.payer === "bcbs"
+        ? "Blue Cross Blue Shield"
+        : fieldMappingForm.payer.charAt(0).toUpperCase() +
+          fieldMappingForm.payer.slice(1);
 
-    const fieldDisplayName = fieldMappingForm.field.split('-').map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
+    const fieldDisplayName = fieldMappingForm.field
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
 
     const newMapping = {
       payer: payerDisplayName,
       field: fieldDisplayName,
       mapping: fieldMappingForm.mapping,
-      enabled: fieldMappingForm.enabled
+      enabled: fieldMappingForm.enabled,
     };
 
     if (editingFieldMappingIndex !== null) {
       // Update existing mapping
-      setFieldMappings(prev => prev.map((mapping, i) =>
-        i === editingFieldMappingIndex ? newMapping : mapping
-      ));
+      setFieldMappings((prev) =>
+        prev.map((mapping, i) =>
+          i === editingFieldMappingIndex ? newMapping : mapping
+        )
+      );
     } else {
       // Add new mapping
-      setFieldMappings(prev => [...prev, newMapping]);
+      setFieldMappings((prev) => [...prev, newMapping]);
     }
 
     setShowFieldMappingDialog(false);
     setEditingFieldMappingIndex(null);
     setFieldMappingForm({
-      payer: '',
-      field: '',
-      mapping: '',
-      enabled: true
+      payer: "",
+      field: "",
+      mapping: "",
+      enabled: true,
     });
   };
 
   const handleToggleFieldMapping = (index: number, enabled: boolean) => {
-    setFieldMappings(prev => prev.map((mapping, i) =>
-      i === index ? { ...mapping, enabled } : mapping
-    ));
+    setFieldMappings((prev) =>
+      prev.map((mapping, i) =>
+        i === index ? { ...mapping, enabled } : mapping
+      )
+    );
   };
 
   const handleEditFieldMapping = (index: number) => {
@@ -945,22 +1081,31 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     setEditingFieldMappingIndex(index);
 
     // Convert display names back to form values
-    const payerValue = mapping.payer === 'UnitedHealthcare' ? 'unitedhealth' :
-                      mapping.payer === 'Blue Cross Blue Shield' ? 'bcbs' :
-                      mapping.payer.toLowerCase();
+    const payerValue =
+      mapping.payer === "UnitedHealthcare"
+        ? "unitedhealth"
+        : mapping.payer === "Blue Cross Blue Shield"
+        ? "bcbs"
+        : mapping.payer.toLowerCase();
 
-    const fieldValue = mapping.field === 'Provider ID' ? 'provider-id' :
-                      mapping.field === 'Diagnosis Code' ? 'diagnosis-code' :
-                      mapping.field === 'Service Date' ? 'service-date' :
-                      mapping.field === 'Place of Service' ? 'place-of-service' :
-                      mapping.field === 'Authorization Number' ? 'authorization-number' :
-                      mapping.field.toLowerCase().replace(/\s+/g, '-');
+    const fieldValue =
+      mapping.field === "Provider ID"
+        ? "provider-id"
+        : mapping.field === "Diagnosis Code"
+        ? "diagnosis-code"
+        : mapping.field === "Service Date"
+        ? "service-date"
+        : mapping.field === "Place of Service"
+        ? "place-of-service"
+        : mapping.field === "Authorization Number"
+        ? "authorization-number"
+        : mapping.field.toLowerCase().replace(/\s+/g, "-");
 
     setFieldMappingForm({
       payer: payerValue,
       field: fieldValue,
       mapping: mapping.mapping,
-      enabled: mapping.enabled
+      enabled: mapping.enabled,
     });
     setShowFieldMappingDialog(true);
   };
@@ -972,38 +1117,56 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
   const confirmDeleteMapping = () => {
     if (mappingToDelete !== null) {
-      setFieldMappings(prev => prev.filter((_, i) => i !== mappingToDelete));
+      setFieldMappings((prev) => prev.filter((_, i) => i !== mappingToDelete));
       setMappingToDelete(null);
     }
     setShowDeleteMappingDialog(false);
   };
 
   // Special Handling Rules Handlers
-  const handleToggleSpecialRule = (rule: keyof typeof specialHandlingRules, enabled: boolean) => {
-    setSpecialHandlingRules(prev => ({ ...prev, [rule]: enabled }));
+  const handleToggleSpecialRule = (
+    rule: keyof typeof specialHandlingRules,
+    enabled: boolean
+  ) => {
+    setSpecialHandlingRules((prev) => ({ ...prev, [rule]: enabled }));
   };
 
   const renderAutomationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Global Confidence Threshold</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Global Confidence Threshold
+        </h3>
         <div className="space-y-6">
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-8">
               <div className="flex-1">
-                <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Global Confidence Threshold</Label>
-                <p className="text-sm text-muted-foreground mt-1">Items below this threshold will surface for human review. Higher percentage = stricter automation.</p>
+                <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  Global Confidence Threshold
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Items below this threshold will surface for human review.
+                  Higher percentage = stricter automation.
+                </p>
               </div>
               <div className="flex items-center gap-4 min-w-[280px]">
                 <Slider
                   value={[automationSettings.globalConfidenceThreshold || 88]}
-                  onValueChange={(value) => handleSettingChange('automation', 'globalConfidenceThreshold', value[0])}
+                  onValueChange={(value) =>
+                    handleSettingChange(
+                      "automation",
+                      "globalConfidenceThreshold",
+                      value[0]
+                    )
+                  }
                   max={98}
                   min={60}
                   step={1}
                   className="flex-1"
                 />
-                <span className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums min-w-[3.5ch]">{automationSettings.globalConfidenceThreshold || 88}%</span>
+                <span className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums min-w-[3.5ch]">
+                  {automationSettings.globalConfidenceThreshold || 88}%
+                </span>
               </div>
             </div>
           </div>
@@ -1011,27 +1174,47 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Auto-Submission Controls</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Auto-Submission Controls
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Auto-Submission for Claims</Label>
-              <p className="text-sm text-muted-foreground mt-1">Automatically submit claims that meet confidence threshold and pass all validation rules</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Enable Auto-Submission for Claims
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatically submit claims that meet confidence threshold and
+                pass all validation rules
+              </p>
             </div>
             <Switch
               checked={automationSettings.enableAutoSubmission || false}
-              onCheckedChange={(checked) => handleSettingChange('automation', 'enableAutoSubmission', checked)}
+              onCheckedChange={(checked) =>
+                handleSettingChange(
+                  "automation",
+                  "enableAutoSubmission",
+                  checked
+                )
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Auto-Approval for ePAs</Label>
-              <p className="text-sm text-muted-foreground mt-1">Automatically approve prior authorizations that meet confidence threshold</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Enable Auto-Approval for ePAs
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatically approve prior authorizations that meet confidence
+                threshold
+              </p>
             </div>
             <Switch
               checked={automationSettings.enableAutoEPA || false}
-              onCheckedChange={(checked) => handleSettingChange('automation', 'enableAutoEPA', checked)}
+              onCheckedChange={(checked) =>
+                handleSettingChange("automation", "enableAutoEPA", checked)
+              }
             />
           </div>
         </div>
@@ -1040,74 +1223,120 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-8 mb-4">
           <div className="flex-1">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Field-Level Confidence Minimums</Label>
-            <p className="text-sm text-muted-foreground mt-1">Minimum confidence required for individual fields before auto-submission</p>
+            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Field-Level Confidence Minimums
+            </Label>
+            <p className="text-sm text-muted-foreground mt-1">
+              Minimum confidence required for individual fields before
+              auto-submission
+            </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">CPT Code</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              CPT Code
+            </span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
                 max="100"
-                value={automationSettings.fieldConfidenceThresholds?.cptCode || 85}
-                onChange={(e) => handleSettingChange('automation', 'fieldConfidenceThresholds', {
-                  ...automationSettings.fieldConfidenceThresholds,
-                  cptCode: Number(e.target.value)
-                })}
+                value={
+                  automationSettings.fieldConfidenceThresholds?.cptCode || 85
+                }
+                onChange={(e) =>
+                  handleSettingChange(
+                    "automation",
+                    "fieldConfidenceThresholds",
+                    {
+                      ...automationSettings.fieldConfidenceThresholds,
+                      cptCode: Number(e.target.value),
+                    }
+                  )
+                }
                 className="w-16 text-center text-sm"
               />
               <span className="text-sm text-muted-foreground">%</span>
             </div>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">ICD-10</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              ICD-10
+            </span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
                 max="100"
-                value={automationSettings.fieldConfidenceThresholds?.icd10 || 85}
-                onChange={(e) => handleSettingChange('automation', 'fieldConfidenceThresholds', {
-                  ...automationSettings.fieldConfidenceThresholds,
-                  icd10: Number(e.target.value)
-                })}
+                value={
+                  automationSettings.fieldConfidenceThresholds?.icd10 || 85
+                }
+                onChange={(e) =>
+                  handleSettingChange(
+                    "automation",
+                    "fieldConfidenceThresholds",
+                    {
+                      ...automationSettings.fieldConfidenceThresholds,
+                      icd10: Number(e.target.value),
+                    }
+                  )
+                }
                 className="w-16 text-center text-sm"
               />
               <span className="text-sm text-muted-foreground">%</span>
             </div>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Place of Service</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Place of Service
+            </span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
                 max="100"
-                value={automationSettings.fieldConfidenceThresholds?.placeOfService || 90}
-                onChange={(e) => handleSettingChange('automation', 'fieldConfidenceThresholds', {
-                  ...automationSettings.fieldConfidenceThresholds,
-                  placeOfService: Number(e.target.value)
-                })}
+                value={
+                  automationSettings.fieldConfidenceThresholds
+                    ?.placeOfService || 90
+                }
+                onChange={(e) =>
+                  handleSettingChange(
+                    "automation",
+                    "fieldConfidenceThresholds",
+                    {
+                      ...automationSettings.fieldConfidenceThresholds,
+                      placeOfService: Number(e.target.value),
+                    }
+                  )
+                }
                 className="w-16 text-center text-sm"
               />
               <span className="text-sm text-muted-foreground">%</span>
             </div>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Modifiers</span>
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Modifiers
+            </span>
             <div className="flex items-center gap-2">
               <Input
                 type="number"
                 min="0"
                 max="100"
-                value={automationSettings.fieldConfidenceThresholds?.modifiers || 80}
-                onChange={(e) => handleSettingChange('automation', 'fieldConfidenceThresholds', {
-                  ...automationSettings.fieldConfidenceThresholds,
-                  modifiers: Number(e.target.value)
-                })}
+                value={
+                  automationSettings.fieldConfidenceThresholds?.modifiers || 80
+                }
+                onChange={(e) =>
+                  handleSettingChange(
+                    "automation",
+                    "fieldConfidenceThresholds",
+                    {
+                      ...automationSettings.fieldConfidenceThresholds,
+                      modifiers: Number(e.target.value),
+                    }
+                  )
+                }
                 className="w-16 text-center text-sm"
               />
               <span className="text-sm text-muted-foreground">%</span>
@@ -1117,27 +1346,45 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Processing Rules</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Processing Rules
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Enable Bulk Processing</Label>
-              <p className="text-sm text-muted-foreground">Process multiple PAs simultaneously</p>
+              <p className="text-sm text-muted-foreground">
+                Process multiple PAs simultaneously
+              </p>
             </div>
             <Switch
               checked={automationSettings.enableBulkProcessing}
-              onCheckedChange={(checked) => handleSettingChange('automation', 'enableBulkProcessing', checked)}
+              onCheckedChange={(checked) =>
+                handleSettingChange(
+                  "automation",
+                  "enableBulkProcessing",
+                  checked
+                )
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Confidence Score Display</Label>
-              <p className="text-sm text-muted-foreground">Show AI confidence scores in UI</p>
+              <p className="text-sm text-muted-foreground">
+                Show AI confidence scores in UI
+              </p>
             </div>
             <Switch
               checked={automationSettings.confidenceScoreEnabled}
-              onCheckedChange={(checked) => handleSettingChange('automation', 'confidenceScoreEnabled', checked)}
+              onCheckedChange={(checked) =>
+                handleSettingChange(
+                  "automation",
+                  "confidenceScoreEnabled",
+                  checked
+                )
+              }
             />
           </div>
 
@@ -1146,7 +1393,13 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="w-full">
               <Select
                 value={automationSettings.maxRetryAttempts.toString()}
-                onValueChange={(value) => handleSettingChange('automation', 'maxRetryAttempts', Number(value))}
+                onValueChange={(value) =>
+                  handleSettingChange(
+                    "automation",
+                    "maxRetryAttempts",
+                    Number(value)
+                  )
+                }
               >
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -1168,50 +1421,70 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderVisitTypesSettings = () => (
     <div className="space-y-6">
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported Visit Types</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Supported Visit Types
+        </h3>
         <div className="space-y-3">
           <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
             <Checkbox
               checked={validationSettings.visitTypes?.telehealth || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'visitTypes', {
-                ...validationSettings.visitTypes,
-                telehealth: !!checked
-              })}
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "visitTypes", {
+                  ...validationSettings.visitTypes,
+                  telehealth: !!checked,
+                })
+              }
               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <div className="flex-1">
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Telemedicine / Telehealth</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Remote video visits with patients</div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Telemedicine / Telehealth
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Remote video visits with patients
+              </div>
             </div>
           </label>
 
           <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
             <Checkbox
               checked={validationSettings.visitTypes?.inPerson || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'visitTypes', {
-                ...validationSettings.visitTypes,
-                inPerson: !!checked
-              })}
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "visitTypes", {
+                  ...validationSettings.visitTypes,
+                  inPerson: !!checked,
+                })
+              }
               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <div className="flex-1">
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">In-Person / Office Visits</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Patient visits your office location</div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                In-Person / Office Visits
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Patient visits your office location
+              </div>
             </div>
           </label>
 
           <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
             <Checkbox
               checked={validationSettings.visitTypes?.home || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'visitTypes', {
-                ...validationSettings.visitTypes,
-                home: !!checked
-              })}
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "visitTypes", {
+                  ...validationSettings.visitTypes,
+                  home: !!checked,
+                })
+              }
               className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
             />
             <div className="flex-1">
-              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Home Visits</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Provider travels to patient&apos;s home</div>
+              <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Home Visits
+              </div>
+              <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                Provider travels to patient&apos;s home
+              </div>
             </div>
           </label>
         </div>
@@ -1221,13 +1494,19 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       {validationSettings.visitTypes?.telehealth && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Telemedicine Place of Service (POS) Rules</Label>
+            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Telemedicine Place of Service (POS) Rules
+            </Label>
             <Switch
-              checked={validationSettings.posRules?.enforceTelehealthPOS || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'posRules', {
-                ...validationSettings.posRules,
-                enforceTelehealthPOS: checked
-              })}
+              checked={
+                validationSettings.posRules?.enforceTelehealthPOS || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "posRules", {
+                  ...validationSettings.posRules,
+                  enforceTelehealthPOS: checked,
+                })
+              }
             />
           </div>
 
@@ -1235,37 +1514,54 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 <div className="flex-1">
-                  <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Required POS Code</Label>
+                  <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Required POS Code
+                  </Label>
                   <div className="w-full">
                     <Select defaultValue="10">
                       <SelectTrigger className="w-full">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="10">10 - Telehealth (Patient&apos;s Home)</SelectItem>
-                        <SelectItem value="02">02 - Telehealth (Other Location)</SelectItem>
+                        <SelectItem value="10">
+                          10 - Telehealth (Patient&apos;s Home)
+                        </SelectItem>
+                        <SelectItem value="02">
+                          02 - Telehealth (Other Location)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="flex-1">
-                  <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Alternative POS Code</Label>
+                  <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Alternative POS Code
+                  </Label>
                   <div className="w-full">
                     <Select defaultValue="">
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="02">02 - Telehealth (Other Location)</SelectItem>
-                        <SelectItem value="10">10 - Telehealth (Patient&apos;s Home)</SelectItem>
+                        <SelectItem value="02">
+                          02 - Telehealth (Other Location)
+                        </SelectItem>
+                        <SelectItem value="10">
+                          10 - Telehealth (Patient&apos;s Home)
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </div>
               <label className="flex items-center gap-2">
-                <Checkbox defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">Block submission if POS doesn&apos;t match visit type</span>
+                <Checkbox
+                  defaultChecked
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Block submission if POS doesn&apos;t match visit type
+                </span>
               </label>
             </div>
           )}
@@ -1276,20 +1572,26 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       {validationSettings.visitTypes?.inPerson && (
         <Card className="p-6 bg-slate-50 dark:bg-slate-900">
           <div className="flex items-center justify-between mb-4">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">In-Person Place of Service (POS) Rules</Label>
+            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              In-Person Place of Service (POS) Rules
+            </Label>
             <Switch
               checked={validationSettings.posRules?.enforceInPersonPOS || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'posRules', {
-                ...validationSettings.posRules,
-                enforceInPersonPOS: checked
-              })}
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "posRules", {
+                  ...validationSettings.posRules,
+                  enforceInPersonPOS: checked,
+                })
+              }
             />
           </div>
 
           {validationSettings.posRules?.enforceInPersonPOS && (
             <div className="space-y-4">
               <div className="flex-1">
-                <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Required POS Code</Label>
+                <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Required POS Code
+                </Label>
                 <div className="max-w-md">
                   <Select defaultValue="11">
                     <SelectTrigger>
@@ -1297,15 +1599,24 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="11">11 - Office</SelectItem>
-                      <SelectItem value="22">22 - On Campus-Outpatient Hospital</SelectItem>
-                      <SelectItem value="19">19 - Off Campus-Outpatient Hospital</SelectItem>
+                      <SelectItem value="22">
+                        22 - On Campus-Outpatient Hospital
+                      </SelectItem>
+                      <SelectItem value="19">
+                        19 - Off Campus-Outpatient Hospital
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
               <label className="flex items-center gap-2">
-                <Checkbox defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">Block submission if POS doesn&apos;t match visit type</span>
+                <Checkbox
+                  defaultChecked
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Block submission if POS doesn&apos;t match visit type
+                </span>
               </label>
             </div>
           )}
@@ -1316,20 +1627,26 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       {validationSettings.visitTypes?.home && (
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Home Visit Place of Service (POS) Rules</Label>
+            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Home Visit Place of Service (POS) Rules
+            </Label>
             <Switch
               checked={validationSettings.posRules?.enforceHomePOS || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'posRules', {
-                ...validationSettings.posRules,
-                enforceHomePOS: checked
-              })}
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "posRules", {
+                  ...validationSettings.posRules,
+                  enforceHomePOS: checked,
+                })
+              }
             />
           </div>
 
           {validationSettings.posRules?.enforceHomePOS && (
             <div className="space-y-4">
               <div className="flex-1">
-                <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Required POS Code</Label>
+                <Label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Required POS Code
+                </Label>
                 <div className="max-w-md">
                   <Select defaultValue="12">
                     <SelectTrigger>
@@ -1342,8 +1659,13 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 </div>
               </div>
               <label className="flex items-center gap-2">
-                <Checkbox defaultChecked className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-sm text-slate-700 dark:text-slate-300">Block submission if POS doesn&apos;t match visit type</span>
+                <Checkbox
+                  defaultChecked
+                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm text-slate-700 dark:text-slate-300">
+                  Block submission if POS doesn&apos;t match visit type
+                </span>
               </label>
             </div>
           )}
@@ -1355,101 +1677,162 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderModifiersSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Modifier 95 Rules</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Modifier 95 Rules
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Require Modifier 95 for Telehealth</Label>
-              <p className="text-sm text-muted-foreground mt-1">Automatically enforce Modifier 95 requirement for all telehealth visits</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Require Modifier 95 for Telehealth
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatically enforce Modifier 95 requirement for all telehealth
+                visits
+              </p>
             </div>
             <Switch
-              checked={validationSettings.modifierRules?.modifier95Required || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                ...validationSettings.modifierRules,
-                modifier95Required: checked
-              })}
+              checked={
+                validationSettings.modifierRules?.modifier95Required || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "modifierRules", {
+                  ...validationSettings.modifierRules,
+                  modifier95Required: checked,
+                })
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Auto-Add Modifier 95</Label>
-              <p className="text-sm text-muted-foreground mt-1">Automatically add Modifier 95 to telehealth claims when missing</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Auto-Add Modifier 95
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatically add Modifier 95 to telehealth claims when missing
+              </p>
             </div>
             <Switch
-              checked={validationSettings.modifierRules?.autoAddModifier95 || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                ...validationSettings.modifierRules,
-                autoAddModifier95: checked
-              })}
+              checked={
+                validationSettings.modifierRules?.autoAddModifier95 || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "modifierRules", {
+                  ...validationSettings.modifierRules,
+                  autoAddModifier95: checked,
+                })
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Modifier 95 Conflict Resolution</Label>
-              <p className="text-sm text-muted-foreground mt-1">Automatically resolve conflicts when Modifier 95 is already present</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Modifier 95 Conflict Resolution
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Automatically resolve conflicts when Modifier 95 is already
+                present
+              </p>
             </div>
             <Switch
-              checked={validationSettings.modifierRules?.modifier95ConflictResolution || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                ...validationSettings.modifierRules,
-                modifier95ConflictResolution: checked
-              })}
+              checked={
+                validationSettings.modifierRules
+                  ?.modifier95ConflictResolution || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "modifierRules", {
+                  ...validationSettings.modifierRules,
+                  modifier95ConflictResolution: checked,
+                })
+              }
             />
           </div>
         </div>
       </Card>
 
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">General Modifier Validation</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          General Modifier Validation
+        </h3>
         <div className="space-y-6">
           <div className="space-y-4">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 block">Validation Rules</Label>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-3 block">
+                Validation Rules
+              </Label>
               <div className="space-y-3">
                 <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
                   <Checkbox
-                    checked={validationSettings.modifierRules?.validateModifierCombinations || false}
-                    onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                      ...validationSettings.modifierRules,
-                      validateModifierCombinations: !!checked
-                    })}
+                    checked={
+                      validationSettings.modifierRules
+                        ?.validateModifierCombinations || false
+                    }
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("validation", "modifierRules", {
+                        ...validationSettings.modifierRules,
+                        validateModifierCombinations: !!checked,
+                      })
+                    }
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Validate Modifier Combinations</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Check for invalid or conflicting modifier combinations</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Validate Modifier Combinations
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      Check for invalid or conflicting modifier combinations
+                    </div>
                   </div>
                 </label>
 
                 <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
                   <Checkbox
-                    checked={validationSettings.modifierRules?.requireModifierDocumentation || false}
-                    onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                      ...validationSettings.modifierRules,
-                      requireModifierDocumentation: !!checked
-                    })}
+                    checked={
+                      validationSettings.modifierRules
+                        ?.requireModifierDocumentation || false
+                    }
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("validation", "modifierRules", {
+                        ...validationSettings.modifierRules,
+                        requireModifierDocumentation: !!checked,
+                      })
+                    }
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Require Modifier Documentation</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Ensure clinical notes support the use of specific modifiers</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Require Modifier Documentation
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      Ensure clinical notes support the use of specific
+                      modifiers
+                    </div>
                   </div>
                 </label>
 
                 <label className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
                   <Checkbox
-                    checked={validationSettings.modifierRules?.blockInvalidModifiers || false}
-                    onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                      ...validationSettings.modifierRules,
-                      blockInvalidModifiers: !!checked
-                    })}
+                    checked={
+                      validationSettings.modifierRules?.blockInvalidModifiers ||
+                      false
+                    }
+                    onCheckedChange={(checked) =>
+                      handleSettingChange("validation", "modifierRules", {
+                        ...validationSettings.modifierRules,
+                        blockInvalidModifiers: !!checked,
+                      })
+                    }
                     className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                   />
                   <div className="flex-1">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">Block Invalid Modifiers</div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Prevent submission of claims with invalid modifier codes</div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      Block Invalid Modifiers
+                    </div>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                      Prevent submission of claims with invalid modifier codes
+                    </div>
                   </div>
                 </label>
               </div>
@@ -1460,101 +1843,144 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Custom Conflict Resolution Rules</h3>
-          <Button size="sm" onClick={() => {
-            setEditingConflictRule(null);
-            setConflictRuleForm({
-              name: '',
-              conflictingModifiers: [''],
-              resolution: 'remove_conflicting',
-              description: '',
-              enabled: true
-            });
-            setShowConflictRuleModal(true);
-          }}>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Custom Conflict Resolution Rules
+          </h3>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingConflictRule(null);
+              setConflictRuleForm({
+                name: "",
+                conflictingModifiers: [""],
+                resolution: "remove_conflicting",
+                description: "",
+                enabled: true,
+              });
+              setShowConflictRuleModal(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Rule
           </Button>
         </div>
 
         <div className="space-y-3">
-          {(validationSettings.modifierRules?.conflictRules || []).map((rule, index) => (
-            <div key={rule.id} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <Switch
-                    checked={rule.enabled}
-                    onCheckedChange={(checked) => {
-                      const updatedRules = [...(validationSettings.modifierRules?.conflictRules || [])];
-                      updatedRules[index] = { ...rule, enabled: checked };
-                      handleSettingChange('validation', 'modifierRules', {
-                        ...validationSettings.modifierRules,
-                        conflictRules: updatedRules
-                      });
-                    }}
-                  />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{rule.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Conflicts: {rule.conflictingModifiers.join(', ')} •
-                      Resolution: {rule.resolution.replace('_', ' ')}
-                    </p>
-                    {rule.description && (
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{rule.description}</p>
-                    )}
+          {(validationSettings.modifierRules?.conflictRules || []).map(
+            (rule, index) => (
+              <div
+                key={rule.id}
+                className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={rule.enabled}
+                      onCheckedChange={(checked) => {
+                        const updatedRules = [
+                          ...(validationSettings.modifierRules?.conflictRules ||
+                            []),
+                        ];
+                        updatedRules[index] = { ...rule, enabled: checked };
+                        handleSettingChange("validation", "modifierRules", {
+                          ...validationSettings.modifierRules,
+                          conflictRules: updatedRules,
+                        });
+                      }}
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-gray-100">
+                        {rule.name}
+                      </p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Conflicts: {rule.conflictingModifiers.join(", ")} •
+                        Resolution: {rule.resolution.replace("_", " ")}
+                      </p>
+                      {rule.description && (
+                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {rule.description}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setEditingConflictRule(rule);
+                      setConflictRuleForm({
+                        name: rule.name,
+                        conflictingModifiers: rule.conflictingModifiers,
+                        resolution: rule.resolution,
+                        description: rule.description || "",
+                        enabled: rule.enabled,
+                      });
+                      setShowConflictRuleModal(true);
+                    }}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const updatedRules = (
+                        validationSettings.modifierRules?.conflictRules || []
+                      ).filter((_, i) => i !== index);
+                      handleSettingChange("validation", "modifierRules", {
+                        ...validationSettings.modifierRules,
+                        conflictRules: updatedRules,
+                      });
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="sm" onClick={() => {
-                  setEditingConflictRule(rule);
-                  setConflictRuleForm({
-                    name: rule.name,
-                    conflictingModifiers: rule.conflictingModifiers,
-                    resolution: rule.resolution,
-                    description: rule.description || '',
-                    enabled: rule.enabled
-                  });
-                  setShowConflictRuleModal(true);
-                }}>
-                  <Edit className="w-4 h-4" />
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => {
-                  const updatedRules = (validationSettings.modifierRules?.conflictRules || []).filter((_, i) => i !== index);
-                  handleSettingChange('validation', 'modifierRules', {
-                    ...validationSettings.modifierRules,
-                    conflictRules: updatedRules
-                  });
-                }}>
-                  <Trash2 className="w-4 h-4 text-red-500" />
-                </Button>
-              </div>
-            </div>
-          ))}
+            )
+          )}
 
-          {(!validationSettings.modifierRules?.conflictRules || validationSettings.modifierRules.conflictRules.length === 0) && (
+          {(!validationSettings.modifierRules?.conflictRules ||
+            validationSettings.modifierRules.conflictRules.length === 0) && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p className="text-sm">No conflict resolution rules configured</p>
-              <p className="text-xs mt-1">Click &quot;Add Rule&quot; to create your first conflict resolution rule</p>
+              <p className="text-xs mt-1">
+                Click &quot;Add Rule&quot; to create your first conflict
+                resolution rule
+              </p>
             </div>
           )}
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Payer-Specific Modifier Rules</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Payer-Specific Modifier Rules
+        </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Payer-Specific Rules</Label>
-              <p className="text-sm text-muted-foreground mt-1">Apply different modifier rules based on insurance payer requirements</p>
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                Enable Payer-Specific Rules
+              </Label>
+              <p className="text-sm text-muted-foreground mt-1">
+                Apply different modifier rules based on insurance payer
+                requirements
+              </p>
             </div>
             <Switch
-              checked={validationSettings.modifierRules?.enablePayerSpecificRules || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'modifierRules', {
-                ...validationSettings.modifierRules,
-                enablePayerSpecificRules: checked
-              })}
+              checked={
+                validationSettings.modifierRules?.enablePayerSpecificRules ||
+                false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "modifierRules", {
+                  ...validationSettings.modifierRules,
+                  enablePayerSpecificRules: checked,
+                })
+              }
             />
           </div>
 
@@ -1565,10 +1991,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   <span className="text-white text-xs font-bold">i</span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Payer-Specific Configuration</p>
+                  <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Payer-Specific Configuration
+                  </p>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                    Configure payer-specific modifier rules in the <strong>Payer Configuration</strong> section.
-                    This setting enables the enforcement of those rules during claim validation.
+                    Configure payer-specific modifier rules in the{" "}
+                    <strong>Payer Configuration</strong> section. This setting
+                    enables the enforcement of those rules during claim
+                    validation.
                   </p>
                 </div>
               </div>
@@ -1582,59 +2012,91 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderRequiredFieldsSettings = () => (
     <div className="space-y-6">
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Claims - Required Fields</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Claims - Required Fields
+        </h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">CPT Code (Procedure)</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                CPT Code (Procedure)
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">ICD-10 Code (Diagnosis)</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                ICD-10 Code (Diagnosis)
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Place of Service (POS)</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Place of Service (POS)
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Service Date (DOS)</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Service Date (DOS)
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Rendering Provider NPI</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Rendering Provider NPI
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Payer Information</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Payer Information
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
@@ -1644,9 +2106,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 checked={true}
                 className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Modifiers</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Modifiers
+              </span>
             </div>
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800">
+            <Badge
+              variant="outline"
+              className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800"
+            >
               Conditionally Required
             </Badge>
           </div>
@@ -1654,23 +2121,35 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Prior Authorization (ePA) - Required Fields</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Prior Authorization (ePA) - Required Fields
+        </h3>
         <div className="space-y-2">
           <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Medication / Service Requested</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Medication / Service Requested
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
           <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700">
             <div className="flex items-center gap-3">
               <CheckCircle className="w-4 h-4 text-emerald-600" />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Clinical Indication / Diagnosis</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Clinical Indication / Diagnosis
+              </span>
             </div>
-            <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800">
+            <Badge
+              variant="outline"
+              className="bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-200 dark:border-blue-800"
+            >
               Always Required
             </Badge>
           </div>
@@ -1680,9 +2159,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 checked={true}
                 className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
               />
-              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">Prior Therapies Documented (Step Therapy)</span>
+              <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                Prior Therapies Documented (Step Therapy)
+              </span>
             </div>
-            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800">
+            <Badge
+              variant="outline"
+              className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950 dark:text-purple-200 dark:border-purple-800"
+            >
               Conditionally Required
             </Badge>
           </div>
@@ -1692,15 +2176,24 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between">
           <div>
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">Block Submission on Missing Required Fields</Label>
-            <p className="text-sm text-muted-foreground mt-1">Prevent auto-submission when any required field is missing or below confidence threshold</p>
+            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              Block Submission on Missing Required Fields
+            </Label>
+            <p className="text-sm text-muted-foreground mt-1">
+              Prevent auto-submission when any required field is missing or
+              below confidence threshold
+            </p>
           </div>
           <Switch
-            checked={validationSettings.requiredFields?.blockOnMissingFields || false}
-            onCheckedChange={(checked) => handleSettingChange('validation', 'requiredFields', {
-              ...validationSettings.requiredFields,
-              blockOnMissingFields: checked
-            })}
+            checked={
+              validationSettings.requiredFields?.blockOnMissingFields || false
+            }
+            onCheckedChange={(checked) =>
+              handleSettingChange("validation", "requiredFields", {
+                ...validationSettings.requiredFields,
+                blockOnMissingFields: checked,
+              })
+            }
           />
         </div>
       </Card>
@@ -1711,92 +2204,145 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <Label htmlFor="time-based-enabled" className="text-sm font-semibold text-slate-900 dark:text-slate-100">Enable Time-Based Validation</Label>
+          <Label
+            htmlFor="time-based-enabled"
+            className="text-sm font-semibold text-slate-900 dark:text-slate-100"
+          >
+            Enable Time-Based Validation
+          </Label>
           <Switch
             id="time-based-enabled"
             checked={validationSettings.timeBasedValidation?.enabled || false}
-            onCheckedChange={(checked) => handleSettingChange('validation', 'timeBasedValidation', {
-              ...validationSettings.timeBasedValidation,
-              enabled: checked
-            })}
+            onCheckedChange={(checked) =>
+              handleSettingChange("validation", "timeBasedValidation", {
+                ...validationSettings.timeBasedValidation,
+                enabled: checked,
+              })
+            }
           />
         </div>
         <label htmlFor="extract-time-ai" className="flex items-center gap-2">
           <Checkbox
             id="extract-time-ai"
-            checked={validationSettings.timeBasedValidation?.extractTimeFromNotes || false}
-            onCheckedChange={(checked) => handleSettingChange('validation', 'timeBasedValidation', {
-              ...validationSettings.timeBasedValidation,
-              extractTimeFromNotes: !!checked
-            })}
+            checked={
+              validationSettings.timeBasedValidation?.extractTimeFromNotes ||
+              false
+            }
+            onCheckedChange={(checked) =>
+              handleSettingChange("validation", "timeBasedValidation", {
+                ...validationSettings.timeBasedValidation,
+                extractTimeFromNotes: !!checked,
+              })
+            }
             className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
           />
-          <span className="text-sm text-slate-700 dark:text-slate-300">Extract time documentation from clinical notes using AI</span>
+          <span className="text-sm text-slate-700 dark:text-slate-300">
+            Extract time documentation from clinical notes using AI
+          </span>
         </label>
       </Card>
 
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-center justify-between mb-4">
-          <Label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">E/M Code Time Requirements</Label>
+          <Label className="block text-sm font-semibold text-slate-900 dark:text-slate-100">
+            E/M Code Time Requirements
+          </Label>
           <Button size="sm" onClick={() => setShowCptRuleModal(true)}>
             <Plus className="w-4 h-4 mr-2" />
             Add CPT Rule
           </Button>
         </div>
         <div className="space-y-3">
-          {(validationSettings.timeBasedValidation?.cptRules || []).map((rule, index) => (
-            <div key={rule.id} className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  CPT {rule.cptCode} - {rule.description}
+          {(validationSettings.timeBasedValidation?.cptRules || []).map(
+            (rule, index) => (
+              <div
+                key={rule.id}
+                className="bg-white dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    CPT {rule.cptCode} - {rule.description}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={rule.enabled}
+                      onCheckedChange={(checked) =>
+                        updateCptRule(index, { enabled: checked })
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeCptRule(index)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={rule.enabled}
-                    onCheckedChange={(checked) => updateCptRule(index, { enabled: checked })}
+                <div className="flex items-center gap-3">
+                  <Label
+                    htmlFor={`cpt-${rule.id}-range`}
+                    className="text-xs text-slate-600 dark:text-slate-400"
+                  >
+                    Time Range:
+                  </Label>
+                  <Input
+                    id={`cpt-${rule.id}-min`}
+                    type="number"
+                    value={rule.minMinutes}
+                    onChange={(e) =>
+                      updateCptRule(index, {
+                        minMinutes: Number(e.target.value),
+                      })
+                    }
+                    min="0"
+                    className="w-20 text-center text-sm"
                   />
-                  <Button variant="ghost" size="sm" onClick={() => removeCptRule(index)}>
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
+                  <span className="text-slate-400">to</span>
+                  <Input
+                    id={`cpt-${rule.id}-max`}
+                    type="number"
+                    value={rule.maxMinutes}
+                    onChange={(e) =>
+                      updateCptRule(index, {
+                        maxMinutes: Number(e.target.value),
+                      })
+                    }
+                    min="0"
+                    className="w-20 text-center text-sm"
+                  />
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    minutes
+                  </span>
                 </div>
+                <label
+                  htmlFor={`cpt-${rule.id}-flag`}
+                  className="flex items-center gap-2 mt-3"
+                >
+                  <Checkbox
+                    id={`cpt-${rule.id}-flag`}
+                    checked={rule.flagIfNotDocumented}
+                    onCheckedChange={(checked) =>
+                      updateCptRule(index, { flagIfNotDocumented: !!checked })
+                    }
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-xs text-slate-700 dark:text-slate-300">
+                    Flag for review if time not documented
+                  </span>
+                </label>
               </div>
-              <div className="flex items-center gap-3">
-                <Label htmlFor={`cpt-${rule.id}-range`} className="text-xs text-slate-600 dark:text-slate-400">Time Range:</Label>
-                <Input
-                  id={`cpt-${rule.id}-min`}
-                  type="number"
-                  value={rule.minMinutes}
-                  onChange={(e) => updateCptRule(index, { minMinutes: Number(e.target.value) })}
-                  min="0"
-                  className="w-20 text-center text-sm"
-                />
-                <span className="text-slate-400">to</span>
-                <Input
-                  id={`cpt-${rule.id}-max`}
-                  type="number"
-                  value={rule.maxMinutes}
-                  onChange={(e) => updateCptRule(index, { maxMinutes: Number(e.target.value) })}
-                  min="0"
-                  className="w-20 text-center text-sm"
-                />
-                <span className="text-xs text-slate-600 dark:text-slate-400">minutes</span>
-              </div>
-              <label htmlFor={`cpt-${rule.id}-flag`} className="flex items-center gap-2 mt-3">
-                <Checkbox
-                  id={`cpt-${rule.id}-flag`}
-                  checked={rule.flagIfNotDocumented}
-                  onCheckedChange={(checked) => updateCptRule(index, { flagIfNotDocumented: !!checked })}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-xs text-slate-700 dark:text-slate-300">Flag for review if time not documented</span>
-              </label>
-            </div>
-          ))}
+            )
+          )}
 
-          {(!validationSettings.timeBasedValidation?.cptRules || validationSettings.timeBasedValidation.cptRules.length === 0) && (
+          {(!validationSettings.timeBasedValidation?.cptRules ||
+            validationSettings.timeBasedValidation.cptRules.length === 0) && (
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p className="text-sm">No time-based CPT rules configured</p>
-              <p className="text-xs mt-1">Click &quot;Add CPT Rule&quot; to create your first time-based validation rule</p>
+              <p className="text-xs mt-1">
+                Click &quot;Add CPT Rule&quot; to create your first time-based
+                validation rule
+              </p>
             </div>
           )}
         </div>
@@ -1807,103 +2353,170 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderCredentialingSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Provider Credentialing Requirements</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Provider Credentialing Requirements
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="enforce-credentialing" className="font-medium text-slate-900 dark:text-slate-100">Enforce Credentialing</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Require valid credentialing before submission</p>
+              <Label
+                htmlFor="enforce-credentialing"
+                className="font-medium text-slate-900 dark:text-slate-100"
+              >
+                Enforce Credentialing
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Require valid credentialing before submission
+              </p>
             </div>
             <Switch
               id="enforce-credentialing"
-              checked={validationSettings.credentialingRules?.enforceCredentialing || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'credentialingRules', {
-                ...validationSettings.credentialingRules,
-                enforceCredentialing: checked
-              })}
+              checked={
+                validationSettings.credentialingRules?.enforceCredentialing ||
+                false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "credentialingRules", {
+                  ...validationSettings.credentialingRules,
+                  enforceCredentialing: checked,
+                })
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="multi-state-licensure" className="font-medium text-slate-900 dark:text-slate-100">Multi-State Licensure Validation (Telemedicine)</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Verify provider is licensed in patient&apos;s state of residence</p>
+              <Label
+                htmlFor="multi-state-licensure"
+                className="font-medium text-slate-900 dark:text-slate-100"
+              >
+                Multi-State Licensure Validation (Telemedicine)
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Verify provider is licensed in patient&apos;s state of residence
+              </p>
             </div>
             <Switch
               id="multi-state-licensure"
-              checked={validationSettings.credentialingRules?.multiStateLicensure || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'credentialingRules', {
-                ...validationSettings.credentialingRules,
-                multiStateLicensure: checked
-              })}
+              checked={
+                validationSettings.credentialingRules?.multiStateLicensure ||
+                false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "credentialingRules", {
+                  ...validationSettings.credentialingRules,
+                  multiStateLicensure: checked,
+                })
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="credentialing-alerts" className="font-medium text-slate-900 dark:text-slate-100">Credentialing Alerts</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Show alerts for credentialing issues</p>
+              <Label
+                htmlFor="credentialing-alerts"
+                className="font-medium text-slate-900 dark:text-slate-100"
+              >
+                Credentialing Alerts
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Show alerts for credentialing issues
+              </p>
             </div>
             <Switch
               id="credentialing-alerts"
-              checked={validationSettings.credentialingRules?.showCredentialingAlerts || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'credentialingRules', {
-                ...validationSettings.credentialingRules,
-                showCredentialingAlerts: checked
-              })}
+              checked={
+                validationSettings.credentialingRules
+                  ?.showCredentialingAlerts || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "credentialingRules", {
+                  ...validationSettings.credentialingRules,
+                  showCredentialingAlerts: checked,
+                })
+              }
             />
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Allowed Provider Statuses</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Allowed Provider Statuses
+        </h3>
         <div className="space-y-4">
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Select which provider credentialing statuses are allowed for claim submission
+            Select which provider credentialing statuses are allowed for claim
+            submission
           </p>
 
           <div className="space-y-3">
-            {['Active', 'Pending', 'Provisional', 'Inactive', 'Suspended'].map((status) => (
-              <label key={status} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors">
-                <Checkbox
-                  checked={validationSettings.credentialingRules?.allowedStatuses?.includes(status) || false}
-                  onCheckedChange={(checked) => {
-                    const currentStatuses = validationSettings.credentialingRules?.allowedStatuses || [];
-                    const updatedStatuses = checked
-                      ? [...currentStatuses, status]
-                      : currentStatuses.filter(s => s !== status);
+            {["Active", "Pending", "Provisional", "Inactive", "Suspended"].map(
+              (status) => (
+                <label
+                  key={status}
+                  className="flex items-center gap-3 p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-blue-300 dark:hover:border-blue-600 transition-colors"
+                >
+                  <Checkbox
+                    checked={
+                      validationSettings.credentialingRules?.allowedStatuses?.includes(
+                        status
+                      ) || false
+                    }
+                    onCheckedChange={(checked) => {
+                      const currentStatuses =
+                        validationSettings.credentialingRules
+                          ?.allowedStatuses || [];
+                      const updatedStatuses = checked
+                        ? [...currentStatuses, status]
+                        : currentStatuses.filter((s) => s !== status);
 
-                    handleSettingChange('validation', 'credentialingRules', {
-                      ...validationSettings.credentialingRules,
-                      allowedStatuses: updatedStatuses
-                    });
-                  }}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <div className="flex-1">
-                  <span className="text-sm font-medium text-slate-900 dark:text-slate-100">{status}</span>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    {status === 'Active' && 'Provider is fully credentialed and active'}
-                    {status === 'Pending' && 'Credentialing is in progress'}
-                    {status === 'Provisional' && 'Temporary credentialing status'}
-                    {status === 'Inactive' && 'Provider is not currently active'}
-                    {status === 'Suspended' && 'Provider privileges are suspended'}
+                      handleSettingChange("validation", "credentialingRules", {
+                        ...validationSettings.credentialingRules,
+                        allowedStatuses: updatedStatuses,
+                      });
+                    }}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                      {status}
+                    </span>
+                    <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                      {status === "Active" &&
+                        "Provider is fully credentialed and active"}
+                      {status === "Pending" && "Credentialing is in progress"}
+                      {status === "Provisional" &&
+                        "Temporary credentialing status"}
+                      {status === "Inactive" &&
+                        "Provider is not currently active"}
+                      {status === "Suspended" &&
+                        "Provider privileges are suspended"}
+                    </div>
                   </div>
-                </div>
-                {status === 'Active' && (
-                  <Badge variant="secondary" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                    Recommended
-                  </Badge>
-                )}
-              </label>
-            ))}
+                  {status === "Active" && (
+                    <Badge
+                      variant="secondary"
+                      className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                    >
+                      Recommended
+                    </Badge>
+                  )}
+                </label>
+              )
+            )}
           </div>
 
-          {(!validationSettings.credentialingRules?.allowedStatuses || validationSettings.credentialingRules.allowedStatuses.length === 0) && (
+          {(!validationSettings.credentialingRules?.allowedStatuses ||
+            validationSettings.credentialingRules.allowedStatuses.length ===
+              0) && (
             <div className="text-center py-4 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-              <p className="text-sm font-medium">No provider statuses selected</p>
-              <p className="text-xs mt-1">Claims will be blocked until at least one status is allowed</p>
+              <p className="text-sm font-medium">
+                No provider statuses selected
+              </p>
+              <p className="text-xs mt-1">
+                Claims will be blocked until at least one status is allowed
+              </p>
             </div>
           )}
         </div>
@@ -1914,20 +2527,33 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderDenialPlaybookSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Auto-Retry Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Auto-Retry Configuration
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <Label htmlFor="auto-retry-enabled" className="font-medium text-slate-900 dark:text-slate-100">Enable Auto-Retry on Denials</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Automatically fix and resubmit based on denial codes</p>
+              <Label
+                htmlFor="auto-retry-enabled"
+                className="font-medium text-slate-900 dark:text-slate-100"
+              >
+                Enable Auto-Retry on Denials
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Automatically fix and resubmit based on denial codes
+              </p>
             </div>
             <Switch
               id="auto-retry-enabled"
-              checked={validationSettings.denialPlaybook?.autoRetryEnabled || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'denialPlaybook', {
-                ...validationSettings.denialPlaybook,
-                autoRetryEnabled: checked
-              })}
+              checked={
+                validationSettings.denialPlaybook?.autoRetryEnabled || false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "denialPlaybook", {
+                  ...validationSettings.denialPlaybook,
+                  autoRetryEnabled: checked,
+                })
+              }
             />
           </div>
         </div>
@@ -1936,8 +2562,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-8">
           <div>
-            <Label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">Maximum Retry Attempts</Label>
-            <p className="text-sm text-slate-600 dark:text-slate-400">How many times to auto-retry before requiring human review</p>
+            <Label className="block text-sm font-semibold text-slate-900 dark:text-slate-100 mb-1">
+              Maximum Retry Attempts
+            </Label>
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              How many times to auto-retry before requiring human review
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Input
@@ -1945,21 +2575,31 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               min="1"
               max="10"
               value={validationSettings.denialPlaybook?.maxRetryAttempts || 3}
-              onChange={(e) => handleSettingChange('validation', 'denialPlaybook', {
-                ...validationSettings.denialPlaybook,
-                maxRetryAttempts: Number(e.target.value)
-              })}
+              onChange={(e) =>
+                handleSettingChange("validation", "denialPlaybook", {
+                  ...validationSettings.denialPlaybook,
+                  maxRetryAttempts: Number(e.target.value),
+                })
+              }
               className="w-20 text-center"
             />
-            <span className="text-sm text-slate-600 dark:text-slate-400">attempts</span>
+            <span className="text-sm text-slate-600 dark:text-slate-400">
+              attempts
+            </span>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Denial Code Auto-Fix Rules (CARC/RARC)</h3>
-          <Button size="sm" variant="outline" onClick={() => setShowCustomRuleDialog(true)}>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Denial Code Auto-Fix Rules (CARC/RARC)
+          </h3>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowCustomRuleDialog(true)}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Custom Rule
           </Button>
@@ -1967,66 +2607,95 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
         <div className="space-y-3">
           {/* Display custom rules */}
-          {(validationSettings.denialPlaybook?.customRules || []).map((rule, index) => (
-            <div key={rule.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">{rule.code} - {rule.description}</div>
+          {(validationSettings.denialPlaybook?.customRules || []).map(
+            (rule, index) => (
+              <div
+                key={rule.id}
+                className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                      {rule.code} - {rule.description}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={rule.enabled}
+                      onCheckedChange={(checked) =>
+                        updateCustomRule(index, { enabled: checked })
+                      }
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeCustomRule(index)}
+                    >
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={rule.enabled}
-                    onCheckedChange={(checked) => updateCustomRule(index, { enabled: checked })}
-                  />
-                  <Button variant="ghost" size="sm" onClick={() => removeCustomRule(index)}>
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </Button>
+                <div className="bg-white dark:bg-slate-900 rounded p-3 space-y-2 border border-slate-200 dark:border-slate-700">
+                  <div className="text-xs text-slate-700 dark:text-slate-300">
+                    <span className="font-medium">Strategy:</span>{" "}
+                    {rule.strategy}
+                  </div>
+                  <label className="flex items-center gap-2">
+                    <Checkbox
+                      checked={rule.autoFix}
+                      onCheckedChange={(checked) =>
+                        updateCustomRule(index, { autoFix: !!checked })
+                      }
+                      className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
+                    />
+                    <span className="text-xs text-slate-700 dark:text-slate-300">
+                      Enable auto-fix for this denial code
+                    </span>
+                  </label>
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 rounded p-3 space-y-2 border border-slate-200 dark:border-slate-700">
-                <div className="text-xs text-slate-700 dark:text-slate-300">
-                  <span className="font-medium">Strategy:</span> {rule.strategy}
-                </div>
-                <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={rule.autoFix}
-                    onCheckedChange={(checked) => updateCustomRule(index, { autoFix: !!checked })}
-                    className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
-                  />
-                  <span className="text-xs text-slate-700 dark:text-slate-300">Enable auto-fix for this denial code</span>
-                </label>
-              </div>
-            </div>
-          ))}
+            )
+          )}
 
           {/* Built-in rules */}
           <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">CARC 96 - POS Inconsistent / Missing Modifier</div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  CARC 96 - POS Inconsistent / Missing Modifier
+                </div>
                 <div className="flex items-center gap-3 mt-1">
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Success Rate:</span>
-                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">87%</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    Success Rate:
+                  </span>
+                  <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+                    87%
+                  </span>
                 </div>
               </div>
               <Switch
                 checked={builtInDenialRules.carc96.enabled}
-                onCheckedChange={(checked) => setBuiltInDenialRules(prev => ({
-                  ...prev,
-                  carc96: { ...prev.carc96, enabled: checked }
-                }))}
+                onCheckedChange={(checked) =>
+                  setBuiltInDenialRules((prev) => ({
+                    ...prev,
+                    carc96: { ...prev.carc96, enabled: checked },
+                  }))
+                }
               />
             </div>
             <div className="bg-white dark:bg-slate-900 rounded p-3 space-y-2 border border-slate-200 dark:border-slate-700">
               <div className="text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-medium">Strategy:</span> Set POS to 10, Add Modifier 95, Add documentation note
+                <span className="font-medium">Strategy:</span> Set POS to 10,
+                Add Modifier 95, Add documentation note
               </div>
               <label className="flex items-center gap-2">
                 <Checkbox
                   checked={true}
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                 />
-                <span className="text-xs text-slate-700 dark:text-slate-300">Enable auto-fix for this denial code</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300">
+                  Enable auto-fix for this denial code
+                </span>
               </label>
             </div>
           </div>
@@ -2034,30 +2703,39 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">CARC 11 - Diagnosis Inconsistent with Procedure</div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  CARC 11 - Diagnosis Inconsistent with Procedure
+                </div>
               </div>
               <Switch
                 checked={builtInDenialRules.carc11.enabled}
-                onCheckedChange={(checked) => setBuiltInDenialRules(prev => ({
-                  ...prev,
-                  carc11: { ...prev.carc11, enabled: checked }
-                }))}
+                onCheckedChange={(checked) =>
+                  setBuiltInDenialRules((prev) => ({
+                    ...prev,
+                    carc11: { ...prev.carc11, enabled: checked },
+                  }))
+                }
               />
             </div>
             <div className="bg-white dark:bg-slate-900 rounded p-3 space-y-2 border border-slate-200 dark:border-slate-700">
               <div className="text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-medium">Strategy:</span> Generate top 3 ICD-10 alternatives, require human selection
+                <span className="font-medium">Strategy:</span> Generate top 3
+                ICD-10 alternatives, require human selection
               </div>
               <label className="flex items-center gap-2">
                 <Checkbox
                   checked={builtInDenialRules.carc11.autoFix}
-                  onCheckedChange={(checked) => setBuiltInDenialRules(prev => ({
-                    ...prev,
-                    carc11: { ...prev.carc11, autoFix: !!checked }
-                  }))}
+                  onCheckedChange={(checked) =>
+                    setBuiltInDenialRules((prev) => ({
+                      ...prev,
+                      carc11: { ...prev.carc11, autoFix: !!checked },
+                    }))
+                  }
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                 />
-                <span className="text-xs text-slate-700 dark:text-slate-300">Surface for human review (do not auto-fix)</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300">
+                  Surface for human review (do not auto-fix)
+                </span>
               </label>
             </div>
           </div>
@@ -2065,30 +2743,39 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4 bg-slate-50 dark:bg-slate-800">
             <div className="flex items-center justify-between mb-3">
               <div>
-                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">CARC 197 - Precertification/Authorization Absent</div>
+                <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  CARC 197 - Precertification/Authorization Absent
+                </div>
               </div>
               <Switch
                 checked={builtInDenialRules.carc197.enabled}
-                onCheckedChange={(checked) => setBuiltInDenialRules(prev => ({
-                  ...prev,
-                  carc197: { ...prev.carc197, enabled: checked }
-                }))}
+                onCheckedChange={(checked) =>
+                  setBuiltInDenialRules((prev) => ({
+                    ...prev,
+                    carc197: { ...prev.carc197, enabled: checked },
+                  }))
+                }
               />
             </div>
             <div className="bg-white dark:bg-slate-900 rounded p-3 space-y-2 border border-slate-200 dark:border-slate-700">
               <div className="text-xs text-slate-700 dark:text-slate-300">
-                <span className="font-medium">Strategy:</span> Check for existing PA, attach if found, otherwise initiate ePA workflow
+                <span className="font-medium">Strategy:</span> Check for
+                existing PA, attach if found, otherwise initiate ePA workflow
               </div>
               <label className="flex items-center gap-2">
                 <Checkbox
                   checked={builtInDenialRules.carc197.autoFix}
-                  onCheckedChange={(checked) => setBuiltInDenialRules(prev => ({
-                    ...prev,
-                    carc197: { ...prev.carc197, autoFix: !!checked }
-                  }))}
+                  onCheckedChange={(checked) =>
+                    setBuiltInDenialRules((prev) => ({
+                      ...prev,
+                      carc197: { ...prev.carc197, autoFix: !!checked },
+                    }))
+                  }
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                 />
-                <span className="text-xs text-slate-700 dark:text-slate-300">Automatically initiate ePA workflow when PA missing</span>
+                <span className="text-xs text-slate-700 dark:text-slate-300">
+                  Automatically initiate ePA workflow when PA missing
+                </span>
               </label>
             </div>
           </div>
@@ -2100,22 +2787,48 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderNotificationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Alert Preferences</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Alert Preferences
+        </h3>
         <div className="space-y-4">
           {[
-            { key: 'emailAlerts', label: 'Email Alerts', description: 'Receive notifications via email' },
-            { key: 'approvalNotifications', label: 'Approval Notifications', description: 'Get notified when PAs are approved' },
-            { key: 'denialNotifications', label: 'Denial Notifications', description: 'Get notified when PAs are denied' },
-            { key: 'systemMaintenanceAlerts', label: 'System Maintenance', description: 'Alerts for system updates and maintenance' }
-          ].map(item => (
+            {
+              key: "emailAlerts",
+              label: "Email Alerts",
+              description: "Receive notifications via email",
+            },
+            {
+              key: "approvalNotifications",
+              label: "Approval Notifications",
+              description: "Get notified when PAs are approved",
+            },
+            {
+              key: "denialNotifications",
+              label: "Denial Notifications",
+              description: "Get notified when PAs are denied",
+            },
+            {
+              key: "systemMaintenanceAlerts",
+              label: "System Maintenance",
+              description: "Alerts for system updates and maintenance",
+            },
+          ].map((item) => (
             <div key={item.key} className="flex items-center justify-between">
               <div>
                 <Label className="font-medium">{item.label}</Label>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {item.description}
+                </p>
               </div>
               <Switch
-                checked={notificationSettings[item.key as keyof typeof notificationSettings]}
-                onCheckedChange={(checked) => handleSettingChange('notifications', item.key, checked)}
+                checked={
+                  notificationSettings[
+                    item.key as keyof typeof notificationSettings
+                  ]
+                }
+                onCheckedChange={(checked) =>
+                  handleSettingChange("notifications", item.key, checked)
+                }
               />
             </div>
           ))}
@@ -2123,21 +2836,43 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Reports & Digests</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Reports & Digests
+        </h3>
         <div className="space-y-4">
           {[
-            { key: 'weeklyReports', label: 'Weekly Reports', description: 'Comprehensive weekly performance reports' },
-            { key: 'dailyDigest', label: 'Daily Digest', description: 'Daily summary of PA activity' },
-            { key: 'slackIntegration', label: 'Slack Integration', description: 'Send notifications to Slack channels' }
-          ].map(item => (
+            {
+              key: "weeklyReports",
+              label: "Weekly Reports",
+              description: "Comprehensive weekly performance reports",
+            },
+            {
+              key: "dailyDigest",
+              label: "Daily Digest",
+              description: "Daily summary of PA activity",
+            },
+            {
+              key: "slackIntegration",
+              label: "Slack Integration",
+              description: "Send notifications to Slack channels",
+            },
+          ].map((item) => (
             <div key={item.key} className="flex items-center justify-between">
               <div>
                 <Label className="font-medium">{item.label}</Label>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <p className="text-sm text-muted-foreground">
+                  {item.description}
+                </p>
               </div>
               <Switch
-                checked={notificationSettings[item.key as keyof typeof notificationSettings]}
-                onCheckedChange={(checked) => handleSettingChange('notifications', item.key, checked)}
+                checked={
+                  notificationSettings[
+                    item.key as keyof typeof notificationSettings
+                  ]
+                }
+                onCheckedChange={(checked) =>
+                  handleSettingChange("notifications", item.key, checked)
+                }
               />
             </div>
           ))}
@@ -2149,42 +2884,66 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderDiagnosisValidationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">ICD-10 to CPT Validation</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          ICD-10 to CPT Validation
+        </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Validate ICD-10 to CPT Compatibility</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Check that diagnosis codes support medical necessity for procedures</p>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Validate ICD-10 to CPT Compatibility
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Check that diagnosis codes support medical necessity for
+                procedures
+              </p>
             </div>
             <Switch
-              checked={validationSettings.diagnosisValidation?.validateIcdToCpt || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'diagnosisValidation', {
-                ...validationSettings.diagnosisValidation,
-                validateIcdToCpt: checked
-              })}
+              checked={
+                validationSettings.diagnosisValidation?.validateIcdToCpt ||
+                false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "diagnosisValidation", {
+                  ...validationSettings.diagnosisValidation,
+                  validateIcdToCpt: checked,
+                })
+              }
             />
           </div>
 
           <div className="space-y-4 border-t pt-4">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Medical Necessity Confidence Threshold</h4>
-                <p className="text-sm text-gray-600 dark:text-gray-400">AI confidence required for diagnosis-procedure pairing to be accepted</p>
+                <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Medical Necessity Confidence Threshold
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  AI confidence required for diagnosis-procedure pairing to be
+                  accepted
+                </p>
               </div>
               <div className="flex items-center gap-4 min-w-[280px]">
                 <Slider
-                  value={[validationSettings.diagnosisValidation?.medicalNecessityThreshold || 80]}
-                  onValueChange={([value]) => handleSettingChange('validation', 'diagnosisValidation', {
-                    ...validationSettings.diagnosisValidation,
-                    medicalNecessityThreshold: value
-                  })}
+                  value={[
+                    validationSettings.diagnosisValidation
+                      ?.medicalNecessityThreshold || 80,
+                  ]}
+                  onValueChange={([value]) =>
+                    handleSettingChange("validation", "diagnosisValidation", {
+                      ...validationSettings.diagnosisValidation,
+                      medicalNecessityThreshold: value,
+                    })
+                  }
                   min={60}
                   max={98}
                   step={1}
                   className="flex-1"
                 />
                 <span className="text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums min-w-[3.5ch]">
-                  {validationSettings.diagnosisValidation?.medicalNecessityThreshold || 80}%
+                  {validationSettings.diagnosisValidation
+                    ?.medicalNecessityThreshold || 80}
+                  %
                 </span>
               </div>
             </div>
@@ -2192,15 +2951,25 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
           <div className="flex items-center justify-between border-t pt-4">
             <div className="flex-1">
-              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">Suggest Alternative Diagnoses</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">When diagnosis doesn&apos;t match procedure, suggest compatible alternatives using AI</p>
+              <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                Suggest Alternative Diagnoses
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                When diagnosis doesn&apos;t match procedure, suggest compatible
+                alternatives using AI
+              </p>
             </div>
             <Switch
-              checked={validationSettings.diagnosisValidation?.suggestAlternativeDx || false}
-              onCheckedChange={(checked) => handleSettingChange('validation', 'diagnosisValidation', {
-                ...validationSettings.diagnosisValidation,
-                suggestAlternativeDx: checked
-              })}
+              checked={
+                validationSettings.diagnosisValidation?.suggestAlternativeDx ||
+                false
+              }
+              onCheckedChange={(checked) =>
+                handleSettingChange("validation", "diagnosisValidation", {
+                  ...validationSettings.diagnosisValidation,
+                  suggestAlternativeDx: checked,
+                })
+              }
             />
           </div>
         </div>
@@ -2208,35 +2977,79 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     </div>
   );
 
-
   const renderPayerConfigurationSettings = () => (
     <div className="space-y-6">
       {/* Payer Connection Status */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Payer Connection Status</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Payer Connection Status
+        </h3>
         <div className="space-y-4">
           {[
-            { name: 'Aetna', status: 'Connected', lastSync: '2 hours ago', claims: '1,234' },
-            { name: 'Blue Cross Blue Shield', status: 'Connected', lastSync: '1 hour ago', claims: '2,847' },
-            { name: 'UnitedHealthcare', status: 'Disconnected', lastSync: 'Never', claims: '0' },
-            { name: 'Cigna', status: 'Connected', lastSync: '30 minutes ago', claims: '892' },
-            { name: 'Medicare', status: 'Connected', lastSync: '45 minutes ago', claims: '3,156' }
+            {
+              name: "Aetna",
+              status: "Connected",
+              lastSync: "2 hours ago",
+              claims: "1,234",
+            },
+            {
+              name: "Blue Cross Blue Shield",
+              status: "Connected",
+              lastSync: "1 hour ago",
+              claims: "2,847",
+            },
+            {
+              name: "UnitedHealthcare",
+              status: "Disconnected",
+              lastSync: "Never",
+              claims: "0",
+            },
+            {
+              name: "Cigna",
+              status: "Connected",
+              lastSync: "30 minutes ago",
+              claims: "892",
+            },
+            {
+              name: "Medicare",
+              status: "Connected",
+              lastSync: "45 minutes ago",
+              claims: "3,156",
+            },
           ].map((payer) => (
-            <div key={payer.name} className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg">
+            <div
+              key={payer.name}
+              className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
+            >
               <div className="flex items-center gap-4">
-                <div className={`w-3 h-3 rounded-full ${payer.status === 'Connected' ? 'bg-green-500' : 'bg-red-500'}`} />
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    payer.status === "Connected" ? "bg-green-500" : "bg-red-500"
+                  }`}
+                />
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">{payer.name}</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                    {payer.name}
+                  </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Last sync: {payer.lastSync} • {payer.claims} claims processed
+                    Last sync: {payer.lastSync} • {payer.claims} claims
+                    processed
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Badge variant={payer.status === 'Connected' ? 'default' : 'secondary'}>
+                <Badge
+                  variant={
+                    payer.status === "Connected" ? "default" : "secondary"
+                  }
+                >
                   {payer.status}
                 </Badge>
-                <Button variant="outline" size="sm" onClick={() => handleConfigurePayer(payer.name)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleConfigurePayer(payer.name)}
+                >
                   Configure
                 </Button>
               </div>
@@ -2249,22 +3062,30 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Payer-Specific Rules & Overrides</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Configure custom validation rules and field mappings for specific payers</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Payer-Specific Rules & Overrides
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Configure custom validation rules and field mappings for specific
+              payers
+            </p>
           </div>
-          <Button size="sm" onClick={() => {
-            setEditingPayerRule(null);
-            setPayerOverrideForm({
-              payerName: '',
-              ruleName: '',
-              description: '',
-              ruleType: 'validation',
-              conditions: [''],
-              actions: [''],
-              enabled: true
-            });
-            setShowPayerOverrideDialog(true);
-          }}>
+          <Button
+            size="sm"
+            onClick={() => {
+              setEditingPayerRule(null);
+              setPayerOverrideForm({
+                payerName: "",
+                ruleName: "",
+                description: "",
+                ruleType: "validation",
+                conditions: [""],
+                actions: [""],
+                enabled: true,
+              });
+              setShowPayerOverrideDialog(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Override Rule
           </Button>
@@ -2272,29 +3093,56 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
         <div className="space-y-4">
           {payerRules.map((rule) => (
-            <div key={rule.id} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+            <div
+              key={rule.id}
+              className="border border-slate-200 dark:border-slate-700 rounded-lg p-4"
+            >
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <Switch
                     checked={rule.enabled}
-                    onCheckedChange={(checked) => handleTogglePayerRule(rule.id, checked)}
+                    onCheckedChange={(checked) =>
+                      handleTogglePayerRule(rule.id, checked)
+                    }
                   />
                   <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">{rule.payerName} - {rule.ruleName}</h4>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">{rule.description}</p>
+                    <h4 className="font-semibold text-slate-900 dark:text-slate-100">
+                      {rule.payerName} - {rule.ruleName}
+                    </h4>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {rule.description}
+                    </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm" onClick={() => handleEditPayerRule(rule.id)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditPayerRule(rule.id)}
+                >
                   <Edit className="w-4 h-4" />
                 </Button>
               </div>
               <div className="space-y-2 mt-3">
-                <div className={`text-xs ${rule.enabled ? 'text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-500'}`}>
-                  <span className="font-medium">{rule.enabled ? 'Active Rules:' : 'Rules (Disabled):'}</span>
+                <div
+                  className={`text-xs ${
+                    rule.enabled
+                      ? "text-slate-700 dark:text-slate-300"
+                      : "text-slate-500 dark:text-slate-500"
+                  }`}
+                >
+                  <span className="font-medium">
+                    {rule.enabled ? "Active Rules:" : "Rules (Disabled):"}
+                  </span>
                 </div>
-                <div className={`flex flex-wrap gap-2 ${!rule.enabled ? 'opacity-50' : ''}`}>
+                <div
+                  className={`flex flex-wrap gap-2 ${
+                    !rule.enabled ? "opacity-50" : ""
+                  }`}
+                >
                   {rule.rules.map((ruleName, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">{ruleName}</Badge>
+                    <Badge key={idx} variant="outline" className="text-xs">
+                      {ruleName}
+                    </Badge>
                   ))}
                 </div>
               </div>
@@ -2304,8 +3152,13 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
         {/* No Rules Message */}
         <div className="text-center py-8 text-gray-500 dark:text-gray-400 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg mt-4">
-          <p className="text-sm font-medium">Need to add more payer-specific rules?</p>
-          <p className="text-xs mt-1">Click &quot;Add Override Rule&quot; to create custom validation for specific payers</p>
+          <p className="text-sm font-medium">
+            Need to add more payer-specific rules?
+          </p>
+          <p className="text-xs mt-1">
+            Click &quot;Add Override Rule&quot; to create custom validation for
+            specific payers
+          </p>
         </div>
       </Card>
 
@@ -2313,19 +3166,27 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Field Mapping Overrides</h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Customize how fields are mapped for different payers</p>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Field Mapping Overrides
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Customize how fields are mapped for different payers
+            </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => {
-            setEditingFieldMappingIndex(null);
-            setFieldMappingForm({
-              payer: '',
-              field: '',
-              mapping: '',
-              enabled: true
-            });
-            setShowFieldMappingDialog(true);
-          }}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setEditingFieldMappingIndex(null);
+              setFieldMappingForm({
+                payer: "",
+                field: "",
+                mapping: "",
+                enabled: true,
+              });
+              setShowFieldMappingDialog(true);
+            }}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Add Field Mapping
           </Button>
@@ -2333,22 +3194,39 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
         <div className="space-y-3">
           {fieldMappings.map((mapping, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 border border-slate-200 dark:border-slate-700 rounded-lg"
+            >
               <div className="flex items-center gap-3">
                 <Switch
                   checked={mapping.enabled}
-                  onCheckedChange={(checked) => handleToggleFieldMapping(index, checked)}
+                  onCheckedChange={(checked) =>
+                    handleToggleFieldMapping(index, checked)
+                  }
                 />
                 <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">{mapping.payer} - {mapping.field}</p>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">{mapping.mapping}</p>
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
+                    {mapping.payer} - {mapping.field}
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">
+                    {mapping.mapping}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={() => handleEditFieldMapping(index)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditFieldMapping(index)}
+                >
                   <Edit className="w-4 h-4" />
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => handleDeleteFieldMapping(index)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleDeleteFieldMapping(index)}
+                >
                   <Trash2 className="w-4 h-4 text-red-500" />
                 </Button>
               </div>
@@ -2359,38 +3237,58 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
       {/* Special Handling Rules */}
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Special Handling Rules</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Special Handling Rules
+        </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <Label className="font-medium text-slate-900 dark:text-slate-100">Auto-Retry Failed Claims</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Automatically retry claims that fail payer-specific validation</p>
+              <Label className="font-medium text-slate-900 dark:text-slate-100">
+                Auto-Retry Failed Claims
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Automatically retry claims that fail payer-specific validation
+              </p>
             </div>
             <Switch
               checked={specialHandlingRules.autoRetryFailedClaims}
-              onCheckedChange={(checked) => handleToggleSpecialRule('autoRetryFailedClaims', checked)}
+              onCheckedChange={(checked) =>
+                handleToggleSpecialRule("autoRetryFailedClaims", checked)
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="font-medium text-slate-900 dark:text-slate-100">Priority Processing for High-Value Claims</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Process claims over $500 with enhanced validation</p>
+              <Label className="font-medium text-slate-900 dark:text-slate-100">
+                Priority Processing for High-Value Claims
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Process claims over $500 with enhanced validation
+              </p>
             </div>
             <Switch
               checked={specialHandlingRules.priorityProcessingHighValue}
-              onCheckedChange={(checked) => handleToggleSpecialRule('priorityProcessingHighValue', checked)}
+              onCheckedChange={(checked) =>
+                handleToggleSpecialRule("priorityProcessingHighValue", checked)
+              }
             />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <Label className="font-medium text-slate-900 dark:text-slate-100">Batch Processing for Medicare</Label>
-              <p className="text-sm text-slate-600 dark:text-slate-400">Group Medicare claims for efficient batch submission</p>
+              <Label className="font-medium text-slate-900 dark:text-slate-100">
+                Batch Processing for Medicare
+              </Label>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Group Medicare claims for efficient batch submission
+              </p>
             </div>
             <Switch
               checked={specialHandlingRules.batchProcessingMedicare}
-              onCheckedChange={(checked) => handleToggleSpecialRule('batchProcessingMedicare', checked)}
+              onCheckedChange={(checked) =>
+                handleToggleSpecialRule("batchProcessingMedicare", checked)
+              }
             />
           </div>
         </div>
@@ -2398,12 +3296,28 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
       {/* Supported Payers Section */}
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported Payers</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Supported Payers
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {['Medicare', 'Medicaid', 'Aetna', 'Anthem', 'Cigna', 'UnitedHealthcare', 'Humana', 'BCBS'].map((payer) => (
-            <div key={payer} className="text-center p-3 border border-slate-200 dark:border-slate-700 rounded-lg">
+          {[
+            "Medicare",
+            "Medicaid",
+            "Aetna",
+            "Anthem",
+            "Cigna",
+            "UnitedHealthcare",
+            "Humana",
+            "BCBS",
+          ].map((payer) => (
+            <div
+              key={payer}
+              className="text-center p-3 border border-slate-200 dark:border-slate-700 rounded-lg"
+            >
               <p className="font-medium text-sm">{payer}</p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Portal Integration</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Portal Integration
+              </p>
             </div>
           ))}
         </div>
@@ -2415,7 +3329,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Team Members
+          </h3>
           <Button size="sm" onClick={() => setShowInviteModal(true)}>
             <UserPlus className="w-4 h-4 mr-2" />
             Invite User
@@ -2423,17 +3339,30 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
         </div>
         <div className="space-y-3">
           {teamMembers.map((user, index) => (
-            <div key={index} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+            >
               <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{user.name}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">
+                  {user.name}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {user.email}
+                </p>
               </div>
               <div className="flex items-center space-x-3">
                 <Badge variant="outline">{user.role}</Badge>
-                <Badge variant={user.status === 'Active' ? "default" : "secondary"}>
+                <Badge
+                  variant={user.status === "Active" ? "default" : "secondary"}
+                >
                   {user.status}
                 </Badge>
-                <Button variant="ghost" size="sm" onClick={() => handleEditUser(index)}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEditUser(index)}
+                >
                   <Edit className="w-4 h-4 mr-1" />
                   Edit
                 </Button>
@@ -2449,7 +3378,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">EHR Integration</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            EHR Integration
+          </h3>
           <Button variant="outline" asChild>
             <Link href="/settings/ehr">
               <Globe className="w-4 h-4 mr-2" />
@@ -2458,7 +3389,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </Button>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Configure your Electronic Health Record system connections to enable data synchronization and automation.
+          Configure your Electronic Health Record system connections to enable
+          data synchronization and automation.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -2466,25 +3398,43 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <h4 className="font-medium">Production Environment</h4>
               <Badge variant="outline">0 connections</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No EHR connections configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No EHR connections configured
+            </p>
           </div>
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Development Environment</h4>
               <Badge variant="outline">0 connections</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No EHR connections configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No EHR connections configured
+            </p>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported EHR Systems</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Supported EHR Systems
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {['Epic', 'Cerner', 'athenahealth', 'Allscripts', 'NextGen', 'eClinicalWorks'].map((system) => (
-            <div key={system} className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+          {[
+            "Epic",
+            "Cerner",
+            "athenahealth",
+            "Allscripts",
+            "NextGen",
+            "eClinicalWorks",
+          ].map((system) => (
+            <div
+              key={system}
+              className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+            >
               <p className="font-medium text-sm">{system}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">FHIR/REST API</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                FHIR/REST API
+              </p>
             </div>
           ))}
         </div>
@@ -2496,7 +3446,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Webhook Management</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Webhook Management
+          </h3>
           <Button variant="outline" asChild>
             <Link href="/settings/webhooks">
               <Webhook className="w-4 h-4 mr-2" />
@@ -2505,7 +3457,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </Button>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Configure webhook endpoints to receive real-time notifications when your team data changes.
+          Configure webhook endpoints to receive real-time notifications when
+          your team data changes.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -2513,31 +3466,42 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <h4 className="font-medium">Production Webhooks</h4>
               <Badge variant="outline">0 active</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No production webhooks configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No production webhooks configured
+            </p>
           </div>
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Development Webhooks</h4>
               <Badge variant="outline">0 active</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No development webhooks configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No development webhooks configured
+            </p>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Available Events</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Available Events
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {[
-            'team.created',
-            'team.updated',
-            'team.deleted',
-            'team_member.added',
-            'team_member.updated',
-            'team_member.removed'
+            "team.created",
+            "team.updated",
+            "team.deleted",
+            "team_member.added",
+            "team_member.updated",
+            "team_member.removed",
           ].map((event) => (
-            <div key={event} className="flex items-center p-2 border border-gray-200 dark:border-gray-700 rounded">
-              <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">{event}</code>
+            <div
+              key={event}
+              className="flex items-center p-2 border border-gray-200 dark:border-gray-700 rounded"
+            >
+              <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                {event}
+              </code>
             </div>
           ))}
         </div>
@@ -2549,7 +3513,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
     <div className="space-y-6">
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Field Mappings</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Field Mappings
+          </h3>
           <Button variant="outline" asChild>
             <Link href="/settings/field-mappings">
               <Settings className="w-4 h-4 mr-2" />
@@ -2558,7 +3524,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </Button>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Configure custom field mapping rules for data integration between EHR systems and your team&apos;s workflow.
+          Configure custom field mapping rules for data integration between EHR
+          systems and your team&apos;s workflow.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -2566,35 +3533,59 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <h4 className="font-medium">Active Mappings</h4>
               <Badge variant="outline">0 mappings</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No field mappings configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No field mappings configured
+            </p>
           </div>
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Validation Rules</h4>
               <Badge variant="outline">0 rules</Badge>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">No validation rules configured</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No validation rules configured
+            </p>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Entity Types</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Entity Types
+        </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {['Patient', 'Provider', 'Claim', 'Prior Auth', 'Medication', 'Diagnosis', 'Procedure', 'Insurance'].map((entity) => (
-            <div key={entity} className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg">
+          {[
+            "Patient",
+            "Provider",
+            "Claim",
+            "Prior Auth",
+            "Medication",
+            "Diagnosis",
+            "Procedure",
+            "Insurance",
+          ].map((entity) => (
+            <div
+              key={entity}
+              className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
+            >
               <p className="font-medium text-sm">{entity}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Field Mapping</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Field Mapping
+              </p>
             </div>
           ))}
         </div>
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Supported Features</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Supported Features
+        </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900 dark:text-gray-100">Data Transformations</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              Data Transformations
+            </h4>
             <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <li>• Text formatting (upper/lower case, trim)</li>
               <li>• Phone number formatting</li>
@@ -2604,7 +3595,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </ul>
           </div>
           <div className="space-y-3">
-            <h4 className="font-semibold text-gray-900 dark:text-gray-100">Validation Rules</h4>
+            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+              Validation Rules
+            </h4>
             <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
               <li>• Required field validation</li>
               <li>• Format validation (email, phone)</li>
@@ -2621,39 +3614,63 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">API Connections</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          API Connections
+        </h3>
         <div className="space-y-4">
-          {Object.entries(integrationStatus).filter(([key]) => key !== 'webhooks').map(([key, integration]) => (
-            <div key={key} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className={`w-3 h-3 rounded-full ${integration.status === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">{key === 'cmm' ? 'CMM API' : key}</p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Last sync: {integration.lastSync}</p>
+          {Object.entries(integrationStatus)
+            .filter(([key]) => key !== "webhooks")
+            .map(([key, integration]) => (
+              <div
+                key={key}
+                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      integration.status === "healthy"
+                        ? "bg-green-500"
+                        : "bg-red-500"
+                    }`}
+                  ></div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">
+                      {key === "cmm" ? "CMM API" : key}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Last sync: {integration.lastSync}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge
+                    variant={
+                      integration.status === "healthy" ? "default" : "secondary"
+                    }
+                    className={
+                      integration.status === "healthy"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }
+                  >
+                    {integration.status === "healthy" ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Connected
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Error
+                      </>
+                    )}
+                  </Badge>
+                  <Button variant="secondary" size="sm">
+                    Configure
+                  </Button>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <Badge variant={integration.status === 'healthy' ? "default" : "secondary"} className={
-                  integration.status === 'healthy' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }>
-                  {integration.status === 'healthy' ? (
-                    <>
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Connected
-                    </>
-                  ) : (
-                    <>
-                      <AlertTriangle className="w-3 h-3 mr-1" />
-                      Error
-                    </>
-                  )}
-                </Badge>
-                <Button variant="secondary" size="sm">
-                  Configure
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))}
         </div>
       </Card>
     </div>
@@ -2662,7 +3679,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
   const renderSecuritySettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Access Controls</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Access Controls
+        </h3>
         <div className="space-y-6">
           <div className="space-y-2">
             <Label>Default User Role</Label>
@@ -2681,14 +3700,18 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Require MFA</Label>
-              <p className="text-sm text-muted-foreground">Require multi-factor authentication for all users</p>
+              <p className="text-sm text-muted-foreground">
+                Require multi-factor authentication for all users
+              </p>
             </div>
             <Switch />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Session Timeout</Label>
-              <p className="text-sm text-muted-foreground">Automatically log out inactive users</p>
+              <p className="text-sm text-muted-foreground">
+                Automatically log out inactive users
+              </p>
             </div>
             <Select defaultValue="1 hour">
               <SelectTrigger className="w-32">
@@ -2706,66 +3729,96 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Card>
 
       <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Audit & Compliance</h3>
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Audit & Compliance
+        </h3>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Enable Audit Logging</Label>
-              <p className="text-sm text-muted-foreground">Track all user actions and system events</p>
+              <p className="text-sm text-muted-foreground">
+                Track all user actions and system events
+              </p>
             </div>
             <Switch defaultChecked />
           </div>
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">HIPAA Compliance Mode</Label>
-              <p className="text-sm text-muted-foreground">Enable additional privacy and security controls</p>
+              <p className="text-sm text-muted-foreground">
+                Enable additional privacy and security controls
+              </p>
             </div>
             <Switch checked disabled />
           </div>
 
           {/* Detailed Audit Trail Configuration */}
           <div className="border-t pt-6 space-y-4">
-            <h4 className="text-md font-medium text-gray-900 dark:text-gray-100">Detailed Audit Trail Configuration</h4>
+            <h4 className="text-md font-medium text-gray-900 dark:text-gray-100">
+              Detailed Audit Trail Configuration
+            </h4>
 
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">Log All Rule Applications</Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Track when validation rules are applied and their outcomes</p>
+                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Log All Rule Applications
+                </Label>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Track when validation rules are applied and their outcomes
+                </p>
               </div>
               <Switch
-                checked={validationSettings.auditLogging?.logRuleApplications || false}
-                onCheckedChange={(checked) => handleSettingChange('validation', 'auditLogging', {
-                  ...validationSettings.auditLogging,
-                  logRuleApplications: checked
-                })}
+                checked={
+                  validationSettings.auditLogging?.logRuleApplications || false
+                }
+                onCheckedChange={(checked) =>
+                  handleSettingChange("validation", "auditLogging", {
+                    ...validationSettings.auditLogging,
+                    logRuleApplications: checked,
+                  })
+                }
               />
             </div>
 
             <div className="flex items-center justify-between border-t pt-4">
               <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">Log Auto-Fix Actions</Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Record all automatic corrections made to claims and ePAs</p>
+                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Log Auto-Fix Actions
+                </Label>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Record all automatic corrections made to claims and ePAs
+                </p>
               </div>
               <Switch
                 checked={validationSettings.auditLogging?.logAutoFixes || false}
-                onCheckedChange={(checked) => handleSettingChange('validation', 'auditLogging', {
-                  ...validationSettings.auditLogging,
-                  logAutoFixes: checked
-                })}
+                onCheckedChange={(checked) =>
+                  handleSettingChange("validation", "auditLogging", {
+                    ...validationSettings.auditLogging,
+                    logAutoFixes: checked,
+                  })
+                }
               />
             </div>
 
             <div className="flex items-center justify-between border-t pt-4">
               <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">Audit Log Retention Period</Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">How long to keep detailed audit trail records for compliance</p>
+                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  Audit Log Retention Period
+                </Label>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  How long to keep detailed audit trail records for compliance
+                </p>
               </div>
               <Select
-                value={validationSettings.auditLogging?.retentionPeriod ?? '1year'}
-                onValueChange={(value) => handleSettingChange('validation', 'auditLogging', {
-                  ...validationSettings.auditLogging,
-                  retentionPeriod: value
-                })}
+                value={
+                  validationSettings.auditLogging?.retentionPeriod ?? "1year"
+                }
+                onValueChange={(value) =>
+                  handleSettingChange("validation", "auditLogging", {
+                    ...validationSettings.auditLogging,
+                    retentionPeriod: value,
+                  })
+                }
               >
                 <SelectTrigger className="w-40">
                   <SelectValue />
@@ -2804,37 +3857,37 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
 
   const renderSectionContent = () => {
     switch (activeSection) {
-      case 'automation':
+      case "automation":
         return renderAutomationSettings();
-      case 'visit-types':
+      case "visit-types":
         return renderVisitTypesSettings();
-      case 'modifiers':
+      case "modifiers":
         return renderModifiersSettings();
-      case 'required-fields':
+      case "required-fields":
         return renderRequiredFieldsSettings();
-      case 'time-based':
+      case "time-based":
         return renderTimeBasedSettings();
-      case 'credentialing':
+      case "credentialing":
         return renderCredentialingSettings();
-      case 'denial-playbook':
+      case "denial-playbook":
         return renderDenialPlaybookSettings();
-      case 'diagnosis-validation':
+      case "diagnosis-validation":
         return renderDiagnosisValidationSettings();
-      case 'payers':
+      case "payers":
         return renderPayerConfigurationSettings();
-      case 'notifications':
+      case "notifications":
         return renderNotificationSettings();
-      case 'ehr':
+      case "ehr":
         return renderEHRSettings();
-      case 'webhooks':
+      case "webhooks":
         return renderWebhookSettings();
-      case 'field-mappings':
+      case "field-mappings":
         return renderFieldMappingSettings();
-      case 'integrations':
+      case "integrations":
         return renderIntegrationSettings();
-      case 'security':
+      case "security":
         return renderSecuritySettings();
-      case 'users':
+      case "users":
         return renderUserManagement();
       default:
         return renderAutomationSettings();
@@ -2846,8 +3899,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Settings</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage your PA automation system configuration</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            Settings
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
+            Manage your PA automation system configuration
+          </p>
         </div>
 
         {hasChanges && (
@@ -2871,14 +3928,16 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                     onClick={() => setActiveSection(section.id)}
                     className={`w-full flex items-center space-x-3 px-3 py-2 text-left rounded-lg transition-colors ${
                       activeSection === section.id
-                        ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800'
-                        : 'text-foreground hover:bg-accent'
+                        ? "bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800"
+                        : "text-foreground hover:bg-accent"
                     }`}
                   >
                     <Icon className="w-5 h-5" />
                     <div>
                       <div className="font-medium">{section.title}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">{section.description}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {section.description}
+                      </div>
                     </div>
                   </button>
                 );
@@ -2888,9 +3947,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
         </div>
 
         {/* Main Content */}
-        <div className="flex-1">
-          {renderSectionContent()}
-        </div>
+        <div className="flex-1">{renderSectionContent()}</div>
       </div>
 
       {/* Invite User Modal */}
@@ -2914,7 +3971,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   id="invite-firstName"
                   type="text"
                   value={inviteForm.firstName}
-                  onChange={(e) => handleInviteFormChange('firstName', e.target.value)}
+                  onChange={(e) =>
+                    handleInviteFormChange("firstName", e.target.value)
+                  }
                   placeholder="John"
                 />
               </div>
@@ -2924,7 +3983,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   id="invite-lastName"
                   type="text"
                   value={inviteForm.lastName}
-                  onChange={(e) => handleInviteFormChange('lastName', e.target.value)}
+                  onChange={(e) =>
+                    handleInviteFormChange("lastName", e.target.value)
+                  }
                   placeholder="Smith"
                 />
               </div>
@@ -2936,7 +3997,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="invite-email"
                 type="email"
                 value={inviteForm.email}
-                onChange={(e) => handleInviteFormChange('email', e.target.value)}
+                onChange={(e) =>
+                  handleInviteFormChange("email", e.target.value)
+                }
                 placeholder="john.smith@company.com"
                 required
               />
@@ -2945,12 +4008,19 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="space-y-2">
               <Label htmlFor="invite-role">Role</Label>
               <div className="w-full">
-                <Select value={inviteForm.role} onValueChange={(value) => handleInviteFormChange('role', value)}>
+                <Select
+                  value={inviteForm.role}
+                  onValueChange={(value) =>
+                    handleInviteFormChange("role", value)
+                  }
+                >
                   <SelectTrigger id="invite-role">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
+                    <SelectItem value="PA Coordinator">
+                      PA Coordinator
+                    </SelectItem>
                     <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
                     <SelectItem value="Administrator">Administrator</SelectItem>
                     <SelectItem value="Read Only">Read Only</SelectItem>
@@ -2963,7 +4033,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="invite-welcomeEmail"
                 checked={inviteForm.sendWelcomeEmail}
-                onCheckedChange={(checked) => handleInviteFormChange('sendWelcomeEmail', checked)}
+                onCheckedChange={(checked) =>
+                  handleInviteFormChange("sendWelcomeEmail", checked)
+                }
               />
               <Label htmlFor="invite-welcomeEmail" className="text-sm">
                 Send welcome email with setup instructions
@@ -2972,15 +4044,16 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowInviteModal(false)}
-            >
+            <Button variant="outline" onClick={() => setShowInviteModal(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleInviteUser}
-              disabled={!inviteForm.email || !inviteForm.firstName || !inviteForm.lastName}
+              disabled={
+                !inviteForm.email ||
+                !inviteForm.firstName ||
+                !inviteForm.lastName
+              }
             >
               <Mail className="w-4 h-4 mr-2" />
               Send Invitation
@@ -3010,7 +4083,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   id="edit-firstName"
                   type="text"
                   value={editForm.firstName}
-                  onChange={(e) => handleEditFormChange('firstName', e.target.value)}
+                  onChange={(e) =>
+                    handleEditFormChange("firstName", e.target.value)
+                  }
                   placeholder="Jane"
                 />
               </div>
@@ -3020,7 +4095,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   id="edit-lastName"
                   type="text"
                   value={editForm.lastName}
-                  onChange={(e) => handleEditFormChange('lastName', e.target.value)}
+                  onChange={(e) =>
+                    handleEditFormChange("lastName", e.target.value)
+                  }
                   placeholder="Doe"
                 />
               </div>
@@ -3032,7 +4109,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="edit-email"
                 type="email"
                 value={editForm.email}
-                onChange={(e) => handleEditFormChange('email', e.target.value)}
+                onChange={(e) => handleEditFormChange("email", e.target.value)}
                 placeholder="jane.doe@company.com"
                 required
               />
@@ -3041,12 +4118,17 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="space-y-2">
               <Label htmlFor="edit-role">Role</Label>
               <div className="w-full">
-                <Select value={editForm.role} onValueChange={(value) => handleEditFormChange('role', value)}>
+                <Select
+                  value={editForm.role}
+                  onValueChange={(value) => handleEditFormChange("role", value)}
+                >
                   <SelectTrigger id="edit-role">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
+                    <SelectItem value="PA Coordinator">
+                      PA Coordinator
+                    </SelectItem>
                     <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
                     <SelectItem value="Administrator">Administrator</SelectItem>
                     <SelectItem value="Read Only">Read Only</SelectItem>
@@ -3058,7 +4140,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="space-y-2">
               <Label htmlFor="edit-status">Status</Label>
               <div className="w-full">
-                <Select value={editForm.status} onValueChange={(value) => handleEditFormChange('status', value)}>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) =>
+                    handleEditFormChange("status", value)
+                  }
+                >
                   <SelectTrigger id="edit-status">
                     <SelectValue />
                   </SelectTrigger>
@@ -3073,15 +4160,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowEditModal(false)}
-            >
+            <Button variant="outline" onClick={() => setShowEditModal(false)}>
               Cancel
             </Button>
             <Button
               onClick={handleSaveEditUser}
-              disabled={!editForm.email || !editForm.firstName || !editForm.lastName}
+              disabled={
+                !editForm.email || !editForm.firstName || !editForm.lastName
+              }
             >
               <Save className="w-4 h-4 mr-2" />
               Save Changes
@@ -3091,15 +4177,19 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Dialog>
 
       {/* Conflict Rule Modal */}
-      <Dialog open={showConflictRuleModal} onOpenChange={setShowConflictRuleModal}>
+      <Dialog
+        open={showConflictRuleModal}
+        onOpenChange={setShowConflictRuleModal}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Code2 className="w-5 h-5 mr-2 text-primary" />
-              {editingConflictRule ? 'Edit Conflict Rule' : 'Add Conflict Rule'}
+              {editingConflictRule ? "Edit Conflict Rule" : "Add Conflict Rule"}
             </DialogTitle>
             <DialogDescription>
-              Define how to handle conflicting modifier combinations automatically.
+              Define how to handle conflicting modifier combinations
+              automatically.
             </DialogDescription>
           </DialogHeader>
 
@@ -3110,7 +4200,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="rule-name"
                 type="text"
                 value={conflictRuleForm.name}
-                onChange={(e) => handleConflictRuleFormChange('name', e.target.value)}
+                onChange={(e) =>
+                  handleConflictRuleFormChange("name", e.target.value)
+                }
                 placeholder="e.g., 95 vs GT Conflict"
                 required
               />
@@ -3119,27 +4211,31 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="space-y-2">
               <Label>Conflicting Modifiers</Label>
               <div className="space-y-2">
-                {conflictRuleForm.conflictingModifiers.map((modifier, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      value={modifier}
-                      onChange={(e) => updateConflictingModifier(index, e.target.value)}
-                      placeholder={`Modifier ${index + 1} (e.g., 95, GT)`}
-                      className="flex-1"
-                    />
-                    {conflictRuleForm.conflictingModifiers.length > 2 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeConflictingModifier(index)}
-                      >
-                        <X className="w-4 h-4 text-red-500" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                {conflictRuleForm.conflictingModifiers.map(
+                  (modifier, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        type="text"
+                        value={modifier}
+                        onChange={(e) =>
+                          updateConflictingModifier(index, e.target.value)
+                        }
+                        placeholder={`Modifier ${index + 1} (e.g., 95, GT)`}
+                        className="flex-1"
+                      />
+                      {conflictRuleForm.conflictingModifiers.length > 2 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeConflictingModifier(index)}
+                        >
+                          <X className="w-4 h-4 text-red-500" />
+                        </Button>
+                      )}
+                    </div>
+                  )
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -3158,17 +4254,29 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <div className="w-full">
                 <Select
                   value={conflictRuleForm.resolution}
-                  onValueChange={(value) => handleConflictRuleFormChange('resolution', value)}
+                  onValueChange={(value) =>
+                    handleConflictRuleFormChange("resolution", value)
+                  }
                 >
                   <SelectTrigger id="resolution">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="remove_conflicting">Remove Conflicting - Remove all conflicting modifiers</SelectItem>
-                    <SelectItem value="prefer_first">Prefer First - Keep the first modifier found</SelectItem>
-                    <SelectItem value="prefer_last">Prefer Last - Keep the last modifier found</SelectItem>
-                    <SelectItem value="block_submission">Block Submission - Prevent claim submission</SelectItem>
-                    <SelectItem value="manual_review">Manual Review - Flag for human review</SelectItem>
+                    <SelectItem value="remove_conflicting">
+                      Remove Conflicting - Remove all conflicting modifiers
+                    </SelectItem>
+                    <SelectItem value="prefer_first">
+                      Prefer First - Keep the first modifier found
+                    </SelectItem>
+                    <SelectItem value="prefer_last">
+                      Prefer Last - Keep the last modifier found
+                    </SelectItem>
+                    <SelectItem value="block_submission">
+                      Block Submission - Prevent claim submission
+                    </SelectItem>
+                    <SelectItem value="manual_review">
+                      Manual Review - Flag for human review
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -3180,7 +4288,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="rule-description"
                 type="text"
                 value={conflictRuleForm.description}
-                onChange={(e) => handleConflictRuleFormChange('description', e.target.value)}
+                onChange={(e) =>
+                  handleConflictRuleFormChange("description", e.target.value)
+                }
                 placeholder="Brief explanation of when this rule applies"
               />
             </div>
@@ -3189,7 +4299,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="rule-enabled"
                 checked={conflictRuleForm.enabled}
-                onCheckedChange={(checked) => handleConflictRuleFormChange('enabled', checked)}
+                onCheckedChange={(checked) =>
+                  handleConflictRuleFormChange("enabled", checked)
+                }
               />
               <Label htmlFor="rule-enabled" className="text-sm">
                 Enable this rule immediately
@@ -3206,10 +4318,14 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </Button>
             <Button
               onClick={handleSaveConflictRule}
-              disabled={!conflictRuleForm.name || conflictRuleForm.conflictingModifiers.filter(m => m.trim()).length < 2}
+              disabled={
+                !conflictRuleForm.name ||
+                conflictRuleForm.conflictingModifiers.filter((m) => m.trim())
+                  .length < 2
+              }
             >
               <Save className="w-4 h-4 mr-2" />
-              {editingConflictRule ? 'Update Rule' : 'Create Rule'}
+              {editingConflictRule ? "Update Rule" : "Create Rule"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3235,7 +4351,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="cpt-code"
                 type="text"
                 value={cptRuleForm.cptCode}
-                onChange={(e) => handleCptRuleFormChange('cptCode', e.target.value)}
+                onChange={(e) =>
+                  handleCptRuleFormChange("cptCode", e.target.value)
+                }
                 placeholder="e.g., 99213, 99214"
                 required
               />
@@ -3247,7 +4365,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="cpt-description"
                 type="text"
                 value={cptRuleForm.description}
-                onChange={(e) => handleCptRuleFormChange('description', e.target.value)}
+                onChange={(e) =>
+                  handleCptRuleFormChange("description", e.target.value)
+                }
                 placeholder="e.g., Office Visit, Level 3"
                 required
               />
@@ -3261,7 +4381,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   type="number"
                   min="0"
                   value={cptRuleForm.minMinutes}
-                  onChange={(e) => handleCptRuleFormChange('minMinutes', Number(e.target.value))}
+                  onChange={(e) =>
+                    handleCptRuleFormChange(
+                      "minMinutes",
+                      Number(e.target.value)
+                    )
+                  }
                   className="text-center"
                 />
               </div>
@@ -3272,7 +4397,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   type="number"
                   min="0"
                   value={cptRuleForm.maxMinutes}
-                  onChange={(e) => handleCptRuleFormChange('maxMinutes', Number(e.target.value))}
+                  onChange={(e) =>
+                    handleCptRuleFormChange(
+                      "maxMinutes",
+                      Number(e.target.value)
+                    )
+                  }
                   className="text-center"
                 />
               </div>
@@ -3282,7 +4412,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="flag-if-not-documented"
                 checked={cptRuleForm.flagIfNotDocumented}
-                onCheckedChange={(checked) => handleCptRuleFormChange('flagIfNotDocumented', checked)}
+                onCheckedChange={(checked) =>
+                  handleCptRuleFormChange("flagIfNotDocumented", checked)
+                }
               />
               <Label htmlFor="flag-if-not-documented" className="text-sm">
                 Flag for review if time not documented
@@ -3293,7 +4425,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="cpt-enabled"
                 checked={cptRuleForm.enabled}
-                onCheckedChange={(checked) => handleCptRuleFormChange('enabled', checked)}
+                onCheckedChange={(checked) =>
+                  handleCptRuleFormChange("enabled", checked)
+                }
               />
               <Label htmlFor="cpt-enabled" className="text-sm">
                 Enable this rule immediately
@@ -3320,7 +4454,10 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Dialog>
 
       {/* Custom Denial Rule Modal */}
-      <Dialog open={showCustomRuleDialog} onOpenChange={setShowCustomRuleDialog}>
+      <Dialog
+        open={showCustomRuleDialog}
+        onOpenChange={setShowCustomRuleDialog}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center">
@@ -3328,7 +4465,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               Add Custom Denial Rule
             </DialogTitle>
             <DialogDescription>
-              Create a custom rule for handling specific denial codes (CARC/RARC).
+              Create a custom rule for handling specific denial codes
+              (CARC/RARC).
             </DialogDescription>
           </DialogHeader>
 
@@ -3339,7 +4477,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="denial-code"
                 type="text"
                 value={customRuleForm.code}
-                onChange={(e) => handleCustomRuleFormChange('code', e.target.value)}
+                onChange={(e) =>
+                  handleCustomRuleFormChange("code", e.target.value)
+                }
                 placeholder="e.g., CARC 24, RARC 149"
                 required
               />
@@ -3351,7 +4491,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="denial-description"
                 type="text"
                 value={customRuleForm.description}
-                onChange={(e) => handleCustomRuleFormChange('description', e.target.value)}
+                onChange={(e) =>
+                  handleCustomRuleFormChange("description", e.target.value)
+                }
                 placeholder="e.g., Charges are covered under a capitation agreement"
                 required
               />
@@ -3363,7 +4505,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="denial-strategy"
                 type="text"
                 value={customRuleForm.strategy}
-                onChange={(e) => handleCustomRuleFormChange('strategy', e.target.value)}
+                onChange={(e) =>
+                  handleCustomRuleFormChange("strategy", e.target.value)
+                }
                 placeholder="e.g., Check contract status, flag for manual review"
                 required
               />
@@ -3373,7 +4517,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="auto-fix-enabled"
                 checked={customRuleForm.autoFix}
-                onCheckedChange={(checked) => handleCustomRuleFormChange('autoFix', checked)}
+                onCheckedChange={(checked) =>
+                  handleCustomRuleFormChange("autoFix", checked)
+                }
               />
               <Label htmlFor="auto-fix-enabled" className="text-sm">
                 Enable auto-fix for this denial code
@@ -3384,7 +4530,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="custom-rule-enabled"
                 checked={customRuleForm.enabled}
-                onCheckedChange={(checked) => handleCustomRuleFormChange('enabled', checked)}
+                onCheckedChange={(checked) =>
+                  handleCustomRuleFormChange("enabled", checked)
+                }
               />
               <Label htmlFor="custom-rule-enabled" className="text-sm">
                 Enable this rule immediately
@@ -3401,7 +4549,11 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </Button>
             <Button
               onClick={handleSaveCustomRule}
-              disabled={!customRuleForm.code || !customRuleForm.description || !customRuleForm.strategy}
+              disabled={
+                !customRuleForm.code ||
+                !customRuleForm.description ||
+                !customRuleForm.strategy
+              }
             >
               <Save className="w-4 h-4 mr-2" />
               Create Rule
@@ -3411,15 +4563,22 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Dialog>
 
       {/* Payer Override Rule Modal */}
-      <Dialog open={showPayerOverrideDialog} onOpenChange={setShowPayerOverrideDialog}>
+      <Dialog
+        open={showPayerOverrideDialog}
+        onOpenChange={setShowPayerOverrideDialog}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center">
               <Building2 className="w-5 h-5 mr-2 text-primary" />
-              {editingPayerRule ? 'Edit Payer Override Rule' : 'Add Payer Override Rule'}
+              {editingPayerRule
+                ? "Edit Payer Override Rule"
+                : "Add Payer Override Rule"}
             </DialogTitle>
             <DialogDescription>
-              {editingPayerRule ? 'Update the validation rules for this payer.' : 'Create custom validation rules for specific payers to override default system behavior.'}
+              {editingPayerRule
+                ? "Update the validation rules for this payer."
+                : "Create custom validation rules for specific payers to override default system behavior."}
             </DialogDescription>
           </DialogHeader>
 
@@ -3429,7 +4588,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Label htmlFor="payerName">Payer Name</Label>
               <Select
                 value={payerOverrideForm.payerName}
-                onValueChange={(value) => setPayerOverrideForm(prev => ({ ...prev, payerName: value }))}
+                onValueChange={(value) =>
+                  setPayerOverrideForm((prev) => ({
+                    ...prev,
+                    payerName: value,
+                  }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a payer" />
@@ -3454,7 +4618,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Input
                 id="ruleName"
                 value={payerOverrideForm.ruleName}
-                onChange={(e) => setPayerOverrideForm(prev => ({ ...prev, ruleName: e.target.value }))}
+                onChange={(e) =>
+                  setPayerOverrideForm((prev) => ({
+                    ...prev,
+                    ruleName: e.target.value,
+                  }))
+                }
                 placeholder="e.g., Telehealth Modifier Requirements"
               />
             </div>
@@ -3465,7 +4634,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Input
                 id="description"
                 value={payerOverrideForm.description}
-                onChange={(e) => setPayerOverrideForm(prev => ({ ...prev, description: e.target.value }))}
+                onChange={(e) =>
+                  setPayerOverrideForm((prev) => ({
+                    ...prev,
+                    description: e.target.value,
+                  }))
+                }
                 placeholder="Describe what this rule does"
               />
             </div>
@@ -3475,8 +4649,10 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Label htmlFor="ruleType">Rule Type</Label>
               <Select
                 value={payerOverrideForm.ruleType}
-                onValueChange={(value: 'validation' | 'field_mapping' | 'modifier' | 'pos') =>
-                  setPayerOverrideForm(prev => ({ ...prev, ruleType: value }))
+                onValueChange={(
+                  value: "validation" | "field_mapping" | "modifier" | "pos"
+                ) =>
+                  setPayerOverrideForm((prev) => ({ ...prev, ruleType: value }))
                 }
               >
                 <SelectTrigger>
@@ -3492,17 +4668,21 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </div>
 
             {/* Dynamic fields based on rule type */}
-            {payerOverrideForm.ruleType === 'validation' && (
+            {payerOverrideForm.ruleType === "validation" && (
               <>
                 {/* Conditions */}
                 <div className="space-y-2">
                   <Label>Validation Conditions</Label>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">Define when this validation rule should apply</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Define when this validation rule should apply
+                  </p>
                   {payerOverrideForm.conditions.map((condition, index) => (
                     <div key={index} className="flex gap-2">
                       <Input
                         value={condition}
-                        onChange={(e) => updatePayerCondition(index, e.target.value)}
+                        onChange={(e) =>
+                          updatePayerCondition(index, e.target.value)
+                        }
                         placeholder="e.g., CPT code is 99213-99215"
                       />
                       {payerOverrideForm.conditions.length > 1 && (
@@ -3531,12 +4711,16 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 {/* Actions */}
                 <div className="space-y-2">
                   <Label>Validation Actions</Label>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">Define what should happen when conditions are met</p>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Define what should happen when conditions are met
+                  </p>
                   {payerOverrideForm.actions.map((action, index) => (
                     <div key={index} className="flex gap-2">
                       <Input
                         value={action}
-                        onChange={(e) => updatePayerAction(index, e.target.value)}
+                        onChange={(e) =>
+                          updatePayerAction(index, e.target.value)
+                        }
                         placeholder="e.g., Block submission, Flag for review"
                       />
                       {payerOverrideForm.actions.length > 1 && (
@@ -3564,24 +4748,35 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               </>
             )}
 
-            {payerOverrideForm.ruleType === 'field_mapping' && (
+            {payerOverrideForm.ruleType === "field_mapping" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="sourceField">Source Field</Label>
                   <Select
-                    value={payerOverrideForm.conditions[0] || ''}
-                    onValueChange={(value) => setPayerOverrideForm(prev => ({ ...prev, conditions: [value] }))}
+                    value={payerOverrideForm.conditions[0] || ""}
+                    onValueChange={(value) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        conditions: [value],
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select field to map" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="provider_id">Provider ID</SelectItem>
-                      <SelectItem value="diagnosis_code">Diagnosis Code</SelectItem>
+                      <SelectItem value="diagnosis_code">
+                        Diagnosis Code
+                      </SelectItem>
                       <SelectItem value="service_date">Service Date</SelectItem>
-                      <SelectItem value="place_of_service">Place of Service</SelectItem>
+                      <SelectItem value="place_of_service">
+                        Place of Service
+                      </SelectItem>
                       <SelectItem value="modifiers">Modifiers</SelectItem>
-                      <SelectItem value="authorization_number">Authorization Number</SelectItem>
+                      <SelectItem value="authorization_number">
+                        Authorization Number
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -3589,22 +4784,32 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   <Label htmlFor="mappingRule">Mapping Rule</Label>
                   <Input
                     id="mappingRule"
-                    value={payerOverrideForm.actions[0] || ''}
-                    onChange={(e) => setPayerOverrideForm(prev => ({ ...prev, actions: [e.target.value] }))}
+                    value={payerOverrideForm.actions[0] || ""}
+                    onChange={(e) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        actions: [e.target.value],
+                      }))
+                    }
                     placeholder="e.g., Use Tax ID instead of NPI"
                   />
                 </div>
               </>
             )}
 
-            {payerOverrideForm.ruleType === 'modifier' && (
+            {payerOverrideForm.ruleType === "modifier" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="modifierConditions">When to Apply</Label>
                   <Input
                     id="modifierConditions"
-                    value={payerOverrideForm.conditions[0] || ''}
-                    onChange={(e) => setPayerOverrideForm(prev => ({ ...prev, conditions: [e.target.value] }))}
+                    value={payerOverrideForm.conditions[0] || ""}
+                    onChange={(e) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        conditions: [e.target.value],
+                      }))
+                    }
                     placeholder="e.g., Telehealth visits, CPT 99213-99215"
                   />
                 </div>
@@ -3612,21 +4817,31 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   <Label htmlFor="modifierActions">Required Modifiers</Label>
                   <Input
                     id="modifierActions"
-                    value={payerOverrideForm.actions[0] || ''}
-                    onChange={(e) => setPayerOverrideForm(prev => ({ ...prev, actions: [e.target.value] }))}
+                    value={payerOverrideForm.actions[0] || ""}
+                    onChange={(e) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        actions: [e.target.value],
+                      }))
+                    }
                     placeholder="e.g., Require modifier 95, Block modifier GT"
                   />
                 </div>
               </>
             )}
 
-            {payerOverrideForm.ruleType === 'pos' && (
+            {payerOverrideForm.ruleType === "pos" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="posConditions">Visit Type</Label>
                   <Select
-                    value={payerOverrideForm.conditions[0] || ''}
-                    onValueChange={(value) => setPayerOverrideForm(prev => ({ ...prev, conditions: [value] }))}
+                    value={payerOverrideForm.conditions[0] || ""}
+                    onValueChange={(value) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        conditions: [value],
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select visit type" />
@@ -3641,19 +4856,32 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 <div className="space-y-2">
                   <Label htmlFor="requiredPOS">Required POS Code</Label>
                   <Select
-                    value={payerOverrideForm.actions[0] || ''}
-                    onValueChange={(value) => setPayerOverrideForm(prev => ({ ...prev, actions: [value] }))}
+                    value={payerOverrideForm.actions[0] || ""}
+                    onValueChange={(value) =>
+                      setPayerOverrideForm((prev) => ({
+                        ...prev,
+                        actions: [value],
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select POS code" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="10">10 - Telehealth (Patient&apos;s Home)</SelectItem>
-                      <SelectItem value="02">02 - Telehealth (Other Location)</SelectItem>
+                      <SelectItem value="10">
+                        10 - Telehealth (Patient&apos;s Home)
+                      </SelectItem>
+                      <SelectItem value="02">
+                        02 - Telehealth (Other Location)
+                      </SelectItem>
                       <SelectItem value="11">11 - Office</SelectItem>
                       <SelectItem value="12">12 - Home</SelectItem>
-                      <SelectItem value="22">22 - On Campus-Outpatient Hospital</SelectItem>
-                      <SelectItem value="19">19 - Off Campus-Outpatient Hospital</SelectItem>
+                      <SelectItem value="22">
+                        22 - On Campus-Outpatient Hospital
+                      </SelectItem>
+                      <SelectItem value="19">
+                        19 - Off Campus-Outpatient Hospital
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -3666,7 +4894,10 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 id="enabledOverride"
                 checked={payerOverrideForm.enabled}
                 onCheckedChange={(checked) =>
-                  setPayerOverrideForm(prev => ({ ...prev, enabled: !!checked }))
+                  setPayerOverrideForm((prev) => ({
+                    ...prev,
+                    enabled: !!checked,
+                  }))
                 }
               />
               <Label htmlFor="enabledOverride">
@@ -3684,17 +4915,26 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </Button>
             <Button
               onClick={handleSavePayerOverride}
-              disabled={!payerOverrideForm.payerName || !payerOverrideForm.ruleName || !payerOverrideForm.description}
+              disabled={
+                !payerOverrideForm.payerName ||
+                !payerOverrideForm.ruleName ||
+                !payerOverrideForm.description
+              }
             >
               <Save className="w-4 h-4 mr-2" />
-              {editingPayerRule ? 'Update Override Rule' : 'Create Override Rule'}
+              {editingPayerRule
+                ? "Update Override Rule"
+                : "Create Override Rule"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Payer Configuration Dialog */}
-      <Dialog open={showPayerConfigDialog} onOpenChange={setShowPayerConfigDialog}>
+      <Dialog
+        open={showPayerConfigDialog}
+        onOpenChange={setShowPayerConfigDialog}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center">
@@ -3702,7 +4942,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               Configure {selectedPayer}
             </DialogTitle>
             <DialogDescription>
-              Configure connection settings and authentication for {selectedPayer}.
+              Configure connection settings and authentication for{" "}
+              {selectedPayer}.
             </DialogDescription>
           </DialogHeader>
 
@@ -3725,8 +4966,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                 <SelectContent>
                   <SelectItem value="api_key">API Key</SelectItem>
                   <SelectItem value="oauth2">OAuth 2.0</SelectItem>
-                  <SelectItem value="username_password">Username/Password</SelectItem>
-                  <SelectItem value="client_cert">Client Certificate</SelectItem>
+                  <SelectItem value="username_password">
+                    Username/Password
+                  </SelectItem>
+                  <SelectItem value="client_cert">
+                    Client Certificate
+                  </SelectItem>
                   <SelectItem value="bearer_token">Bearer Token</SelectItem>
                   <SelectItem value="x12_edi">X12 EDI Credentials</SelectItem>
                   <SelectItem value="saml_sso">SAML/SSO</SelectItem>
@@ -3735,7 +4980,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             </div>
 
             {/* API Key Authentication */}
-            {authType === 'api_key' && (
+            {authType === "api_key" && (
               <div className="space-y-2">
                 <Label htmlFor="api-key">API Key</Label>
                 <Input
@@ -3747,7 +4992,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* OAuth 2.0 Authentication */}
-            {authType === 'oauth2' && (
+            {authType === "oauth2" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="client-id">Client ID</Label>
@@ -3793,7 +5038,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* Username/Password Authentication */}
-            {authType === 'username_password' && (
+            {authType === "username_password" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="username">Username</Label>
@@ -3815,15 +5060,13 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* Client Certificate Authentication */}
-            {authType === 'client_cert' && (
+            {authType === "client_cert" && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="cert-file">Certificate File (.p12/.pfx)</Label>
-                  <Input
-                    id="cert-file"
-                    type="file"
-                    accept=".p12,.pfx,.pem"
-                  />
+                  <Label htmlFor="cert-file">
+                    Certificate File (.p12/.pfx)
+                  </Label>
+                  <Input id="cert-file" type="file" accept=".p12,.pfx,.pem" />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cert-password">Certificate Password</Label>
@@ -3837,7 +5080,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* Bearer Token Authentication */}
-            {authType === 'bearer_token' && (
+            {authType === "bearer_token" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="bearer-token">Bearer Token</Label>
@@ -3861,7 +5104,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* X12 EDI Credentials */}
-            {authType === 'x12_edi' && (
+            {authType === "x12_edi" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="edi-interchange-id">Interchange ID</Label>
@@ -3891,7 +5134,7 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             )}
 
             {/* SAML/SSO Authentication */}
-            {authType === 'saml_sso' && (
+            {authType === "saml_sso" && (
               <>
                 <div className="space-y-2">
                   <Label htmlFor="sso-url">SSO URL</Label>
@@ -3910,7 +5153,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="cert-fingerprint">Certificate Fingerprint</Label>
+                  <Label htmlFor="cert-fingerprint">
+                    Certificate Fingerprint
+                  </Label>
                   <Input
                     id="cert-fingerprint"
                     type="text"
@@ -3942,8 +5187,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg border border-blue-200 dark:border-blue-800">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Test Connection</Label>
-                  <p className="text-xs text-blue-700 dark:text-blue-300">Verify your authentication settings</p>
+                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Test Connection
+                  </Label>
+                  <p className="text-xs text-blue-700 dark:text-blue-300">
+                    Verify your authentication settings
+                  </p>
                 </div>
                 <Button variant="outline" size="sm">
                   Test
@@ -3953,7 +5202,10 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </div>
 
           <DialogFooter className="flex-shrink-0">
-            <Button variant="outline" onClick={() => setShowPayerConfigDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowPayerConfigDialog(false)}
+            >
               Cancel
             </Button>
             <Button onClick={() => setShowPayerConfigDialog(false)}>
@@ -3965,15 +5217,22 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
       </Dialog>
 
       {/* Field Mapping Dialog */}
-      <Dialog open={showFieldMappingDialog} onOpenChange={setShowFieldMappingDialog}>
+      <Dialog
+        open={showFieldMappingDialog}
+        onOpenChange={setShowFieldMappingDialog}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Settings className="w-5 h-5 mr-2 text-primary" />
-              {editingFieldMappingIndex !== null ? 'Edit Field Mapping' : 'Add Field Mapping'}
+              {editingFieldMappingIndex !== null
+                ? "Edit Field Mapping"
+                : "Add Field Mapping"}
             </DialogTitle>
             <DialogDescription>
-              {editingFieldMappingIndex !== null ? 'Update the field mapping rule for this payer.' : 'Create a custom field mapping rule for a specific payer.'}
+              {editingFieldMappingIndex !== null
+                ? "Update the field mapping rule for this payer."
+                : "Create a custom field mapping rule for a specific payer."}
             </DialogDescription>
           </DialogHeader>
 
@@ -3982,7 +5241,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Label htmlFor="mapping-payer">Payer</Label>
               <Select
                 value={fieldMappingForm.payer}
-                onValueChange={(value) => setFieldMappingForm(prev => ({ ...prev, payer: value }))}
+                onValueChange={(value) =>
+                  setFieldMappingForm((prev) => ({ ...prev, payer: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a payer" />
@@ -4004,7 +5265,9 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Label htmlFor="mapping-field">Field Name</Label>
               <Select
                 value={fieldMappingForm.field}
-                onValueChange={(value) => setFieldMappingForm(prev => ({ ...prev, field: value }))}
+                onValueChange={(value) =>
+                  setFieldMappingForm((prev) => ({ ...prev, field: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select a field" />
@@ -4013,9 +5276,13 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
                   <SelectItem value="provider-id">Provider ID</SelectItem>
                   <SelectItem value="diagnosis-code">Diagnosis Code</SelectItem>
                   <SelectItem value="service-date">Service Date</SelectItem>
-                  <SelectItem value="place-of-service">Place of Service</SelectItem>
+                  <SelectItem value="place-of-service">
+                    Place of Service
+                  </SelectItem>
                   <SelectItem value="modifiers">Modifiers</SelectItem>
-                  <SelectItem value="authorization-number">Authorization Number</SelectItem>
+                  <SelectItem value="authorization-number">
+                    Authorization Number
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -4025,7 +5292,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Input
                 id="mapping-rule"
                 value={fieldMappingForm.mapping}
-                onChange={(e) => setFieldMappingForm(prev => ({ ...prev, mapping: e.target.value }))}
+                onChange={(e) =>
+                  setFieldMappingForm((prev) => ({
+                    ...prev,
+                    mapping: e.target.value,
+                  }))
+                }
                 placeholder="Describe how this field should be mapped"
               />
             </div>
@@ -4034,7 +5306,12 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               <Checkbox
                 id="mapping-enabled"
                 checked={fieldMappingForm.enabled}
-                onCheckedChange={(checked) => setFieldMappingForm(prev => ({ ...prev, enabled: !!checked }))}
+                onCheckedChange={(checked) =>
+                  setFieldMappingForm((prev) => ({
+                    ...prev,
+                    enabled: !!checked,
+                  }))
+                }
               />
               <Label htmlFor="mapping-enabled" className="text-sm">
                 Enable this mapping immediately
@@ -4043,22 +5320,34 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowFieldMappingDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowFieldMappingDialog(false)}
+            >
               Cancel
             </Button>
             <Button
               onClick={handleSaveFieldMapping}
-              disabled={!fieldMappingForm.payer || !fieldMappingForm.field || !fieldMappingForm.mapping}
+              disabled={
+                !fieldMappingForm.payer ||
+                !fieldMappingForm.field ||
+                !fieldMappingForm.mapping
+              }
             >
               <Save className="w-4 h-4 mr-2" />
-              {editingFieldMappingIndex !== null ? 'Update Mapping' : 'Save Mapping'}
+              {editingFieldMappingIndex !== null
+                ? "Update Mapping"
+                : "Save Mapping"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Mapping Confirmation Dialog */}
-      <Dialog open={showDeleteMappingDialog} onOpenChange={setShowDeleteMappingDialog}>
+      <Dialog
+        open={showDeleteMappingDialog}
+        onOpenChange={setShowDeleteMappingDialog}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center">
@@ -4066,7 +5355,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
               Delete Field Mapping
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this field mapping? This action cannot be undone.
+              Are you sure you want to delete this field mapping? This action
+              cannot be undone.
             </DialogDescription>
           </DialogHeader>
 
@@ -4074,7 +5364,8 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
             <div className="py-4">
               <div className="p-3 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-950">
                 <p className="font-medium text-red-900 dark:text-red-100">
-                  {fieldMappings[mappingToDelete]?.payer} - {fieldMappings[mappingToDelete]?.field}
+                  {fieldMappings[mappingToDelete]?.payer} -{" "}
+                  {fieldMappings[mappingToDelete]?.field}
                 </p>
                 <p className="text-sm text-red-700 dark:text-red-300 mt-1">
                   {fieldMappings[mappingToDelete]?.mapping}
@@ -4084,7 +5375,10 @@ function SettingsPageContent({ initialAutomationSettings, initialNotificationSet
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteMappingDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteMappingDialog(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmDeleteMapping}>
@@ -4130,7 +5424,11 @@ function SettingsLoading() {
 }
 
 // Main exported component with Suspense boundary
-export default function SettingsClient({ initialAutomationSettings, initialNotificationSettings, initialValidationSettings }: SettingsProps) {
+export default function SettingsClient({
+  initialAutomationSettings,
+  initialNotificationSettings,
+  initialValidationSettings,
+}: SettingsProps) {
   return (
     <Suspense fallback={<SettingsLoading />}>
       <SettingsPageContent
