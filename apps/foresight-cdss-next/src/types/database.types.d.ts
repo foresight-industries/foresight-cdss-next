@@ -20,6 +20,7 @@ export type Database = {
           address_line_2: string | null
           city: string
           created_at: string | null
+          deleted_at: string | null
           patient_id: number
           state: string
           updated_address: boolean
@@ -33,6 +34,7 @@ export type Database = {
           address_line_2?: string | null
           city: string
           created_at?: string | null
+          deleted_at?: string | null
           patient_id: number
           state: string
           updated_address?: boolean
@@ -46,6 +48,7 @@ export type Database = {
           address_line_2?: string | null
           city?: string
           created_at?: string | null
+          deleted_at?: string | null
           patient_id?: number
           state?: string
           updated_address?: boolean
@@ -88,6 +91,7 @@ export type Database = {
           code_type: Database["public"]["Enums"]["adjustment_code_type"]
           created_at: string | null
           description: string
+          updated_at: string | null
         }
         Insert: {
           action_required?: boolean | null
@@ -98,6 +102,7 @@ export type Database = {
           code_type: Database["public"]["Enums"]["adjustment_code_type"]
           created_at?: string | null
           description: string
+          updated_at?: string | null
         }
         Update: {
           action_required?: boolean | null
@@ -108,12 +113,13 @@ export type Database = {
           code_type?: Database["public"]["Enums"]["adjustment_code_type"]
           created_at?: string | null
           description?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
       analytics_event: {
         Row: {
-          created_at: string | null
+          created_at: string
           event_category:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
@@ -127,7 +133,7 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           event_category?:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
@@ -141,7 +147,7 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           event_category?:
             | Database["public"]["Enums"]["analytics_event_category"]
             | null
@@ -167,6 +173,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "analytics_event_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
           {
@@ -257,6 +270,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "api_key_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       api_version: {
@@ -266,6 +286,7 @@ export type Database = {
           deprecated_at: string | null
           release_date: string
           sunset_at: string | null
+          updated_at: string | null
           version: string
         }
         Insert: {
@@ -274,6 +295,7 @@ export type Database = {
           deprecated_at?: string | null
           release_date: string
           sunset_at?: string | null
+          updated_at?: string | null
           version: string
         }
         Update: {
@@ -282,6 +304,7 @@ export type Database = {
           deprecated_at?: string | null
           release_date?: string
           sunset_at?: string | null
+          updated_at?: string | null
           version?: string
         }
         Relationships: []
@@ -292,7 +315,7 @@ export type Database = {
           appeal_level: number | null
           appeal_type: Database["public"]["Enums"]["appeal_level"] | null
           claim_id: string | null
-          created_at: string | null
+          created_at: string
           created_by: string | null
           decision: string | null
           decision_date: string | null
@@ -303,16 +326,16 @@ export type Database = {
           response_due_date: string | null
           status: Database["public"]["Enums"]["appeal_status"] | null
           submission_date: string | null
-          supporting_docs: Json | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           appeal_letter_path?: string | null
           appeal_level?: number | null
           appeal_type?: Database["public"]["Enums"]["appeal_level"] | null
           claim_id?: string | null
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           decision?: string | null
           decision_date?: string | null
@@ -323,16 +346,16 @@ export type Database = {
           response_due_date?: string | null
           status?: Database["public"]["Enums"]["appeal_status"] | null
           submission_date?: string | null
-          supporting_docs?: Json | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           appeal_letter_path?: string | null
           appeal_level?: number | null
           appeal_type?: Database["public"]["Enums"]["appeal_level"] | null
           claim_id?: string | null
-          created_at?: string | null
+          created_at?: string
           created_by?: string | null
           decision?: string | null
           decision_date?: string | null
@@ -343,9 +366,9 @@ export type Database = {
           response_due_date?: string | null
           status?: Database["public"]["Enums"]["appeal_status"] | null
           submission_date?: string | null
-          supporting_docs?: Json | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -411,6 +434,27 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "appeal_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "appeal_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "appeal_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
         ]
       }
       appointment: {
@@ -418,7 +462,7 @@ export type Database = {
           appointment_type: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at: string | null
           confirmation_sent_at: string | null
-          created_at: string | null
+          created_at: string
           duration_minutes: number | null
           encounter_created: boolean | null
           encounter_id: string | null
@@ -432,13 +476,13 @@ export type Database = {
           service_location_id: string | null
           status: Database["public"]["Enums"]["appointment_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           appointment_type?: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at?: string | null
           confirmation_sent_at?: string | null
-          created_at?: string | null
+          created_at?: string
           duration_minutes?: number | null
           encounter_created?: boolean | null
           encounter_id?: string | null
@@ -452,13 +496,13 @@ export type Database = {
           service_location_id?: string | null
           status?: Database["public"]["Enums"]["appointment_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           appointment_type?: Database["public"]["Enums"]["visit_type"] | null
           checked_in_at?: string | null
           confirmation_sent_at?: string | null
-          created_at?: string | null
+          created_at?: string
           duration_minutes?: number | null
           encounter_created?: boolean | null
           encounter_id?: string | null
@@ -472,7 +516,7 @@ export type Database = {
           service_location_id?: string | null
           status?: Database["public"]["Enums"]["appointment_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -536,6 +580,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "appointment_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -631,6 +682,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "automation_event_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       automation_retry: {
@@ -703,13 +761,19 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "automation_retry_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       automation_rule: {
         Row: {
           actions: Json | null
-          conditions: Json | null
-          created_at: string | null
+          created_at: string
           description: string | null
           id: string
           is_active: boolean | null
@@ -719,12 +783,11 @@ export type Database = {
           team_id: string
           trigger_config: Json | null
           trigger_type: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           actions?: Json | null
-          conditions?: Json | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           is_active?: boolean | null
@@ -734,12 +797,11 @@ export type Database = {
           team_id: string
           trigger_config?: Json | null
           trigger_type?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           actions?: Json | null
-          conditions?: Json | null
-          created_at?: string | null
+          created_at?: string
           description?: string | null
           id?: string
           is_active?: boolean | null
@@ -749,7 +811,7 @@ export type Database = {
           team_id?: string
           trigger_config?: Json | null
           trigger_type?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -764,6 +826,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "automation_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -849,6 +918,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "batch_job_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       batch_job_item: {
@@ -913,7 +989,7 @@ export type Database = {
           requires_prior_auth: boolean | null
           team_id: string
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           coinsurance_percent?: number | null
@@ -932,7 +1008,7 @@ export type Database = {
           requires_prior_auth?: boolean | null
           team_id: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           coinsurance_percent?: number | null
@@ -951,7 +1027,7 @@ export type Database = {
           requires_prior_auth?: boolean | null
           team_id?: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -982,13 +1058,21 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "benefits_coverage_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       business_rule: {
         Row: {
           applies_to_cpts: string[] | null
           applies_to_payers: number[] | null
-          created_at: string | null
+          created_at: string
+          created_by: string | null
           description: string | null
           effective_date: string | null
           id: string
@@ -999,12 +1083,14 @@ export type Database = {
           rule_name: string
           team_id: string | null
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           applies_to_cpts?: string[] | null
           applies_to_payers?: number[] | null
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
           description?: string | null
           effective_date?: string | null
           id?: string
@@ -1015,12 +1101,14 @@ export type Database = {
           rule_name: string
           team_id?: string | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           applies_to_cpts?: string[] | null
           applies_to_payers?: number[] | null
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
           description?: string | null
           effective_date?: string | null
           id?: string
@@ -1031,9 +1119,24 @@ export type Database = {
           rule_name?: string
           team_id?: string | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "business_rule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
           {
             foreignKeyName: "business_rule_team_id_fkey"
             columns: ["team_id"]
@@ -1048,6 +1151,240 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "business_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "business_rule_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+        ]
+      }
+      business_rule_action: {
+        Row: {
+          action_type: string
+          action_value: string | null
+          business_rule_id: string
+          continue_on_error: boolean | null
+          created_at: string
+          execution_order: number | null
+          id: string
+          is_active: boolean
+          parameters: Json | null
+          priority: number | null
+          target_field: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          action_value?: string | null
+          business_rule_id: string
+          continue_on_error?: boolean | null
+          created_at?: string
+          execution_order?: number | null
+          id?: string
+          is_active?: boolean
+          parameters?: Json | null
+          priority?: number | null
+          target_field?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          action_value?: string | null
+          business_rule_id?: string
+          continue_on_error?: boolean | null
+          created_at?: string
+          execution_order?: number | null
+          id?: string
+          is_active?: boolean
+          parameters?: Json | null
+          priority?: number | null
+          target_field?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_rule_action_business_rule_id_fkey"
+            columns: ["business_rule_id"]
+            isOneToOne: false
+            referencedRelation: "business_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "business_rule_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_action_rule"
+            columns: ["business_rule_id"]
+            isOneToOne: false
+            referencedRelation: "business_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      business_rule_condition: {
+        Row: {
+          business_rule_id: string
+          condition_group: number
+          created_at: string
+          description: string | null
+          field_path: string
+          id: string
+          is_active: boolean
+          logical_operator: string
+          operator: string
+          priority: number | null
+          team_id: string
+          updated_at: string
+          value: string | null
+          value_type: string
+        }
+        Insert: {
+          business_rule_id: string
+          condition_group?: number
+          created_at?: string
+          description?: string | null
+          field_path: string
+          id?: string
+          is_active?: boolean
+          logical_operator?: string
+          operator: string
+          priority?: number | null
+          team_id: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Update: {
+          business_rule_id?: string
+          condition_group?: number
+          created_at?: string
+          description?: string | null
+          field_path?: string
+          id?: string
+          is_active?: boolean
+          logical_operator?: string
+          operator?: string
+          priority?: number | null
+          team_id?: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_rule_condition_business_rule_id_fkey"
+            columns: ["business_rule_id"]
+            isOneToOne: false
+            referencedRelation: "business_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "business_rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_condition_rule"
+            columns: ["business_rule_id"]
+            isOneToOne: false
+            referencedRelation: "business_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_business_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       claim: {
@@ -1057,7 +1394,9 @@ export type Database = {
           auto_submitted: boolean | null
           claim_number: string | null
           confidence: number | null
-          created_at: string | null
+          created_at: string
+          created_by: string | null
+          deleted_at: string | null
           encounter_id: string
           field_confidences: Json | null
           id: string
@@ -1069,10 +1408,10 @@ export type Database = {
           rejected_at: string | null
           status: Database["public"]["Enums"]["claim_status"]
           submitted_at: string | null
-          suggested_fixes: Json[] | null
           team_id: string | null
           total_amount: number
-          updated_at: string | null
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           accepted_at?: string | null
@@ -1080,7 +1419,9 @@ export type Database = {
           auto_submitted?: boolean | null
           claim_number?: string | null
           confidence?: number | null
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
           encounter_id: string
           field_confidences?: Json | null
           id: string
@@ -1092,10 +1433,10 @@ export type Database = {
           rejected_at?: string | null
           status?: Database["public"]["Enums"]["claim_status"]
           submitted_at?: string | null
-          suggested_fixes?: Json[] | null
           team_id?: string | null
           total_amount: number
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           accepted_at?: string | null
@@ -1103,7 +1444,9 @@ export type Database = {
           auto_submitted?: boolean | null
           claim_number?: string | null
           confidence?: number | null
-          created_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deleted_at?: string | null
           encounter_id?: string
           field_confidences?: Json | null
           id?: string
@@ -1115,12 +1458,26 @@ export type Database = {
           rejected_at?: string | null
           status?: Database["public"]["Enums"]["claim_status"]
           submitted_at?: string | null
-          suggested_fixes?: Json[] | null
           team_id?: string | null
           total_amount?: number
-          updated_at?: string | null
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "claim_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
           {
             foreignKeyName: "claim_encounter_id_fkey"
             columns: ["encounter_id"]
@@ -1155,6 +1512,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "claim_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "claim_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "claim_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
           },
         ]
       }
@@ -1239,6 +1617,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "claim_attachment_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -1345,6 +1730,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "claim_line_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -1530,6 +1922,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "claim_validation_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       clearinghouse_batch: {
@@ -1606,6 +2005,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "clearinghouse_batch_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       clearinghouse_connection: {
@@ -1623,7 +2029,7 @@ export type Database = {
             | null
           team_id: string
           test_mode: boolean | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           clearinghouse_name?: string | null
@@ -1639,7 +2045,7 @@ export type Database = {
             | null
           team_id: string
           test_mode?: boolean | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           clearinghouse_name?: string | null
@@ -1655,7 +2061,7 @@ export type Database = {
             | null
           team_id?: string
           test_mode?: boolean | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1670,6 +2076,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "clearinghouse_connection_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -1724,6 +2137,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "clerk_user_sync_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       clerk_webhook_log: {
@@ -1756,6 +2176,7 @@ export type Database = {
       clinician: {
         Row: {
           created_at: string
+          deleted_at: string | null
           dosespot_provider_id: number | null
           first_name: string | null
           id: number
@@ -1769,6 +2190,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           dosespot_provider_id?: number | null
           first_name?: string | null
           id?: number
@@ -1782,6 +2204,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           dosespot_provider_id?: number | null
           first_name?: string | null
           id?: number
@@ -1808,6 +2231,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "clinician_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       collection_account: {
@@ -1823,7 +2253,7 @@ export type Database = {
           status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           agency_name?: string | null
@@ -1837,7 +2267,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_balance: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           agency_name?: string | null
@@ -1851,7 +2281,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           total_balance?: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1887,6 +2317,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "collection_account_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -1984,6 +2421,62 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "communication_log_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      confidence_thresholds: {
+        Row: {
+          created_at: string | null
+          field_name: string
+          id: string
+          team_id: string | null
+          threshold_percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string | null
+          field_name: string
+          id?: string
+          team_id?: string | null
+          threshold_percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string | null
+          field_name?: string
+          id?: string
+          team_id?: string | null
+          threshold_percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "confidence_thresholds_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "confidence_thresholds_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "confidence_thresholds_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       cpt_code_master: {
@@ -2002,7 +2495,7 @@ export type Database = {
           rvu_work: number | null
           termination_date: string | null
           typical_modifiers: string[] | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           category?: string | null
@@ -2019,7 +2512,7 @@ export type Database = {
           rvu_work?: number | null
           termination_date?: string | null
           typical_modifiers?: string[] | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           category?: string | null
@@ -2036,7 +2529,7 @@ export type Database = {
           rvu_work?: number | null
           termination_date?: string | null
           typical_modifiers?: string[] | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2055,7 +2548,7 @@ export type Database = {
           source_claim_id: string | null
           status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           amount: number
@@ -2071,7 +2564,7 @@ export type Database = {
           source_claim_id?: string | null
           status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           amount?: number
@@ -2087,7 +2580,7 @@ export type Database = {
           source_claim_id?: string | null
           status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2167,11 +2660,18 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "credit_balance_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       custom_field: {
         Row: {
-          created_at: string | null
+          created_at: string
           display_order: number | null
           entity_type: string
           field_config: Json | null
@@ -2182,10 +2682,10 @@ export type Database = {
           is_active: boolean | null
           is_required: boolean | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           display_order?: number | null
           entity_type: string
           field_config?: Json | null
@@ -2196,10 +2696,10 @@ export type Database = {
           is_active?: boolean | null
           is_required?: boolean | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           display_order?: number | null
           entity_type?: string
           field_config?: Json | null
@@ -2210,7 +2710,7 @@ export type Database = {
           is_active?: boolean | null
           is_required?: boolean | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2225,6 +2725,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "custom_field_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -2301,6 +2808,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "custom_field_mapping_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       custom_field_value: {
@@ -2356,18 +2870,21 @@ export type Database = {
           id: string
           metric_name: string
           metric_value: Json
+          updated_at: string | null
         }
         Insert: {
           calculated_at?: string
           id?: string
           metric_name: string
           metric_value: Json
+          updated_at?: string | null
         }
         Update: {
           calculated_at?: string
           id?: string
           metric_name?: string
           metric_value?: Json
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -2375,9 +2892,9 @@ export type Database = {
         Row: {
           code: string
           created_at: string | null
-          enabled: boolean | null
           fix: Json
           id: number
+          is_active: boolean | null
           notes: string | null
           success_rate: number | null
           team_id: string | null
@@ -2387,9 +2904,9 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string | null
-          enabled?: boolean | null
           fix: Json
           id?: number
+          is_active?: boolean | null
           notes?: string | null
           success_rate?: number | null
           team_id?: string | null
@@ -2399,9 +2916,9 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string | null
-          enabled?: boolean | null
           fix?: Json
           id?: number
+          is_active?: boolean | null
           notes?: string | null
           success_rate?: number | null
           team_id?: string | null
@@ -2423,6 +2940,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "denial_playbook_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       denial_tracking: {
@@ -2432,7 +2956,7 @@ export type Database = {
           assigned_to: string | null
           carc_code: string | null
           claim_id: string | null
-          created_at: string | null
+          created_at: string
           denial_date: string
           denial_reason: string | null
           denial_type: Database["public"]["Enums"]["denial_category"] | null
@@ -2443,7 +2967,7 @@ export type Database = {
           root_cause: string | null
           status: Database["public"]["Enums"]["denial_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           appeal_deadline?: string | null
@@ -2451,7 +2975,7 @@ export type Database = {
           assigned_to?: string | null
           carc_code?: string | null
           claim_id?: string | null
-          created_at?: string | null
+          created_at?: string
           denial_date: string
           denial_reason?: string | null
           denial_type?: Database["public"]["Enums"]["denial_category"] | null
@@ -2462,7 +2986,7 @@ export type Database = {
           root_cause?: string | null
           status?: Database["public"]["Enums"]["denial_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           appeal_deadline?: string | null
@@ -2470,7 +2994,7 @@ export type Database = {
           assigned_to?: string | null
           carc_code?: string | null
           claim_id?: string | null
-          created_at?: string | null
+          created_at?: string
           denial_date?: string
           denial_reason?: string | null
           denial_type?: Database["public"]["Enums"]["denial_category"] | null
@@ -2481,7 +3005,7 @@ export type Database = {
           root_cause?: string | null
           status?: Database["public"]["Enums"]["denial_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2540,10 +3064,18 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "denial_tracking_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       document: {
         Row: {
+          appeal_id: string | null
           created_at: string | null
           document_type: Database["public"]["Enums"]["document_type"] | null
           entity_id: string | null
@@ -2553,11 +3085,14 @@ export type Database = {
           id: string
           metadata: Json | null
           mime_type: string | null
+          patient_id: number | null
+          prior_auth_id: string | null
           storage_path: string | null
           team_id: string
           uploaded_by: string | null
         }
         Insert: {
+          appeal_id?: string | null
           created_at?: string | null
           document_type?: Database["public"]["Enums"]["document_type"] | null
           entity_id?: string | null
@@ -2567,11 +3102,14 @@ export type Database = {
           id?: string
           metadata?: Json | null
           mime_type?: string | null
+          patient_id?: number | null
+          prior_auth_id?: string | null
           storage_path?: string | null
           team_id: string
           uploaded_by?: string | null
         }
         Update: {
+          appeal_id?: string | null
           created_at?: string | null
           document_type?: Database["public"]["Enums"]["document_type"] | null
           entity_id?: string | null
@@ -2581,11 +3119,55 @@ export type Database = {
           id?: string
           metadata?: Json | null
           mime_type?: string | null
+          patient_id?: number | null
+          prior_auth_id?: string | null
           storage_path?: string | null
           team_id?: string
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_appeal_id_fkey"
+            columns: ["appeal_id"]
+            isOneToOne: false
+            referencedRelation: "appeal"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "active_claims"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "document_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patient_balance_summary"
+            referencedColumns: ["patient_id"]
+          },
+          {
+            foreignKeyName: "document_prior_auth_id_fkey"
+            columns: ["prior_auth_id"]
+            isOneToOne: false
+            referencedRelation: "pa_pipeline"
+            referencedColumns: ["pa_id"]
+          },
+          {
+            foreignKeyName: "document_prior_auth_id_fkey"
+            columns: ["prior_auth_id"]
+            isOneToOne: false
+            referencedRelation: "prior_auth"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_team_id_fkey"
             columns: ["team_id"]
@@ -2598,6 +3180,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
           {
@@ -2629,7 +3218,7 @@ export type Database = {
           team_id: string | null
           template_content: string | null
           template_type: string | null
-          updated_at: string | null
+          updated_at: string
           variables: Json | null
           version: number | null
         }
@@ -2645,7 +3234,7 @@ export type Database = {
           team_id?: string | null
           template_content?: string | null
           template_type?: string | null
-          updated_at?: string | null
+          updated_at?: string
           variables?: Json | null
           version?: number | null
         }
@@ -2661,7 +3250,7 @@ export type Database = {
           team_id?: string | null
           template_content?: string | null
           template_type?: string | null
-          updated_at?: string | null
+          updated_at?: string
           variables?: Json | null
           version?: number | null
         }
@@ -2708,6 +3297,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "document_template_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       drug_formulary: {
@@ -2728,7 +3324,7 @@ export type Database = {
           termination_date: string | null
           therapeutic_class: string | null
           tier: Database["public"]["Enums"]["formulary_tier"] | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string | null
@@ -2747,7 +3343,7 @@ export type Database = {
           termination_date?: string | null
           therapeutic_class?: string | null
           tier?: Database["public"]["Enums"]["formulary_tier"] | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string | null
@@ -2766,7 +3362,7 @@ export type Database = {
           termination_date?: string | null
           therapeutic_class?: string | null
           tier?: Database["public"]["Enums"]["formulary_tier"] | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2857,6 +3453,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "ehr_connection_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -2995,6 +3598,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "eligibility_cache_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       eligibility_check: {
@@ -3098,13 +3708,75 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "eligibility_check_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      em_time_rules: {
+        Row: {
+          cpt_code: string
+          created_at: string | null
+          flag_if_undocumented: boolean | null
+          id: string
+          is_active: boolean | null
+          max_minutes: number | null
+          min_minutes: number | null
+          team_id: string | null
+        }
+        Insert: {
+          cpt_code: string
+          created_at?: string | null
+          flag_if_undocumented?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          max_minutes?: number | null
+          min_minutes?: number | null
+          team_id?: string | null
+        }
+        Update: {
+          cpt_code?: string
+          created_at?: string | null
+          flag_if_undocumented?: boolean | null
+          id?: string
+          is_active?: boolean | null
+          max_minutes?: number | null
+          min_minutes?: number | null
+          team_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "em_time_rules_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "em_time_rules_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "em_time_rules_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       encounter: {
         Row: {
           appointment_id: string | null
           cpt: string
-          created_at: string | null
+          created_at: string
           dos: string
           duration_minutes: number | null
           icd10: string
@@ -3117,13 +3789,13 @@ export type Database = {
           service_location_id: string | null
           team_id: string | null
           units: number | null
-          updated_at: string | null
+          updated_at: string
           visit_type: Database["public"]["Enums"]["visit_type"] | null
         }
         Insert: {
           appointment_id?: string | null
           cpt: string
-          created_at?: string | null
+          created_at?: string
           dos: string
           duration_minutes?: number | null
           icd10: string
@@ -3136,13 +3808,13 @@ export type Database = {
           service_location_id?: string | null
           team_id?: string | null
           units?: number | null
-          updated_at?: string | null
+          updated_at?: string
           visit_type?: Database["public"]["Enums"]["visit_type"] | null
         }
         Update: {
           appointment_id?: string | null
           cpt?: string
-          created_at?: string | null
+          created_at?: string
           dos?: string
           duration_minutes?: number | null
           icd10?: string
@@ -3155,7 +3827,7 @@ export type Database = {
           service_location_id?: string | null
           team_id?: string | null
           units?: number | null
-          updated_at?: string | null
+          updated_at?: string
           visit_type?: Database["public"]["Enums"]["visit_type"] | null
         }
         Relationships: [
@@ -3213,6 +3885,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "encounter_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -3341,6 +4020,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "failed_job_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       fee_schedule: {
@@ -3359,7 +4045,7 @@ export type Database = {
           percentage_of_billed: number | null
           team_id: string
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           allowed_amount?: number | null
@@ -3376,7 +4062,7 @@ export type Database = {
           percentage_of_billed?: number | null
           team_id: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           allowed_amount?: number | null
@@ -3393,7 +4079,7 @@ export type Database = {
           percentage_of_billed?: number | null
           team_id?: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -3422,6 +4108,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fee_schedule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -3481,6 +4174,89 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "fhir_resource_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      field_confidence: {
+        Row: {
+          ai_model_version: string | null
+          confidence_score: number
+          created_at: string
+          entity_id: string
+          entity_type: string
+          extraction_method: string | null
+          field_name: string
+          id: string
+          model_type: string | null
+          original_value: string | null
+          processing_stage: string | null
+          suggested_value: string | null
+          team_id: string
+          updated_at: string
+          validation_flags: string[] | null
+        }
+        Insert: {
+          ai_model_version?: string | null
+          confidence_score: number
+          created_at?: string
+          entity_id: string
+          entity_type: string
+          extraction_method?: string | null
+          field_name: string
+          id?: string
+          model_type?: string | null
+          original_value?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id: string
+          updated_at?: string
+          validation_flags?: string[] | null
+        }
+        Update: {
+          ai_model_version?: string | null
+          confidence_score?: number
+          created_at?: string
+          entity_id?: string
+          entity_type?: string
+          extraction_method?: string | null
+          field_name?: string
+          id?: string
+          model_type?: string | null
+          original_value?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id?: string
+          updated_at?: string
+          validation_flags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       field_mapping_template: {
@@ -3523,90 +4299,6 @@ export type Database = {
             columns: ["ehr_system_id"]
             isOneToOne: false
             referencedRelation: "ehr_system"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      generated_document: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          entity_id: string | null
-          entity_type: string | null
-          file_path: string | null
-          generated_content: string | null
-          id: string
-          merge_data: Json | null
-          sent_at: string | null
-          sent_to: string | null
-          status: Database["public"]["Enums"]["document_status"] | null
-          team_id: string
-          template_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          file_path?: string | null
-          generated_content?: string | null
-          id?: string
-          merge_data?: Json | null
-          sent_at?: string | null
-          sent_to?: string | null
-          status?: Database["public"]["Enums"]["document_status"] | null
-          team_id: string
-          template_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          entity_id?: string | null
-          entity_type?: string | null
-          file_path?: string | null
-          generated_content?: string | null
-          id?: string
-          merge_data?: Json | null
-          sent_at?: string | null
-          sent_to?: string | null
-          status?: Database["public"]["Enums"]["document_status"] | null
-          team_id?: string
-          template_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "generated_document_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "team_member"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "generated_document_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "work_queue_summary"
-            referencedColumns: ["assigned_to_id"]
-          },
-          {
-            foreignKeyName: "generated_document_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "generated_document_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team_metrics"
-            referencedColumns: ["team_id"]
-          },
-          {
-            foreignKeyName: "generated_document_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "document_template"
             referencedColumns: ["id"]
           },
         ]
@@ -3681,6 +4373,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "generated_report_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       icd10_code_master: {
@@ -3695,7 +4394,7 @@ export type Database = {
           parent_code: string | null
           requires_additional_digit: boolean | null
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           category?: string | null
@@ -3708,7 +4407,7 @@ export type Database = {
           parent_code?: string | null
           requires_additional_digit?: boolean | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           category?: string | null
@@ -3721,7 +4420,7 @@ export type Database = {
           parent_code?: string | null
           requires_additional_digit?: boolean | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3729,6 +4428,7 @@ export type Database = {
         Row: {
           canvas_coverage_id: string | null
           created_at: string | null
+          deleted_at: string | null
           effective_date: string | null
           group_number: string | null
           id: number
@@ -3751,6 +4451,7 @@ export type Database = {
         Insert: {
           canvas_coverage_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           effective_date?: string | null
           group_number?: string | null
           id?: number
@@ -3775,6 +4476,7 @@ export type Database = {
         Update: {
           canvas_coverage_id?: string | null
           created_at?: string | null
+          deleted_at?: string | null
           effective_date?: string | null
           group_number?: string | null
           id?: number
@@ -3846,6 +4548,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "insurance_policy_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       integration_event_log: {
@@ -3915,6 +4624,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "integration_event_log_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       kpi_definition: {
@@ -3967,6 +4683,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "kpi_definition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -4028,6 +4751,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "kpi_snapshot_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -4187,6 +4917,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "ml_prediction_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       modifier_code: {
@@ -4197,6 +4934,7 @@ export type Database = {
           modifier_type: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact: number | null
           requires_documentation: boolean | null
+          updated_at: string | null
         }
         Insert: {
           code: string
@@ -4205,6 +4943,7 @@ export type Database = {
           modifier_type?: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact?: number | null
           requires_documentation?: boolean | null
+          updated_at?: string | null
         }
         Update: {
           code?: string
@@ -4213,6 +4952,7 @@ export type Database = {
           modifier_type?: Database["public"]["Enums"]["modifier_type"] | null
           pricing_impact?: number | null
           requires_documentation?: boolean | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -4275,6 +5015,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "notification_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
           {
@@ -4361,6 +5108,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "notification_template_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       pa_clinical_criteria: {
@@ -4380,7 +5134,7 @@ export type Database = {
           payer_id: number | null
           service_type: Database["public"]["Enums"]["visit_type"] | null
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           age_max?: number | null
@@ -4398,7 +5152,7 @@ export type Database = {
           payer_id?: number | null
           service_type?: Database["public"]["Enums"]["visit_type"] | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           age_max?: number | null
@@ -4416,7 +5170,7 @@ export type Database = {
           payer_id?: number | null
           service_type?: Database["public"]["Enums"]["visit_type"] | null
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -4516,93 +5270,19 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
-        ]
-      }
-      pa_supporting_document: {
-        Row: {
-          created_at: string | null
-          document_type: Database["public"]["Enums"]["document_type"] | null
-          file_name: string | null
-          file_path: string | null
-          id: string
-          mime_type: string | null
-          prior_auth_id: string
-          team_id: string
-          uploaded_at: string | null
-          uploaded_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"] | null
-          file_name?: string | null
-          file_path?: string | null
-          id?: string
-          mime_type?: string | null
-          prior_auth_id: string
-          team_id: string
-          uploaded_at?: string | null
-          uploaded_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"] | null
-          file_name?: string | null
-          file_path?: string | null
-          id?: string
-          mime_type?: string | null
-          prior_auth_id?: string
-          team_id?: string
-          uploaded_at?: string | null
-          uploaded_by?: string | null
-        }
-        Relationships: [
           {
-            foreignKeyName: "pa_supporting_document_prior_auth_id_fkey"
-            columns: ["prior_auth_id"]
-            isOneToOne: false
-            referencedRelation: "pa_pipeline"
-            referencedColumns: ["pa_id"]
-          },
-          {
-            foreignKeyName: "pa_supporting_document_prior_auth_id_fkey"
-            columns: ["prior_auth_id"]
-            isOneToOne: false
-            referencedRelation: "prior_auth"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pa_supporting_document_team_id_fkey"
+            foreignKeyName: "pa_requirement_rule_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pa_supporting_document_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team_metrics"
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
-          },
-          {
-            foreignKeyName: "pa_supporting_document_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "team_member"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "pa_supporting_document_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "work_queue_summary"
-            referencedColumns: ["assigned_to_id"]
           },
         ]
       }
       patient: {
         Row: {
           created_at: string
+          deleted_at: string | null
           dosespot_patient_id: number | null
           external_id: string | null
           has_verified_identity: boolean
@@ -4620,6 +5300,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           dosespot_patient_id?: number | null
           external_id?: string | null
           has_verified_identity?: boolean
@@ -4637,6 +5318,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           dosespot_patient_id?: number | null
           external_id?: string | null
           has_verified_identity?: boolean
@@ -4672,6 +5354,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "patient_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -4725,113 +5414,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "patient_balance_summary"
             referencedColumns: ["patient_id"]
-          },
-        ]
-      }
-      patient_document: {
-        Row: {
-          created_at: string | null
-          document_name: string | null
-          document_type: Database["public"]["Enums"]["document_type"] | null
-          expiration_date: string | null
-          file_path: string | null
-          file_size: number | null
-          id: string
-          is_active: boolean | null
-          metadata: Json | null
-          mime_type: string | null
-          patient_id: number | null
-          team_id: string
-          updated_at: string | null
-          verified: boolean | null
-          verified_at: string | null
-          verified_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"] | null
-          expiration_date?: string | null
-          file_path?: string | null
-          file_size?: number | null
-          id?: string
-          is_active?: boolean | null
-          metadata?: Json | null
-          mime_type?: string | null
-          patient_id?: number | null
-          team_id: string
-          updated_at?: string | null
-          verified?: boolean | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          document_name?: string | null
-          document_type?: Database["public"]["Enums"]["document_type"] | null
-          expiration_date?: string | null
-          file_path?: string | null
-          file_size?: number | null
-          id?: string
-          is_active?: boolean | null
-          metadata?: Json | null
-          mime_type?: string | null
-          patient_id?: number | null
-          team_id?: string
-          updated_at?: string | null
-          verified?: boolean | null
-          verified_at?: string | null
-          verified_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "patient_document_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "active_claims"
-            referencedColumns: ["patient_id"]
-          },
-          {
-            foreignKeyName: "patient_document_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patient"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_document_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patient_balance_summary"
-            referencedColumns: ["patient_id"]
-          },
-          {
-            foreignKeyName: "patient_document_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_document_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "team_metrics"
-            referencedColumns: ["team_id"]
-          },
-          {
-            foreignKeyName: "patient_document_verified_by_fkey"
-            columns: ["verified_by"]
-            isOneToOne: false
-            referencedRelation: "team_member"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_document_verified_by_fkey"
-            columns: ["verified_by"]
-            isOneToOne: false
-            referencedRelation: "work_queue_summary"
-            referencedColumns: ["assigned_to_id"]
           },
         ]
       }
@@ -4922,6 +5504,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "patient_payment_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -5034,6 +5623,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "patient_profile_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       patient_quality_measure: {
@@ -5052,7 +5648,7 @@ export type Database = {
           reporting_period_start: string | null
           status: Database["public"]["Enums"]["validation_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string | null
@@ -5069,7 +5665,7 @@ export type Database = {
           reporting_period_start?: string | null
           status?: Database["public"]["Enums"]["validation_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string | null
@@ -5086,7 +5682,7 @@ export type Database = {
           reporting_period_start?: string | null
           status?: Database["public"]["Enums"]["validation_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -5129,6 +5725,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "patient_quality_measure_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -5227,6 +5830,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "patient_statement_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       payer: {
@@ -5270,6 +5880,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -5352,6 +5969,290 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "payer_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      payer_override_action: {
+        Row: {
+          action_type: string
+          attachment_types: string[] | null
+          created_at: string
+          id: string
+          is_conditional: boolean | null
+          modifier_codes: string[] | null
+          override_value: string | null
+          payer_override_rule_id: string
+          priority: number | null
+          target_field: string | null
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          attachment_types?: string[] | null
+          created_at?: string
+          id?: string
+          is_conditional?: boolean | null
+          modifier_codes?: string[] | null
+          override_value?: string | null
+          payer_override_rule_id: string
+          priority?: number | null
+          target_field?: string | null
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          attachment_types?: string[] | null
+          created_at?: string
+          id?: string
+          is_conditional?: boolean | null
+          modifier_codes?: string[] | null
+          override_value?: string | null
+          payer_override_rule_id?: string
+          priority?: number | null
+          target_field?: string | null
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_payer_override_action_rule"
+            columns: ["payer_override_rule_id"]
+            isOneToOne: false
+            referencedRelation: "payer_override_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_action_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_override_action_payer_override_rule_id_fkey"
+            columns: ["payer_override_rule_id"]
+            isOneToOne: false
+            referencedRelation: "payer_override_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_override_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_override_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_override_action_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      payer_override_condition: {
+        Row: {
+          applies_to_cpt_codes: string[] | null
+          applies_to_place_of_service: string[] | null
+          condition_group: number
+          created_at: string
+          field_path: string
+          id: string
+          logical_operator: string
+          operator: string
+          payer_override_rule_id: string
+          team_id: string
+          updated_at: string
+          value: string | null
+          value_type: string
+        }
+        Insert: {
+          applies_to_cpt_codes?: string[] | null
+          applies_to_place_of_service?: string[] | null
+          condition_group?: number
+          created_at?: string
+          field_path: string
+          id?: string
+          logical_operator?: string
+          operator: string
+          payer_override_rule_id: string
+          team_id: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Update: {
+          applies_to_cpt_codes?: string[] | null
+          applies_to_place_of_service?: string[] | null
+          condition_group?: number
+          created_at?: string
+          field_path?: string
+          id?: string
+          logical_operator?: string
+          operator?: string
+          payer_override_rule_id?: string
+          team_id?: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_payer_override_condition_rule"
+            columns: ["payer_override_rule_id"]
+            isOneToOne: false
+            referencedRelation: "payer_override_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_payer_override_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_override_condition_payer_override_rule_id_fkey"
+            columns: ["payer_override_rule_id"]
+            isOneToOne: false
+            referencedRelation: "payer_override_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_override_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_override_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_override_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      payer_override_rule: {
+        Row: {
+          actions: Json
+          conditions: Json
+          created_at: string | null
+          created_by: string | null
+          description: string
+          id: string
+          is_active: boolean
+          payer_name: string
+          rule_name: string
+          rule_type: string
+          team_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description: string
+          id?: string
+          is_active?: boolean
+          payer_name: string
+          rule_name: string
+          rule_type: string
+          team_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json
+          created_at?: string | null
+          created_by?: string | null
+          description?: string
+          id?: string
+          is_active?: boolean
+          payer_name?: string
+          rule_name?: string
+          rule_type?: string
+          team_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_override_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_override_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_override_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       payer_portal_credential: {
@@ -5366,7 +6267,7 @@ export type Database = {
           portal_url: string
           security_questions: Json | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
           username: string | null
         }
         Insert: {
@@ -5380,7 +6281,7 @@ export type Database = {
           portal_url: string
           security_questions?: Json | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
           username?: string | null
         }
         Update: {
@@ -5394,7 +6295,7 @@ export type Database = {
           portal_url?: string
           security_questions?: Json | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
           username?: string | null
         }
         Relationships: [
@@ -5424,6 +6325,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_portal_credential_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -5502,6 +6410,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payer_response_message_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -5674,6 +6589,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "payment_adjustment_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       payment_detail: {
@@ -5809,7 +6731,7 @@ export type Database = {
           status: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_amount: number
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           auto_charge?: boolean | null
@@ -5826,7 +6748,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["payment_status"] | null
           team_id: string
           total_amount: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           auto_charge?: boolean | null
@@ -5843,7 +6765,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["payment_status"] | null
           team_id?: string
           total_amount?: number
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -5879,6 +6801,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "payment_plan_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -6036,6 +6965,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "payment_reconciliation_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       payment_variance: {
@@ -6140,6 +7076,7 @@ export type Database = {
           description: string | null
           facility_pricing: boolean | null
           name: string
+          updated_at: string | null
         }
         Insert: {
           code: string
@@ -6147,6 +7084,7 @@ export type Database = {
           description?: string | null
           facility_pricing?: boolean | null
           name: string
+          updated_at?: string | null
         }
         Update: {
           code?: string
@@ -6154,6 +7092,7 @@ export type Database = {
           description?: string | null
           facility_pricing?: boolean | null
           name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -6225,6 +7164,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "portal_automation_task_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       prior_auth: {
@@ -6235,10 +7181,10 @@ export type Database = {
           auto_approved: boolean | null
           confidence: number | null
           created_at: string | null
+          created_by: string | null
           denied_at: string | null
           duration_days: number | null
           encounter_id: string | null
-          field_confidences: Json | null
           id: string
           indication: string | null
           issues: string[] | null
@@ -6249,9 +7195,9 @@ export type Database = {
           quantity: number | null
           status: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at: string | null
-          suggested_fixes: Json[] | null
           team_id: string | null
           updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -6260,10 +7206,10 @@ export type Database = {
           auto_approved?: boolean | null
           confidence?: number | null
           created_at?: string | null
+          created_by?: string | null
           denied_at?: string | null
           duration_days?: number | null
           encounter_id?: string | null
-          field_confidences?: Json | null
           id: string
           indication?: string | null
           issues?: string[] | null
@@ -6274,9 +7220,9 @@ export type Database = {
           quantity?: number | null
           status?: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at?: string | null
-          suggested_fixes?: Json[] | null
           team_id?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -6285,10 +7231,10 @@ export type Database = {
           auto_approved?: boolean | null
           confidence?: number | null
           created_at?: string | null
+          created_by?: string | null
           denied_at?: string | null
           duration_days?: number | null
           encounter_id?: string | null
-          field_confidences?: Json | null
           id?: string
           indication?: string | null
           issues?: string[] | null
@@ -6299,11 +7245,25 @@ export type Database = {
           quantity?: number | null
           status?: Database["public"]["Enums"]["prior_auth_status"]
           submitted_at?: string | null
-          suggested_fixes?: Json[] | null
           team_id?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "prior_auth_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prior_auth_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
           {
             foreignKeyName: "prior_auth_encounter_id_fkey"
             columns: ["encounter_id"]
@@ -6359,6 +7319,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "prior_auth_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "prior_auth_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prior_auth_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
           },
         ]
       }
@@ -6448,6 +7429,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "provider_credentialing_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       provider_enrollment: {
@@ -6469,7 +7457,7 @@ export type Database = {
           revalidation_date: string | null
           team_id: string
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           can_bill?: boolean | null
@@ -6489,7 +7477,7 @@ export type Database = {
           revalidation_date?: string | null
           team_id: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           can_bill?: boolean | null
@@ -6509,7 +7497,7 @@ export type Database = {
           revalidation_date?: string | null
           team_id?: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -6554,6 +7542,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "provider_enrollment_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       provider_schedule: {
@@ -6569,7 +7564,7 @@ export type Database = {
           start_time: string
           team_id: string
           termination_date: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string | null
@@ -6583,7 +7578,7 @@ export type Database = {
           start_time: string
           team_id: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string | null
@@ -6597,7 +7592,7 @@ export type Database = {
           start_time?: string
           team_id?: string
           termination_date?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -6633,6 +7628,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "provider_schedule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -6688,6 +7690,7 @@ export type Database = {
           id: string
           identifier: string
           request_count: number | null
+          updated_at: string | null
           window_start: string
         }
         Insert: {
@@ -6698,6 +7701,7 @@ export type Database = {
           id?: string
           identifier: string
           request_count?: number | null
+          updated_at?: string | null
           window_start: string
         }
         Update: {
@@ -6708,6 +7712,7 @@ export type Database = {
           id?: string
           identifier?: string
           request_count?: number | null
+          updated_at?: string | null
           window_start?: string
         }
         Relationships: []
@@ -6727,7 +7732,7 @@ export type Database = {
           specialty: string | null
           status: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
           urgency: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized: number | null
           visits_used: number | null
@@ -6746,7 +7751,7 @@ export type Database = {
           specialty?: string | null
           status?: Database["public"]["Enums"]["automation_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized?: number | null
           visits_used?: number | null
@@ -6765,7 +7770,7 @@ export type Database = {
           specialty?: string | null
           status?: Database["public"]["Enums"]["automation_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
           urgency?: Database["public"]["Enums"]["priority_level"] | null
           visits_authorized?: number | null
           visits_used?: number | null
@@ -6841,6 +7846,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "referral_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       remittance_advice: {
@@ -6859,7 +7871,7 @@ export type Database = {
           raw_era_data: string | null
           status: Database["public"]["Enums"]["era_status"] | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           auto_posted?: boolean | null
@@ -6876,7 +7888,7 @@ export type Database = {
           raw_era_data?: string | null
           status?: Database["public"]["Enums"]["era_status"] | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           auto_posted?: boolean | null
@@ -6893,7 +7905,7 @@ export type Database = {
           raw_era_data?: string | null
           status?: Database["public"]["Enums"]["era_status"] | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -6922,6 +7934,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "remittance_advice_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -6984,6 +8003,118 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "report_definition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      rule_condition: {
+        Row: {
+          automation_rule_id: string
+          condition_group: number
+          created_at: string
+          description: string | null
+          field_name: string
+          id: string
+          is_active: boolean
+          logical_operator: string
+          operator: string
+          team_id: string
+          updated_at: string
+          value: string | null
+          value_type: string
+        }
+        Insert: {
+          automation_rule_id: string
+          condition_group?: number
+          created_at?: string
+          description?: string | null
+          field_name: string
+          id?: string
+          is_active?: boolean
+          logical_operator?: string
+          operator: string
+          team_id: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Update: {
+          automation_rule_id?: string
+          condition_group?: number
+          created_at?: string
+          description?: string | null
+          field_name?: string
+          id?: string
+          is_active?: boolean
+          logical_operator?: string
+          operator?: string
+          team_id?: string
+          updated_at?: string
+          value?: string | null
+          value_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_rule_condition_automation_rule"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "fk_rule_condition_team"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "rule_condition_automation_rule_id_fkey"
+            columns: ["automation_rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rule"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "rule_condition_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       rule_execution_log: {
@@ -7041,7 +8172,7 @@ export type Database = {
           task_name: string
           task_type: string | null
           team_id: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           created_at?: string | null
@@ -7056,7 +8187,7 @@ export type Database = {
           task_name: string
           task_type?: string | null
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           created_at?: string | null
@@ -7071,7 +8202,7 @@ export type Database = {
           task_name?: string
           task_type?: string | null
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -7086,6 +8217,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "scheduled_task_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7149,6 +8287,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "scrubbing_result_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7244,6 +8389,144 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "service_location_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      suggested_fix: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          confidence_score: number | null
+          context_metadata: Json | null
+          created_at: string
+          current_value: string | null
+          entity_id: string
+          entity_type: string
+          field_name: string
+          fix_type: string
+          id: string
+          priority: number | null
+          quality_score: number | null
+          reasoning: string | null
+          reviewed_by: string | null
+          reviewer_notes: string | null
+          rule_id: string | null
+          source: string
+          status: string
+          suggested_value: string
+          team_id: string
+          updated_at: string
+          urgency: string | null
+          validation_flags: string[] | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          confidence_score?: number | null
+          context_metadata?: Json | null
+          created_at?: string
+          current_value?: string | null
+          entity_id: string
+          entity_type: string
+          field_name: string
+          fix_type: string
+          id?: string
+          priority?: number | null
+          quality_score?: number | null
+          reasoning?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string
+          status?: string
+          suggested_value: string
+          team_id: string
+          updated_at?: string
+          urgency?: string | null
+          validation_flags?: string[] | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          confidence_score?: number | null
+          context_metadata?: Json | null
+          created_at?: string
+          current_value?: string | null
+          entity_id?: string
+          entity_type?: string
+          field_name?: string
+          fix_type?: string
+          id?: string
+          priority?: number | null
+          quality_score?: number | null
+          reasoning?: string | null
+          reviewed_by?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string
+          status?: string
+          suggested_value?: string
+          team_id?: string
+          updated_at?: string
+          urgency?: string | null
+          validation_flags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       sync_job: {
@@ -7319,6 +8602,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "sync_job_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7402,6 +8692,73 @@ export type Database = {
         }
         Relationships: []
       }
+      team_automation_config: {
+        Row: {
+          auto_approval_threshold: number
+          confidence_score_enabled: boolean
+          created_at: string | null
+          enable_auto_epa: boolean
+          enable_auto_submission: boolean
+          enable_bulk_processing: boolean
+          global_confidence_threshold: number
+          id: string
+          max_retry_attempts: number
+          require_review_threshold: number
+          team_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          auto_approval_threshold?: number
+          confidence_score_enabled?: boolean
+          created_at?: string | null
+          enable_auto_epa?: boolean
+          enable_auto_submission?: boolean
+          enable_bulk_processing?: boolean
+          global_confidence_threshold?: number
+          id?: string
+          max_retry_attempts?: number
+          require_review_threshold?: number
+          team_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          auto_approval_threshold?: number
+          confidence_score_enabled?: boolean
+          created_at?: string | null
+          enable_auto_epa?: boolean
+          enable_auto_submission?: boolean
+          enable_bulk_processing?: boolean
+          global_confidence_threshold?: number
+          id?: string
+          max_retry_attempts?: number
+          require_review_threshold?: number
+          team_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_automation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_automation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "team_automation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
       team_invitation: {
         Row: {
           accepted_at: string | null
@@ -7452,6 +8809,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "team_invitation_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
           {
@@ -7524,13 +8888,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_team_member_user_profile"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profile"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "team_member_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
@@ -7542,6 +8899,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "team_member_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7586,6 +8950,107 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      team_validation_config: {
+        Row: {
+          allowed_provider_statuses: string[]
+          audit_retention_period: string
+          auto_add_modifier95: boolean
+          block_invalid_modifiers: boolean
+          block_on_missing_fields: boolean
+          created_at: string | null
+          enable_time_validation: boolean
+          enforce_credentialing: boolean
+          extract_time_from_notes: boolean
+          id: string
+          log_auto_fixes: boolean
+          log_rule_applications: boolean
+          medical_necessity_threshold: number
+          modifier95_required: boolean
+          multi_state_licensure: boolean
+          require_modifier_documentation: boolean
+          show_credentialing_alerts: boolean
+          suggest_alternative_dx: boolean
+          team_id: string
+          updated_at: string | null
+          validate_modifier_combinations: boolean
+        }
+        Insert: {
+          allowed_provider_statuses?: string[]
+          audit_retention_period?: string
+          auto_add_modifier95?: boolean
+          block_invalid_modifiers?: boolean
+          block_on_missing_fields?: boolean
+          created_at?: string | null
+          enable_time_validation?: boolean
+          enforce_credentialing?: boolean
+          extract_time_from_notes?: boolean
+          id?: string
+          log_auto_fixes?: boolean
+          log_rule_applications?: boolean
+          medical_necessity_threshold?: number
+          modifier95_required?: boolean
+          multi_state_licensure?: boolean
+          require_modifier_documentation?: boolean
+          show_credentialing_alerts?: boolean
+          suggest_alternative_dx?: boolean
+          team_id: string
+          updated_at?: string | null
+          validate_modifier_combinations?: boolean
+        }
+        Update: {
+          allowed_provider_statuses?: string[]
+          audit_retention_period?: string
+          auto_add_modifier95?: boolean
+          block_invalid_modifiers?: boolean
+          block_on_missing_fields?: boolean
+          created_at?: string | null
+          enable_time_validation?: boolean
+          enforce_credentialing?: boolean
+          extract_time_from_notes?: boolean
+          id?: string
+          log_auto_fixes?: boolean
+          log_rule_applications?: boolean
+          medical_necessity_threshold?: number
+          modifier95_required?: boolean
+          multi_state_licensure?: boolean
+          require_modifier_documentation?: boolean
+          show_credentialing_alerts?: boolean
+          suggest_alternative_dx?: boolean
+          team_id?: string
+          updated_at?: string | null
+          validate_modifier_combinations?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_validation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_validation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "team_validation_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       trading_partner: {
@@ -7607,7 +9072,7 @@ export type Database = {
             | null
           team_id: string
           test_mode: boolean | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           active?: boolean | null
@@ -7627,7 +9092,7 @@ export type Database = {
             | null
           team_id: string
           test_mode?: boolean | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           active?: boolean | null
@@ -7647,7 +9112,7 @@ export type Database = {
             | null
           team_id?: string
           test_mode?: boolean | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -7662,6 +9127,98 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "trading_partner_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      user_notification_config: {
+        Row: {
+          approval_notifications: boolean
+          created_at: string | null
+          daily_digest: boolean
+          denial_notifications: boolean
+          email_address: string | null
+          email_alerts: boolean
+          id: string
+          phone_number: string | null
+          quiet_hours_end: string | null
+          quiet_hours_start: string | null
+          slack_integration: boolean
+          slack_user_id: string | null
+          system_maintenance_alerts: boolean
+          team_id: string
+          timezone: string | null
+          updated_at: string | null
+          user_id: string
+          weekly_reports: boolean
+        }
+        Insert: {
+          approval_notifications?: boolean
+          created_at?: string | null
+          daily_digest?: boolean
+          denial_notifications?: boolean
+          email_address?: string | null
+          email_alerts?: boolean
+          id?: string
+          phone_number?: string | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          slack_integration?: boolean
+          slack_user_id?: string | null
+          system_maintenance_alerts?: boolean
+          team_id: string
+          timezone?: string | null
+          updated_at?: string | null
+          user_id: string
+          weekly_reports?: boolean
+        }
+        Update: {
+          approval_notifications?: boolean
+          created_at?: string | null
+          daily_digest?: boolean
+          denial_notifications?: boolean
+          email_address?: string | null
+          email_alerts?: boolean
+          id?: string
+          phone_number?: string | null
+          quiet_hours_end?: string | null
+          quiet_hours_start?: string | null
+          slack_integration?: boolean
+          slack_user_id?: string | null
+          system_maintenance_alerts?: boolean
+          team_id?: string
+          timezone?: string | null
+          updated_at?: string | null
+          user_id?: string
+          weekly_reports?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_notification_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "user_notification_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7682,7 +9239,7 @@ export type Database = {
           location: string | null
           onboarded_at: string | null
           phone: string | null
-          role: string
+          role: string | null
           timezone: string | null
           updated_at: string
         }
@@ -7701,7 +9258,7 @@ export type Database = {
           location?: string | null
           onboarded_at?: string | null
           phone?: string | null
-          role: string
+          role?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -7720,7 +9277,7 @@ export type Database = {
           location?: string | null
           onboarded_at?: string | null
           phone?: string | null
-          role?: string
+          role?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -7737,6 +9294,13 @@ export type Database = {
             columns: ["current_team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "user_profile_current_team_id_fkey"
+            columns: ["current_team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -7767,6 +9331,58 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      visit_type_config: {
+        Row: {
+          created_at: string | null
+          enabled: boolean | null
+          enforce_pos: boolean | null
+          id: string
+          required_pos_codes: string[] | null
+          team_id: string | null
+          visit_type: Database["public"]["Enums"]["visit_type"]
+        }
+        Insert: {
+          created_at?: string | null
+          enabled?: boolean | null
+          enforce_pos?: boolean | null
+          id?: string
+          required_pos_codes?: string[] | null
+          team_id?: string | null
+          visit_type: Database["public"]["Enums"]["visit_type"]
+        }
+        Update: {
+          created_at?: string | null
+          enabled?: boolean | null
+          enforce_pos?: boolean | null
+          id?: string
+          required_pos_codes?: string[] | null
+          team_id?: string | null
+          visit_type?: Database["public"]["Enums"]["visit_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visit_type_configs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visit_type_configs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "visit_type_configs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
       }
       webhook_config: {
         Row: {
@@ -7871,6 +9487,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "webhook_config_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8048,7 +9671,7 @@ export type Database = {
           status: Database["public"]["Enums"]["work_queue_status"] | null
           team_id: string
           title: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           assigned_at?: string | null
@@ -8069,7 +9692,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["work_queue_status"] | null
           team_id: string
           title: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           assigned_at?: string | null
@@ -8090,7 +9713,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["work_queue_status"] | null
           team_id?: string
           title?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -8121,6 +9744,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "work_queue_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       work_queue_assignment_rule: {
@@ -8135,7 +9765,7 @@ export type Database = {
           rule_name: string
           skill_requirements: Json | null
           team_id: string
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
           assignment_logic?: string | null
@@ -8148,7 +9778,7 @@ export type Database = {
           rule_name: string
           skill_requirements?: Json | null
           team_id: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
           assignment_logic?: string | null
@@ -8161,7 +9791,7 @@ export type Database = {
           rule_name?: string
           skill_requirements?: Json | null
           team_id?: string
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
@@ -8176,6 +9806,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "work_queue_assignment_rule_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8233,6 +9870,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "workflow_execution_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       workflow_state: {
@@ -8288,6 +9932,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "workflow_state_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8369,6 +10020,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "x12_transaction_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
     }
@@ -8396,6 +10054,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "prior_auth_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8426,6 +10091,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "claim_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       active_claims: {
@@ -8454,7 +10126,6 @@ export type Database = {
           rejected_at: string | null
           status: Database["public"]["Enums"]["claim_status"] | null
           submitted_at: string | null
-          suggested_fixes: Json[] | null
           total_amount: number | null
           updated_at: string | null
         }
@@ -8527,7 +10198,27 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "claim_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
+      }
+      audit_field_status: {
+        Row: {
+          created_at_nullable: string | null
+          has_created_at: string | null
+          has_created_by: string | null
+          has_update_trigger: string | null
+          has_updated_at: string | null
+          has_updated_by: string | null
+          table_name: unknown | null
+          updated_at_nullable: string | null
+        }
+        Relationships: []
       }
       automation_metrics: {
         Row: {
@@ -8569,6 +10260,182 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "claim_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      claim_field_confidence_view: {
+        Row: {
+          ai_model_version: string | null
+          claim_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          field_name: string | null
+          id: string | null
+          model_type: string | null
+          original_value: string | null
+          processing_stage: string | null
+          suggested_value: string | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_model_version?: string | null
+          claim_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          field_name?: string | null
+          id?: string | null
+          model_type?: string | null
+          original_value?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_model_version?: string | null
+          claim_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          field_name?: string | null
+          id?: string | null
+          model_type?: string | null
+          original_value?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      claim_suggested_fix_view: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          claim_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          current_value: string | null
+          field_name: string | null
+          fix_type: string | null
+          id: string | null
+          priority: number | null
+          reasoning: string | null
+          reviewer_notes: string | null
+          rule_id: string | null
+          source: string | null
+          status: string | null
+          suggested_value: string | null
+          team_id: string | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          claim_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value?: string | null
+          field_name?: string | null
+          fix_type?: string | null
+          id?: string | null
+          priority?: number | null
+          reasoning?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string | null
+          status?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          claim_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          current_value?: string | null
+          field_name?: string | null
+          fix_type?: string | null
+          id?: string | null
+          priority?: number | null
+          reasoning?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string | null
+          status?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8644,6 +10511,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "denial_tracking_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       financial_performance: {
@@ -8675,7 +10549,111 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "encounter_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
+      }
+      generated_document_view: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          entity_id: string | null
+          entity_type: string | null
+          file_path: string | null
+          generated_content: string | null
+          id: string | null
+          merge_data: Json | null
+          sent_at: string | null
+          sent_to: string | null
+          status: string | null
+          team_id: string | null
+          template_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          file_path?: string | null
+          generated_content?: never
+          id?: string | null
+          merge_data?: never
+          sent_at?: never
+          sent_to?: never
+          status?: never
+          team_id?: string | null
+          template_id?: never
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
+          file_path?: string | null
+          generated_content?: never
+          id?: string | null
+          merge_data?: never
+          sent_at?: never
+          sent_to?: never
+          status?: never
+          team_id?: string | null
+          template_id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_uploaded_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_uploaded_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+        ]
+      }
+      index_usage_stats: {
+        Row: {
+          idx_scan: number | null
+          idx_tup_fetch: number | null
+          idx_tup_read: number | null
+          index_size: string | null
+          indexname: unknown | null
+          schemaname: unknown | null
+          tablename: unknown | null
+          usage_level: string | null
+        }
+        Relationships: []
       }
       integration_health: {
         Row: {
@@ -8727,6 +10705,88 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "prior_auth_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      pa_supporting_document_view: {
+        Row: {
+          created_at: string | null
+          document_type: Database["public"]["Enums"]["document_type"] | null
+          file_name: string | null
+          file_path: string | null
+          id: string | null
+          mime_type: string | null
+          prior_auth_id: string | null
+          team_id: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string | null
+          mime_type?: string | null
+          prior_auth_id?: string | null
+          team_id?: string | null
+          uploaded_at?: never
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
+          file_name?: string | null
+          file_path?: string | null
+          id?: string | null
+          mime_type?: string | null
+          prior_auth_id?: string | null
+          team_id?: string | null
+          uploaded_at?: never
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
         ]
       }
       patient_balance_summary: {
@@ -8758,6 +10818,86 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "patient_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
+      patient_document_view: {
+        Row: {
+          created_at: string | null
+          document_name: string | null
+          document_type: Database["public"]["Enums"]["document_type"] | null
+          expiration_date: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string | null
+          is_active: boolean | null
+          metadata: Json | null
+          mime_type: string | null
+          patient_id: number | null
+          team_id: string | null
+          updated_at: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          created_at?: string | null
+          document_name?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
+          expiration_date?: never
+          file_path?: string | null
+          file_size?: number | null
+          id?: string | null
+          is_active?: never
+          metadata?: never
+          mime_type?: string | null
+          patient_id?: never
+          team_id?: string | null
+          updated_at?: string | null
+          verified?: never
+        }
+        Update: {
+          created_at?: string | null
+          document_name?: string | null
+          document_type?: Database["public"]["Enums"]["document_type"] | null
+          expiration_date?: never
+          file_path?: string | null
+          file_size?: number | null
+          id?: string | null
+          is_active?: never
+          metadata?: never
+          mime_type?: string | null
+          patient_id?: never
+          team_id?: string | null
+          updated_at?: string | null
+          verified?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "document_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -8792,6 +10932,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "claim_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       payment_posting_activity: {
@@ -8811,13 +10958,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "fk_team_member_user_profile"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profile"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "payment_posting_session_posted_by_fkey"
             columns: ["posted_by"]
             isOneToOne: false
@@ -8836,6 +10976,73 @@ export type Database = {
         }
         Relationships: []
       }
+      prior_auth_field_confidence_view: {
+        Row: {
+          ai_model_version: string | null
+          confidence_score: number | null
+          created_at: string | null
+          field_name: string | null
+          id: string | null
+          model_type: string | null
+          original_value: string | null
+          prior_auth_id: string | null
+          processing_stage: string | null
+          suggested_value: string | null
+          team_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_model_version?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          field_name?: string | null
+          id?: string | null
+          model_type?: string | null
+          original_value?: string | null
+          prior_auth_id?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_model_version?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          field_name?: string | null
+          id?: string | null
+          model_type?: string | null
+          original_value?: string | null
+          prior_auth_id?: string | null
+          processing_stage?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "field_confidence_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
+      }
       prior_auth_metrics: {
         Row: {
           approved: number | null
@@ -8846,6 +11053,114 @@ export type Database = {
           week: string | null
         }
         Relationships: []
+      }
+      prior_auth_suggested_fix_view: {
+        Row: {
+          applied_at: string | null
+          applied_by: string | null
+          confidence_score: number | null
+          coverage_impact: string | null
+          created_at: string | null
+          current_value: string | null
+          field_name: string | null
+          fix_type: string | null
+          id: string | null
+          medical_necessity_impact: string | null
+          prior_auth_id: string | null
+          priority: number | null
+          reasoning: string | null
+          reviewer_notes: string | null
+          rule_id: string | null
+          source: string | null
+          status: string | null
+          suggested_value: string | null
+          team_id: string | null
+          updated_at: string | null
+          urgency: string | null
+        }
+        Insert: {
+          applied_at?: string | null
+          applied_by?: string | null
+          confidence_score?: number | null
+          coverage_impact?: never
+          created_at?: string | null
+          current_value?: string | null
+          field_name?: string | null
+          fix_type?: string | null
+          id?: string | null
+          medical_necessity_impact?: never
+          prior_auth_id?: string | null
+          priority?: number | null
+          reasoning?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string | null
+          status?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Update: {
+          applied_at?: string | null
+          applied_by?: string | null
+          confidence_score?: number | null
+          coverage_impact?: never
+          created_at?: string | null
+          current_value?: string | null
+          field_name?: string | null
+          fix_type?: string | null
+          id?: string | null
+          medical_necessity_impact?: never
+          prior_auth_id?: string | null
+          priority?: number | null
+          reasoning?: string | null
+          reviewer_notes?: string | null
+          rule_id?: string | null
+          source?: string | null
+          status?: string | null
+          suggested_value?: string | null
+          team_id?: string | null
+          updated_at?: string | null
+          urgency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "team_member"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "work_queue_summary"
+            referencedColumns: ["assigned_to_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "suggested_fix_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
+        ]
       }
       provider_productivity: {
         Row: {
@@ -8876,6 +11191,13 @@ export type Database = {
             referencedRelation: "team_metrics"
             referencedColumns: ["team_id"]
           },
+          {
+            foreignKeyName: "encounter_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
+            referencedColumns: ["team_id"]
+          },
         ]
       }
       revenue_cycle_metrics: {
@@ -8887,6 +11209,27 @@ export type Database = {
           total_billed: number | null
           total_claims: number | null
           total_collected: number | null
+        }
+        Relationships: []
+      }
+      suggested_fix_dashboard: {
+        Row: {
+          avg_confidence: number | null
+          critical_count: number | null
+          entity_type: string | null
+          fix_count: number | null
+          high_priority_count: number | null
+          newest_fix: string | null
+          oldest_fix: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
+      suggested_indexes: {
+        Row: {
+          reason: string | null
+          suggested_columns: string | null
+          table_name: string | null
         }
         Relationships: []
       }
@@ -8902,6 +11245,70 @@ export type Database = {
           total_claims: number | null
           total_prior_auths: number | null
           total_users: number | null
+        }
+        Relationships: []
+      }
+      team_settings_unified: {
+        Row: {
+          active_automation_rules: number | null
+          active_business_rules: number | null
+          active_denial_rules: number | null
+          active_pa_rules: number | null
+          active_payer_rules: number | null
+          active_time_rules: number | null
+          allowed_provider_statuses: string[] | null
+          audit_retention_period: string | null
+          auto_add_modifier95: boolean | null
+          auto_approval_threshold: number | null
+          block_invalid_modifiers: boolean | null
+          block_on_missing_fields: boolean | null
+          confidence_score_enabled: boolean | null
+          cpt_code_threshold: number | null
+          emergency_enabled: boolean | null
+          enable_auto_epa: boolean | null
+          enable_auto_submission: boolean | null
+          enable_bulk_processing: boolean | null
+          enable_time_validation: boolean | null
+          enforce_credentialing: boolean | null
+          extract_time_from_notes: boolean | null
+          field_mappings_count: number | null
+          global_confidence_threshold: number | null
+          home_health_enabled: boolean | null
+          hospital_inpatient_enabled: boolean | null
+          hospital_outpatient_enabled: boolean | null
+          icd10_threshold: number | null
+          log_auto_fixes: boolean | null
+          log_rule_applications: boolean | null
+          max_retry_attempts: number | null
+          medical_necessity_threshold: number | null
+          modifier95_required: boolean | null
+          modifiers_threshold: number | null
+          multi_state_licensure: boolean | null
+          office_visit_enabled: boolean | null
+          other_enabled: boolean | null
+          phone_enabled: boolean | null
+          place_of_service_threshold: number | null
+          require_modifier_documentation: boolean | null
+          require_review_threshold: number | null
+          show_credentialing_alerts: boolean | null
+          skilled_nursing_enabled: boolean | null
+          suggest_alternative_dx: boolean | null
+          team_id: string | null
+          team_name: string | null
+          telehealth_enabled: boolean | null
+          urgent_care_enabled: boolean | null
+          validate_modifier_combinations: boolean | null
+        }
+        Relationships: []
+      }
+      top_fields_needing_fixes: {
+        Row: {
+          avg_confidence: number | null
+          avg_priority: number | null
+          entity_type: string | null
+          field_name: string | null
+          pending_fixes: number | null
+          total_fixes: number | null
         }
         Relationships: []
       }
@@ -8942,6 +11349,13 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "team_metrics"
+            referencedColumns: ["team_id"]
+          },
+          {
+            foreignKeyName: "work_queue_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "team_settings_unified"
             referencedColumns: ["team_id"]
           },
         ]
@@ -9098,7 +11512,7 @@ export type Database = {
           task_name: string
           task_type: string | null
           team_id: string | null
-          updated_at: string | null
+          updated_at: string
         }
       }
       get_next_work_item: {
@@ -9287,6 +11701,14 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      restore_soft_deleted_record: {
+        Args: {
+          p_record_id: string
+          p_restored_by?: string
+          p_table_name: string
+        }
+        Returns: boolean
+      }
       schedule_metrics_refresh: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -9326,6 +11748,14 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
+      soft_delete_record: {
+        Args: {
+          p_deleted_by?: string
+          p_record_id: string
+          p_table_name: string
+        }
+        Returns: boolean
+      }
       sparsevec_out: {
         Args: { "": unknown }
         Returns: unknown
@@ -9346,6 +11776,78 @@ export type Database = {
           p_team_id: string
         }
         Returns: undefined
+      }
+      update_confidence_threshold: {
+        Args: { p_field_name: string; p_team_id: string; p_threshold: number }
+        Returns: {
+          created_at: string | null
+          field_name: string
+          id: string
+          team_id: string | null
+          threshold_percentage: number | null
+          updated_at: string
+        }
+      }
+      update_team_automation_config: {
+        Args: { p_team_id: string; p_updates: Json }
+        Returns: {
+          auto_approval_threshold: number
+          confidence_score_enabled: boolean
+          created_at: string | null
+          enable_auto_epa: boolean
+          enable_auto_submission: boolean
+          enable_bulk_processing: boolean
+          global_confidence_threshold: number
+          id: string
+          max_retry_attempts: number
+          require_review_threshold: number
+          team_id: string
+          updated_at: string | null
+        }
+      }
+      update_team_validation_config: {
+        Args: { p_team_id: string; p_updates: Json }
+        Returns: {
+          allowed_provider_statuses: string[]
+          audit_retention_period: string
+          auto_add_modifier95: boolean
+          block_invalid_modifiers: boolean
+          block_on_missing_fields: boolean
+          created_at: string | null
+          enable_time_validation: boolean
+          enforce_credentialing: boolean
+          extract_time_from_notes: boolean
+          id: string
+          log_auto_fixes: boolean
+          log_rule_applications: boolean
+          medical_necessity_threshold: number
+          modifier95_required: boolean
+          multi_state_licensure: boolean
+          require_modifier_documentation: boolean
+          show_credentialing_alerts: boolean
+          suggest_alternative_dx: boolean
+          team_id: string
+          updated_at: string | null
+          validate_modifier_combinations: boolean
+        }
+      }
+      update_visit_type_config: {
+        Args: {
+          p_enabled: boolean
+          p_enforce_pos?: boolean
+          p_required_pos_codes?: string[]
+          p_team_id: string
+          p_visit_type: string
+        }
+        Returns: {
+          created_at: string | null
+          enabled: boolean | null
+          enforce_pos: boolean | null
+          id: string
+          required_pos_codes: string[] | null
+          team_id: string | null
+          visit_type: Database["public"]["Enums"]["visit_type"]
+        }
       }
       upsert_fhir_resource: {
         Args: {

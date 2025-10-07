@@ -8,7 +8,7 @@ export interface PatientSlice {
   selectedPatient: Tables<"patient"> | null;
   patientProfiles: Record<number, Tables<"patient_profile">>;
   patientDiagnoses: Record<number, Tables<"patient_diagnosis">[]>;
-  patientDocuments: Record<number, Tables<"patient_document">[]>;
+  patientDocuments: Record<number, Tables<"document">[]>;
   patientPayments: Record<number, Tables<"patient_payment">[]>;
   patientStatements: Record<number, Tables<"patient_statement">[]>;
   addresses: Record<number, Tables<"address">>;
@@ -59,12 +59,12 @@ export interface PatientSlice {
   // Patient documents actions
   setPatientDocuments: (
     patientId: number,
-    documents: Tables<"patient_document">[]
+    documents: Tables<"document">[]
   ) => void;
-  addPatientDocument: (document: Tables<"patient_document">) => void;
+  addPatientDocument: (document: Tables<"document">) => void;
   updatePatientDocument: (
     id: number,
-    updates: Partial<Tables<"patient_document">>
+    updates: Partial<Tables<"document">>
   ) => void;
   removePatientDocument: (id: number) => void;
 
@@ -485,7 +485,7 @@ export const createPatientSlice: StateCreator<
     set({ patientDocumentsLoading: true });
     try {
       const { data, error } = await supabase
-        .from("patient_document")
+        .from("document")
         .select("*")
         .eq("patient_id", patientId);
 

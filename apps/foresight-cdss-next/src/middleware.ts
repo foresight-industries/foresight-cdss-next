@@ -2,20 +2,7 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { createSupabaseMiddlewareClient } from "@/lib/supabase/server";
 
-// Reserved subdomains that should not be treated as team slugs
-const RESERVED_SUBDOMAINS = [
-  'www',
-  'api',
-  'staging',
-  'admin',
-  'support',
-  'mail',
-  'ftp',
-  'app',
-  'dashboard'
-];
-
-// Only match /api/*, but exclude /api/webhooks in logic
+// Only match auth routes
 const isUnauthenticatedRoute = createRouteMatcher([
   "/(login|signup|forgot-password|reset-password)(.*)"
 ]);
@@ -27,84 +14,57 @@ const isOnboardingRoute = createRouteMatcher([
   "/api/upload(.*)"
 ]);
 
-export default clerkMiddleware(async (auth, req) => {
-  const hostname = req.headers.get('host') || '';
-  const url = req.nextUrl.clone();
 
+export default clerkMiddleware(async (auth, req) => {
   // Skip webhook routes entirely
   if (req.url.includes("/api/webhooks")) {
     return NextResponse.next();
   }
 
-  // SUBDOMAIN ROUTING LOGIC
-  // Only process subdomains in production or when not using localhost
-  if (!hostname.includes('localhost') && !hostname.includes('127.0.0.1') && !hostname.includes('.local')) {
-    const parts = hostname.split('.');
+  // PATH-BASED TEAM ROUTING
+  // Check if this is a team route (/team/[slug]/*)
+  const pathSegments = req.nextUrl.pathname.split('/');
+  if (pathSegments[1] === 'team' && pathSegments[2]) {
+    const teamSlug = pathSegments[2];
 
-    // Handle cases like staging.api.have-foresight.app
-    if (parts.length >= 4 && parts[1] === 'api') {
-      // This is an API subdomain (staging.api, etc.) - pass through
-      return NextResponse.next();
-    }
+    try {
+      // Create Supabase client for middleware
+      const supabase = await createSupabaseMiddlewareClient();
 
-    // Handle cases like api.have-foresight.app, staging.have-foresight.app
-    if (parts.length >= 3) {
-      const subdomain = parts[0];
+      // Check if team with this slug exists
+      const { data: team, error } = await supabase
+        .from('team')
+        .select('id, slug, name, status')
+        .eq('slug', teamSlug)
+        .eq('status', 'active')
+        .single();
 
-      // Skip reserved subdomains and root domain
-      if (!RESERVED_SUBDOMAINS.includes(subdomain) &&
-          subdomain !== 'have-foresight' &&
-          subdomain !== 'www') {
-
-        // This looks like a team subdomain - validate it exists
-        const teamSlug = subdomain;
-
-        try {
-          // Create Supabase client for middleware
-          const supabase = await createSupabaseMiddlewareClient();
-
-          // Check if team with this slug exists
-          const { data: team, error } = await supabase
-            .from('team')
-            .select('id, slug, name')
-            .eq('slug', teamSlug)
-            .eq('is_active', true)
-            .single();
-
-          if (error || !team) {
-            // Team doesn't exist - redirect to main site with error
-            const redirectUrl = new URL('https://have-foresight.app/team-not-found');
-            redirectUrl.searchParams.set('slug', teamSlug);
-            return NextResponse.redirect(redirectUrl);
-          }
-
-          // Team exists - rewrite URL to include team context
-          // Rewrite subdomain.have-foresight.app/path -> have-foresight.app/team/[slug]/path
-          url.pathname = `/team/${teamSlug}${url.pathname}`;
-
-          // Continue with Clerk auth logic but with rewritten URL
-          const response = await handleClerkAuth(auth, req, url);
-
-          // Add team info to headers for use in pages
-          if (response.headers) {
-            response.headers.set('x-team-slug', teamSlug);
-            response.headers.set('x-team-id', team.id);
-            response.headers.set('x-team-name', team.name);
-          }
-
-          return response;
-
-        } catch (error) {
-          console.error('Error validating team subdomain:', error);
-          // On error, redirect to main site
-          return NextResponse.redirect(new URL('https://have-foresight.app/error'));
-        }
+      if (error || !team) {
+        // Team doesn't exist - redirect to team-not-found page
+        return NextResponse.redirect(new URL(`/team-not-found?slug=${teamSlug}`, req.url));
       }
+
+      // Team exists - continue with Clerk auth logic
+      const response = await handleClerkAuth(auth, req);
+
+      // Add team info to headers for use in pages
+      if (response.headers) {
+        response.headers.set('x-team-slug', teamSlug);
+        response.headers.set('x-team-id', team.id);
+        response.headers.set('x-team-name', team.name);
+      }
+
+      return response;
+
+    } catch (error) {
+      console.error('Error validating team:', error);
+      // On error, redirect to error page
+      return NextResponse.redirect(new URL('/error', req.url));
     }
   }
 
-  // REGULAR CLERK AUTH LOGIC (no subdomain or reserved subdomain)
-  return handleClerkAuth(auth, req, url);
+  // REGULAR CLERK AUTH LOGIC
+  return handleClerkAuth(auth, req);
 });
 
 // Extracted Clerk auth logic to reuse

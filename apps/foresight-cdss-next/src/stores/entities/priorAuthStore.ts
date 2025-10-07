@@ -8,7 +8,7 @@ export interface PriorAuthSlice {
   selectedPriorAuth: Tables<"prior_auth"> | null;
   paClinicalCriteria: Record<string, Tables<"pa_clinical_criteria">[]>;
   paRequirementRules: Record<string, Tables<"pa_requirement_rule">[]>;
-  paSupportingDocuments: Record<string, Tables<"pa_supporting_document">[]>;
+  paSupportingDocuments: Record<string, Tables<"document">[]>;
 
   // Loading states
   priorAuthsLoading: boolean;
@@ -66,12 +66,12 @@ export interface PriorAuthSlice {
   // PA supporting documents actions
   setPASupportingDocuments: (
     paId: string,
-    documents: Tables<"pa_supporting_document">[]
+    documents: Tables<"document">[]
   ) => void;
-  addPASupportingDocument: (document: Tables<"pa_supporting_document">) => void;
+  addPASupportingDocument: (document: Tables<"document">) => void;
   updatePASupportingDocument: (
     id: string,
-    updates: Partial<Tables<"pa_supporting_document">>
+    updates: Partial<Tables<"document">>
   ) => void;
   removePASupportingDocument: (id: string) => void;
 
@@ -234,7 +234,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPASupportingDocument: (document) =>
     set((state) => {
-      const paId = document.prior_auth_id;
+      const paId = document.prior_auth_id ?? "";
       const currentDocuments = state.paSupportingDocuments[paId] || [];
       return {
         paSupportingDocuments: {
@@ -373,7 +373,7 @@ export const createPriorAuthSlice: StateCreator<
     set({ paSupportingDocumentsLoading: true });
     try {
       const { data, error } = await supabase
-        .from("pa_supporting_document")
+        .from("document")
         .select("*")
         .eq("prior_auth_id", paId);
 
