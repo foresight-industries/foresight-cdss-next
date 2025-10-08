@@ -113,9 +113,9 @@ export function PADetails({ paId, onClose }: PADetailsProps) {
   };
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="p-6 space-y-6">
-        {/* Header */}
+    <div className="flex flex-col h-full">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">{mockPAData.id}</h1>
@@ -129,13 +129,6 @@ export function PADetails({ paId, onClose }: PADetailsProps) {
                 {statusConfig[mockPAData.status].label}
               </Badge>
             </div>
-            <Badge variant="outline" className={
-              mockPAData.confidence >= 90 ? 'bg-green-50 text-green-700 border-green-200' :
-              mockPAData.confidence >= 70 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-              'bg-red-50 text-red-700 border-red-200'
-            }>
-              {mockPAData.confidence}% Confidence
-            </Badge>
           </div>
         </div>
 
@@ -154,6 +147,11 @@ export function PADetails({ paId, onClose }: PADetailsProps) {
             Add Note
           </Button>
         </div>
+      </div>
+
+      {/* Scrollable Content */}
+      <div className="flex-1 h-full overflow-y-auto px-8">
+        <div className="p-8">
 
         {/* Tab Navigation */}
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
@@ -530,6 +528,7 @@ export function PADetails({ paId, onClose }: PADetailsProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
     </div>
   );
