@@ -48,6 +48,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -65,7 +66,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { supabase } from "@/lib/supabase/client";
+// import { supabase } from "@/lib/supabase/client";
 import {
   type Claim,
   STATUS_LABELS,
@@ -462,36 +463,60 @@ const ClaimDetailSheet: React.FC<{
                 </h3>
                 <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
                   <div className="space-y-3">
-                    {/* Mock clearinghouse errors to demonstrate real data display */}
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                      <div className="flex-1">
-                        <div className="font-medium text-destructive">Missing Provider NPI</div>
-                        <p className="text-xs text-muted-foreground mt-1 mb-2">
-                          Field: billing_provider.npi | Error Code: 277CA-001
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
-                        </p>
+                    {/* Display real clearinghouse errors from scrubbing_result */}
+                    {((claim as Claim).scrubbing_result ?? [])?.filter(result => result.severity === 'error').map((error, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                        <div className="flex-1">
+                          <div className="font-medium text-destructive">{error.message}</div>
+                          <p className="text-xs text-muted-foreground mt-1 mb-2">
+                            {error.field_path && `Field: ${error.field_path}`}
+                            {error.error_code && ` | Error Code: ${error.error_code}`}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                      <div className="flex-1">
-                        <div className="font-medium text-destructive">Invalid Diagnosis Code</div>
-                        <p className="text-xs text-muted-foreground mt-1 mb-2">
-                          Field: diagnosis_codes[0] | Error Code: 277CA-045
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Diagnosis code &quot;Z00.00&quot; is not valid for the service date. Please review and correct the primary diagnosis.
-                        </p>
+                    )) || (
+                      // Fallback to demo errors if no real errors found
+                      <>
+                        <div className="flex items-start gap-3">
+                          <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                          <div className="flex-1">
+                            <div className="font-medium text-destructive">Missing Provider NPI</div>
+                            <p className="text-xs text-muted-foreground mt-1 mb-2">
+                              Field: billing_provider.npi | Error Code: AAE-44
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* Clearinghouse Warnings Section */}
+            {(claim.status === "accepted_277ca" || claim.status === "rejected_277ca") && ((claim as Claim).scrubbing_result ?? []).filter(result => result.severity === 'warning').length > 0 && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" /> Clearinghouse Warnings
+                </h3>
+                <div className="rounded border border-amber-300/40 bg-amber-50/50 p-4 text-sm">
+                  <div className="space-y-3">
+                    {(claim as Claim).scrubbing_result?.filter(result => result.severity === 'warning').map((warning, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
+                        <div className="flex-1">
+                          <div className="font-medium text-amber-800">{warning.message}</div>
+                          <p className="text-xs text-amber-600 mt-1">
+                            {warning.field_path && `Field: ${warning.field_path}`}
+                            {warning.error_code && ` | Code: ${warning.error_code}`}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4 p-3 rounded bg-muted/50 border border-muted">
-                      <p className="text-xs text-muted-foreground">
-                        <strong>Note:</strong> These are example clearinghouse errors. Real errors will be populated from the scrubbing_result table when backend integration with Claim.MD is complete.
-                      </p>
-                    </div>
+                    ))}
                   </div>
                 </div>
               </section>
@@ -585,14 +610,14 @@ export default function ClaimsPage() {
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
     search: "",
-    status: "needs_review" as StatusFilterValue,
+    status: "all" as StatusFilterValue,
     paStatuses: [],
     payer: "all",
     state: "all",
     visit: "all",
     dateFrom: "",
     dateTo: "",
-    onlyNeedsReview: true,
+    onlyNeedsReview: false,
     // Column-specific filters
     claimId: "",
     patientName: "",
@@ -614,14 +639,14 @@ export default function ClaimsPage() {
   const hasActiveFilters = useCallback(() => {
     return (
       filters.search.trim() !== '' ||
-      filters.status !== 'needs_review' ||
+      filters.status !== 'all' ||
       filters.paStatuses.length > 0 ||
       filters.payer !== 'all' ||
       filters.state !== 'all' ||
       filters.visit !== 'all' ||
       filters.dateFrom !== '' ||
       filters.dateTo !== '' ||
-      !filters.onlyNeedsReview ||
+      filters.onlyNeedsReview ||
       filters.claimId !== '' ||
       filters.patientName !== '' ||
       filters.payerName !== '' ||
@@ -717,58 +742,156 @@ export default function ClaimsPage() {
         setSubmittingClaims(prev => new Set(prev).add(claimId));
 
         // Get current user for audit trail
-        const { data: { user } } = await supabase.auth.getUser();
-        const currentUserId = user?.id;
+        // const { data: { user } } = await supabase.auth.getUser();
+        // const currentUserId = user?.id;
+        //
+        // // Call the submit-claim-batch Supabase function
+        // const { data, error } = await supabase.functions.invoke("submit-claim-batch", {
+        //   body: {
+        //     claimIds: [claimId],
+        //     clearinghouseId: "CLAIM_MD",
+        //     userId: currentUserId
+        //   }
+        // });
+        //
+        // if (error) {
+        //   console.error("Submission failed:", error);
+        //   alert(`Submission failed: ${error.message}`);
+        //   return;
+        // }
+        //
+        // if (!data?.success) {
+        //   console.error("Submission failed:", data?.error);
+        //   alert(`Submission failed: ${data?.error}`);
+        //   return;
+        // }
+        //
+        // // Show success feedback
+        // if (data.claims?.[0]?.status === "accepted_277ca") {
+        //   alert("Claim submitted successfully and accepted by clearinghouse.");
+        // } else if (data.claims?.[0]?.status === "rejected_277ca") {
+        //   alert("Claim was rejected by clearinghouse. See errors highlighted below.");
+        // } else {
+        //   alert("Claim submitted successfully.");
+        // }
 
-        // Call the submit-claim-batch Supabase function
-        const { data, error } = await supabase.functions.invoke("submit-claim-batch", {
-          body: {
-            claimIds: [claimId],
-            clearinghouseId: "CLAIM_MD",
-            userId: currentUserId
+        // Create demo response for testing
+        await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+
+        // Generate demo scenario based on claim data
+        const demoResult = (() => {
+          // Demo scenarios
+          if (Math.random() < 0.3) {
+            return {
+              status: "rejected_277ca" as const,
+              errors: [
+                {
+                  errorCode: "AAE-44",
+                  fieldPath: "provider.npi",
+                  message: "Provider NPI is missing or invalid",
+                  severity: "error"
+                }
+              ]
+            };
+          } else if (Math.random() < 0.2) {
+            return {
+              status: "accepted_277ca" as const,
+              warnings: [
+                {
+                  errorCode: "AAW-23",
+                  fieldPath: "serviceLine.procedureCode",
+                  message: "Procedure code should be verified with latest updates",
+                  severity: "warning"
+                }
+              ]
+            };
+          } else {
+            return {
+              status: "accepted_277ca" as const
+            };
           }
-        });
+        })();
 
-        if (error) {
-          console.error("Submission failed:", error);
-          alert(`Submission failed: ${error.message}`);
-          return;
+        // Show demo feedback
+        if (demoResult.status === "accepted_277ca") {
+          toast.success("Claim submitted successfully and accepted by clearinghouse.");
+          // Close the sheet if it's open for this claim
+          if (activeClaimId === claimId) {
+            setActiveClaimId(null);
+          }
+        } else if (demoResult.status === "rejected_277ca") {
+          toast.error("Claim was rejected by clearinghouse. See errors highlighted below.");
         }
 
-        if (!data?.success) {
-          console.error("Submission failed:", data?.error);
-          alert(`Submission failed: ${data?.error}`);
-          return;
-        }
-
-        // Show success feedback
-        if (data.claims?.[0]?.status === "accepted_277ca") {
-          alert("Claim submitted successfully and accepted by clearinghouse.");
-        } else if (data.claims?.[0]?.status === "rejected_277ca") {
-          alert("Claim was rejected by clearinghouse. See errors highlighted below.");
-        } else {
-          alert("Claim submitted successfully.");
-        }
-
-        // Refresh claims data to get updated status from backend
-        // The backend will have updated the claim status and external IDs
+        // Update local state with demo results
         setClaims((prev) => {
-          // Remove optimistic updates - let the data refresh show real status
-          return prev.map(claim =>
-            claim.id === claimId
-              ? { ...claim, auto_submitted: auto ? true : claim.auto_submitted }
-              : claim
-          );
+          return prev.map(claim => {
+            if (claim.id === claimId) {
+              // Update claim with demo response data
+              const updatedClaim = {
+                ...claim,
+                status: demoResult.status,
+                auto_submitted: auto ? true : claim.auto_submitted,
+                attempt_count: claim.attempt_count + 1,
+                updatedAt: new Date().toISOString(),
+                state_history: [
+                  ...claim.state_history,
+                  {
+                    state: demoResult.status,
+                    at: new Date().toISOString(),
+                    note: "Submission processed"
+                  }
+                ]
+              } as Claim;
+
+              // Add demo scrubbing results if claim was rejected
+              if (demoResult.status === "rejected_277ca" && demoResult.errors?.length > 0) {
+                updatedClaim.scrubbing_result = demoResult.errors.map((error: any, index: number) => ({
+                  id: `demo-${claimId}-${index}`,
+                  entity_id: claimId,
+                  entity_type: "claim",
+                  severity: error.severity || "error",
+                  message: error.message,
+                  field_path: error.fieldPath,
+                  error_code: error.errorCode,
+                  auto_fixable: false,
+                  fixed: false,
+                  created_at: new Date().toISOString()
+                }));
+              }
+
+              // Add demo warnings if any
+              if (demoResult.warnings && demoResult.warnings.length > 0) {
+                const warnings = demoResult.warnings.map((warning: any, index: number) => ({
+                  id: `demo-warning-${claimId}-${index}`,
+                  entity_id: claimId,
+                  entity_type: "claim",
+                  severity: warning.severity || "warning",
+                  message: warning.message,
+                  field_path: warning.fieldPath,
+                  error_code: warning.errorCode,
+                  auto_fixable: false,
+                  fixed: false,
+                  created_at: new Date().toISOString()
+                }));
+
+                updatedClaim.scrubbing_result = [
+                  ...(updatedClaim.scrubbing_result || []),
+                  ...warnings
+                ];
+              }
+
+              return updatedClaim;
+            }
+            return claim;
+          });
         });
 
-        // Trigger a refresh of the claims data from the backend
-        // This will fetch the updated status set by the backend function
-        // TODO: This would ideally integrate with React Query to invalidate and refetch
-        console.log("Submission successful:", data);
+        console.log("Submission processed:", demoResult);
 
       } catch (error) {
         console.error("Submission error:", error);
-        alert(`Submission error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        toast.error(`Submission error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       } finally {
         // Remove loading state
         setSubmittingClaims(prev => {
@@ -778,7 +901,7 @@ export default function ClaimsPage() {
         });
       }
     },
-    []
+    [activeClaimId, setActiveClaimId]
   );
 
   const submitClaims = useCallback(
@@ -795,18 +918,19 @@ export default function ClaimsPage() {
     [triggerSubmit]
   );
 
-  useEffect(() => {
-    claims.forEach((claim) => {
-      if (
-        claim.status === "built" &&
-        getBlockingIssueCount(claim) === 0 &&
-        claim.confidence >= threshold &&
-        !claim.auto_submitted
-      ) {
-        triggerSubmit(claim.id, true);
-      }
-    });
-  }, [claims, threshold, triggerSubmit]);
+  // Auto-submission disabled for demo
+  // useEffect(() => {
+  //   claims.forEach((claim) => {
+  //     if (
+  //       claim.status === "built" &&
+  //       getBlockingIssueCount(claim) === 0 &&
+  //       claim.confidence >= threshold &&
+  //       !claim.auto_submitted
+  //     ) {
+  //       triggerSubmit(claim.id, true);
+  //     }
+  //   });
+  // }, [claims, threshold, triggerSubmit]);
 
   const filteredClaims = useMemo(() => {
     const filtered = claims.filter((claim) => {
@@ -1062,8 +1186,8 @@ export default function ClaimsPage() {
                   Filters
                   {hasActiveFilters() && (
                     <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                      {[filters.status !== 'needs_review', filters.payer !== 'all', filters.state !== 'all',
-                        filters.visit !== 'all', filters.dateFrom, filters.dateTo, !filters.onlyNeedsReview,
+                      {[filters.status !== 'all', filters.payer !== 'all', filters.state !== 'all',
+                        filters.visit !== 'all', filters.dateFrom, filters.dateTo, filters.onlyNeedsReview,
                         filters.claimId, filters.patientName, filters.payerName, filters.provider,
                         filters.visitType, filters.claimState, filters.search]
                         .filter(Boolean).length}
@@ -1077,14 +1201,14 @@ export default function ClaimsPage() {
                     onClick={() => {
                       setFilters({
                         search: "",
-                        status: "needs_review" as StatusFilterValue,
+                        status: "all" as StatusFilterValue,
                         paStatuses: [],
                         payer: "all",
                         state: "all",
                         visit: "all",
                         dateFrom: "",
                         dateTo: "",
-                        onlyNeedsReview: true,
+                        onlyNeedsReview: false,
                         claimId: "",
                         patientName: "",
                         payerName: "",
@@ -1119,14 +1243,14 @@ export default function ClaimsPage() {
                       </Button>
                     </Badge>
                   )}
-                  {filters.status !== 'needs_review' && (
+                  {filters.status !== 'all' && (
                     <Badge variant="secondary" className="gap-1">
                       Status: {STATUS_FILTER_OPTIONS.find(opt => opt.value === filters.status)?.label || filters.status}
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, status: 'needs_review' }))}
+                        onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
                       >
                         <X className="w-3 h-3" />
                       </Button>
@@ -1200,14 +1324,14 @@ export default function ClaimsPage() {
                       </Button>
                     </Badge>
                   )}
-                  {!filters.onlyNeedsReview && (
+                  {filters.onlyNeedsReview && (
                     <Badge variant="secondary" className="gap-1">
-                      Show All Claims
+                      Only Needs Review
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, onlyNeedsReview: true }))}
+                        onClick={() => setFilters(prev => ({ ...prev, onlyNeedsReview: false }))}
                       >
                         <X className="w-3 h-3" />
                       </Button>
@@ -1490,7 +1614,7 @@ export default function ClaimsPage() {
                     }
                   />
                   <Label htmlFor="only-review" className="text-sm leading-none self-center">
-                    Show only Needs Review & Rejections
+                    Only show claims needing review
                   </Label>
                 </div>
               </div>

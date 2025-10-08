@@ -115,27 +115,137 @@ async function generate837P(claimIds: string[]) {
   };
 }
 
-// Stub function for Claim.MD API submission
+// Enhanced demo function for realistic Claim.MD simulation
 async function submitToClearinghouse(claimData: any, clearinghouseId: string) {
-  // TODO: Implement actual Claim.MD API call
-  console.log("Submitting to Claim.MD:", {
+  console.log("🚀 Demo Mode: Submitting to Claim.MD simulation:", {
     batchId: claimData.BatchId,
     claimCount: claimData.ClaimCount,
     clearinghouseId
   });
   
-  // Return mock response for now
+  // Add realistic processing delay
+  await new Promise(resolve => setTimeout(resolve, 2000 + Math.random() * 3000));
+  
+  const processedClaims = claimData.Claims.map((claim: any) => {
+    const externalClaimId = `CMD_${claim.ClaimId}`;
+    
+    // Demo scenarios based on claim data patterns
+    const demoScenario = getDemoScenario(claim);
+    
+    return {
+      claimId: claim.ClaimId,
+      externalClaimId,
+      ...demoScenario
+    };
+  });
+  
+  // Check if any claims were rejected
+  const hasRejections = processedClaims.some(claim => claim.status === "rejected_277ca");
+  const hasAccepted = processedClaims.some(claim => claim.status === "accepted_277ca");
+  
+  let overallMessage = "Claims processed successfully (DEMO MODE)";
+  if (hasRejections && hasAccepted) {
+    overallMessage = "Batch processed with mixed results (DEMO MODE)";
+  } else if (hasRejections) {
+    overallMessage = "All claims rejected by clearinghouse (DEMO MODE)";
+  } else if (hasAccepted) {
+    overallMessage = "All claims accepted by clearinghouse (DEMO MODE)";
+  }
+  
   return {
     success: true,
     batchId: claimData.BatchId,
     externalBatchId: `CMD_${claimData.BatchId}`,
-    status: "submitted",
-    message: "Claims submitted successfully (MOCK)",
-    claims: claimData.Claims.map((claim: any) => ({
-      claimId: claim.ClaimId,
-      externalClaimId: `CMD_${claim.ClaimId}`,
-      status: "submitted"
-    }))
+    status: "processed",
+    message: overallMessage,
+    claims: processedClaims,
+    demoMode: true
+  };
+}
+
+// Generate realistic demo scenarios based on claim characteristics
+function getDemoScenario(claim: any) {
+  // Demo logic: Create realistic acceptance/rejection patterns
+  
+  // Scenario 1: Missing or invalid provider NPI (rejection)
+  if (!claim.ProviderNPI || claim.ProviderNPI === "DEFAULT_NPI") {
+    return {
+      status: "rejected_277ca",
+      errors: [
+        {
+          errorCode: "AAE-44",
+          fieldPath: "provider.npi",
+          message: "Provider NPI is missing or invalid",
+          severity: "error"
+        }
+      ]
+    };
+  }
+  
+  // Scenario 2: Invalid payer ID (rejection)
+  if (claim.PayerId && claim.PayerId.includes("invalid")) {
+    return {
+      status: "rejected_277ca", 
+      errors: [
+        {
+          errorCode: "AAE-12",
+          fieldPath: "payer.id",
+          message: "Payer ID not recognized by clearinghouse",
+          severity: "error"
+        }
+      ]
+    };
+  }
+  
+  // Scenario 3: Missing patient demographics (rejection)
+  if (!claim.PatientFirstName || !claim.PatientLastName || !claim.PatientDateOfBirth) {
+    return {
+      status: "rejected_277ca",
+      errors: [
+        {
+          errorCode: "AAE-67",
+          fieldPath: "patient.demographics",
+          message: "Patient name and date of birth are required",
+          severity: "error"
+        }
+      ]
+    };
+  }
+  
+  // Scenario 4: Procedure code warnings but acceptance
+  if (claim.ServiceLines?.some((line: any) => line.ProcedureCode === "99999")) {
+    return {
+      status: "accepted_277ca",
+      warnings: [
+        {
+          errorCode: "AAW-23",
+          fieldPath: "serviceLine.procedureCode", 
+          message: "Procedure code should be verified with latest updates",
+          severity: "warning"
+        }
+      ]
+    };
+  }
+  
+  // Scenario 5: Random rejection for demo variety (10% chance)
+  if (Math.random() < 0.1) {
+    return {
+      status: "rejected_277ca",
+      errors: [
+        {
+          errorCode: "AAE-91",
+          fieldPath: "claim.diagnosis",
+          message: "Primary diagnosis code format requires verification",
+          severity: "error"
+        }
+      ]
+    };
+  }
+  
+  // Default: Successful acceptance (most common scenario)
+  return {
+    status: "accepted_277ca",
+    warnings: []
   };
 }
 
@@ -175,18 +285,59 @@ serve(async (req) => {
     const submission = await submitToClearinghouse(claimData, clearinghouseId);
 
     if (submission.success) {
-      // Update claim statuses with external IDs
+      // Process each claim submission result
       for (const claimSubmission of submission.claims) {
+        // Update claim status based on clearinghouse response
+        const claimStatus = claimSubmission.status || "awaiting_277ca";
+        
         await supabase
           .from("claim")
           .update({
-            status: "awaiting_277ca",
+            status: claimStatus,
             submitted_at: new Date().toISOString(),
             external_claim_id: claimSubmission.externalClaimId,
             batch_id: submission.externalBatchId,
             attempt_count: supabase.sql`COALESCE(attempt_count, 0) + 1`
           })
           .eq("id", claimSubmission.claimId);
+
+        // Store clearinghouse errors in scrubbing_result table
+        if (claimSubmission.errors?.length > 0) {
+          for (const error of claimSubmission.errors) {
+            await supabase
+              .from("scrubbing_result")
+              .insert({
+                entity_id: claimSubmission.claimId,
+                entity_type: "claim",
+                severity: error.severity || "error",
+                message: error.message,
+                field_path: error.fieldPath,
+                error_code: error.errorCode,
+                auto_fixable: false,
+                fixed: false,
+                created_at: new Date().toISOString()
+              });
+          }
+        }
+
+        // Store warnings as well
+        if (claimSubmission.warnings?.length > 0) {
+          for (const warning of claimSubmission.warnings) {
+            await supabase
+              .from("scrubbing_result")
+              .insert({
+                entity_id: claimSubmission.claimId,
+                entity_type: "claim", 
+                severity: warning.severity || "warning",
+                message: warning.message,
+                field_path: warning.fieldPath,
+                error_code: warning.errorCode,
+                auto_fixable: false,
+                fixed: false,
+                created_at: new Date().toISOString()
+              });
+          }
+        }
       }
 
       return new Response(JSON.stringify({

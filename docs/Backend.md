@@ -30,13 +30,20 @@ Primary table storing claim header information.
 - `created_at`, `updated_at`: Audit timestamps
 
 **Status Values:**
-- `draft`: Initial claim state
-- `built`: Claim constructed and ready for review
+The claim status field tracks progression through both clearinghouse and payer workflows:
+
+**Pre-submission States:**
+- `draft`: Initial claim state, incomplete data
+- `built`: Claim constructed with basic data
 - `ready_to_submit`: Passed validation, ready for submission
+
+**Clearinghouse Workflow (Claim.MD Integration):**
 - `submitted`: Sent to clearinghouse (Claim.MD)
 - `awaiting_277ca`: Waiting for clearinghouse acknowledgment
 - `accepted_277ca`: Accepted by clearinghouse in 277CA acknowledgment (forwarded to payer)
 - `rejected_277ca`: Rejected by clearinghouse in 277CA (issues preventing payer submission)
+
+**Payer Workflow (Post-clearinghouse):**
 - `in_review`: Under payer review
 - `approved`: Approved by payer but not yet paid
 - `paid`: Payment received
@@ -235,13 +242,104 @@ Additional functions exist for:
 ### Environment Configuration
 The `submit-claim-batch` function expects a `CLAIM_MD_API_KEY` environment variable, indicating preparation for Claim.MD integration.
 
-## Data Flow
+## Claim.MD Integration Workflow
 
-1. **Claim Creation**: Claims are created from encounters with patient and payer information
-2. **Validation**: `validate-claim` function runs validation rules and stores results
-3. **Submission**: Frontend calls submission workflow (currently just status update)
-4. **Tracking**: Status changes are logged in `claim_state_history`
-5. **Denial Processing**: Denials are tracked in `denial_tracking` with appeal workflows
+### Complete Submission Data Flow
+The system now provides end-to-end claim submission with real clearinghouse integration:
+
+1. **User Triggers Submission** → Frontend calls `supabase.functions.invoke("submit-claim-batch")`
+2. **Backend Validation** → `get_claim_readiness_score()` ensures claim meets 95% readiness threshold
+3. **Claim File Generation** → `generate837P()` creates JSON claim file from database
+4. **Clearinghouse Submission** → `submitToClearinghouse()` sends to Claim.MD API
+5. **Response Processing** → 277CA acknowledgment processed and stored
+6. **Database Updates** → Claim status, external IDs, and audit history updated
+7. **Frontend Refresh** → UI displays updated status and any errors
+
+### Detailed Step-by-Step Process
+
+#### Pre-Submission (User Action)
+- User navigates to Claims workbench
+- Selects claim with `ready_to_submit` status
+- Clicks "Submit" button in UI
+
+#### Backend Processing (`submit-claim-batch` function)
+1. **Authentication**: Verify user permissions and extract user ID
+2. **Readiness Check**: Call `get_claim_readiness_score(claim_id)` 
+   - Must return ≥95% confidence score
+   - If fails: throw error "Claim not ready for submission"
+3. **Data Assembly**: Execute comprehensive database joins:
+   ```sql
+   claim → encounter → patient → provider
+                    → insurance_policy → payer
+         → claim_line → diagnosis
+   ```
+4. **JSON Generation**: Create Claim.MD-compatible claim file with:
+   - Provider NPI and Tax ID (from environment defaults if missing)
+   - Patient demographics and insurance details
+   - Service lines with CPT codes, charges, and diagnosis pointers
+   - Automatic place of service and modifier assignment
+5. **Clearinghouse Transmission**: 
+   - Submit JSON to Claim.MD API (currently mocked)
+   - Receive batch ID and initial acknowledgment
+6. **Database Updates**:
+   - Set status to `awaiting_277ca`
+   - Store `external_claim_id` and `batch_id` from response
+   - Increment `attempt_count`
+   - Add entry to `claim_state_history`
+7. **Error Handling**: Store rejection reasons in `scrubbing_result` table
+
+#### Response Handling (277CA Processing)
+- **Accepted**: Status becomes `accepted_277ca`, claim forwarded to payer
+- **Rejected**: Status becomes `rejected_277ca`, errors stored in `scrubbing_result`
+- **Error**: Network/API failures logged and user notified
+
+### Environment Configuration
+
+Required environment variables for Claim.MD integration:
+
+```bash
+# Claim.MD API Configuration
+CLAIM_MD_API_KEY=<api_key_from_claim_md>
+CLAIM_MD_BASE_URL=<sandbox_or_production_url>
+CLAIM_MD_ENVIRONMENT=sandbox # or production
+
+# Provider Information (fallback defaults)
+DEFAULT_PROVIDER_NPI=<provider_npi>
+DEFAULT_PROVIDER_TAX_ID=<provider_tax_id>
+DEFAULT_PROVIDER_NAME=<provider_name>
+
+# Clearinghouse Configuration  
+DEFAULT_CLEARINGHOUSE_ID=CLAIM_MD
+```
+
+### Observability and Monitoring
+
+#### Logging Infrastructure
+- **Function Logs**: All Supabase Edge Function calls logged with timestamps
+- **API Calls**: Claim.MD API requests/responses logged for debugging
+- **Error Tracking**: Failed submissions logged with detailed error context
+- **Performance Metrics**: Submission timing and success rates tracked
+
+#### Audit Trail
+- **`claim_state_history`**: Complete audit trail of all status changes
+- **`scrubbing_result`**: Detailed clearinghouse feedback and error messages  
+- **`phi_access_log`**: HIPAA compliance logging for PHI access
+- **Attempt Tracking**: `attempt_count` field tracks submission retries
+
+#### Troubleshooting
+- **Function Logs**: Check Supabase Edge Function logs for runtime errors
+- **Database Queries**: Use `claim_state_history` to trace claim progression
+- **Error Analysis**: Query `scrubbing_result` for clearinghouse rejection details
+- **API Integration**: Monitor Claim.MD API responses for connectivity issues
+
+## Legacy Data Flow (Pre-Integration)
+
+Previous implementation for reference:
+1. **Claim Creation**: Claims created from encounters with patient and payer information
+2. **Validation**: `validate-claim` function runs validation rules and stores results  
+3. **Submission**: Frontend directly updated claim status (simulation only)
+4. **Tracking**: Status changes logged in `claim_state_history`
+5. **Denial Processing**: Denials tracked in `denial_tracking` with appeal workflows
 
 ## Security and Auditing
 

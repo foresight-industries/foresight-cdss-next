@@ -7,6 +7,7 @@ import { useUser } from '@clerk/nextjs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { InvitationBanner } from '@/components/invitation/invitation-banner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
 
 export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
   const pathname = usePathname();
@@ -63,6 +64,7 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
         ) : (
           <main className="flex-1">{children}</main>
         )}
+        <Toaster />
       </div>
     );
   }
@@ -88,6 +90,7 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
       ) : (
         <main className="flex-1">{children}</main>
       )}
+      <Toaster />
     </div>
   );
 }
