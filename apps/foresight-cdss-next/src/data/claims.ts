@@ -86,6 +86,20 @@ export interface ClaimAttachment {
   type: string;
 }
 
+export interface ScrubResult {
+  id: string;
+  entity_id: string;
+  entity_type: string;
+  severity: "error" | "warning" | "info";
+  message: string;
+  field_path?: string;
+  error_code?: string;
+  auto_fixable: boolean;
+  fixed: boolean;
+  fixed_at?: string;
+  created_at: string;
+}
+
 export interface Claim {
   id: string;
   encounter_id: string;
@@ -113,6 +127,7 @@ export interface Claim {
   provider: string;
   eligibility_note?: string;
   attachments?: ClaimAttachment[];
+  scrubbing_result?: ScrubResult[];
   updatedAt: string;
   submissionOutcome?: SubmissionOutcome;
 }
@@ -492,6 +507,32 @@ export const initialClaims: Claim[] = [
     eligibility_note: "Eligibility verified via 270/271 response.",
     attachments: [
       { id: "att-5", name: "Appeal letter draft.docx", type: "docx" },
+    ],
+    scrubbing_result: [
+      {
+        id: "scrub-1",
+        entity_id: "CLM-2141",
+        entity_type: "claim",
+        severity: "error",
+        message: "Provider NPI is missing or invalid",
+        field_path: "provider.npi",
+        error_code: "AAE-44",
+        auto_fixable: false,
+        fixed: false,
+        created_at: minutesAgo(480),
+      },
+      {
+        id: "scrub-2",
+        entity_id: "CLM-2141",
+        entity_type: "claim",
+        severity: "error",
+        message: "Modifier 95 required for home video visits",
+        field_path: "serviceLine.modifiers",
+        error_code: "AAE-95",
+        auto_fixable: false,
+        fixed: false,
+        created_at: minutesAgo(480),
+      },
     ],
     updatedAt: minutesAgo(20),
     submissionOutcome: "accept",
