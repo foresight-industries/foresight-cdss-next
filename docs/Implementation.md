@@ -605,3 +605,56 @@ This implementation directly addresses the product brief's dollar-first prioriti
 - **Cross-browser Compatibility**: Uses standard React patterns ensuring consistent behavior
 
 **User Feedback Integration**: This feature was implemented based on the product brief's explicit requirement for dollar-first prioritization to improve revenue cycle management efficiency. The implementation provides immediate value while maintaining the existing user experience patterns that staff are familiar with.
+
+#### 29. Stage Analytics Display Implementation
+**Date**: October 2024  
+**Summary**: Added comprehensive RCM Stage Analytics visualization to the Analytics page to provide insights into claim processing pipeline performance, stage durations, and success rates.
+
+**Implementation Details:**
+- **Stage Analytics Computation**: Created `computeStageAnalytics` utility function in `/src/utils/stage-analytics.ts` to analyze claims data and calculate:
+  - Average Build-to-Submit duration (internal processing time)
+  - Average Submit-to-Outcome duration (payer response time)  
+  - Average Accepted-to-Paid duration (payment processing time)
+  - Initial submission outcome breakdown (accepted/rejected/denied rates)
+  - Overall success rate (final collection rate)
+  - Total processing time metrics
+
+- **RCM Analytics Component**: Built comprehensive `RCMStageAnalytics` component at `/src/components/analytics/rcm-stage-analytics.tsx` featuring:
+  - **Key Metrics Cards**: Display average total processing days, overall success rate, and total claims analyzed
+  - **Stage Duration Bar Chart**: Horizontal bar chart showing average days for each processing stage using Recharts
+  - **Initial Outcomes Pie Chart**: Visual breakdown of submission acceptance/rejection rates
+  - **Final Collection Rate Chart**: Success rate visualization with paid vs unpaid claims
+  - **Responsive Design**: Cards and charts adapt to desktop/mobile layouts
+
+- **Analytics Page Integration**: Enhanced `/src/app/team/[slug]/analytics/page.tsx` to include:
+  - RCM Stage Analytics section with clear visual separation from PA analytics
+  - Real-time computation of stage metrics from claims data using `useMemo`
+  - Updated page description to reflect both PA and RCM analytics coverage
+  - Maintains existing PA analytics while adding RCM insights below
+
+**Technical Architecture:**
+- **Data Processing**: Analyzes claim state history to calculate accurate stage durations
+- **Chart Implementation**: Uses shadcn/ui ChartContainer and Recharts for consistent styling
+- **Performance Optimization**: Memoized stage computation to prevent unnecessary recalculations
+- **Error Handling**: Graceful handling of missing data with fallback empty states
+- **Color Consistency**: Coordinated color scheme across charts (indigo, green, red, sky, orange)
+
+**Business Value:**
+- **Process Visibility**: Users can now see where claims spend the most time in the pipeline
+- **Performance Tracking**: Clear metrics on success rates and processing efficiency
+- **Bottleneck Identification**: Visual indicators highlight stages needing attention
+- **Success Rate Monitoring**: Track both initial acceptance and final collection rates
+- **Data-Driven Decisions**: Quantitative insights support process improvement initiatives
+
+**Files Created/Modified:**
+- `src/utils/stage-analytics.ts`: Core analytics computation logic
+- `src/components/analytics/rcm-stage-analytics.tsx`: Main analytics visualization component  
+- `src/app/team/[slug]/analytics/page.tsx`: Analytics page with RCM section integration
+
+**Charts and Visualizations:**
+- **Horizontal Bar Chart**: Average stage durations with day-based measurements
+- **Pie Charts**: Initial outcomes (accepted/rejected/denied) and final collection rates
+- **KPI Cards**: Key metrics with prominent numerical displays
+- **Responsive Layout**: Grid-based arrangement that adapts to screen sizes
+
+This implementation addresses the product brief's requirement for stage analytics, giving users insight into claim processing timing and success rates to support revenue cycle optimization.
