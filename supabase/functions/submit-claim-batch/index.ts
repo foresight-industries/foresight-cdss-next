@@ -11,6 +11,10 @@ if (
   throw new Error("Missing Supabase environment variables");
 }
 
+if (!Deno.env.get("CLAIM_MD_API_KEY")) {
+  throw new Error("Missing CLAIM_MD_API_KEY environment variable");
+}
+
 serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
