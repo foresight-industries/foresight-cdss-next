@@ -82,7 +82,6 @@ import {
   formatCurrency,
   formatRelativeTime,
   getBlockingIssueCount,
-  getConfidenceTone,
   issueSummary,
   applyFixToClaim,
   applyAllFixesToClaim,
@@ -173,17 +172,6 @@ const ClaimDetailSheet: React.FC<{
                 )}
               </div>
               <SheetDescription className="flex flex-wrap items-center gap-3 text-sm">
-                <span>
-                  Confidence:
-                  <span
-                    className={cn(
-                      "ml-2 font-medium",
-                      getConfidenceTone(claim.confidence)
-                    )}
-                  >
-                    {(claim.confidence * 100).toFixed(0)}%
-                  </span>
-                </span>
                 <span>Charge {formatCurrency(claim.total_amount)}</span>
                 <span>Attempt #{claim.attempt_count}</span>
               </SheetDescription>
@@ -198,7 +186,7 @@ const ClaimDetailSheet: React.FC<{
             </Button>
             <Button
               onClick={() => onSubmit(claim.id)}
-              disabled={blockingIssues > 0 || claim.status === "submitted" || submittingClaims.has(claim.id)}
+              disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || submittingClaims.has(claim.id)}
             >
               {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
             </Button>
@@ -1131,7 +1119,7 @@ export default function ClaimsPage() {
       if (!claim) {
         return true;
       }
-      return getBlockingIssueCount(claim) > 0 || claim.status === "submitted";
+      return getBlockingIssueCount(claim) > 0 || claim.status === "submitted" || claim.status === "accepted_277ca";
     });
 
   const batchResubmitDisabled =
