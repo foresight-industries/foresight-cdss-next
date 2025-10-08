@@ -13,6 +13,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
 import { epaQueueItems } from '@/data/epa-queue';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { PADetails } from "@/components/pa/pa-details";
+import { Calendar } from "@/components/ui/calendar";
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
@@ -232,7 +240,7 @@ export default function QueuePage() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <header className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">PA Queue</h1>
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">PA Queue</h1>
           <p className="text-gray-600 dark:text-gray-400">
             Manage and review prior authorization requests ({filteredData.length} items)
           </p>
@@ -1068,7 +1076,7 @@ export default function QueuePage() {
           }
         }}
       >
-        <SheetContent side="right" className="w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] p-0 overflow-hidden">
+        <SheetContent side="right" className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0">
           <SheetHeader className="sr-only">
             <SheetTitle>Prior Authorization Details</SheetTitle>
           </SheetHeader>

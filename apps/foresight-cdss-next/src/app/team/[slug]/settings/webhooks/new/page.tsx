@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,52 +18,51 @@ import {
   CheckCircle,
   Info,
   Globe,
-  Clock,
   Shield,
   Zap
 } from 'lucide-react';
-import { type WebhookConfig, WEBHOOK_EVENTS } from '@/types/webhook.types';
+import { WEBHOOK_EVENTS, type WebhookEventType } from '@/types/webhook.types';
 
 const AVAILABLE_EVENTS = [
-  { 
-    value: WEBHOOK_EVENTS.ALL, 
-    label: 'All Events', 
+  {
+    value: WEBHOOK_EVENTS.ALL,
+    label: 'All Events',
     description: 'Listen to all webhook events (includes future events)',
     category: 'General'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_CREATED, 
-    label: 'Team Created', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_CREATED,
+    label: 'Team Created',
     description: 'When a new team is created',
-    category: 'Team Management' 
+    category: 'Team Management'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_UPDATED, 
-    label: 'Team Updated', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_UPDATED,
+    label: 'Team Updated',
     description: 'When team information is modified',
     category: 'Team Management'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_DELETED, 
-    label: 'Team Deleted', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_DELETED,
+    label: 'Team Deleted',
     description: 'When a team is deleted',
     category: 'Team Management'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_MEMBER_ADDED, 
-    label: 'Member Added', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_MEMBER_ADDED,
+    label: 'Member Added',
     description: 'When a new team member joins',
     category: 'Team Members'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_MEMBER_UPDATED, 
-    label: 'Member Updated', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_MEMBER_UPDATED,
+    label: 'Member Updated',
     description: 'When team member information changes',
     category: 'Team Members'
   },
-  { 
-    value: WEBHOOK_EVENTS.TEAM_MEMBER_REMOVED, 
-    label: 'Member Removed', 
+  {
+    value: WEBHOOK_EVENTS.TEAM_MEMBER_REMOVED,
+    label: 'Member Removed',
     description: 'When a team member leaves',
     category: 'Team Members'
   }
@@ -72,13 +72,14 @@ const EVENT_CATEGORIES = [...new Set(AVAILABLE_EVENTS.map(event => event.categor
 
 export default function NewWebhookPage() {
   const router = useRouter();
+  const params = useParams();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     url: '',
-    events: [] as string[],
+    events: [] as WebhookEventType[],
     retry_count: 3,
     timeout_seconds: 30,
     environment: 'production' as 'development' | 'production',
@@ -87,7 +88,7 @@ export default function NewWebhookPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.url || formData.events.length === 0) {
       setError('Please fill in all required fields');
       return;
@@ -106,18 +107,18 @@ export default function NewWebhookPage() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push(`/team/${router.query?.slug || 'default'}/settings/webhooks?created=${data.webhook.id}`);
+        router.push(`/team/${params.slug || 'default'}/settings/webhooks?created=${data.webhook.id}`);
       } else {
         setError(data.error || 'Failed to create webhook');
       }
-    } catch (err) {
+    } catch {
       setError('Network error occurred');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleEvent = (eventValue: string) => {
+  const toggleEvent = (eventValue: WebhookEventType) => {
     setFormData(prev => ({
       ...prev,
       events: prev.events.includes(eventValue)
@@ -127,9 +128,9 @@ export default function NewWebhookPage() {
   };
 
   const toggleAllInCategory = (category: string) => {
-    const categoryEvents = AVAILABLE_EVENTS.filter(e => e.category === category).map(e => e.value);
+    const categoryEvents = AVAILABLE_EVENTS.filter(e => e.category === category).map(e => e.value) as WebhookEventType[];
     const allSelected = categoryEvents.every(event => formData.events.includes(event));
-    
+
     if (allSelected) {
       setFormData(prev => ({
         ...prev,
@@ -147,9 +148,9 @@ export default function NewWebhookPage() {
     <div className="space-y-6 max-w-4xl mx-auto p-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          size="sm" 
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => router.back()}
           className="flex items-center gap-2"
         >
@@ -203,9 +204,9 @@ export default function NewWebhookPage() {
 
               <div>
                 <Label htmlFor="environment">Environment</Label>
-                <Select 
-                  value={formData.environment} 
-                  onValueChange={(value: 'development' | 'production') => 
+                <Select
+                  value={formData.environment}
+                  onValueChange={(value: 'development' | 'production') =>
                     setFormData(prev => ({ ...prev, environment: value }))
                   }
                 >
@@ -270,11 +271,14 @@ export default function NewWebhookPage() {
                         id={`category-${category}`}
                         checked={allSelected}
                         ref={(el) => {
-                          if (el) el.indeterminate = someSelected;
+                          if (el) {
+                            const checkboxEl = el.querySelector('input[type="checkbox"]') as HTMLInputElement;
+                            if (checkboxEl) checkboxEl.indeterminate = someSelected;
+                          }
                         }}
                         onCheckedChange={() => toggleAllInCategory(category)}
                       />
-                      <Label 
+                      <Label
                         htmlFor={`category-${category}`}
                         className="text-base font-medium"
                       >
@@ -295,8 +299,8 @@ export default function NewWebhookPage() {
                           onCheckedChange={() => toggleEvent(event.value)}
                         />
                         <div className="flex-1">
-                          <Label 
-                            htmlFor={event.value} 
+                          <Label
+                            htmlFor={event.value}
                             className="text-sm font-medium cursor-pointer"
                           >
                             {event.label}
@@ -308,7 +312,7 @@ export default function NewWebhookPage() {
                       </div>
                     ))}
                   </div>
-                  
+
                   {category !== EVENT_CATEGORIES[EVENT_CATEGORIES.length - 1] && (
                     <Separator className="my-4" />
                   )}
@@ -333,9 +337,9 @@ export default function NewWebhookPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label htmlFor="retry_count">Retry Count</Label>
-                <Select 
-                  value={formData.retry_count.toString()} 
-                  onValueChange={(value) => 
+                <Select
+                  value={formData.retry_count.toString()}
+                  onValueChange={(value) =>
                     setFormData(prev => ({ ...prev, retry_count: parseInt(value) }))
                   }
                 >
@@ -357,9 +361,9 @@ export default function NewWebhookPage() {
 
               <div>
                 <Label htmlFor="timeout_seconds">Timeout (seconds)</Label>
-                <Select 
-                  value={formData.timeout_seconds.toString()} 
-                  onValueChange={(value) => 
+                <Select
+                  value={formData.timeout_seconds.toString()}
+                  onValueChange={(value) =>
                     setFormData(prev => ({ ...prev, timeout_seconds: parseInt(value) }))
                   }
                 >
@@ -384,7 +388,7 @@ export default function NewWebhookPage() {
               <Checkbox
                 id="active"
                 checked={formData.active}
-                onCheckedChange={(checked) => 
+                onCheckedChange={(checked) =>
                   setFormData(prev => ({ ...prev, active: Boolean(checked) }))
                 }
               />
@@ -397,15 +401,15 @@ export default function NewWebhookPage() {
 
         {/* Actions */}
         <div className="flex items-center justify-between pt-6 border-t border-slate-200 dark:border-slate-700">
-          <Button 
-            type="button" 
-            variant="outline" 
+          <Button
+            type="button"
+            variant="outline"
             onClick={() => router.back()}
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
+          <Button
+            type="submit"
             disabled={loading || !formData.name || !formData.url || formData.events.length === 0}
             className="flex items-center gap-2"
           >

@@ -38,7 +38,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -56,7 +55,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -155,8 +153,8 @@ const ClaimDetailSheet: React.FC<{
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
-n      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-8 gap-6" side="right">
-        <SheetHeader className="space-y-6 pb-8 border-b">
+      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0" side="right">
+        <SheetHeader className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
           <div className="flex items-start justify-between gap-8">
             <div className="space-y-3">
               <div className="flex items-center gap-3">
@@ -212,8 +210,8 @@ n      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[
             </div>
           </div>
         </SheetHeader>
-        <ScrollArea className="flex-1 px-4">
-          <div className="space-y-10 py-8">
+        <ScrollArea className="flex-1 h-full overflow-y-auto px-8">
+          <div className="space-y-10 p-8">
             <section className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -540,7 +538,7 @@ n      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[
 };
 
 export default function ClaimsPage() {
-  const [threshold, setThreshold] = useState(0.88);
+  const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
     search: "",
     status: "needs_review" as StatusFilterValue,
@@ -566,6 +564,7 @@ export default function ClaimsPage() {
   const [claims, setClaims] = useState<Claim[]>(() => sortClaims(initialClaims));
   const [selectedClaimIds, setSelectedClaimIds] = useState<string[]>([]);
   const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -1021,17 +1020,83 @@ export default function ClaimsPage() {
         </p>
       </header>
 
+      {/* Search and Filters */}
       <Card className="border shadow-xs">
-        <CardHeader className="space-y-4">
-          <CardTitle className="text-base font-semibold text-muted-foreground">
-            Work Queue
-          </CardTitle>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex flex-1 flex-col gap-3">
-              {/* Active Filters Display */}
-              {hasActiveFilters() && (
-                <div className="flex flex-wrap gap-2 p-3 bg-muted/50 rounded-lg border border-muted-foreground/20">
-                  <span className="text-sm text-muted-foreground mr-2">Active filters:</span>
+        <CardContent className="p-4">
+          <div className="space-y-4">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Search */}
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  type="text"
+                  placeholder="Search patients, claims, encounters, payers, codes..."
+                  value={filters.search}
+                  onChange={(event) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      search: event.target.value,
+                    }))
+                  }
+                  className="pl-10"
+                />
+              </div>
+
+              {/* Filter Toggle */}
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`cursor-pointer${showFilters ? ' bg-accent' : ' '} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                  {hasActiveFilters() && (
+                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
+                      {[filters.status !== 'needs_review', filters.payer !== 'all', filters.state !== 'all',
+                        filters.visit !== 'all', filters.dateFrom, filters.dateTo, !filters.onlyNeedsReview,
+                        filters.claimId, filters.patientName, filters.payerName, filters.provider,
+                        filters.visitType, filters.claimState, filters.search]
+                        .filter(Boolean).length}
+                    </Badge>
+                  )}
+                </Button>
+                {hasActiveFilters() && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilters({
+                        search: "",
+                        status: "needs_review" as StatusFilterValue,
+                        paStatuses: [],
+                        payer: "all",
+                        state: "all",
+                        visit: "all",
+                        dateFrom: "",
+                        dateTo: "",
+                        onlyNeedsReview: true,
+                        claimId: "",
+                        patientName: "",
+                        payerName: "",
+                        provider: "",
+                        visitType: "",
+                        claimState: "",
+                      });
+                      setSortConfig({ field: null, direction: null });
+                    }}
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Clear All
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {hasActiveFilters() && (
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-muted-foreground mr-2">Active filters:</span>
                   {filters.search && (
                     <Badge variant="secondary" className="gap-1">
                       Search: {filters.search}
@@ -1231,195 +1296,179 @@ export default function ClaimsPage() {
                       </Button>
                     </Badge>
                   )}
-                </div>
-              )}
-
-              <div className="grid gap-3 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-5">
-                <div className="relative lg:col-span-2 xl:col-span-2">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    placeholder="Search patients, claims, encounters, payers, codes"
-                    value={filters.search}
-                    onChange={(event) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        search: event.target.value,
-                      }))
-                    }
-                    className="pl-10 pr-12 min-w-0 w-full"
-                  />
-                  {hasActiveFilters() && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={() => {
-                        setFilters({
-                          search: "",
-                          status: "needs_review" as StatusFilterValue,
-                          paStatuses: [],
-                          payer: "all",
-                          state: "all",
-                          visit: "all",
-                          dateFrom: "",
-                          dateTo: "",
-                          onlyNeedsReview: true,
-                          claimId: "",
-                          patientName: "",
-                          payerName: "",
-                          provider: "",
-                          visitType: "",
-                          claimState: "",
-                        });
-                        setSortConfig({ field: null, direction: null });
-                      }}
-                    >
-                      <X className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-                <Select
-                  value={filters.status}
-                  onValueChange={(value) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      status: value as StatusFilterValue,
-                    }))
-                  }
-                >
-                  <SelectTrigger className="cursor-pointer">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[180px]">
-                    <SelectItem value="all">All statuses</SelectItem>
-                    {STATUS_FILTER_OPTIONS.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.payer}
-                  onValueChange={(value) =>
-                    setFilters((prev) => ({ ...prev, payer: value }))
-                  }
-                >
-                  <SelectTrigger className="cursor-pointer">
-                    <SelectValue placeholder="Payer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All payers</SelectItem>
-                    {payers.map((payer) => (
-                      <SelectItem key={payer.id} value={String(payer.id)}>
-                        {payer.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.state}
-                  onValueChange={(value) =>
-                    setFilters((prev) => ({ ...prev, state: value }))
-                  }
-                >
-                  <SelectTrigger className="cursor-pointer">
-                    <SelectValue placeholder="State" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All states</SelectItem>
-                    {states.map((state) => (
-                      <SelectItem key={state} value={state}>
-                        {state}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={filters.visit}
-                  onValueChange={(value) =>
-                    setFilters((prev) => ({ ...prev, visit: value }))
-                  }
-                >
-                  <SelectTrigger className="cursor-pointer">
-                    <SelectValue placeholder="Visit type" />
-                  </SelectTrigger>
-                  <SelectContent className="min-w-[160px]">
-                    <SelectItem value="all">All visit types</SelectItem>
-                    {visitTypes.map((visit) => (
-                      <SelectItem key={visit} value={visit}>
-                        {visit}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <div className="grid gap-8 sm:grid-cols-2 min-w-0 xl:col-span-2">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="ml-24 w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="truncate">
-                          {filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString() : "From date"}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
-                        onSelect={(date) => {
-                          setFilters((prev) => ({
-                            ...prev,
-                            dateFrom: date ? date.toISOString().split('T')[0] : '',
-                          }));
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          return date > today;
-                        }}
-                        className="rounded-lg border shadow-xs"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className="w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-                        <span className="truncate">
-                          {filters.dateTo ? new Date(filters.dateTo).toLocaleDateString() : "To date"}
-                        </span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
-                        onSelect={(date) => {
-                          setFilters((prev) => ({
-                            ...prev,
-                            dateTo: date ? date.toISOString().split('T')[0] : '',
-                          }));
-                        }}
-                        disabled={(date) => {
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-                          return date > today || (fromDate ? date < fromDate : false);
-                        }}
-                        className="rounded-lg border shadow-xs"
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
               </div>
-              <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+            )}
+          </div>
+
+          {/* Filter Controls */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="space-y-4">
+                <div className="text-sm font-medium text-muted-foreground mb-3">Quick Filters</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="status-select">Status</Label>
+                    <Select
+                      value={filters.status}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          status: value as StatusFilterValue,
+                        }))
+                      }
+                    >
+                      <SelectTrigger id="status-select">
+                        <SelectValue placeholder="All Statuses" />
+                      </SelectTrigger>
+                      <SelectContent className="min-w-[180px]">
+                        <SelectItem value="all">All statuses</SelectItem>
+                        {STATUS_FILTER_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="payer-select">Payer</Label>
+                    <Select
+                      value={filters.payer}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({ ...prev, payer: value }))
+                      }
+                    >
+                      <SelectTrigger id="payer-select">
+                        <SelectValue placeholder="All Payers" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All payers</SelectItem>
+                        {payers.map((payer) => (
+                          <SelectItem key={payer.id} value={String(payer.id)}>
+                            {payer.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="state-select">State</Label>
+                    <Select
+                      value={filters.state}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({ ...prev, state: value }))
+                      }
+                    >
+                      <SelectTrigger id="state-select">
+                        <SelectValue placeholder="All States" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All states</SelectItem>
+                        {states.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="visit-select">Visit Type</Label>
+                    <Select
+                      value={filters.visit}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({ ...prev, visit: value }))
+                      }
+                    >
+                      <SelectTrigger id="visit-select">
+                        <SelectValue placeholder="All Visit Types" />
+                      </SelectTrigger>
+                      <SelectContent className="min-w-[160px]">
+                        <SelectItem value="all">All visit types</SelectItem>
+                        {visitTypes.map((visit) => (
+                          <SelectItem key={visit} value={visit}>
+                            {visit}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date-from">From Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date-from"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString() : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+                          onSelect={(date) => {
+                            setFilters((prev) => ({
+                              ...prev,
+                              dateFrom: date ? date.toISOString().split('T')[0] : '',
+                            }));
+                          }}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            return date > today;
+                          }}
+                          className="rounded-lg border shadow-xs"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date-to">To Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date-to"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filters.dateTo ? new Date(filters.dateTo).toLocaleDateString() : "Select date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+                          onSelect={(date) => {
+                            setFilters((prev) => ({
+                              ...prev,
+                              dateTo: date ? date.toISOString().split('T')[0] : '',
+                            }));
+                          }}
+                          disabled={(date) => {
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
+                            return date > today || (fromDate ? date < fromDate : false);
+                          }}
+                          className="rounded-lg border shadow-xs"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <Switch
                     id="only-review"
@@ -1431,52 +1480,43 @@ export default function ClaimsPage() {
                       }))
                     }
                   />
-                  <Label htmlFor="only-review" className="text-sm">
+                  <Label htmlFor="only-review" className="text-sm leading-none self-center">
                     Show only Needs Review & Rejections
                   </Label>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <span className="text-xs text-muted-foreground">
-                    Confidence threshold: {(threshold * 100).toFixed(0)}%
-                  </span>
-                  <Slider
-                    min={0.5}
-                    max={1}
-                    step={0.01}
-                    value={[threshold]}
-                    onValueChange={(value) => {
-                      const next = Number(value[0]);
-                      if (!Number.isNaN(next)) {
-                        setThreshold(Number(next.toFixed(2)));
-                      }
-                    }}
-                    className="w-48"
-                  />
-                </div>
               </div>
             </div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                variant="outline"
-                disabled={batchApplyDisabled}
-                onClick={() => applyAllFixes(selectedClaimIds)}
-              >
-                Apply All Fixes
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={batchSubmitDisabled}
-                onClick={() => submitClaims(selectedClaimIds)}
-              >
-                Submit & Listen
-              </Button>
-              <Button
-                disabled={batchResubmitDisabled}
-                onClick={() => resubmitClaims(selectedClaimIds)}
-              >
-                Resubmit corrected
-              </Button>
-            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Work Queue Table */}
+      <Card className="border shadow-xs mt-8">
+        <CardHeader className="space-y-4">
+          <CardTitle className="text-base font-semibold text-muted-foreground">
+            Work Queue
+          </CardTitle>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button
+              variant="outline"
+              disabled={batchApplyDisabled}
+              onClick={() => applyAllFixes(selectedClaimIds)}
+            >
+              Apply All Fixes
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={batchSubmitDisabled}
+              onClick={() => submitClaims(selectedClaimIds)}
+            >
+              Submit & Listen
+            </Button>
+            <Button
+              disabled={batchResubmitDisabled}
+              onClick={() => resubmitClaims(selectedClaimIds)}
+            >
+              Resubmit corrected
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -1765,19 +1805,6 @@ export default function ClaimsPage() {
                     </Popover>
                   </div>
                 </TableHead>
-                <TableHead>
-                  <div className="flex items-center gap-2">
-                    <span>Confidence</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={() => handleSort('confidence')}
-                    >
-                      {getSortIcon('confidence')}
-                    </Button>
-                  </div>
-                </TableHead>
                 <TableHead>Issues</TableHead>
                 <TableHead>
                   <div className="flex items-center gap-2">
@@ -1798,7 +1825,7 @@ export default function ClaimsPage() {
             <TableBody>
               {filteredClaims.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={9} className="py-12 text-center text-sm text-muted-foreground">
                     Automation handled everything 🎉. Try clearing filters.
                   </TableCell>
                 </TableRow>
@@ -1859,14 +1886,6 @@ export default function ClaimsPage() {
                       <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
                         {STATUS_LABELS[claim.status]}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Progress value={claim.confidence * 100} className="h-2 w-24" />
-                        <span className={cn("text-sm font-medium", getConfidenceTone(claim.confidence))}>
-                          {(claim.confidence * 100).toFixed(0)}%
-                        </span>
-                      </div>
                     </TableCell>
                     <TableCell title={issueSummary(claim)}>
                       {blockingIssues > 0 ? (
