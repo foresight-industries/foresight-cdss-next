@@ -65,6 +65,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 // import { supabase } from "@/lib/supabase/client";
 import {
@@ -623,6 +629,7 @@ export default function ClaimsPage() {
   const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
+  const [dollarFirst, setDollarFirst] = useState(false);
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -646,6 +653,11 @@ export default function ClaimsPage() {
   }, [filters, sortConfig]);
 
   const handleSort = useCallback((field: SortField) => {
+    // If dollar-first mode is active, disable it when user tries to manually sort
+    if (dollarFirst) {
+      setDollarFirst(false);
+    }
+
     setSortConfig(prev => {
       if (prev.field === field) {
         // Cycle through: asc -> desc -> null
@@ -658,7 +670,7 @@ export default function ClaimsPage() {
       // Start with ascending
       return { field, direction: 'asc' };
     });
-  }, []);
+  }, [dollarFirst]);
 
   const getSortIcon = useCallback((field: SortField) => {
     if (sortConfig.field !== field) {
@@ -921,7 +933,7 @@ export default function ClaimsPage() {
   // }, [claims, threshold, triggerSubmit]);
 
   const filteredClaims = useMemo(() => {
-    const filtered = claims.filter((claim) => {
+    let filtered = claims.filter((claim) => {
       const matchesSearch = (() => {
         if (!filters.search.trim()) {
           return true;
@@ -1020,8 +1032,22 @@ export default function ClaimsPage() {
       return true;
     });
 
-    // Apply sorting
-    if (sortConfig.field && sortConfig.direction) {
+    // Apply sorting - prioritize dollar-first if enabled
+    if (dollarFirst) {
+      // Dollar-first mode: sort by amount descending, then by default sort order for ties
+      filtered.sort((a, b) => {
+        const amountDiff = b.total_amount - a.total_amount;
+        if (amountDiff !== 0) {
+          return amountDiff;
+        }
+        // For equal amounts, fall back to status and date ordering
+        const statusDiff = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+        if (statusDiff !== 0) {
+          return statusDiff;
+        }
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    } else if (sortConfig.field && sortConfig.direction) {
       filtered.sort((a, b) => {
         let aValue: any;
         let bValue: any;
@@ -1061,10 +1087,13 @@ export default function ClaimsPage() {
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
+    } else {
+      // Default sorting
+      filtered = sortClaims(filtered);
     }
 
-    return sortClaims(filtered);
-  }, [claims, filters, threshold, sortConfig]);
+    return filtered;
+  }, [claims, filters, threshold, sortConfig, dollarFirst]);
 
   useEffect(() => {
     setSelectedClaimIds((prev) =>
@@ -1133,6 +1162,7 @@ export default function ClaimsPage() {
     });
 
   return (
+    <TooltipProvider>
     <div className="min-h-screen bg-background p-8">
       <header className="mb-6 space-y-1">
         <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">Claims Workbench</h1>
@@ -1148,7 +1178,7 @@ export default function ClaimsPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute left-3 top-2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   type="text"
                   placeholder="Search patients, claims, encounters, payers, codes..."
@@ -1162,6 +1192,36 @@ export default function ClaimsPage() {
                   className="pl-10"
                 />
               </div>
+
+              {/* Dollar-First Toggle */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={cn(
+                    "flex items-center gap-2 rounded-md border px-3 py-2 transition-colors",
+                    dollarFirst ? "border-primary/50 bg-primary/5" : "border-border"
+                  )}>
+                    <Switch
+                      id="dollar-first-toggle"
+                      checked={dollarFirst}
+                      onCheckedChange={(checked) => setDollarFirst(checked)}
+                    />
+                    <Label htmlFor="dollar-first-toggle" className={cn(
+                      "mt-2 text-sm font-medium cursor-pointer leading-none",
+                      dollarFirst ? "text-primary" : "text-foreground"
+                    )}>
+                      High $ first
+                    </Label>
+                    {dollarFirst && (
+                      <Badge variant="secondary" className="ml-1 text-xs">
+                        Active
+                      </Badge>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Sort the queue by highest charge amount first.</p>
+                </TooltipContent>
+              </Tooltip>
 
               {/* Filter Toggle */}
               <div className="flex gap-2">
@@ -1601,7 +1661,7 @@ export default function ClaimsPage() {
                       }))
                     }
                   />
-                  <Label htmlFor="only-review" className="text-sm leading-none self-center">
+                  <Label htmlFor="only-review" className="mt-2 text-sm leading-none self-center">
                     Only show claims needing review
                   </Label>
                 </div>
@@ -1614,9 +1674,16 @@ export default function ClaimsPage() {
       {/* Work Queue Table */}
       <Card className="border shadow-xs mt-8">
         <CardHeader className="space-y-4">
-          <CardTitle className="text-base font-semibold text-muted-foreground">
-            Work Queue
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base font-semibold text-muted-foreground">
+              Work Queue
+            </CardTitle>
+            {dollarFirst && (
+              <Badge variant="default" className="bg-primary/10 text-primary border-primary/20">
+                Sorted by High $ First
+              </Badge>
+            )}
+          </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               variant="outline"
@@ -2071,5 +2138,6 @@ export default function ClaimsPage() {
         submittingClaims={submittingClaims}
       />
     </div>
+    </TooltipProvider>
   );
 }
