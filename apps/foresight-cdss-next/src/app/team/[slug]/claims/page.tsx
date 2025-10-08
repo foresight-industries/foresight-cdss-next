@@ -1956,6 +1956,7 @@ export default function ClaimsPage() {
         onSubmit={(id) => submitClaims([id])}
         onResubmit={(id) => resubmitClaims([id])}
         onApplySuggestion={applySuggestion}
+        submittingClaims={submittingClaims}
       />
     </div>
   );
