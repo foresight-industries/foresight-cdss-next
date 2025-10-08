@@ -65,9 +65,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase/client";
 import {
   type Claim,
-  type ClaimStatus,
   STATUS_LABELS,
   REVIEW_STATUSES,
   STATUS_FILTER_OPTIONS,
@@ -80,7 +80,6 @@ import {
   initialClaims,
   formatCurrency,
   formatRelativeTime,
-  appendHistory,
   getBlockingIssueCount,
   getConfidenceTone,
   issueSummary,
@@ -108,6 +107,7 @@ const ClaimDetailSheet: React.FC<{
   onSubmit: (id: string) => void;
   onResubmit: (id: string) => void;
   onApplySuggestion: (id: string, field: string) => void;
+  submittingClaims: Set<string>;
 }> = ({
   claim,
   open,
@@ -117,6 +117,7 @@ const ClaimDetailSheet: React.FC<{
   onSubmit,
   onResubmit,
   onApplySuggestion,
+  submittingClaims,
 }) => {
   const [showSources, setShowSources] = useState(true);
 
@@ -196,16 +197,16 @@ const ClaimDetailSheet: React.FC<{
             </Button>
             <Button
               onClick={() => onSubmit(claim.id)}
-              disabled={blockingIssues > 0 || claim.status === "submitted"}
+              disabled={blockingIssues > 0 || claim.status === "submitted" || submittingClaims.has(claim.id)}
             >
-              Submit & Listen
+              {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
             </Button>
             <Button
               variant="secondary"
               onClick={() => onResubmit(claim.id)}
-              disabled={!(claim.status === "rejected_277ca" || claim.status === "denied")}
+              disabled={!(claim.status === "rejected_277ca" || claim.status === "denied") || submittingClaims.has(claim.id)}
             >
-              Resubmit corrected
+              {submittingClaims.has(claim.id) ? "Submitting..." : "Resubmit corrected"}
             </Button>
             </div>
           </div>
@@ -453,6 +454,49 @@ const ClaimDetailSheet: React.FC<{
               </div>
             </section>
 
+            {/* Clearinghouse Errors Section */}
+            {claim.status === "rejected_277ca" && (
+              <section className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertTriangle className="h-4 w-4" /> Clearinghouse Errors
+                </h3>
+                <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
+                  <div className="space-y-3">
+                    {/* Mock clearinghouse errors to demonstrate real data display */}
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                      <div className="flex-1">
+                        <div className="font-medium text-destructive">Missing Provider NPI</div>
+                        <p className="text-xs text-muted-foreground mt-1 mb-2">
+                          Field: billing_provider.npi | Error Code: 277CA-001
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                      <div className="flex-1">
+                        <div className="font-medium text-destructive">Invalid Diagnosis Code</div>
+                        <p className="text-xs text-muted-foreground mt-1 mb-2">
+                          Field: diagnosis_codes[0] | Error Code: 277CA-045
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Diagnosis code &quot;Z00.00&quot; is not valid for the service date. Please review and correct the primary diagnosis.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 p-3 rounded bg-muted/50 border border-muted">
+                      <p className="text-xs text-muted-foreground">
+                        <strong>Note:</strong> These are example clearinghouse errors. Real errors will be populated from the scrubbing_result table when backend integration with Claim.MD is complete.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             {claim.payer_response && (
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -565,6 +609,7 @@ export default function ClaimsPage() {
   const [selectedClaimIds, setSelectedClaimIds] = useState<string[]>([]);
   const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -666,89 +711,72 @@ export default function ClaimsPage() {
   }, [updateClaim]);
 
   const triggerSubmit = useCallback(
-    (claimId: string, auto = false, options?: { resubmitting?: boolean }) => {
-      setClaims((prev) => {
-        const target = prev.find((claim) => claim.id === claimId);
-        if (!target) {
-          return prev;
-        }
-        if (target.status === "submitted" || target.status === "awaiting_277ca") {
-          return prev;
-        }
-        const now = new Date().toISOString();
-        const updated = prev.map((claim) => {
-          if (claim.id !== claimId) {
-            return claim;
+    async (claimId: string, auto = false, options?: { resubmitting?: boolean }) => {
+      try {
+        // Track submission loading state
+        setSubmittingClaims(prev => new Set(prev).add(claimId));
+
+        // Get current user for audit trail
+        const { data: { user } } = await supabase.auth.getUser();
+        const currentUserId = user?.id;
+
+        // Call the submit-claim-batch Supabase function
+        const { data, error } = await supabase.functions.invoke("submit-claim-batch", {
+          body: {
+            claimIds: [claimId],
+            clearinghouseId: "CLAIM_MD",
+            userId: currentUserId
           }
-          const historyWithSubmission = appendHistory(
-            claim.state_history,
-            "submitted",
-            auto ? "Auto-submitted" : "Submitted",
-            now
-          );
-          return {
-            ...claim,
-            status: "submitted" as ClaimStatus,
-            auto_submitted: auto ? true : claim.auto_submitted,
-            attempt_count: options?.resubmitting ? claim.attempt_count + 1 : claim.attempt_count,
-            payer_response: options?.resubmitting ? undefined : claim.payer_response,
-            updatedAt: now,
-            state_history: historyWithSubmission,
-          };
         });
-        return sortClaims(updated);
-      });
 
-      setTimeout(() => {
-        setClaims((prev) =>
-          sortClaims(
-            prev.map((claim) =>
-              claim.id === claimId
-                ? {
-                    ...claim,
-                    status: "awaiting_277ca",
-                    updatedAt: new Date().toISOString(),
-                    state_history: appendHistory(
-                      claim.state_history,
-                      "awaiting_277ca",
-                      "Listening for 277CA"
-                    ),
-                  }
-                : claim
-            )
-          )
-        );
-      }, 600);
+        if (error) {
+          console.error("Submission failed:", error);
+          alert(`Submission failed: ${error.message}`);
+          return;
+        }
 
-      setTimeout(() => {
-        setClaims((prev) =>
-          sortClaims(
-            prev.map((claim) => {
-              if (claim.id !== claimId) {
-                return claim;
-              }
-              const outcome = claim.submissionOutcome ?? "accept";
-              const finalStatus: ClaimStatus =
-                outcome === "accept" ? "accepted_277ca" : "rejected_277ca";
-              const nextResponse =
-                outcome === "reject"
-                  ? claim.rejection_response ?? claim.payer_response
-                  : claim.payer_response;
-              return {
-                ...claim,
-                status: finalStatus,
-                payer_response: outcome === "reject" ? nextResponse : claim.payer_response,
-                updatedAt: new Date().toISOString(),
-                state_history: appendHistory(
-                  claim.state_history,
-                  finalStatus,
-                  outcome === "accept" ? "Payer accepted" : "Payer rejected"
-                ),
-              };
-            })
-          )
-        );
-      }, 1800);
+        if (!data?.success) {
+          console.error("Submission failed:", data?.error);
+          alert(`Submission failed: ${data?.error}`);
+          return;
+        }
+
+        // Show success feedback
+        if (data.claims?.[0]?.status === "accepted_277ca") {
+          alert("Claim submitted successfully and accepted by clearinghouse.");
+        } else if (data.claims?.[0]?.status === "rejected_277ca") {
+          alert("Claim was rejected by clearinghouse. See errors highlighted below.");
+        } else {
+          alert("Claim submitted successfully.");
+        }
+
+        // Refresh claims data to get updated status from backend
+        // The backend will have updated the claim status and external IDs
+        setClaims((prev) => {
+          // Remove optimistic updates - let the data refresh show real status
+          return prev.map(claim =>
+            claim.id === claimId
+              ? { ...claim, auto_submitted: auto ? true : claim.auto_submitted }
+              : claim
+          );
+        });
+
+        // Trigger a refresh of the claims data from the backend
+        // This will fetch the updated status set by the backend function
+        // TODO: This would ideally integrate with React Query to invalidate and refetch
+        console.log("Submission successful:", data);
+
+      } catch (error) {
+        console.error("Submission error:", error);
+        alert(`Submission error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      } finally {
+        // Remove loading state
+        setSubmittingClaims(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(claimId);
+          return newSet;
+        });
+      }
     },
     []
   );
@@ -762,28 +790,9 @@ export default function ClaimsPage() {
 
   const resubmitClaims = useCallback(
     (ids: string[]) => {
-      setClaims((prev) =>
-        sortClaims(
-          prev.map((claim) =>
-            ids.includes(claim.id)
-              ? {
-                  ...claim,
-                  status: "built",
-                  payer_response: undefined,
-                  updatedAt: new Date().toISOString(),
-                  state_history: appendHistory(
-                    claim.state_history,
-                    "built",
-                    "Corrected for resubmission"
-                  ),
-                }
-              : claim
-          )
-        )
-      );
-      submitClaims(ids, false, { resubmitting: true });
+      ids.forEach((id) => triggerSubmit(id, false, { resubmitting: true }));
     },
-    [submitClaims]
+    [triggerSubmit]
   );
 
   useEffect(() => {

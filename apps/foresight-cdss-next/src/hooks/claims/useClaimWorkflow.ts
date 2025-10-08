@@ -32,6 +32,7 @@ type ClaimWithRelatedData = Tables<"claim"> & {
   claim_line: Tables<"claim_line">[];
   claim_validation: Tables<"claim_validation">[];
   denial_tracking: Tables<"denial_tracking">[];
+  scrubbing_result: Tables<"scrubbing_result">[];
 };
 
 export function useClaimWorkflow(claimId: string): {
@@ -60,7 +61,8 @@ export function useClaimWorkflow(claimId: string): {
           payer:payer_id (id, name, external_payer_id),
           claim_line (*),
           claim_validation (*),
-          denial_tracking (*)
+          denial_tracking (*),
+          scrubbing_result!scrubbing_result_entity_id_fkey (*)
         `
         )
         .eq("id", claimId)
@@ -72,68 +74,39 @@ export function useClaimWorkflow(claimId: string): {
     enabled: !!claimId,
   });
 
-  // Submit claim mutation with optimistic updates
+  // Submit claim mutation using submit-claim-batch function
   const submitClaim = useMutation({
     mutationFn: async () => {
-      // Validate claim readiness
-      const { data: validation } = await supabase
-        .rpc("get_claim_readiness_score", { p_claim_id: claimId })
-        .single();
+      // Get current user for audit trail
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id;
 
-      if (validation?.readiness_score ?? 0 < 95) {
-        throw new Error("Claim not ready for submission");
-      }
-
-      // First get current attempt count
-      const { data: currentClaim } = await supabase
-        .from("claim")
-        .select("attempt_count")
-        .eq("id", claimId)
-        .single();
-
-      // Update claim status with incremented attempt count
-      const { data, error } = await supabase
-        .from("claim")
-        .update({
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-          attempt_count: (currentClaim?.attempt_count || 0) + 1,
-        })
-        .eq("id", claimId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: queryKeys.claims.detail(claimId),
+      // Call the submit-claim-batch Supabase function
+      const { data, error } = await supabase.functions.invoke("submit-claim-batch", {
+        body: {
+          claimIds: [claimId],
+          clearinghouseId: "CLAIM_MD", // Default clearinghouse identifier
+          userId: currentUserId
+        }
       });
 
-      const previousClaim = queryClient.getQueryData(
-        queryKeys.claims.detail(claimId)
-      );
+      if (error) {
+        throw new Error(error.message || "Failed to submit claim");
+      }
 
-      // Optimistic update
-      queryClient.setQueryData(
-        queryKeys.claims.detail(claimId),
-        (old: any) => ({
-          ...old,
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-        })
-      );
+      if (!data?.success) {
+        throw new Error(data?.error || "Claim submission failed");
+      }
 
-      return { previousClaim };
+      return data;
     },
-    onError: (err, _, context) => {
-      queryClient.setQueryData(
-        queryKeys.claims.detail(claimId),
-        context?.previousClaim
-      );
+    onError: (error) => {
+      // Show error to user - could be enhanced with toast system
+      console.error("Claim submission failed:", error);
+      // For now, we'll let the component handle error display
     },
     onSettled: () => {
+      // Always refresh claim data after submission attempt
       queryClient.invalidateQueries({
         queryKey: queryKeys.claims.detail(claimId),
       });

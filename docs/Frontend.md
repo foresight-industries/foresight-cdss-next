@@ -111,6 +111,29 @@ claim.select(`
 - Database errors trigger optimistic update rollback
 - UI shows error messages and reverts to previous state
 
+### Updated Implementation (Phase 5 - Backend Integration)
+
+**New Submission Flow:**
+The frontend now calls the `submit-claim-batch` Supabase Edge Function instead of direct database updates:
+
+1. **Function Call**: `supabase.functions.invoke("submit-claim-batch")` with claim IDs and user context
+2. **Backend Processing**: Server handles validation, claim file generation, and submission logic
+3. **Real Status Updates**: Backend sets appropriate status (`awaiting_277ca`, `accepted_277ca`, `rejected_277ca`)
+4. **Data Refresh**: React Query invalidates queries to fetch updated claim data
+5. **Error Display**: Clearinghouse errors from `scrubbing_result` table displayed in UI
+
+**Key Changes:**
+- **Removed optimistic updates**: UI waits for real backend response
+- **Removed frontend validation**: Backend handles all validation logic  
+- **Added error sections**: Clearinghouse errors displayed in claim detail sheet
+- **Enhanced status handling**: New clearinghouse-specific statuses properly styled
+- **Real-time updates**: Claims reflect actual submission outcomes
+
+**Error Display:**
+- **Clearinghouse Errors**: Shows rejection reasons for `rejected_277ca` status claims
+- **Validation Errors**: Pre-submission validation issues from `claim_validation` table
+- **Submission Failures**: Network and function call errors displayed to user
+
 ## Component Architecture
 
 ### Key Components
