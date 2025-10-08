@@ -85,11 +85,17 @@ export function AnalyticsOverview({ statusDistribution, className = '' }: Analyt
             <CardContent>
               <ChartContainer config={chartConfig} className="min-h-[30%] lg:min-h-[15%]">
                 <BarChart accessibilityLayer data={volumeTrend}>
+                  <CartesianGrid vertical={false} />
                   <XAxis
                     dataKey="month"
                     tickLine={false}
                     tickMargin={10}
                     axisLine={false}
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tickCount={4}
                   />
                   <Bar
                     dataKey="epa"
