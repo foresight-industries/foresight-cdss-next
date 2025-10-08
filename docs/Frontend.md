@@ -150,6 +150,37 @@ Submit mutations use optimistic updates to provide immediate feedback:
 ### Mock Data Integration
 For development and demo purposes, some endpoints return mock data mixed with real database queries.
 
+## Status Management and Display
+
+### Enhanced Status Values
+The UI now handles expanded claim status values to support Claim.MD integration workflow:
+
+**Clearinghouse Status Values:**
+- `accepted_277ca`: Displayed as "Accepted" with green styling - indicates claim was accepted by clearinghouse and forwarded to payer
+- `rejected_277ca`: Displayed as "Rejected" with red styling - indicates clearinghouse found issues preventing payer submission
+- `awaiting_277ca`: Displayed as "Awaiting 277CA" with indigo styling - waiting for clearinghouse acknowledgment
+
+**Status Display Implementation:**
+- **STATUS_LABELS**: Maps status enum values to user-friendly display text
+- **STATUS_BADGE_VARIANTS**: Defines color schemes for each status (green for accepted, red for rejected/denied)
+- **Status Logic**: UI components already handle the new statuses correctly:
+  - `accepted_277ca` treated as success state (green)
+  - `rejected_277ca` treated as error state (red) 
+  - Both statuses enable "Resubmit corrected" button functionality
+
+### External ID Fields
+The UI is prepared to handle new database fields but does not currently display them:
+- `external_claim_id`: Claim.MD claim identifier (not displayed in current UI)
+- `batch_id`: Claim.MD batch upload identifier (not displayed in current UI)
+
+These fields are stored in the database and available for future display requirements.
+
+### Scrubbing Results Integration
+**Future Implementation:** The UI framework supports displaying scrubbing results from the `scrubbing_result` table:
+- Error display patterns already exist for validation issues
+- Badge and alert components ready for clearinghouse error messages
+- Detailed error views can show field-specific rejection reasons
+
 ## Current Limitations
 
 ### Actual Claim Submission

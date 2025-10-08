@@ -1392,12 +1392,14 @@ export type Database = {
           accepted_at: string | null
           attempt_count: number | null
           auto_submitted: boolean | null
+          batch_id: string | null
           claim_number: string | null
           confidence: number | null
           created_at: string
           created_by: string | null
           deleted_at: string | null
           encounter_id: string
+          external_claim_id: string | null
           field_confidences: Json | null
           id: string
           issues: string[] | null
@@ -1417,12 +1419,14 @@ export type Database = {
           accepted_at?: string | null
           attempt_count?: number | null
           auto_submitted?: boolean | null
+          batch_id?: string | null
           claim_number?: string | null
           confidence?: number | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           encounter_id: string
+          external_claim_id?: string | null
           field_confidences?: Json | null
           id: string
           issues?: string[] | null
@@ -1442,12 +1446,14 @@ export type Database = {
           accepted_at?: string | null
           attempt_count?: number | null
           auto_submitted?: boolean | null
+          batch_id?: string | null
           claim_number?: string | null
           confidence?: number | null
           created_at?: string
           created_by?: string | null
           deleted_at?: string | null
           encounter_id?: string
+          external_claim_id?: string | null
           field_confidences?: Json | null
           id?: string
           issues?: string[] | null
@@ -8231,9 +8237,12 @@ export type Database = {
       scrubbing_result: {
         Row: {
           auto_fixable: boolean | null
+          claim_id: string | null
           created_at: string | null
           entity_id: string
           entity_type: string
+          error_code: string | null
+          error_message: string | null
           field_path: string | null
           fixed: boolean | null
           fixed_at: string | null
@@ -8246,9 +8255,12 @@ export type Database = {
         }
         Insert: {
           auto_fixable?: boolean | null
+          claim_id?: string | null
           created_at?: string | null
           entity_id: string
           entity_type: string
+          error_code?: string | null
+          error_message?: string | null
           field_path?: string | null
           fixed?: boolean | null
           fixed_at?: string | null
@@ -8261,9 +8273,12 @@ export type Database = {
         }
         Update: {
           auto_fixable?: boolean | null
+          claim_id?: string | null
           created_at?: string | null
           entity_id?: string
           entity_type?: string
+          error_code?: string | null
+          error_message?: string | null
           field_path?: string | null
           fixed?: boolean | null
           fixed_at?: string | null
@@ -8275,6 +8290,34 @@ export type Database = {
           team_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scrubbing_result_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "active_claims"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scrubbing_result_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "ar_aging_detail"
+            referencedColumns: ["claim_id"]
+          },
+          {
+            foreignKeyName: "scrubbing_result_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "claim"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scrubbing_result_claim_id_fkey"
+            columns: ["claim_id"]
+            isOneToOne: false
+            referencedRelation: "denial_analytics"
+            referencedColumns: ["claim_id"]
+          },
           {
             foreignKeyName: "scrubbing_result_team_id_fkey"
             columns: ["team_id"]
