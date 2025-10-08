@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
+import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,13 +12,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Calendar } from '@/components/ui/calendar';
 import { epaQueueItems } from '@/data/epa-queue';
+import { PADetails } from '@/components/pa/pa-details';
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
   priority: 'all' | 'high' | 'medium' | 'low';
   payer: 'all' | 'Aetna' | 'UnitedHealth' | 'Cigna' | 'Anthem';
-  confidence: 'all' | 'high' | 'medium' | 'low';
+  dateFrom: string;
+  dateTo: string;
   patientName: string;
   paId: string;
   medication: string;
@@ -26,7 +30,7 @@ interface QueueFilters {
   attempt: string;
 }
 
-type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'confidence' | 'updatedAt';
+type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'updatedAt';
 type SortDirection = 'asc' | 'desc' | null;
 
 interface SortConfig {
@@ -69,7 +73,8 @@ export default function QueuePage() {
     status: 'all',
     priority: 'all',
     payer: 'all',
-    confidence: 'all',
+    dateFrom: '',
+    dateTo: '',
     patientName: '',
     paId: '',
     medication: '',
@@ -81,6 +86,7 @@ export default function QueuePage() {
     direction: null
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
 
   // Mock data for demonstration
   // Use shared mock data instead of API call
@@ -99,8 +105,20 @@ export default function QueuePage() {
       const matchesStatus = filters.status === 'all' || item.status === filters.status;
       const matchesPayer = filters.payer === 'all' || item.payer === filters.payer;
 
-      const confidenceLevel = item.confidence >= 90 ? 'high' : item.confidence >= 70 ? 'medium' : 'low';
-      const matchesConfidence = filters.confidence === 'all' || confidenceLevel === filters.confidence;
+      // Date filtering
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom);
+        if (new Date(item.updatedAt) < from) {
+          return false;
+        }
+      }
+
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo);
+        if (new Date(item.updatedAt) > to) {
+          return false;
+        }
+      }
 
       // Column-specific filters
       const matchesPatientName = !filters.patientName || item.patientName.toLowerCase().includes(filters.patientName.toLowerCase());
@@ -109,7 +127,7 @@ export default function QueuePage() {
       const matchesConditions = !filters.conditions || item.conditions.toLowerCase().includes(filters.conditions.toLowerCase());
       const matchesAttempt = !filters.attempt || item.attempt.toLowerCase().includes(filters.attempt.toLowerCase());
 
-      return matchesSearch && matchesStatus && matchesPayer && matchesConfidence &&
+      return matchesSearch && matchesStatus && matchesPayer &&
              matchesPatientName && matchesPaId && matchesMedication && matchesConditions && matchesAttempt;
     });
 
@@ -120,10 +138,7 @@ export default function QueuePage() {
         let bValue: any = b[sortConfig.field!];
 
         // Handle special cases
-        if (sortConfig.field === 'confidence') {
-          aValue = a.confidence;
-          bValue = b.confidence;
-        } else if (sortConfig.field === 'updatedAt') {
+        if (sortConfig.field === 'updatedAt') {
           const parseTime = (value: string) => new Date(value).getTime();
           aValue = parseTime(a.updatedAt);
           bValue = parseTime(b.updatedAt);
@@ -141,18 +156,12 @@ export default function QueuePage() {
     return filtered;
   }, [queueData, searchTerm, filters, sortConfig]);
 
-  const getConfidenceBadge = (confidence: number) => {
-    if (confidence >= 90) return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">High ({confidence}%)</Badge>;
-    if (confidence >= 70) return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100">Medium ({confidence}%)</Badge>;
-    return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 hover:bg-red-100">Low ({confidence}%)</Badge>;
-  };
-
 
   const handleAction = (action: string, paId: string) => {
     // Handle different actions
     switch (action) {
       case 'view':
-        router.push(`/pa/${paId}`);
+        setSelectedPaId(paId);
         break;
       case 'edit':
         router.push(`/pa/${paId}?action=edit`);
@@ -201,7 +210,8 @@ export default function QueuePage() {
   const hasActiveFilters = () => {
     return filters.status !== 'all' ||
            filters.payer !== 'all' ||
-           filters.confidence !== 'all' ||
+           filters.dateFrom !== '' ||
+           filters.dateTo !== '' ||
            filters.patientName !== '' ||
            filters.paId !== '' ||
            filters.medication !== '' ||
@@ -260,13 +270,13 @@ export default function QueuePage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`${showFilters ? 'bg-accent' : ''} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
+                  className={`cursor-pointer${showFilters ? ' bg-accent' : ' '} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   Filters
                   {hasActiveFilters() && (
                     <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                      {[filters.status !== 'all', filters.payer !== 'all', filters.confidence !== 'all',
+                      {[filters.status !== 'all', filters.payer !== 'all', filters.dateFrom, filters.dateTo,
                         filters.patientName, filters.paId, filters.medication, filters.conditions, filters.attempt, searchTerm]
                         .filter(Boolean).length}
                     </Badge>
@@ -281,7 +291,8 @@ export default function QueuePage() {
                         status: 'all',
                         priority: 'all',
                         payer: 'all',
-                        confidence: 'all',
+                        dateFrom: '',
+                        dateTo: '',
                         patientName: '',
                         paId: '',
                         medication: '',
@@ -342,14 +353,27 @@ export default function QueuePage() {
                     </Button>
                   </Badge>
                 )}
-                {filters.confidence !== 'all' && (
+                {filters.dateFrom && (
                   <Badge variant="secondary" className="gap-1">
-                    Confidence: {filters.confidence}
+                    From: {filters.dateFrom}
                     <Button
                       variant="ghost"
                       size="sm"
                       className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, confidence: 'all' }))}
+                      onClick={() => setFilters(prev => ({ ...prev, dateFrom: '' }))}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </Badge>
+                )}
+                {filters.dateTo && (
+                  <Badge variant="secondary" className="gap-1">
+                    To: {filters.dateTo}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 ml-1"
+                      onClick={() => setFilters(prev => ({ ...prev, dateTo: '' }))}
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -476,18 +500,103 @@ export default function QueuePage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="confidence-select">Confidence</Label>
-                    <Select value={filters.confidence} onValueChange={(value) => setFilters(prev => ({ ...prev, confidence: value as any }))}>
-                      <SelectTrigger id="confidence-select">
-                        <SelectValue placeholder="All Levels" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Levels</SelectItem>
-                        <SelectItem value="high">High (90%+)</SelectItem>
-                        <SelectItem value="medium">Medium (70-89%)</SelectItem>
-                        <SelectItem value="low">Low (&lt;70%)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="patient-name-filter">Patient Name</Label>
+                    <Input
+                      id="patient-name-filter"
+                      placeholder="Enter patient name..."
+                      value={filters.patientName}
+                      onChange={(e) => setFilters(prev => ({ ...prev, patientName: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pa-id-filter">PA ID</Label>
+                    <Input
+                      id="pa-id-filter"
+                      placeholder="Enter PA ID..."
+                      value={filters.paId}
+                      onChange={(e) => setFilters(prev => ({ ...prev, paId: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="medication-filter">Medication</Label>
+                    <Input
+                      id="medication-filter"
+                      placeholder="Enter medication..."
+                      value={filters.medication}
+                      onChange={(e) => setFilters(prev => ({ ...prev, medication: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="conditions-filter">Conditions</Label>
+                    <Input
+                      id="conditions-filter"
+                      placeholder="Enter condition..."
+                      value={filters.conditions}
+                      onChange={(e) => setFilters(prev => ({ ...prev, conditions: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="attempt-filter">Attempt Type</Label>
+                    <Input
+                      id="attempt-filter"
+                      placeholder="Enter attempt type..."
+                      value={filters.attempt}
+                      onChange={(e) => setFilters(prev => ({ ...prev, attempt: e.target.value }))}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date-from">Date From</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date-from"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filters.dateFrom ? filters.dateFrom : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
+                          onSelect={(date) => setFilters(prev => ({ ...prev, dateFrom: date ? date.toISOString().split('T')[0] : '' }))}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="date-to">Date To</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          id="date-to"
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {filters.dateTo ? filters.dateTo : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
+                          onSelect={(date) => setFilters(prev => ({ ...prev, dateTo: date ? date.toISOString().split('T')[0] : '' }))}
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -503,7 +612,8 @@ export default function QueuePage() {
                         status: 'all',
                         priority: 'all',
                         payer: 'all',
-                        confidence: 'all',
+                        dateFrom: '',
+                        dateTo: '',
                         patientName: '',
                         paId: '',
                         medication: '',
@@ -657,7 +767,7 @@ export default function QueuePage() {
                   <TableHead className="px-6 py-3">
                     <div className="flex items-center justify-between group">
                       <div className="flex items-center gap-2">
-                        <span>Medication & Payer</span>
+                        <span>Medication</span>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -778,56 +888,16 @@ export default function QueuePage() {
                   <TableHead className="px-6 py-3">
                     <div className="flex items-center justify-between group">
                       <div className="flex items-center gap-2">
-                        <span>Confidence</span>
+                        <span>Payer</span>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleSort('confidence')}
+                          onClick={() => handleSort('payer')}
                         >
-                          {getSortIcon('confidence')}
+                          {getSortIcon('payer')}
                         </Button>
                       </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Filter className="w-4 h-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-60" align="start">
-                          <div className="space-y-3">
-                            <div className="space-y-2">
-                              <Label htmlFor="confidence-select-column">Filter by Confidence</Label>
-                              <Select value={filters.confidence} onValueChange={(value) => setFilters(prev => ({ ...prev, confidence: value as any }))}>
-                                <SelectTrigger id="confidence-select-column">
-                                  <SelectValue placeholder="All Levels" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="all">All Levels</SelectItem>
-                                  <SelectItem value="high">High (90%+)</SelectItem>
-                                  <SelectItem value="medium">Medium (70-89%)</SelectItem>
-                                  <SelectItem value="low">Low (&lt;70%)</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            {filters.confidence !== 'all' && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setFilters(prev => ({ ...prev, confidence: 'all' }))}
-                                className="w-full"
-                              >
-                                <X className="w-4 h-4 mr-2" />
-                                Clear Confidence Filter
-                              </Button>
-                            )}
-                          </div>
-                        </PopoverContent>
-                      </Popover>
                     </div>
                   </TableHead>
                   <TableHead className="px-6 py-3">
@@ -855,7 +925,7 @@ export default function QueuePage() {
                     <TableRow
                       key={item.id}
                       className="cursor-pointer"
-                      onClick={() => router.push(`/pa/${item.id}`)}
+                      onClick={() => setSelectedPaId(item.id)}
                     >
                       <TableCell className="px-6 py-4">
                         <div>
@@ -875,10 +945,7 @@ export default function QueuePage() {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.medication}</div>
-                          <div className="text-sm text-muted-foreground">{item.payer}</div>
-                        </div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.medication}</div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center">
@@ -889,7 +956,7 @@ export default function QueuePage() {
                         </div>
                       </TableCell>
                       <TableCell className="px-6 py-4">
-                        {getConfidenceBadge(item.confidence)}
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{item.payer}</div>
                       </TableCell>
                       <TableCell className="px-6 py-4 text-sm text-muted-foreground">
                         {formatRelativeTime(item.updatedAt)}
@@ -977,7 +1044,8 @@ export default function QueuePage() {
                     status: 'all',
                     priority: 'all',
                     payer: 'all',
-                    confidence: 'all',
+                    dateFrom: '',
+                    dateTo: '',
                     patientName: '',
                     paId: '',
                     medication: '',
@@ -993,6 +1061,28 @@ export default function QueuePage() {
           )}
         </CardContent>
       </Card>
+
+      {/* PA Details Sheet */}
+      <Sheet
+        open={Boolean(selectedPaId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPaId(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-[90vw] sm:w-[80vw] md:w-[70vw] lg:w-[60vw] xl:w-[50vw] p-0 overflow-hidden">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Prior Authorization Details</SheetTitle>
+          </SheetHeader>
+          {selectedPaId && (
+            <PADetails
+              paId={selectedPaId}
+              onClose={() => setSelectedPaId(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

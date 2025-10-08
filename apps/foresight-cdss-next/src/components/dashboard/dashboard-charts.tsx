@@ -1,21 +1,17 @@
 'use client';
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusDistribution } from '@/components/dashboard/status-distribution';
 import type { StatusDistribution as StatusDistributionType } from '@/types/pa.types';
+import { CartesianGrid, Line, LineChart, XAxis, YAxis, Legend } from 'recharts';
+import { Bar, BarChart } from "recharts";
 import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  LineChart,
-  Line,
-} from 'recharts';
+  ChartConfig,
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
 
 interface AnalyticsOverviewProps {
   statusDistribution: StatusDistributionType;
@@ -47,6 +43,28 @@ const automationQuality = [
   { month: 'Oct', automation: 91, quality: 96 },
 ];
 
+const chartConfig = {
+  epa: {
+    label: "ePA",
+    color: "var(--chart-1)",
+  },
+  claims: {
+    label: "Claims",
+    color: "var(--chart-2)",
+  },
+} satisfies ChartConfig;
+
+const automationChartConfig = {
+  automation: {
+    label: "Automation rate",
+    color: "var(--chart-1)",
+  },
+  quality: {
+    label: "Quality score",
+    color: "var(--chart-2)",
+  },
+} satisfies ChartConfig;
+
 export function AnalyticsOverview({ statusDistribution, className = '' }: AnalyticsOverviewProps) {
   return (
     <Card className={`bg-card border shadow-xs ${className}`}>
@@ -57,23 +75,80 @@ export function AnalyticsOverview({ statusDistribution, className = '' }: Analyt
         <StatusDistribution distribution={statusDistribution} variant="inline" />
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-            <h4 className="text-sm font-semibold text-foreground mb-2">Volume trends (last 6 months)</h4>
-            <p className="text-xs text-muted-foreground mb-4">Stacked view of ePA and claim throughput</p>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volumeTrend} stackOffset="expand">
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                  <XAxis dataKey="month" axisLine={false} tickLine={false} stroke="#6b7280" />
-                  <YAxis hide />
-                  <Tooltip formatter={(value: number) => `${value} items`} />
-                  <Legend />
-                  <Bar dataKey="epa" name="ePA volume" stackId="total" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="claims" name="Claims volume" stackId="total" fill="#22c55e" radius={[4, 4, 0, 0]} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Volume Trends</CardTitle>
+              <CardDescription>
+                Stacked view of ePA and claim throughput over last 6 months.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={chartConfig} className="min-h-[30%] lg:min-h-[15%]">
+                <BarChart accessibilityLayer data={volumeTrend}>
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={false}
+                  />
+                  <Bar
+                    dataKey="epa"
+                    stackId="a"
+                    fill="var(--chart-1)"
+                    radius={[0, 0, 4, 4]}
+                  />
+                  <Bar
+                    dataKey="claims"
+                    stackId="a"
+                    fill="var(--chart-2)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        hideLabel
+                        className="w-[180px]"
+                        formatter={(value, name, item, index) => (
+                          <>
+                            <div
+                              className="h-2.5 w-2.5 shrink-0 rounded-[2px] bg-(--color-bg)"
+                              style={
+                                {
+                                  "--color-bg": `var(--color-${name})`,
+                                } as React.CSSProperties
+                              }
+                            />
+                            {chartConfig[name as keyof typeof chartConfig]?.label ||
+                              name}
+                            <div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+                              {value}
+                              <span className="text-muted-foreground font-normal">
+                                items
+                              </span>
+                            </div>
+                            {/* Add this after the last item */}
+                            {index === 1 && (
+                              <div className="text-foreground mt-1.5 flex basis-full items-center border-t pt-1.5 text-xs font-medium">
+                                Total
+                                <div className="text-foreground ml-auto flex items-baseline gap-0.5 font-mono font-medium tabular-nums">
+                                  {item.payload.epa + item.payload.claims}
+                                  <span className="text-muted-foreground font-normal">
+                                    items
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      />
+                    }
+                    cursor={false}
+                    defaultIndex={1}
+                  />
                 </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
+              </ChartContainer>
+            </CardContent>
+          </Card>
 
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
             <h4 className="text-sm font-semibold text-foreground mb-2">Top denial reasons</h4>
@@ -89,23 +164,64 @@ export function AnalyticsOverview({ statusDistribution, className = '' }: Analyt
           </div>
         </div>
 
-        <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
-          <h4 className="text-sm font-semibold text-foreground mb-2">Automation & quality over time</h4>
-          <p className="text-xs text-muted-foreground mb-4">Rolling averages for automation rate and documentation quality</p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={automationQuality}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis dataKey="month" stroke="#6b7280" tickLine={false} axisLine={false} />
-                <YAxis stroke="#6b7280" tickLine={false} axisLine={false} domain={[70, 100]} />
-                <Tooltip formatter={(value: number) => `${value}%`} />
-                <Legend />
-                <Line type="monotone" dataKey="automation" name="Automation rate" stroke="#4f46e5" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="quality" name="Quality score" stroke="#14b8a6" strokeWidth={2} dot={false} />
+        <Card className="max-h-[25%]">
+          <CardHeader>
+            <CardTitle>Automation & Quality Over Time</CardTitle>
+            <CardDescription>
+              Rolling averages for automation rate and documentation quality
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={automationChartConfig} className="min-h-[15%]">
+              <LineChart
+                accessibilityLayer
+                data={automationQuality}
+                margin={{
+                  left: 12,
+                  right: 12,
+                }}
+              >
+                <CartesianGrid vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <YAxis
+                  domain={[70, 100]}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
+                <Legend
+                  wrapperStyle={{
+                    fontSize: '14px',
+                    marginTop: 8
+                  }}
+                />
+                <Line
+                  dataKey="automation"
+                  name="Automation rate"
+                  type="monotone"
+                  stroke="var(--color-automation)"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  dataKey="quality"
+                  name="Quality score"
+                  type="monotone"
+                  stroke="var(--color-quality)"
+                  strokeWidth={2}
+                  dot={false}
+                />
               </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+            </ChartContainer>
+          </CardContent>
+        </Card>
       </CardContent>
     </Card>
   );

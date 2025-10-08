@@ -50,8 +50,8 @@ interface SidebarProps {
 
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'ePA Queue', href: '/queue', icon: ClipboardList },
-  { name: 'Claims (99213)', href: '/claims', icon: FileText },
+  { name: 'Prior Auth', href: '/queue', icon: ClipboardList },
+  { name: 'Claims', href: '/claims', icon: FileText },
   { name: 'Credentialing', href: '/credentialing', icon: FolderOpen },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
@@ -110,15 +110,27 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
         <SidebarMenu className="space-y-2">
           {navigationItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              pathname?.split('/').pop() === item.href.split('/').pop() ||
-              (item.href !== "/" && pathname.startsWith(item.href));
+            const isActive = (() => {
+              if (item.href === "/") {
+                // For home page, check if we're at the root of the team or global root
+                return (pathname === "/" || (teamSlug && pathname === `/team/${teamSlug}`));
+              } else {
+                // For other pages, check if pathname ends with the href or starts with it
+                const pathSegments = pathname?.split('/') ?? [];
+                const hrefSegments = item.href.split('/');
+                const lastPathSegment = pathSegments[pathSegments.length - 1];
+                const lastHrefSegment = hrefSegments[hrefSegments.length - 1];
+
+                return Boolean(lastPathSegment === lastHrefSegment ||
+                              pathname?.includes(item.href));
+              }
+            })();
 
             return (
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
                   asChild
-                  isActive={isActive}
+                  isActive={!!isActive}
                   tooltip={isCollapsed ? item.name : undefined}
                   className={cn(
                     "w-full p-6 rounded-lg transition-all duration-300 text-base",
