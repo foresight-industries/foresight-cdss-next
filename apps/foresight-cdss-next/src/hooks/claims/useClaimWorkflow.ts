@@ -1,10 +1,8 @@
 // hooks/claims/useClaimWorkflow.ts
 import {
   useMutation,
-  UseMutationResult,
   useQuery,
   useQueryClient,
-  UseQueryResult,
 } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import { supabase } from "@/lib/supabase/client";
@@ -35,16 +33,13 @@ type ClaimWithRelatedData = Tables<"claim"> & {
   scrubbing_result: Tables<"scrubbing_result">[];
 };
 
-export function useClaimWorkflow(claimId: string): {
-  claim: UseQueryResult<ClaimWithRelatedData | null, Error>;
-  submitClaim: UseMutationResult<Tables<"claim">, Error, void, { previousClaim: unknown }>;
-} {
+export function useClaimWorkflow(claimId: string) {
   const queryClient = useQueryClient();
 
   // Fetch claim with related data
   const claim = useQuery({
     queryKey: queryKeys.claims.detail(claimId),
-    queryFn: async () => {
+    queryFn: async (): Promise<ClaimWithRelatedData | null> => {
       const { data, error } = await supabase
         .from("claim")
         .select(
@@ -69,7 +64,11 @@ export function useClaimWorkflow(claimId: string): {
         .single();
 
       if (error) throw error;
-      return data;
+      // Handle the case where scrubbing_result might be a query error
+      if (data && typeof data.scrubbing_result === 'object' && 'error' in data.scrubbing_result) {
+        return { ...data, scrubbing_result: [] } as unknown as ClaimWithRelatedData;
+      }
+      return data as unknown as ClaimWithRelatedData;
     },
     enabled: !!claimId,
   });
