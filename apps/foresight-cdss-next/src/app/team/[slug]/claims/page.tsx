@@ -1358,7 +1358,7 @@ export default function ClaimsPage() {
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
-                        className="w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
+                        className="ml-24 w-full justify-start text-left font-normal min-w-[160px] truncate cursor-pointer"
                       >
                         <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
                         <span className="truncate">

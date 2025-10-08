@@ -64,13 +64,13 @@ export default function NotFound() {
                       href="/queue"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
-                      • ePA Queue
+                      • Prior Auth
                     </Link>
                     <Link
                       href="/claims"
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
-                      • Claims Management
+                      • Claims
                     </Link>
                     <Link
                       href="/analytics"

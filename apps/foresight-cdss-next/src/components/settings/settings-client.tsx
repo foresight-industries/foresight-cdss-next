@@ -5490,7 +5490,7 @@ export default function SettingsClient({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
-}: SettingsProps) {
+}: Readonly<SettingsProps>) {
   return (
     <Suspense fallback={<SettingsLoading />}>
       <SettingsPageContent

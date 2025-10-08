@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Settings, Play, Trash2, AlertTriangle, CheckCircle, Clock, Globe, Database, Key } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -280,123 +280,120 @@ export default function EhrConnectionsPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="p-6 max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">EHR Connections</h1>
-            <p className="text-gray-600 dark:text-gray-400">Loading EHR connections...</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {[...Array(3)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
-                  <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div className="space-y-6 p-8">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">EHR Connections</h1>
-          <p className="text-gray-600 dark:text-gray-400">Manage Electronic Health Record system integrations</p>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            EHR Integration Configuration
+          </h3>
+          <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+            Manage Electronic Health Record system integrations and connections
+          </p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
+        <Button
+          size="sm"
+          onClick={() => setShowCreateDialog(true)}
+        >
           <Plus className="w-4 h-4 mr-2" />
           Add Connection
         </Button>
       </div>
 
       {error && (
-        <Alert className="mb-6">
+        <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <CardDescription>{error}</CardDescription>
         </Alert>
       )}
 
-      {/* Stats Cards */}
+      {/* EHR Status Overview */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Connections</p>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stats.total_connections}</p>
-                </div>
-                <Database className="h-8 w-8 text-blue-600" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Connections</p>
+                <p className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.total_connections}</p>
               </div>
-            </CardContent>
+              <Database className="h-8 w-8 text-blue-600" />
+            </div>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Active</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.active_connections}</p>
-                </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Active</p>
+                <p className="text-2xl font-bold text-green-600">{stats.active_connections}</p>
               </div>
-            </CardContent>
+              <CheckCircle className="h-8 w-8 text-green-600" />
+            </div>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Environments</p>
-                  <p className="text-2xl font-bold text-purple-600">{Object.keys(stats.by_environment).length}</p>
-                </div>
-                <Globe className="h-8 w-8 text-purple-600" />
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Environments</p>
+                <p className="text-2xl font-bold text-purple-600">{Object.keys(stats.by_environment).length}</p>
               </div>
-            </CardContent>
+              <Globe className="h-8 w-8 text-purple-600" />
+            </div>
           </Card>
 
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Recent Failures</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.recent_sync_failures}</p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-red-600" />
+          <Card className="p-4">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Recent Failures</p>
+                <p className="text-2xl font-bold text-red-600">{stats.recent_sync_failures}</p>
               </div>
-            </CardContent>
+              <AlertTriangle className="h-8 w-8 text-red-600" />
+            </div>
           </Card>
         </div>
       )}
 
-      {/* Connections List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>EHR Connections</CardTitle>
-          <CardDescription>
-            {connections.length} connection{connections.length !== 1 ? 's' : ''} configured
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {connections.map((connection) => (
-              <div key={connection.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+      {/* EHR Connection Management */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              EHR Connections
+            </h3>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+              Manage your Electronic Health Record system connections and monitor their status
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-slate-500 dark:text-slate-400">Loading EHR connections...</p>
+            </div>
+          ) : connections.length === 0 ? (
+            <div className="text-center py-8">
+              <Database className="w-12 h-12 text-slate-400 mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400 mb-4">No EHR connections configured</p>
+              <Button onClick={() => setShowCreateDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Connection
+              </Button>
+            </div>
+          ) : (
+            connections.map((connection) => (
+              <div
+                key={connection.id}
+                className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`w-3 h-3 rounded-full ${connection.status === 'active' ? "bg-green-500" : connection.status === 'error' ? "bg-red-500" : "bg-gray-400"}`} />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
                         {connection.connection_name}
-                      </h3>
+                      </p>
                       <Badge className={getStatusColor(connection.status)}>
                         <div className="flex items-center space-x-1">
                           {getStatusIcon(connection.status)}
@@ -412,71 +409,62 @@ export default function EhrConnectionsPage() {
                         </Badge>
                       )}
                     </div>
-
-                    <div className="flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
                       {connection.base_url && (
-                        <span className="flex items-center space-x-1">
-                          <Globe className="w-4 h-4" />
-                          <span>{connection.base_url}</span>
+                        <span className="flex items-center gap-1">
+                          <Globe className="h-4 w-4" />
+                          {connection.base_url}
                         </span>
                       )}
                       {connection.auth_config && (
-                        <span className="flex items-center space-x-1">
-                          <Key className="w-4 h-4" />
-                          <span>{(connection.auth_config as AuthConfig).method}</span>
+                        <span className="flex items-center gap-1">
+                          <Key className="h-4 w-4" />
+                          {(connection.auth_config as AuthConfig).method}
                         </span>
                       )}
                       {connection.health?.last_sync_at && (
-                        <span className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4" />
-                          <span>Last sync: {new Date(connection.health.last_sync_at).toLocaleDateString()}</span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-4 w-4" />
+                          Last sync: {new Date(connection.health.last_sync_at).toLocaleDateString()}
                         </span>
                       )}
                     </div>
-
                     {connection.last_error && (
-                      <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded">
-                        <p className="text-sm text-red-600 dark:text-red-400">
-                          <AlertTriangle className="w-4 h-4 inline mr-1" />
-                          {connection.last_error}
-                        </p>
+                      <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                        <AlertTriangle className="h-4 w-4" />
+                        <span>{connection.last_error}</span>
                       </div>
                     )}
                   </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleTestConnection(connection)}
-                    >
-                      <Play className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteConnection(connection)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleTestConnection(connection)}
+                  >
+                    <Play className="w-4 h-4 mr-1" />
+                    Test
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteConnection(connection)}
+                    className="text-red-600 hover:text-red-700"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-            ))}
-
-            {connections.length === 0 && (
-              <div className="text-center py-8">
-                <Database className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500 dark:text-gray-400 mb-4">No EHR connections configured</p>
-                <Button onClick={() => setShowCreateDialog(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Connection
-                </Button>
-              </div>
-            )}
-          </div>
-        </CardContent>
+            ))
+          )}
+        </div>
       </Card>
 
       {/* Create Connection Dialog */}
@@ -533,7 +521,7 @@ export default function EhrConnectionsPage() {
                   value={connectionForm.environment}
                   onValueChange={(value) => setConnectionForm({ ...connectionForm, environment: value as EnvironmentType })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
