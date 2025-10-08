@@ -47,28 +47,6 @@ const automationQuality = [
   { month: 'Oct', automation: 91, quality: 96 },
 ];
 
-const chartConfig = {
-  epa: {
-    label: "ePA",
-    color: "var(--chart-1)",
-  },
-  claims: {
-    label: "Claims",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig;
-
-const automationChartConfig = {
-  automation: {
-    label: "Automation rate",
-    color: "var(--chart-1)",
-  },
-  quality: {
-    label: "Quality score",
-    color: "var(--chart-2)",
-  },
-} satisfies ChartConfig;
-
 export function AnalyticsOverview({ statusDistribution, className = '' }: AnalyticsOverviewProps) {
   return (
     <Card className={`bg-card border shadow-xs ${className}`}>
