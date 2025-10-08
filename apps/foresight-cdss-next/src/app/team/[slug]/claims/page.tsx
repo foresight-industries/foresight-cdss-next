@@ -186,7 +186,7 @@ const ClaimDetailSheet: React.FC<{
             </Button>
             <Button
               onClick={() => onSubmit(claim.id)}
-              disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || submittingClaims.has(claim.id)}
+              disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || claim.status === "awaiting_277ca" || submittingClaims.has(claim.id)}
             >
               {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
             </Button>
@@ -1119,7 +1119,7 @@ export default function ClaimsPage() {
       if (!claim) {
         return true;
       }
-      return getBlockingIssueCount(claim) > 0 || claim.status === "submitted" || claim.status === "accepted_277ca";
+      return getBlockingIssueCount(claim) > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || claim.status === "awaiting_277ca";
     });
 
   const batchResubmitDisabled =
