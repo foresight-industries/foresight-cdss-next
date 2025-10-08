@@ -12,10 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Calendar } from '@/components/ui/calendar';
 import { epaQueueItems } from '@/data/epa-queue';
-import { PADetails } from '@/components/pa/pa-details';
 
 interface QueueFilters {
   status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';

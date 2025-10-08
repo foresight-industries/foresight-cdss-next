@@ -130,7 +130,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
                   asChild
-                  isActive={!!isActive}
+                  isActive={isActive}
                   tooltip={isCollapsed ? item.name : undefined}
                   className={cn(
                     "w-full p-6 rounded-lg transition-all duration-300 text-base",
