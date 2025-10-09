@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   History,
   ListChecks,
@@ -92,6 +94,10 @@ import {
   applyFixToClaim,
   applyAllFixesToClaim,
   STATUS_ORDER,
+  getDenialReasonCode,
+  findMatchingDenialRule,
+  createDenialPlaybookHistoryEntry,
+  appendHistory,
 } from "@/data/claims";
 
 const sortClaims = (claims: Claim[]) =>
@@ -114,6 +120,10 @@ const ClaimDetailSheet: React.FC<{
   onResubmit: (id: string) => void;
   onApplySuggestion: (id: string, field: string) => void;
   submittingClaims: Set<string>;
+  onPrev?: () => void;
+  onNext?: () => void;
+  disablePrev?: boolean;
+  disableNext?: boolean;
 }> = ({
   claim,
   open,
@@ -124,6 +134,10 @@ const ClaimDetailSheet: React.FC<{
   onResubmit,
   onApplySuggestion,
   submittingClaims,
+  onPrev,
+  onNext,
+  disablePrev,
+  disableNext,
 }) => {
   const [showSources, setShowSources] = useState(true);
 
@@ -163,8 +177,32 @@ const ClaimDetailSheet: React.FC<{
       <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0" side="right">
         <SheetHeader className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
           <div className="flex items-start justify-between gap-8">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onPrev}
+                disabled={disablePrev}
+                className="h-8 w-8 p-0"
+                aria-label="Previous claim"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onNext}
+                disabled={disableNext}
+                className="h-8 w-8 p-0"
+                aria-label="Next claim"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-3 flex-1">
+              <div className="flex items-center justify-center gap-3">
                 <SheetTitle className="text-2xl font-semibold text-foreground">
                   {claim.id}
                 </SheetTitle>
@@ -176,12 +214,20 @@ const ClaimDetailSheet: React.FC<{
                     <CheckCircle2 className="h-4 w-4" /> Auto-submitted
                   </span>
                 )}
+                {claim.status === "denied" && claim.state_history.some(entry => entry.note?.includes("playbook")) && (
+                  <span className="flex items-center gap-1 text-sm text-blue-600">
+                    <Sparkles className="h-4 w-4" /> Denial Playbook Active
+                  </span>
+                )}
               </div>
-              <SheetDescription className="flex flex-wrap items-center gap-3 text-sm">
+              <SheetDescription className="flex flex-wrap items-center justify-center gap-3 text-sm">
                 <span>Charge {formatCurrency(claim.total_amount)}</span>
                 <span>Attempt #{claim.attempt_count}</span>
               </SheetDescription>
             </div>
+
+            {/* Spacer to balance the layout */}
+            <div className="w-20"></div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -630,6 +676,7 @@ export default function ClaimsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -918,6 +965,149 @@ export default function ClaimsPage() {
     [triggerSubmit]
   );
 
+  // Mock validation settings - in real app this would come from settings context
+  const mockValidationSettings = {
+    denialPlaybook: {
+      autoRetryEnabled: true,
+      maxRetryAttempts: 3,
+      customRules: [
+        {
+          id: 'rule-1',
+          code: '197',
+          description: 'POS Inconsistent / Missing Modifier',
+          strategy: 'auto_resubmit' as const,
+          enabled: true,
+          autoFix: true,
+        },
+        {
+          id: 'rule-2',
+          code: 'N700',
+          description: 'Precert/authorization required',
+          strategy: 'manual_review' as const,
+          enabled: true,
+          autoFix: false,
+        },
+        {
+          id: 'rule-3',
+          code: 'CO123',
+          description: 'Timeout/System unavailable',
+          strategy: 'auto_resubmit' as const,
+          enabled: true,
+          autoFix: false,
+        }
+      ]
+    }
+  };
+
+  // Handle denial via playbook
+  const handleDenialViaPlaybook = useCallback((claim: Claim) => {
+    const playbook = mockValidationSettings.denialPlaybook;
+
+    if (!playbook.autoRetryEnabled) return false;
+    if (claim.attempt_count >= playbook.maxRetryAttempts) return false;
+    if (claim.status !== 'denied') return false;
+
+    const denialCode = getDenialReasonCode(claim);
+    if (!denialCode) return false;
+
+    const rule = findMatchingDenialRule(claim, playbook);
+    if (!rule) return false;
+
+    console.log(`Denial playbook processing claim ${claim.id} with rule ${rule.code} (${rule.strategy})`);
+
+    switch(rule.strategy) {
+      case 'auto_resubmit':
+        // Apply fixes if autoFix is enabled
+        if (rule.autoFix && claim.suggested_fixes.length > 0) {
+          updateClaim(claim.id, (currentClaim) => {
+            const fixedClaim = applyAllFixesToClaim(currentClaim);
+            const historyEntry = createDenialPlaybookHistoryEntry(
+              'Auto-applied fixes via playbook',
+              rule.code,
+              'Applied all available fixes before resubmission'
+            );
+            return {
+              ...fixedClaim,
+              state_history: appendHistory(fixedClaim.state_history, 'built', historyEntry.note)
+            };
+          });
+        }
+
+        // Auto-resubmit
+        setTimeout(() => {
+          updateClaim(claim.id, (currentClaim) => {
+            const historyEntry = createDenialPlaybookHistoryEntry(
+              'Auto-resubmitted via playbook',
+              rule.code,
+              `Automatic resubmission attempt #${currentClaim.attempt_count + 1}`
+            );
+            return {
+              ...currentClaim,
+              status: 'built',
+              auto_submitted: true,
+              state_history: appendHistory(currentClaim.state_history, 'built', historyEntry.note)
+            };
+          });
+
+          // Trigger resubmission
+          triggerSubmit(claim.id, true);
+
+          toast.success(`Claim ${claim.id} auto-resubmitted via denial playbook (rule: ${rule.code})`);
+        }, 1000);
+
+        return true;
+
+      case 'manual_review':
+        updateClaim(claim.id, (currentClaim) => {
+          const historyEntry = createDenialPlaybookHistoryEntry(
+            'Flagged for manual review via playbook',
+            rule.code,
+            'Requires manual intervention per playbook rule'
+          );
+          return {
+            ...currentClaim,
+            state_history: appendHistory(currentClaim.state_history, 'denied', historyEntry.note)
+          };
+        });
+
+        toast.info(`Claim ${claim.id} flagged for manual review (rule: ${rule.code})`);
+        return true;
+
+      case 'notify':
+        updateClaim(claim.id, (currentClaim) => {
+          const historyEntry = createDenialPlaybookHistoryEntry(
+            'User notified via playbook',
+            rule.code,
+            'Notification sent per playbook rule'
+          );
+          return {
+            ...currentClaim,
+            state_history: appendHistory(currentClaim.state_history, 'denied', historyEntry.note)
+          };
+        });
+
+        toast.warning(`Notification: Claim ${claim.id} requires attention (rule: ${rule.code})`);
+        return true;
+
+      default:
+        return false;
+    }
+  }, [updateClaim, triggerSubmit, mockValidationSettings.denialPlaybook]);
+
+  // Watch for denied claims and automatically process them via playbook
+  const processedClaimIds = React.useRef(new Set<string>());
+
+  useEffect(() => {
+    claims.forEach(claim => {
+      if (claim.status === 'denied' && !processedClaimIds.current.has(claim.id)) {
+        const wasProcessed = handleDenialViaPlaybook(claim);
+        if (wasProcessed || !mockValidationSettings.denialPlaybook.autoRetryEnabled) {
+          processedClaimIds.current.add(claim.id);
+        }
+      }
+    });
+  }, [claims, handleDenialViaPlaybook, mockValidationSettings.denialPlaybook.autoRetryEnabled]);
+
   // Auto-submission disabled for demo
   // useEffect(() => {
   //   claims.forEach((claim) => {
@@ -1099,6 +1289,8 @@ export default function ClaimsPage() {
     setSelectedClaimIds((prev) =>
       prev.filter((id) => filteredClaims.some((claim) => claim.id === id))
     );
+    // Reset focus when filtered claims change
+    setFocusedIndex(null);
   }, [filteredClaims]);
 
   const activeClaim = useMemo(
@@ -1161,6 +1353,68 @@ export default function ClaimsPage() {
       return !(claim.status === "rejected_277ca" || claim.status === "denied");
     });
 
+  // Keyboard navigation event handler
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      // Don't handle keyboard navigation if user is typing in an input field
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if (event.key === "Escape" && activeClaimId) {
+        event.preventDefault();
+        setActiveClaimId(null);
+        // Restore focus to the previously opened claim in the list
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex !== -1) {
+          setFocusedIndex(currentIndex);
+        }
+      } else if ((event.key === "ArrowDown" || event.key === "j") && !activeClaimId) {
+        // Move focus down in list
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          const next = prev === null ? 0 : Math.min(prev + 1, filteredClaims.length - 1);
+          return next;
+        });
+      } else if ((event.key === "ArrowUp" || event.key === "k") && !activeClaimId) {
+        // Move focus up in list
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) return filteredClaims.length - 1; // Jump to end if none focused
+          return Math.max(prev - 1, 0);
+        });
+      } else if ((event.key === "Enter" || event.key === "o" || event.key === "O") && focusedIndex !== null && !activeClaimId) {
+        // Open focused claim
+        event.preventDefault();
+        const claimToOpen = filteredClaims[focusedIndex];
+        if (claimToOpen) {
+          setActiveClaimId(claimToOpen.id);
+        }
+      } else if (event.key === "ArrowDown" && activeClaimId) {
+        // If detail open, go to next claim
+        event.preventDefault();
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex !== -1 && currentIndex < filteredClaims.length - 1) {
+          const nextClaim = filteredClaims[currentIndex + 1];
+          setActiveClaimId(nextClaim.id);
+          setFocusedIndex(currentIndex + 1);
+        }
+      } else if (event.key === "ArrowUp" && activeClaimId) {
+        // Go to previous claim if open
+        event.preventDefault();
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex > 0) {
+          const prevClaim = filteredClaims[currentIndex - 1];
+          setActiveClaimId(prevClaim.id);
+          setFocusedIndex(currentIndex - 1);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeClaimId, filteredClaims, focusedIndex]);
+
   return (
     <TooltipProvider>
     <div className="min-h-screen bg-background p-8">
@@ -1178,7 +1432,7 @@ export default function ClaimsPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute left-3 top-4 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   type="text"
                   placeholder="Search patients, claims, encounters, payers, codes..."
@@ -1228,7 +1482,11 @@ export default function ClaimsPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`cursor-pointer${showFilters ? ' bg-accent' : ' '} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
+                  className={cn(
+                    "cursor-pointer",
+                    showFilters && "bg-accent",
+                    hasActiveFilters() && "border-primary text-primary"
+                  )}
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   Filters
@@ -1641,7 +1899,9 @@ export default function ClaimsPage() {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
                             const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-                            return date > today || (fromDate ? date < fromDate : false);
+                            const isAfterToday = date > today;
+                            const isBeforeFromDate = fromDate ? date < fromDate : false;
+                            return isAfterToday || isBeforeFromDate;
                           }}
                           className="rounded-lg border shadow-xs"
                         />
@@ -1684,28 +1944,49 @@ export default function ClaimsPage() {
               </Badge>
             )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              disabled={batchApplyDisabled}
-              onClick={() => applyAllFixes(selectedClaimIds)}
-            >
-              Apply All Fixes
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={batchSubmitDisabled}
-              onClick={() => submitClaims(selectedClaimIds)}
-            >
-              Submit & Listen
-            </Button>
-            <Button
-              disabled={batchResubmitDisabled}
-              onClick={() => resubmitClaims(selectedClaimIds)}
-            >
-              Resubmit corrected
-            </Button>
-          </div>
+
+          {/* Bulk Action Selection Bar */}
+          {selectedClaimIds.length > 0 && (
+            <div className="flex items-center justify-between bg-muted/20 border border-border p-3 rounded-lg">
+              <span className="text-sm font-medium text-foreground">
+                {selectedClaimIds.length} claim{selectedClaimIds.length === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={batchApplyDisabled}
+                  onClick={() => {
+                    applyAllFixes(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Apply All Fixes
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={batchSubmitDisabled}
+                  onClick={() => {
+                    submitClaims(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Submit & Listen
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={batchResubmitDisabled}
+                  onClick={() => {
+                    resubmitClaims(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Resubmit corrected
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -2018,18 +2299,22 @@ export default function ClaimsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {filteredClaims.map((claim) => {
+              {filteredClaims.map((claim, idx) => {
                 const blockingIssues = getBlockingIssueCount(claim);
+                const isRowFocused = focusedIndex === idx;
                 const rowClasses = cn(
                   claim.status === "rejected_277ca" || claim.status === "denied"
                     ? "border-l-4 border-l-amber-500"
                     : "border-l-4 border-l-transparent",
-                  "cursor-pointer"
+                  "cursor-pointer",
+                  isRowFocused && "bg-muted/50 ring-2 ring-primary/20"
                 );
                 return (
                   <TableRow
                     key={claim.id}
                     className={rowClasses}
+                    tabIndex={-1}
+                    aria-selected={isRowFocused}
                     onClick={(event) => {
                       const interactive = (event.target as HTMLElement).closest(
                         "button, a, [role=checkbox]"
@@ -2038,6 +2323,7 @@ export default function ClaimsPage() {
                         return;
                       }
                       setActiveClaimId(claim.id);
+                      setFocusedIndex(idx);
                     }}
                   >
                     <TableCell>
@@ -2136,6 +2422,32 @@ export default function ClaimsPage() {
         onResubmit={(id) => resubmitClaims([id])}
         onApplySuggestion={applySuggestion}
         submittingClaims={submittingClaims}
+        onPrev={() => {
+          const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
+          if (currentIndex > 0) {
+            const prevClaim = filteredClaims[currentIndex - 1];
+            setActiveClaimId(prevClaim.id);
+            setFocusedIndex(currentIndex - 1);
+          }
+        }}
+        onNext={() => {
+          const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
+          if (currentIndex < filteredClaims.length - 1) {
+            const nextClaim = filteredClaims[currentIndex + 1];
+            setActiveClaimId(nextClaim.id);
+            setFocusedIndex(currentIndex + 1);
+          }
+        }}
+        disablePrev={(() => {
+          if (!activeClaim) return true;
+          const currentIndex = filteredClaims.findIndex(c => c.id === activeClaim.id);
+          return currentIndex <= 0;
+        })()}
+        disableNext={(() => {
+          if (!activeClaim) return true;
+          const currentIndex = filteredClaims.findIndex(c => c.id === activeClaim.id);
+          return currentIndex >= filteredClaims.length - 1;
+        })()}
       />
     </div>
     </TooltipProvider>

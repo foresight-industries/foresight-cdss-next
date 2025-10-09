@@ -102,6 +102,7 @@ export default async function SettingsPage() {
     denialPlaybook: {
       autoRetryEnabled: true,
       maxRetryAttempts: 3,
+      customRules: [],
     },
     diagnosisValidation: {
       validateIcdToCpt: true,
