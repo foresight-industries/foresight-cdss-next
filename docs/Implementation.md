@@ -542,3 +542,119 @@ The application can now be pointed to the Claim.MD sandbox environment for end-t
 ### Conclusion
 
 **✅ Phase 6 Complete:** The Claim.MD integration MVP is fully implemented with comprehensive documentation, testing framework, and production-ready infrastructure. The system provides end-to-end claim submission capabilities and is ready for live clearinghouse integration testing.
+
+## Phase 7: Claims Queue User Experience Enhancements
+
+### Completed Tasks
+
+#### 26. High $ First Toggle Implementation
+**Date**: October 2024  
+**Summary**: Added a new 'High $ First' toggle on the Claims queue page to allow prioritizing claims by value. When enabled, claims are sorted by total charge in descending order. Updated sorting logic to integrate with existing table sorts.
+
+**Implementation Details:**
+- **Toggle UI Component**: Implemented using shadcn/ui Switch and Label components with proper accessibility
+- **Conditional Sorting Logic**: Added to `filteredClaims` useMemo hook to prioritize claims by `total_amount` in descending order
+- **Visual Feedback System**: 
+  - Toggle container styling with primary border highlighting when active
+  - "Active" badge displayed when dollar-first mode is enabled
+  - Tooltip explaining functionality: "Sort the queue by highest charge amount first"
+- **Integration with Existing Sorting**: Seamlessly works with current table sorting infrastructure
+- **Comprehensive Testing**: Both unit tests for sorting logic and React component tests for user interactions
+
+**Files Modified:**
+- `apps/foresight-cdss-next/src/app/team/[slug]/claims/page.tsx`: Main implementation
+- `apps/foresight-cdss-next/specs/claims-sorting.spec.ts`: Unit tests for sorting algorithm
+- `apps/foresight-cdss-next/specs/claims-page.spec.tsx`: Component integration tests
+
+#### 27. Edge Case Handling and UX Design Decisions
+
+**Automatic Toggle Disable**: If user sorts by another column, the toggle is automatically turned off to avoid confusion. This prevents conflicting sorting states where both dollar-first and manual column sorting could be active simultaneously. Implemented in the `handleSort` function to detect when manual sorting is initiated and automatically disable dollar-first mode.
+
+**Fallback Sorting Hierarchy**: When dollar-first mode is enabled and claims have equal amounts, the system falls back to the standard status-first, then date-based sorting to maintain consistent and predictable ordering.
+
+**Visual Feedback and Accessibility**: 
+- Toggle container shows primary border color and displays an "Active" badge when dollar-first mode is enabled
+- Proper ARIA labels and semantic HTML for screen reader compatibility
+- Tooltip provides clear explanation of functionality without cluttering the interface
+
+**User Experience Considerations**:
+- Toggle placement in top-right of claims section for easy access without disrupting workflow
+- Clear visual indication prevents user confusion about current sorting state
+- Maintains existing keyboard navigation and accessibility patterns
+
+#### 28. Product Alignment and Requirements
+
+This implementation directly addresses the product brief's dollar-first prioritization request, specifically enabling staff to "focus on high-value claims first to improve cash flow." The feature supports the core RCM (Revenue Cycle Management) workflow by ensuring that financially significant items are prioritized in the claims queue.
+
+**Key Business Benefits:**
+- **Improved Cash Flow**: Prioritizing high-value claims ensures staff address most financially significant items first
+- **Reduced Manual Effort**: Eliminates need for staff to manually scan for high-value claims
+- **Workflow Efficiency**: Maintains compatibility with existing filtering and sorting workflows
+- **Clear User Guidance**: Visual feedback prevents confusion about active sorting modes
+
+**Technical Architecture Benefits:**
+- **Seamless Integration**: Works with existing claims data structure and sorting infrastructure
+- **Performance Optimized**: Sorting handled in memory without additional database queries  
+- **Maintainable Code**: Clean separation of concerns with reusable sorting logic
+- **Comprehensive Testing**: Unit and integration tests ensure reliability
+
+**Testing Coverage and Quality Assurance:**
+- **Unit Tests**: Verify sorting algorithm correctness with various claim amounts and statuses in `claims-sorting.spec.ts`
+- **Component Tests**: Validate user interaction flows and DOM order changes in `claims-page.spec.tsx`
+- **Edge Cases**: Covered scenarios including empty claims list, equal amounts, and toggle state management
+- **Cross-browser Compatibility**: Uses standard React patterns ensuring consistent behavior
+
+**User Feedback Integration**: This feature was implemented based on the product brief's explicit requirement for dollar-first prioritization to improve revenue cycle management efficiency. The implementation provides immediate value while maintaining the existing user experience patterns that staff are familiar with.
+
+#### 29. Stage Analytics Display Implementation
+**Date**: October 2024  
+**Summary**: Added comprehensive RCM Stage Analytics visualization to the Analytics page to provide insights into claim processing pipeline performance, stage durations, and success rates.
+
+**Implementation Details:**
+- **Stage Analytics Computation**: Created `computeStageAnalytics` utility function in `/src/utils/stage-analytics.ts` to analyze claims data and calculate:
+  - Average Build-to-Submit duration (internal processing time)
+  - Average Submit-to-Outcome duration (payer response time)  
+  - Average Accepted-to-Paid duration (payment processing time)
+  - Initial submission outcome breakdown (accepted/rejected/denied rates)
+  - Overall success rate (final collection rate)
+  - Total processing time metrics
+
+- **RCM Analytics Component**: Built comprehensive `RCMStageAnalytics` component at `/src/components/analytics/rcm-stage-analytics.tsx` featuring:
+  - **Key Metrics Cards**: Display average total processing days, overall success rate, and total claims analyzed
+  - **Stage Duration Bar Chart**: Horizontal bar chart showing average days for each processing stage using Recharts
+  - **Initial Outcomes Pie Chart**: Visual breakdown of submission acceptance/rejection rates
+  - **Final Collection Rate Chart**: Success rate visualization with paid vs unpaid claims
+  - **Responsive Design**: Cards and charts adapt to desktop/mobile layouts
+
+- **Analytics Page Integration**: Enhanced `/src/app/team/[slug]/analytics/page.tsx` to include:
+  - RCM Stage Analytics section with clear visual separation from PA analytics
+  - Real-time computation of stage metrics from claims data using `useMemo`
+  - Updated page description to reflect both PA and RCM analytics coverage
+  - Maintains existing PA analytics while adding RCM insights below
+
+**Technical Architecture:**
+- **Data Processing**: Analyzes claim state history to calculate accurate stage durations
+- **Chart Implementation**: Uses shadcn/ui ChartContainer and Recharts for consistent styling
+- **Performance Optimization**: Memoized stage computation to prevent unnecessary recalculations
+- **Error Handling**: Graceful handling of missing data with fallback empty states
+- **Color Consistency**: Coordinated color scheme across charts (indigo, green, red, sky, orange)
+
+**Business Value:**
+- **Process Visibility**: Users can now see where claims spend the most time in the pipeline
+- **Performance Tracking**: Clear metrics on success rates and processing efficiency
+- **Bottleneck Identification**: Visual indicators highlight stages needing attention
+- **Success Rate Monitoring**: Track both initial acceptance and final collection rates
+- **Data-Driven Decisions**: Quantitative insights support process improvement initiatives
+
+**Files Created/Modified:**
+- `src/utils/stage-analytics.ts`: Core analytics computation logic
+- `src/components/analytics/rcm-stage-analytics.tsx`: Main analytics visualization component  
+- `src/app/team/[slug]/analytics/page.tsx`: Analytics page with RCM section integration
+
+**Charts and Visualizations:**
+- **Horizontal Bar Chart**: Average stage durations with day-based measurements
+- **Pie Charts**: Initial outcomes (accepted/rejected/denied) and final collection rates
+- **KPI Cards**: Key metrics with prominent numerical displays
+- **Responsive Layout**: Grid-based arrangement that adapts to screen sizes
+
+This implementation addresses the product brief's requirement for stage analytics, giving users insight into claim processing timing and success rates to support revenue cycle optimization.

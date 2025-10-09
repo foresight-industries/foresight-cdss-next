@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Users, Clock, Target, BarChart3 } from 'lucide-react';
 import {
   // useDashboardMetrics,
@@ -9,6 +9,9 @@ import {
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RCMStageAnalytics } from '@/components/analytics/rcm-stage-analytics';
+import { computeStageAnalytics } from '@/utils/stage-analytics';
+import { initialClaims } from '@/data/claims';
 
 interface TimeRange {
   label: string;
@@ -50,6 +53,11 @@ export default function AnalyticsPage() {
   // const { data: metrics } = useDashboardMetrics();
   const { data: distribution } = useStatusDistribution();
 
+  // Compute stage analytics from claims data
+  const stageMetrics = useMemo(() => {
+    return computeStageAnalytics(initialClaims);
+  }, []);
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -57,7 +65,7 @@ export default function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analytics</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Performance insights and trends for PA automation
+            Performance insights and trends for PA automation and RCM analytics
           </p>
         </div>
 
@@ -250,6 +258,11 @@ export default function AnalyticsPage() {
           </table>
         </div>
       </Card>
+
+      {/* RCM Stage Analytics Section */}
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
+        <RCMStageAnalytics stageMetrics={stageMetrics} />
+      </div>
 
       {/* Status Distribution Visualization */}
       {distribution && (
