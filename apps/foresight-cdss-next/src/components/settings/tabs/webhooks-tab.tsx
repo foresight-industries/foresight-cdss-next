@@ -4,11 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Webhook } from 'lucide-react';
 import Link from 'next/link';
 
-interface WebhooksTabProps {
-  // No specific settings needed for this tab - it's mostly static information
-}
-
-export function WebhooksTab({}: WebhooksTabProps) {
+export function WebhooksTab() {
   return (
     <div className="space-y-6">
       <Card className="p-6">

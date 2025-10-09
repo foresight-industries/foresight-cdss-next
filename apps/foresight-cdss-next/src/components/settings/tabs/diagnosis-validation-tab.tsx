@@ -92,7 +92,7 @@ export function DiagnosisValidationTab({ validationSettings, onSettingChange }: 
                 Suggest Alternative Diagnoses
               </h4>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                When diagnosis doesn't match procedure, suggest compatible
+                When diagnosis doesn&apos;t match procedure, suggest compatible
                 alternatives using AI
               </p>
             </div>

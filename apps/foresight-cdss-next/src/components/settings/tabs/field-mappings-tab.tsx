@@ -4,11 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Settings } from 'lucide-react';
 import Link from 'next/link';
 
-interface FieldMappingsTabProps {
-  // No specific settings needed for this tab - it's mostly static information
-}
-
-export function FieldMappingsTab({}: FieldMappingsTabProps) {
+export function FieldMappingsTab() {
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -25,7 +21,7 @@ export function FieldMappingsTab({}: FieldMappingsTabProps) {
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Configure custom field mapping rules for data integration between EHR
-          systems and your team's workflow.
+          systems and your team&apos;s workflow.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">

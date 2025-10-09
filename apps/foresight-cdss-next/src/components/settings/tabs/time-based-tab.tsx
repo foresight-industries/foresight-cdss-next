@@ -33,8 +33,8 @@ interface TimeBasedTabProps {
   onSettingChange: (key: string, value: any) => void;
 }
 
-export function TimeBasedTab({ 
-  validationSettings, 
+export function TimeBasedTab({
+  validationSettings,
   onSettingChange
 }: TimeBasedTabProps) {
   // CPT Rule Modal State
@@ -251,7 +251,7 @@ export function TimeBasedTab({
             <div className="text-center py-8 text-gray-500 dark:text-gray-400">
               <p className="text-sm">No time-based CPT rules configured</p>
               <p className="text-xs mt-1">
-                Click "Add CPT Rule" to create your first time-based
+                Click &quot;Add CPT Rule&quot; to create your first time-based
                 validation rule
               </p>
             </div>

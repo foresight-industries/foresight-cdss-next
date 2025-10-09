@@ -4,11 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Globe } from 'lucide-react';
 import Link from 'next/link';
 
-interface EHRTabProps {
-  // No specific settings needed for this tab - it's mostly static information
-}
-
-export function EHRTab({}: EHRTabProps) {
+export function EHRTab() {
   return (
     <div className="space-y-6">
       <Card className="p-6">

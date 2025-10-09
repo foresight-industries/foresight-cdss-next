@@ -64,7 +64,7 @@ export function CredentialingTab({ validationSettings, onSettingChange }: Creden
                 Multi-State Licensure Validation (Telemedicine)
               </Label>
               <p className="text-sm text-slate-600 dark:text-slate-400">
-                Verify provider is licensed in patient's state of residence
+                Verify provider is licensed in patient&apos;s state of residence
               </p>
             </div>
             <Switch

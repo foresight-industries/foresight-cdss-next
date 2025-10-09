@@ -230,7 +230,7 @@ export function PayersTab({
               Need to add more payer-specific rules?
             </p>
             <p className="text-xs mt-1">
-              Click "Add Override Rule" to create custom validation for
+              Click &quot;Add Override Rule&quot; to create custom validation for
               specific payers
             </p>
           </div>
