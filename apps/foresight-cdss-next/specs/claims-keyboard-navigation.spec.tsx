@@ -3,12 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ClaimsPage from '../src/app/team/[slug]/claims/page';
-import type { Claim } from '../src/data/claims';
 
 // Mock the claims data module
 jest.mock('../src/data/claims', () => {
   const originalModule = jest.requireActual('../src/data/claims');
-  
+
   // Create minimal test claims for keyboard navigation testing inside the mock
   const createTestClaim = (
     id: string,
@@ -43,13 +42,13 @@ jest.mock('../src/data/claims', () => {
     field_confidences: {},
     auto_submitted: false
   });
-  
+
   const testClaims = [
     createTestClaim('CLAIM-001', 'John Doe', 'Test Payer 1', 150.00),
     createTestClaim('CLAIM-002', 'Jane Smith', 'Test Payer 2', 200.00),
     createTestClaim('CLAIM-003', 'Bob Wilson', 'Test Payer 3', 300.00)
   ];
-  
+
   return {
     ...originalModule,
     initialClaims: testClaims,

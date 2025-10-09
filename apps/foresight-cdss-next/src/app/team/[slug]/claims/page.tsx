@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   History,
   ListChecks,
@@ -114,6 +116,10 @@ const ClaimDetailSheet: React.FC<{
   onResubmit: (id: string) => void;
   onApplySuggestion: (id: string, field: string) => void;
   submittingClaims: Set<string>;
+  onPrev?: () => void;
+  onNext?: () => void;
+  disablePrev?: boolean;
+  disableNext?: boolean;
 }> = ({
   claim,
   open,
@@ -124,6 +130,10 @@ const ClaimDetailSheet: React.FC<{
   onResubmit,
   onApplySuggestion,
   submittingClaims,
+  onPrev,
+  onNext,
+  disablePrev,
+  disableNext,
 }) => {
   const [showSources, setShowSources] = useState(true);
 
@@ -163,8 +173,32 @@ const ClaimDetailSheet: React.FC<{
       <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0" side="right">
         <SheetHeader className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
           <div className="flex items-start justify-between gap-8">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
+            {/* Navigation Controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onPrev}
+                disabled={disablePrev}
+                className="h-8 w-8 p-0"
+                aria-label="Previous claim"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onNext}
+                disabled={disableNext}
+                className="h-8 w-8 p-0"
+                aria-label="Next claim"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </Button>
+            </div>
+
+            <div className="space-y-3 flex-1">
+              <div className="flex items-center justify-center gap-3">
                 <SheetTitle className="text-2xl font-semibold text-foreground">
                   {claim.id}
                 </SheetTitle>
@@ -177,11 +211,14 @@ const ClaimDetailSheet: React.FC<{
                   </span>
                 )}
               </div>
-              <SheetDescription className="flex flex-wrap items-center gap-3 text-sm">
+              <SheetDescription className="flex flex-wrap items-center justify-center gap-3 text-sm">
                 <span>Charge {formatCurrency(claim.total_amount)}</span>
                 <span>Attempt #{claim.attempt_count}</span>
               </SheetDescription>
             </div>
+
+            {/* Spacer to balance the layout */}
+            <div className="w-20"></div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
@@ -1243,7 +1280,7 @@ export default function ClaimsPage() {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Search className="absolute left-3 top-4 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input
                   type="text"
                   placeholder="Search patients, claims, encounters, payers, codes..."
@@ -1749,28 +1786,49 @@ export default function ClaimsPage() {
               </Badge>
             )}
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              disabled={batchApplyDisabled}
-              onClick={() => applyAllFixes(selectedClaimIds)}
-            >
-              Apply All Fixes
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={batchSubmitDisabled}
-              onClick={() => submitClaims(selectedClaimIds)}
-            >
-              Submit & Listen
-            </Button>
-            <Button
-              disabled={batchResubmitDisabled}
-              onClick={() => resubmitClaims(selectedClaimIds)}
-            >
-              Resubmit corrected
-            </Button>
-          </div>
+
+          {/* Bulk Action Selection Bar */}
+          {selectedClaimIds.length > 0 && (
+            <div className="flex items-center justify-between bg-muted/20 border border-border p-3 rounded-lg">
+              <span className="text-sm font-medium text-foreground">
+                {selectedClaimIds.length} claim{selectedClaimIds.length === 1 ? '' : 's'} selected
+              </span>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={batchApplyDisabled}
+                  onClick={() => {
+                    applyAllFixes(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Apply All Fixes
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  disabled={batchSubmitDisabled}
+                  onClick={() => {
+                    submitClaims(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Submit & Listen
+                </Button>
+                <Button
+                  size="sm"
+                  disabled={batchResubmitDisabled}
+                  onClick={() => {
+                    resubmitClaims(selectedClaimIds);
+                    setSelectedClaimIds([]);
+                  }}
+                >
+                  Resubmit corrected
+                </Button>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -2206,6 +2264,24 @@ export default function ClaimsPage() {
         onResubmit={(id) => resubmitClaims([id])}
         onApplySuggestion={applySuggestion}
         submittingClaims={submittingClaims}
+        onPrev={() => {
+          const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
+          if (currentIndex > 0) {
+            const prevClaim = filteredClaims[currentIndex - 1];
+            setActiveClaimId(prevClaim.id);
+            setFocusedIndex(currentIndex - 1);
+          }
+        }}
+        onNext={() => {
+          const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
+          if (currentIndex < filteredClaims.length - 1) {
+            const nextClaim = filteredClaims[currentIndex + 1];
+            setActiveClaimId(nextClaim.id);
+            setFocusedIndex(currentIndex + 1);
+          }
+        }}
+        disablePrev={activeClaim ? (filteredClaims.findIndex(c => c.id === activeClaim.id) <= 0) : true}
+        disableNext={activeClaim ? (filteredClaims.findIndex(c => c.id === activeClaim.id) >= filteredClaims.length - 1) : true}
       />
     </div>
     </TooltipProvider>
