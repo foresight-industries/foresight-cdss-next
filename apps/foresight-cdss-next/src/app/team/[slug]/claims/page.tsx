@@ -1900,7 +1900,7 @@ export default function ClaimsPage() {
                             today.setHours(0, 0, 0, 0);
                             const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
                             const isAfterToday = date > today;
-                            const isBeforeFromDate = fromDate && date < fromDate;
+                            const isBeforeFromDate = fromDate ? date < fromDate : false;
                             return isAfterToday || isBeforeFromDate;
                           }}
                           className="rounded-lg border shadow-xs"
