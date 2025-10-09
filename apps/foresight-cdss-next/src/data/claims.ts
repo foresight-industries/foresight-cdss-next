@@ -891,6 +891,89 @@ export const applyAllFixesToClaim = (claim: Claim): Claim => {
   }, claim);
 };
 
+// Denial Playbook Integration Types
+export interface DenialRule {
+  id: string;
+  code: string;
+  description: string;
+  strategy: 'auto_resubmit' | 'manual_review' | 'notify';
+  enabled: boolean;
+  autoFix: boolean;
+}
+
+export interface DenialPlaybookConfig {
+  autoRetryEnabled: boolean;
+  maxRetryAttempts: number;
+  customRules: DenialRule[];
+}
+
+// Extract denial reason code from claim
+export const getDenialReasonCode = (claim: Claim): string | null => {
+  // Check for CARC code in payer_response first (835 responses)
+  if (claim.payer_response?.carc) {
+    return claim.payer_response.carc;
+  }
+
+  // Check for CARC code in rejection_response (277CA responses)
+  if (claim.rejection_response?.carc) {
+    return claim.rejection_response.carc;
+  }
+
+  // Check for RARC code as fallback
+  if (claim.payer_response?.rarc) {
+    return claim.payer_response.rarc;
+  }
+
+  if (claim.rejection_response?.rarc) {
+    return claim.rejection_response.rarc;
+  }
+
+  return null;
+};
+
+// Find matching denial rule for a claim
+export const findMatchingDenialRule = (
+  claim: Claim,
+  playbook: DenialPlaybookConfig
+): DenialRule | null => {
+  const denialCode = getDenialReasonCode(claim);
+  if (!denialCode) return null;
+
+  return playbook.customRules.find(
+    rule => rule.enabled && rule.code === denialCode
+  ) || null;
+};
+
+// Check if claim is eligible for auto-resubmission
+export const isEligibleForAutoResubmit = (
+  claim: Claim,
+  playbook: DenialPlaybookConfig
+): boolean => {
+  if (!playbook.autoRetryEnabled) return false;
+  if (claim.attempt_count >= playbook.maxRetryAttempts) return false;
+  if (claim.status !== 'denied') return false;
+
+  const rule = findMatchingDenialRule(claim, playbook);
+  return rule !== null && rule.strategy === 'auto_resubmit';
+};
+
+// Create state history entry for denial playbook actions
+export const createDenialPlaybookHistoryEntry = (
+  action: string,
+  ruleCode?: string,
+  note?: string
+): ClaimStateEntry => {
+  const timestamp = new Date().toISOString();
+  const baseNote = ruleCode ? `${action} (rule: ${ruleCode})` : action;
+  const fullNote = note ? `${baseNote} - ${note}` : baseNote;
+
+  return {
+    state: 'built', // Status after auto-resubmit preparation
+    at: timestamp,
+    note: fullNote
+  };
+};
+
 export const STATUS_ORDER: ClaimStatus[] = [
   "needs_review",
   "rejected_277ca",

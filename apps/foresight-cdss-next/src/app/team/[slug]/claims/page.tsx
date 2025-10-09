@@ -94,6 +94,10 @@ import {
   applyFixToClaim,
   applyAllFixesToClaim,
   STATUS_ORDER,
+  getDenialReasonCode,
+  findMatchingDenialRule,
+  createDenialPlaybookHistoryEntry,
+  appendHistory,
 } from "@/data/claims";
 
 const sortClaims = (claims: Claim[]) =>
@@ -208,6 +212,11 @@ const ClaimDetailSheet: React.FC<{
                 {claim.auto_submitted && claim.status === "accepted_277ca" && (
                   <span className="flex items-center gap-1 text-sm text-emerald-600">
                     <CheckCircle2 className="h-4 w-4" /> Auto-submitted
+                  </span>
+                )}
+                {claim.status === "denied" && claim.state_history.some(entry => entry.note?.includes("playbook")) && (
+                  <span className="flex items-center gap-1 text-sm text-blue-600">
+                    <Sparkles className="h-4 w-4" /> Denial Playbook Active
                   </span>
                 )}
               </div>
@@ -956,6 +965,149 @@ export default function ClaimsPage() {
     [triggerSubmit]
   );
 
+  // Mock validation settings - in real app this would come from settings context
+  const mockValidationSettings = {
+    denialPlaybook: {
+      autoRetryEnabled: true,
+      maxRetryAttempts: 3,
+      customRules: [
+        {
+          id: 'rule-1',
+          code: '197',
+          description: 'POS Inconsistent / Missing Modifier',
+          strategy: 'auto_resubmit' as const,
+          enabled: true,
+          autoFix: true,
+        },
+        {
+          id: 'rule-2',
+          code: 'N700',
+          description: 'Precert/authorization required',
+          strategy: 'manual_review' as const,
+          enabled: true,
+          autoFix: false,
+        },
+        {
+          id: 'rule-3',
+          code: 'CO123',
+          description: 'Timeout/System unavailable',
+          strategy: 'auto_resubmit' as const,
+          enabled: true,
+          autoFix: false,
+        }
+      ]
+    }
+  };
+
+  // Handle denial via playbook
+  const handleDenialViaPlaybook = useCallback((claim: Claim) => {
+    const playbook = mockValidationSettings.denialPlaybook;
+
+    if (!playbook.autoRetryEnabled) return false;
+    if (claim.attempt_count >= playbook.maxRetryAttempts) return false;
+    if (claim.status !== 'denied') return false;
+
+    const denialCode = getDenialReasonCode(claim);
+    if (!denialCode) return false;
+
+    const rule = findMatchingDenialRule(claim, playbook);
+    if (!rule) return false;
+
+    console.log(`Denial playbook processing claim ${claim.id} with rule ${rule.code} (${rule.strategy})`);
+
+    switch(rule.strategy) {
+      case 'auto_resubmit':
+        // Apply fixes if autoFix is enabled
+        if (rule.autoFix && claim.suggested_fixes.length > 0) {
+          updateClaim(claim.id, (currentClaim) => {
+            const fixedClaim = applyAllFixesToClaim(currentClaim);
+            const historyEntry = createDenialPlaybookHistoryEntry(
+              'Auto-applied fixes via playbook',
+              rule.code,
+              'Applied all available fixes before resubmission'
+            );
+            return {
+              ...fixedClaim,
+              state_history: appendHistory(fixedClaim.state_history, 'built', historyEntry.note)
+            };
+          });
+        }
+
+        // Auto-resubmit
+        setTimeout(() => {
+          updateClaim(claim.id, (currentClaim) => {
+            const historyEntry = createDenialPlaybookHistoryEntry(
+              'Auto-resubmitted via playbook',
+              rule.code,
+              `Automatic resubmission attempt #${currentClaim.attempt_count + 1}`
+            );
+            return {
+              ...currentClaim,
+              status: 'built',
+              auto_submitted: true,
+              state_history: appendHistory(currentClaim.state_history, 'built', historyEntry.note)
+            };
+          });
+
+          // Trigger resubmission
+          triggerSubmit(claim.id, true);
+
+          toast.success(`Claim ${claim.id} auto-resubmitted via denial playbook (rule: ${rule.code})`);
+        }, 1000);
+
+        return true;
+
+      case 'manual_review':
+        updateClaim(claim.id, (currentClaim) => {
+          const historyEntry = createDenialPlaybookHistoryEntry(
+            'Flagged for manual review via playbook',
+            rule.code,
+            'Requires manual intervention per playbook rule'
+          );
+          return {
+            ...currentClaim,
+            state_history: appendHistory(currentClaim.state_history, 'denied', historyEntry.note)
+          };
+        });
+
+        toast.info(`Claim ${claim.id} flagged for manual review (rule: ${rule.code})`);
+        return true;
+
+      case 'notify':
+        updateClaim(claim.id, (currentClaim) => {
+          const historyEntry = createDenialPlaybookHistoryEntry(
+            'User notified via playbook',
+            rule.code,
+            'Notification sent per playbook rule'
+          );
+          return {
+            ...currentClaim,
+            state_history: appendHistory(currentClaim.state_history, 'denied', historyEntry.note)
+          };
+        });
+
+        toast.warning(`Notification: Claim ${claim.id} requires attention (rule: ${rule.code})`);
+        return true;
+
+      default:
+        return false;
+    }
+  }, [updateClaim, triggerSubmit, mockValidationSettings.denialPlaybook]);
+
+  // Watch for denied claims and automatically process them via playbook
+  const processedClaimIds = React.useRef(new Set<string>());
+
+  useEffect(() => {
+    claims.forEach(claim => {
+      if (claim.status === 'denied' && !processedClaimIds.current.has(claim.id)) {
+        const wasProcessed = handleDenialViaPlaybook(claim);
+        if (wasProcessed || !mockValidationSettings.denialPlaybook.autoRetryEnabled) {
+          processedClaimIds.current.add(claim.id);
+        }
+      }
+    });
+  }, [claims, handleDenialViaPlaybook, mockValidationSettings.denialPlaybook.autoRetryEnabled]);
+
   // Auto-submission disabled for demo
   // useEffect(() => {
   //   claims.forEach((claim) => {
@@ -1330,7 +1482,11 @@ export default function ClaimsPage() {
                 <Button
                   variant="outline"
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`cursor-pointer${showFilters ? ' bg-accent' : ' '} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
+                  className={cn(
+                    "cursor-pointer",
+                    showFilters && "bg-accent",
+                    hasActiveFilters() && "border-primary text-primary"
+                  )}
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   Filters
@@ -1743,7 +1899,9 @@ export default function ClaimsPage() {
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
                             const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-                            return date > today || (fromDate ? date < fromDate : false);
+                            const isAfterToday = date > today;
+                            const isBeforeFromDate = fromDate && date < fromDate;
+                            return isAfterToday || isBeforeFromDate;
                           }}
                           className="rounded-lg border shadow-xs"
                         />
@@ -2280,8 +2438,16 @@ export default function ClaimsPage() {
             setFocusedIndex(currentIndex + 1);
           }
         }}
-        disablePrev={activeClaim ? (filteredClaims.findIndex(c => c.id === activeClaim.id) <= 0) : true}
-        disableNext={activeClaim ? (filteredClaims.findIndex(c => c.id === activeClaim.id) >= filteredClaims.length - 1) : true}
+        disablePrev={(() => {
+          if (!activeClaim) return true;
+          const currentIndex = filteredClaims.findIndex(c => c.id === activeClaim.id);
+          return currentIndex <= 0;
+        })()}
+        disableNext={(() => {
+          if (!activeClaim) return true;
+          const currentIndex = filteredClaims.findIndex(c => c.id === activeClaim.id);
+          return currentIndex >= filteredClaims.length - 1;
+        })()}
       />
     </div>
     </TooltipProvider>
