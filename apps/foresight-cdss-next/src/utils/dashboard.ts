@@ -75,6 +75,13 @@ export interface RCMMetrics {
   totalOutstandingAR: number;
 }
 
+export interface SubmissionPipelineMetrics {
+  claimsMissingInfo: number;
+  claimsScrubberRejects: number;
+  submissionSuccessRate: number;
+  totalSubmissionAttempts: number;
+}
+
 // Helper function to calculate days between two dates
 const daysBetween = (startDate: string, endDate: Date): number => {
   const start = new Date(startDate);
@@ -127,5 +134,40 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
     daysInAR: Math.round(avgDaysInAR),
     agingBuckets: buckets,
     totalOutstandingAR: totalAmount
+  };
+};
+
+// Calculate submission pipeline metrics from claims data
+export const calculateSubmissionPipelineMetrics = (claims: Claim[]): SubmissionPipelineMetrics => {
+  // Claims missing info: needs_review status with blocking issues (severity "fail")
+  const claimsMissingInfo = claims.filter(claim => 
+    claim.status === 'needs_review' && 
+    claim.issues.some(issue => issue.severity === 'fail')
+  ).length;
+
+  // Claims rejected by scrubber: rejected_277ca status (never got claim ID)
+  const claimsScrubberRejects = claims.filter(claim => 
+    claim.status === 'rejected_277ca'
+  ).length;
+
+  // Calculate submission success rate
+  // Consider successful submissions as those that made it past scrubbing
+  const submissionAttempts = claims.filter(claim => 
+    ['submitted', 'awaiting_277ca', 'accepted_277ca', 'rejected_277ca', 'paid', 'denied'].includes(claim.status)
+  );
+  
+  const successfulSubmissions = claims.filter(claim => 
+    ['submitted', 'awaiting_277ca', 'accepted_277ca', 'paid'].includes(claim.status)
+  );
+
+  const submissionSuccessRate = submissionAttempts.length > 0 
+    ? Math.round((successfulSubmissions.length / submissionAttempts.length) * 100)
+    : 0;
+
+  return {
+    claimsMissingInfo,
+    claimsScrubberRejects,
+    submissionSuccessRate,
+    totalSubmissionAttempts: submissionAttempts.length
   };
 };

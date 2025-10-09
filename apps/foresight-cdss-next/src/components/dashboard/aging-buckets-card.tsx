@@ -1,11 +1,13 @@
 import { Card } from '@/components/ui/card';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Bar, BarChart, XAxis, YAxis } from 'recharts';
 import type { AgingBuckets } from '@/utils/dashboard';
 
 interface AgingBucketsCardProps {
   buckets: AgingBuckets;
   totalOutstandingAR: number;
+  tooltip?: string;
 }
 
 // Format currency values
@@ -18,7 +20,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export function AgingBucketsCard({ buckets, totalOutstandingAR }: AgingBucketsCardProps) {
+export function AgingBucketsCard({ buckets, totalOutstandingAR, tooltip }: AgingBucketsCardProps) {
   // Transform buckets data for chart
   const chartData = [
     { range: '0-30', amount: buckets['0-30'], label: '0-30 days' },
@@ -35,7 +37,7 @@ export function AgingBucketsCard({ buckets, totalOutstandingAR }: AgingBucketsCa
     },
   };
 
-  return (
+  const cardContent = (
     <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-card border shadow-xs">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium text-muted-foreground">
@@ -101,4 +103,21 @@ export function AgingBucketsCard({ buckets, totalOutstandingAR }: AgingBucketsCa
       )}
     </Card>
   );
+
+  if (tooltip) {
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            {cardContent}
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{tooltip}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return cardContent;
 }

@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, User, AlertTriangle, CheckCircle, Mail, ExternalLink, Filter, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import type { PreEncounterIssue } from '@/types/pre-encounter.types';
 import {
   mockPreEncounterIssues,
@@ -93,7 +94,10 @@ export default function PreEncountersPage() {
 
   const handleSendInfoRequest = (patientName: string) => {
     // Stub: Send email/SMS to patient for updated insurance
-    alert(`Info request sent to ${patientName} via email/SMS`);
+    toast.success(`Info request sent to ${patientName} via email/SMS`, {
+      description: "The patient will receive notifications about updating their insurance information.",
+      duration: 4000,
+    });
   };
 
   const handleResolveIssue = () => {
