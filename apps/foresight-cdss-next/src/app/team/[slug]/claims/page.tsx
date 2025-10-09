@@ -2344,14 +2344,19 @@ export default function ClaimsPage() {
                       <div className="text-xs text-muted-foreground">
                         {claim.encounter_id} • {new Date(claim.dos).toLocaleDateString()} • {claim.visit_type}
                       </div>
-                      {(claim.status === "rejected_277ca" || claim.status === "denied") &&
-                        claim.payer_response && (
+                      {(() => {
+                        const carc = claim.payer_response?.carc || claim.rejection_response?.carc || "";
+                        const rarc = claim.payer_response?.rarc || claim.rejection_response?.rarc || "";
+                        const hasCode = carc || rarc;
+                        
+                        return (claim.status === "rejected_277ca" || claim.status === "denied") && hasCode ? (
                           <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
-                            {claim.payer_response.carc ?? ""}
-                            {claim.payer_response.carc && claim.payer_response.rarc ? " / " : ""}
-                            {claim.payer_response.rarc ?? ""}
+                            {carc}
+                            {carc && rarc ? " / " : ""}
+                            {rarc}
                           </Badge>
-                        )}
+                        ) : null;
+                      })()}
                     </TableCell>
                     <TableCell>{claim.patient.name}</TableCell>
                     <TableCell>{claim.payer.name}</TableCell>

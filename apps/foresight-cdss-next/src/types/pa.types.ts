@@ -94,6 +94,7 @@ export interface DashboardMetric {
     positive: boolean;
   };
   target?: string;
+  tooltip?: string;
 }
 
 export interface StatusDistribution {

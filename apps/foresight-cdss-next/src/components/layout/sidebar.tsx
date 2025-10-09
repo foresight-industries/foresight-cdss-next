@@ -19,6 +19,7 @@ import {
   FileText,
   FolderOpen,
   Hamburger,
+  CalendarCheck,
 } from "lucide-react";
 import { useUser, useClerk } from '@clerk/nextjs';
 import {
@@ -51,6 +52,7 @@ interface SidebarProps {
 const navigationItems = [
   { name: 'Dashboard', href: '/', icon: Home },
   { name: 'Prior Auth', href: '/queue', icon: ClipboardList },
+  { name: 'Pre-encounters', href: '/pre-encounters', icon: CalendarCheck },
   { name: 'Claims', href: '/claims', icon: FileText },
   { name: 'Credentialing', href: '/credentialing', icon: FolderOpen },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },

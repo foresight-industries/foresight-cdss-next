@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { EpaQueueItem } from '@/data/epa-queue';
 import type { Claim } from '@/data/claims';
+import type { PreEncounterIssue } from '@/types/pre-encounter.types';
+import { getIssueTypeLabel, getIssuePriorityColor } from '@/data/pre-encounter';
 
 const formatRelativeTime = (value: string) => {
   const parsed = new Date(value);
@@ -38,12 +40,17 @@ const getEpaSummary = (item: EpaQueueItem) => {
   return `${item.medication} · ${item.conditions}`;
 };
 
+const getPreEncounterSummary = (issue: PreEncounterIssue) => {
+  return `${getIssueTypeLabel(issue.issueType)} · ${issue.payerName}`;
+};
+
 interface ActionsNeededCardProps {
   epaItems: EpaQueueItem[];
   claimItems: Claim[];
+  preEncounterIssues: PreEncounterIssue[];
 }
 
-export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardProps) {
+export function ActionsNeededCard({ epaItems, claimItems, preEncounterIssues }: ActionsNeededCardProps) {
   const params = useParams();
   const teamSlug = params?.slug as string;
 
@@ -57,6 +64,11 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 5);
 
+  const needsReviewPreEncounter = [...preEncounterIssues]
+    .filter((issue) => issue.status === 'pending' || issue.status === 'in_progress')
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5);
+
   return (
     <Card className="bg-card border shadow-xs">
       <CardHeader className="pb-4">
@@ -64,7 +76,7 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
         <p className="text-sm text-muted-foreground">Prioritize review queues that require manual attention</p>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
           <Link href={teamSlug ? `/team/${teamSlug}/claims` : "/claims"} className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
             <div className="flex items-start justify-between gap-2">
               <div>
@@ -126,6 +138,42 @@ export function ActionsNeededCard({ epaItems, claimItems }: ActionsNeededCardPro
                       <div className="flex flex-col items-end gap-1">
                         <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
                           Needs review
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </Link>
+
+          <Link href={teamSlug ? `/team/${teamSlug}/pre-encounters` : "/pre-encounters"} className="group rounded-lg border border-border/60 bg-muted/20 p-4 transition hover:border-primary/40 hover:bg-muted/30">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Pre-encounters — Review queue</p>
+                <p className="text-xs text-muted-foreground">{needsReviewPreEncounter.length > 0 ? `${needsReviewPreEncounter.length} issues need review` : 'All caught up'}</p>
+              </div>
+              <ArrowUpRight className="h-4 w-4 text-muted-foreground transition group-hover:text-primary" aria-hidden="true" />
+            </div>
+            <div className="mt-4 space-y-3">
+              {needsReviewPreEncounter.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No actions needed</p>
+              ) : (
+                needsReviewPreEncounter.map((issue) => (
+                  <div
+                    key={issue.id}
+                    className="flex flex-col rounded-md border border-border/60 bg-background p-3 transition group-hover:border-primary/30"
+                  >
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-foreground">{issue.patientName}</span>
+                      <span className="text-xs text-muted-foreground">{formatRelativeTime(issue.updatedAt)}</span>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{getPreEncounterSummary(issue)}</p>
+                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{issue.appointmentDate}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge variant="outline" className={getIssuePriorityColor(issue.priority)}>
+                          {issue.priority} priority
                         </Badge>
                       </div>
                     </div>

@@ -4,6 +4,8 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusDistribution } from '@/components/dashboard/status-distribution';
 import type { StatusDistribution as StatusDistributionType } from '@/types/pa.types';
+import type { Claim } from '@/data/claims';
+import { calculateSubmissionPipelineMetrics } from '@/utils/dashboard';
 import {
   ResponsiveContainer,
   BarChart,
@@ -15,10 +17,12 @@ import {
   Legend,
   LineChart,
   Line,
+  Cell,
 } from 'recharts';
 
 interface AnalyticsOverviewProps {
   statusDistribution: StatusDistributionType;
+  claimItems?: Claim[];
   className?: string;
 }
 
@@ -47,7 +51,28 @@ const automationQuality = [
   { month: 'Oct', automation: 91, quality: 96 },
 ];
 
-export function AnalyticsOverview({ statusDistribution, className = '' }: AnalyticsOverviewProps) {
+export function AnalyticsOverview({ statusDistribution, claimItems = [], className = '' }: AnalyticsOverviewProps) {
+  // Calculate submission pipeline metrics if claim data is available
+  const submissionMetrics = claimItems.length > 0 ? calculateSubmissionPipelineMetrics(claimItems) : null;
+  
+  // Prepare submission outcomes data for chart
+  const submissionOutcomes = submissionMetrics ? [
+    { 
+      name: 'Successful Submissions', 
+      value: submissionMetrics.totalSubmissionAttempts - submissionMetrics.claimsScrubberRejects,
+      color: '#22c55e' 
+    },
+    { 
+      name: 'Scrubber Rejects', 
+      value: submissionMetrics.claimsScrubberRejects,
+      color: '#ef4444' 
+    },
+    { 
+      name: 'Missing Info', 
+      value: submissionMetrics.claimsMissingInfo,
+      color: '#f59e0b' 
+    }
+  ] : [];
   return (
     <Card className={`bg-card border shadow-xs ${className}`}>
       <CardHeader>
@@ -88,6 +113,58 @@ export function AnalyticsOverview({ statusDistribution, className = '' }: Analyt
             </ul>
           </div>
         </div>
+
+        {/* Submission Outcomes Chart */}
+        {submissionMetrics && (
+          <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
+            <h4 className="text-sm font-semibold text-foreground mb-2">Submission Outcomes</h4>
+            <p className="text-xs text-muted-foreground mb-4">Claims pipeline performance with absolute numbers</p>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={submissionOutcomes} layout="horizontal">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                  <XAxis type="number" stroke="#6b7280" tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="#6b7280" tickLine={false} axisLine={false} width={120} />
+                  <Tooltip formatter={(value: number) => `${value} claims`} />
+                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                    {submissionOutcomes.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 bg-green-500 rounded"></div>
+                  <span className="font-medium">Successful</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {submissionMetrics.totalSubmissionAttempts - submissionMetrics.claimsScrubberRejects} claims
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 bg-red-500 rounded"></div>
+                  <span className="font-medium">Scrub Rejects</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {submissionMetrics.claimsScrubberRejects} claims
+                </p>
+              </div>
+              <div className="text-center">
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-3 h-3 bg-amber-500 rounded"></div>
+                  <span className="font-medium">Missing Info</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {submissionMetrics.claimsMissingInfo} claims
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
           <h4 className="text-sm font-semibold text-foreground mb-2">Automation & quality over time</h4>
