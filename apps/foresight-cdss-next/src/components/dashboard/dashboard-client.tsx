@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { ActionsNeededCard } from '@/components/dashboard/actions-needed';
 import { AnalyticsOverview } from '@/components/dashboard/dashboard-charts';
 import { AuditTrail, type AuditEntry } from '@/components/dashboard/audit-trail';
@@ -9,6 +11,7 @@ import { calculateRCMMetrics } from '@/utils/dashboard';
 import type { StatusDistribution as StatusDistributionType, DashboardMetric } from '@/types/pa.types';
 import type { EpaQueueItem } from '@/data/epa-queue';
 import type { Claim } from '@/data/claims';
+import { mockPreEncounterIssues } from '@/data/pre-encounter';
 
 interface DashboardClientProps {
   epaItems: EpaQueueItem[];
@@ -23,6 +26,9 @@ export default function DashboardClient({
   statusDistribution,
   auditEntries,
 }: Readonly<DashboardClientProps>) {
+  const params = useParams();
+  const teamSlug = params?.slug as string;
+
   // Calculate RCM metrics from claims data
   const rcmMetrics = calculateRCMMetrics(claimItems);
 
@@ -41,21 +47,20 @@ export default function DashboardClient({
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="mx-auto w-full max-w-6xl flex flex-col gap-8">
-        {/* Top row with Actions needed and KPI tiles */}
-        <div className="grid w-full gap-4 md:grid-cols-3 items-stretch">
-          {/* Column 1: Actions needed (span 2 on desktop) */}
-          <div className="md:col-span-2 flex flex-col">
-            <ActionsNeededCard epaItems={epaItems} claimItems={claimItems} />
-          </div>
+        {/* Actions needed - full width row */}
+        <ActionsNeededCard epaItems={epaItems} claimItems={claimItems} preEncounterIssues={mockPreEncounterIssues} />
 
-          {/* Column 2: KPI tiles (stacked) */}
-          <div className="flex flex-col gap-4">
+        {/* AR KPI tiles row */}
+        <div className="grid w-full gap-4 md:grid-cols-2">
+          <Link href={teamSlug ? `/team/${teamSlug}/analytics` : "/analytics"} className="block">
             <MetricCard metric={daysInARMetric} />
+          </Link>
+          <Link href={teamSlug ? `/team/${teamSlug}/analytics` : "/analytics"} className="block">
             <AgingBucketsCard
               buckets={rcmMetrics.agingBuckets}
               totalOutstandingAR={rcmMetrics.totalOutstandingAR}
             />
-          </div>
+          </Link>
         </div>
 
         {/* Analytics and Audit sections below */}
