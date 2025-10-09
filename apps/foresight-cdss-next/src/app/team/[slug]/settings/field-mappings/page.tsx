@@ -103,7 +103,7 @@ export default function FieldMappingsPage() {
     target_column: '',
     transformation_rules: [] as TransformationRule[],
     validation_rules: [] as ValidationRule[],
-    ehr_connection_id: ''
+    ehr_connection_id: 'none'
   });
 
   const [validationResult, setValidationResult] = useState<MappingValidationResult | null>(null);
@@ -163,7 +163,7 @@ export default function FieldMappingsPage() {
         target_column: '',
         transformation_rules: [],
         validation_rules: [],
-        ehr_connection_id: ''
+        ehr_connection_id: 'none'
       });
       loadData();
     } catch (err) {
@@ -248,7 +248,7 @@ export default function FieldMappingsPage() {
       target_column: mapping.target_column || '',
       transformation_rules: mapping.transformation_rules || [],
       validation_rules: mapping.validation_rules || [],
-      ehr_connection_id: mapping.ehr_connection_id || ''
+      ehr_connection_id: mapping.ehr_connection_id || 'none'
     });
     setShowEditDialog(true);
   };
@@ -630,7 +630,7 @@ export default function FieldMappingsPage() {
                     <SelectValue placeholder="Select EHR connection" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">No specific connection</SelectItem>
+                    <SelectItem value="none">No specific connection</SelectItem>
                     {/* TODO: Load actual EHR connections */}
                     <SelectItem value="epic-prod">Epic Production</SelectItem>
                     <SelectItem value="cerner-dev">Cerner Development</SelectItem>

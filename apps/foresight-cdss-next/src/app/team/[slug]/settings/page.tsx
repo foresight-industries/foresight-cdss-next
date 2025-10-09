@@ -85,6 +85,7 @@ export default async function SettingsPage() {
       requireModifierDocumentation: false,
       blockInvalidModifiers: true,
       enablePayerSpecificRules: false,
+      conflictRules: [],
     },
     requiredFields: {
       blockOnMissingFields: true,
@@ -92,6 +93,35 @@ export default async function SettingsPage() {
     timeBasedValidation: {
       enabled: true,
       extractTimeFromNotes: true,
+      cptRules: [
+        {
+          id: "99213",
+          cptCode: "99213",
+          description: "Office Visit, Level 3",
+          minMinutes: 20,
+          maxMinutes: 29,
+          enabled: true,
+          flagIfNotDocumented: true,
+        },
+        {
+          id: "99214",
+          cptCode: "99214",
+          description: "Office Visit, Level 4",
+          minMinutes: 30,
+          maxMinutes: 39,
+          enabled: true,
+          flagIfNotDocumented: true,
+        },
+        {
+          id: "99215",
+          cptCode: "99215",
+          description: "Office Visit, Level 5",
+          minMinutes: 40,
+          maxMinutes: 54,
+          enabled: true,
+          flagIfNotDocumented: true,
+        },
+      ],
     },
     credentialingRules: {
       enforceCredentialing: true,
