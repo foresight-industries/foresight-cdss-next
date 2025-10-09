@@ -658,3 +658,72 @@ This implementation directly addresses the product brief's dollar-first prioriti
 - **Responsive Layout**: Grid-based arrangement that adapts to screen sizes
 
 This implementation addresses the product brief's requirement for stage analytics, giving users insight into claim processing timing and success rates to support revenue cycle optimization.
+
+#### 30. Keyboard Navigation for Claims Queue
+**Date**: October 2024  
+**Summary**: Implemented comprehensive keyboard shortcuts for the Claims queue to improve workflow efficiency and ergonomics. Power users can now navigate, open, and close claims using keyboard-only interactions, reducing mouse dependency and speeding up claim processing.
+
+**Keyboard Shortcuts Implemented:**
+- **Arrow Down/Up (↓/↑)**: Navigate through claims list when no detail is open, or jump to next/previous claim when detail is open
+- **J/K Keys**: Vim-style navigation for moving down/up through the claims list
+- **Enter or O**: Open the focused claim's detail sheet
+- **Escape**: Close the detail sheet and restore focus to the previously opened claim in the list
+- **Smart Input Protection**: Navigation is automatically disabled when typing in search or filter inputs
+
+**Visual Feedback and Accessibility:**
+- **Row Highlighting**: Focused claims display with gray background (`bg-muted/50`) and subtle ring (`ring-2 ring-primary/20`)
+- **ARIA Support**: Focused rows have `aria-selected="true"` and `tabIndex="-1"` for proper accessibility
+- **Seamless Detail Navigation**: Users can process claims sequentially without returning to list view between items
+- **Focus Restoration**: When closing details with Escape, focus returns to the claim that was previously open
+
+**Smart Behavior and Edge Cases:**
+- **Boundary Handling**: Navigation stops at first/last items, pressing Up from no selection jumps to the last item
+- **Filter Integration**: Focus resets when search results change to prevent orphaned selections
+- **Input Field Protection**: Keyboard navigation is disabled when users are typing in search boxes or filters
+- **Concurrent Interaction**: Clicking on rows while using keyboard navigation maintains proper focus state
+
+**Implementation Details:**
+- **Focus State Management**: Added `focusedIndex` state to track which claim is currently highlighted
+- **Event Handling**: Global keyboard event listener with comprehensive key mapping and state management
+- **Visual Integration**: Enhanced table rows with conditional CSS classes for highlighting
+- **React Query Integration**: Click handlers update focus state to maintain consistency
+
+**Performance and UX Optimizations:**
+- **Prevents Default Behavior**: Arrow key navigation prevents page scrolling when navigating claims
+- **Memory Efficiency**: Event listeners properly cleaned up to prevent memory leaks
+- **Responsive Design**: Keyboard shortcuts work seamlessly alongside existing mouse interactions
+- **Error Prevention**: Guards against navigation when activeElement is an input field
+
+**Comprehensive Testing:**
+Created extensive test suite (`specs/claims-keyboard-navigation.spec.tsx`) covering:
+- Basic navigation patterns (arrow keys, j/k keys, Enter/O for opening)
+- Detail view navigation (next/previous claim while detail is open)
+- Boundary conditions (staying at first/last items, wrapping behavior)
+- Input field protection (no navigation when typing in search/filters)
+- Focus restoration after closing details with Escape
+- Filter interaction (focus reset when search results change)
+- Edge cases (empty lists, concurrent interactions)
+
+**Business Value:**
+- **Improved Efficiency**: Power users can process claims faster with keyboard-only workflows
+- **Reduced RSI Risk**: Less mouse usage reduces repetitive strain from clicking
+- **Professional Workflow**: Supports advanced users who prefer keyboard navigation
+- **Accessibility Enhancement**: Better experience for users who rely on keyboard navigation
+- **Processing Speed**: Sequential claim review becomes much faster with arrow key navigation
+
+**Files Modified:**
+- `src/app/team/[slug]/claims/page.tsx`: Core keyboard navigation implementation with focus management and event handling
+- `specs/claims-keyboard-navigation.spec.tsx`: Comprehensive test suite with 17 test scenarios covering all keyboard interactions
+
+**User Experience Improvements:**
+- **Seamless Workflow**: Users can navigate entire queue using only keyboard
+- **Visual Clarity**: Clear highlighting shows current selection at all times
+- **Intuitive Controls**: Standard navigation patterns (arrows, Enter, Escape) that users expect
+- **Smart Context Awareness**: Navigation automatically adapts to whether detail view is open or closed
+
+**Future Enhancement Opportunities:**
+- **Auto-scroll Behavior**: Could add automatic scrolling to keep focused row visible in long lists using `scrollIntoView()`
+- **Advanced Navigation**: Could implement number key shortcuts to jump directly to specific positions
+- **Bulk Operations**: Keyboard shortcuts for multi-select operations or bulk actions
+
+This implementation significantly improves the ergonomics of claim processing by addressing the product brief's goal of streamlining queue handling. Users can now maintain high productivity with minimal mouse interaction, supporting faster claim review and resolution workflows.

@@ -630,6 +630,7 @@ export default function ClaimsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(false);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -1099,6 +1100,8 @@ export default function ClaimsPage() {
     setSelectedClaimIds((prev) =>
       prev.filter((id) => filteredClaims.some((claim) => claim.id === id))
     );
+    // Reset focus when filtered claims change
+    setFocusedIndex(null);
   }, [filteredClaims]);
 
   const activeClaim = useMemo(
@@ -1160,6 +1163,68 @@ export default function ClaimsPage() {
       }
       return !(claim.status === "rejected_277ca" || claim.status === "denied");
     });
+
+  // Keyboard navigation event handler
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      // Don't handle keyboard navigation if user is typing in an input field
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if (event.key === "Escape" && activeClaimId) {
+        event.preventDefault();
+        setActiveClaimId(null);
+        // Restore focus to the previously opened claim in the list
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex !== -1) {
+          setFocusedIndex(currentIndex);
+        }
+      } else if ((event.key === "ArrowDown" || event.key === "j") && !activeClaimId) {
+        // Move focus down in list
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          const next = prev === null ? 0 : Math.min(prev + 1, filteredClaims.length - 1);
+          return next;
+        });
+      } else if ((event.key === "ArrowUp" || event.key === "k") && !activeClaimId) {
+        // Move focus up in list
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          if (prev === null) return filteredClaims.length - 1; // Jump to end if none focused
+          return Math.max(prev - 1, 0);
+        });
+      } else if ((event.key === "Enter" || event.key === "o" || event.key === "O") && focusedIndex !== null && !activeClaimId) {
+        // Open focused claim
+        event.preventDefault();
+        const claimToOpen = filteredClaims[focusedIndex];
+        if (claimToOpen) {
+          setActiveClaimId(claimToOpen.id);
+        }
+      } else if (event.key === "ArrowDown" && activeClaimId) {
+        // If detail open, go to next claim
+        event.preventDefault();
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex !== -1 && currentIndex < filteredClaims.length - 1) {
+          const nextClaim = filteredClaims[currentIndex + 1];
+          setActiveClaimId(nextClaim.id);
+          setFocusedIndex(currentIndex + 1);
+        }
+      } else if (event.key === "ArrowUp" && activeClaimId) {
+        // Go to previous claim if open
+        event.preventDefault();
+        const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
+        if (currentIndex > 0) {
+          const prevClaim = filteredClaims[currentIndex - 1];
+          setActiveClaimId(prevClaim.id);
+          setFocusedIndex(currentIndex - 1);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [activeClaimId, filteredClaims, focusedIndex]);
 
   return (
     <TooltipProvider>
@@ -2018,18 +2083,22 @@ export default function ClaimsPage() {
                   </TableCell>
                 </TableRow>
               )}
-              {filteredClaims.map((claim) => {
+              {filteredClaims.map((claim, idx) => {
                 const blockingIssues = getBlockingIssueCount(claim);
+                const isRowFocused = focusedIndex === idx;
                 const rowClasses = cn(
                   claim.status === "rejected_277ca" || claim.status === "denied"
                     ? "border-l-4 border-l-amber-500"
                     : "border-l-4 border-l-transparent",
-                  "cursor-pointer"
+                  "cursor-pointer",
+                  isRowFocused && "bg-muted/50 ring-2 ring-primary/20"
                 );
                 return (
                   <TableRow
                     key={claim.id}
                     className={rowClasses}
+                    tabIndex={-1}
+                    aria-selected={isRowFocused}
                     onClick={(event) => {
                       const interactive = (event.target as HTMLElement).closest(
                         "button, a, [role=checkbox]"
@@ -2038,6 +2107,7 @@ export default function ClaimsPage() {
                         return;
                       }
                       setActiveClaimId(claim.id);
+                      setFocusedIndex(idx);
                     }}
                   >
                     <TableCell>
