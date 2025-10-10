@@ -258,18 +258,18 @@ export const extractDenialReason = (claim: Claim): string | null => {
   // Check CARC codes first
   if (claim.payer_response?.carc) return claim.payer_response.carc;
   if (claim.rejection_response?.carc) return claim.rejection_response.carc;
-  
+
   // Check RARC codes
   if (claim.payer_response?.rarc) return claim.payer_response.rarc;
   if (claim.rejection_response?.rarc) return claim.rejection_response.rarc;
-  
+
   // Check for mapped text-based reasons in message
   const message = claim.payer_response?.message || claim.rejection_response?.message || '';
   if (message.toLowerCase().includes('missing indication')) return 'MISSING_INDICATION';
   if (message.toLowerCase().includes('eligibility not verified')) return 'ELIGIBILITY_NOT_VERIFIED';
   if (message.toLowerCase().includes('incorrect') && message.toLowerCase().includes('modifier')) return 'INCORRECT_MODIFIERS';
   if (message.toLowerCase().includes('expired authorization')) return 'EXPIRED_AUTHORIZATION';
-  
+
   return null;
 };
 
@@ -280,12 +280,12 @@ export const getDenialReasonDetails = (code: string): DenialReason | null => {
 
 // Analyze claims by denial reason
 export const analyzeDenialReasons = (claims: Claim[]): DenialReasonAnalysis[] => {
-  const deniedClaims = claims.filter(claim => 
+  const deniedClaims = claims.filter(claim =>
     claim.status === 'denied' || claim.status === 'rejected_277ca'
   );
 
   const reasonGroups: Record<string, Claim[]> = {};
-  
+
   // Group claims by denial reason
   deniedClaims.forEach(claim => {
     const reasonCode = extractDenialReason(claim);
@@ -299,7 +299,7 @@ export const analyzeDenialReasons = (claims: Claim[]): DenialReasonAnalysis[] =>
 
   // Create analysis for each denial reason
   const analyses: DenialReasonAnalysis[] = [];
-  
+
   Object.entries(reasonGroups).forEach(([code, claimsForReason]) => {
     const reason = getDenialReasonDetails(code);
     if (!reason) return;
@@ -343,7 +343,7 @@ export const analyzeDenialReasons = (claims: Claim[]): DenialReasonAnalysis[] =>
 };
 
 // Get top denial reasons for dashboard display
-export const getTopDenialReasons = (claims: Claim[], limit: number = 4) => {
+export const getTopDenialReasons = (claims: Claim[], limit = 4) => {
   const analyses = analyzeDenialReasons(claims);
   return analyses.slice(0, limit).map(analysis => ({
     reason: analysis.reason.description,
