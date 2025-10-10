@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import DashboardClient from '@/components/dashboard/dashboard-client';
 import { epaQueueItems } from '@/data/epa-queue';
 import { initialClaims } from '@/data/claims';
+import { demoAuditEntries } from '@/data/audit-trail';
 import { combineStatusDistribution } from '@/utils/dashboard';
 
 const formatAuditMessage = (operation: string, tableName: string, recordId: string | null) => {
@@ -34,12 +35,14 @@ async function loadDashboardData() {
       console.error('Error fetching audit log:', auditError);
     }
 
-    const auditEntries = (auditLogData ?? []).map((entry) => ({
-      id: entry.id,
-      message: formatAuditMessage(entry.operation, entry.table_name, entry.record_id),
-      actor: entry.auth_uid,
-      timestamp: formatAuditTimestamp(entry.created_at),
-    }));
+    const auditEntries = auditLogData && auditLogData.length > 0 
+      ? auditLogData.map((entry) => ({
+          id: entry.id,
+          message: formatAuditMessage(entry.operation, entry.table_name, entry.record_id),
+          actor: entry.auth_uid,
+          timestamp: formatAuditTimestamp(entry.created_at),
+        }))
+      : demoAuditEntries;
 
     return {
       epaItems: epaQueueItems,
@@ -53,7 +56,7 @@ async function loadDashboardData() {
       epaItems: epaQueueItems,
       claimItems: initialClaims,
       statusDistribution: combineStatusDistribution(epaQueueItems, initialClaims),
-      auditEntries: [],
+      auditEntries: demoAuditEntries,
     };
   }
 }

@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -18,6 +17,8 @@ import {
   LineChart,
   Line,
   Legend,
+  ResponsiveContainer,
+  Tooltip,
 } from 'recharts';
 import type { Claim } from '@/data/claims';
 import type { RCMMetrics } from '@/utils/dashboard';
@@ -58,6 +59,11 @@ const arTrendData = [
 export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsProps) {
   const params = useParams();
   const teamSlug = params?.slug as string;
+
+  // State for tracking which collapsible sections are open
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    '90+': true, // Default open for critical bucket
+  });
 
   // Get outstanding claims for analysis
   const outstandingClaims = useMemo(() => {
@@ -104,24 +110,6 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
     { bucket: '61-90', count: agingCountBuckets['61-90'], amount: rcmMetrics.agingBuckets['61-90'] },
     { bucket: '90+', count: agingCountBuckets['90+'], amount: rcmMetrics.agingBuckets['90+'] },
   ];
-
-  const distributionChartConfig = {
-    count: {
-      label: "Claims Count",
-      color: "hsl(var(--chart-1))",
-    },
-    amount: {
-      label: "Amount",
-      color: "hsl(var(--chart-2))",
-    },
-  } satisfies ChartConfig;
-
-  const trendChartConfig = {
-    avgDays: {
-      label: "Avg Days",
-      color: "hsl(var(--chart-1))",
-    },
-  } satisfies ChartConfig;
 
   // Generate insights with aging-specific recommendations
   const insights = useMemo(() => {
@@ -247,32 +235,34 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
             </p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={trendChartConfig}>
-              <LineChart data={arTrendData} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="month"
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent />}
-                />
-                <Line
-                  dataKey="avgDays"
-                  type="monotone"
-                  stroke="var(--color-avgDays)"
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                />
-              </LineChart>
-            </ChartContainer>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={arTrendData} margin={{ left: 12, right: 12 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    stroke="#6b7280"
+                    className="text-xs"
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    stroke="#6b7280"
+                    className="text-xs"
+                  />
+                  <Tooltip formatter={(value: number) => [`${value} days`, "Avg Days"]} />
+                  <Line
+                    dataKey="avgDays"
+                    type="monotone"
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                    dot={{ r: 4, fill: "#4f46e5" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
 
@@ -288,27 +278,29 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
             </p>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={distributionChartConfig}>
-              <BarChart data={distributionData} margin={{ left: 12, right: 12 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="bucket"
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <YAxis
-                  tickLine={false}
-                  axisLine={false}
-                  className="text-xs"
-                />
-                <ChartTooltip
-                  content={<ChartTooltipContent />}
-                />
-                <Legend />
-                <Bar dataKey="count" name="Claims Count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ChartContainer>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={distributionData} margin={{ left: 12, right: 12 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-gray-600" />
+                  <XAxis
+                    dataKey="bucket"
+                    tickLine={false}
+                    axisLine={false}
+                    stroke="#6b7280"
+                    className="text-xs"
+                  />
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    stroke="#6b7280"
+                    className="text-xs"
+                  />
+                  <Tooltip formatter={(value: number) => [`${value} claims`, "Claims Count"]} />
+                  <Legend />
+                  <Bar dataKey="count" name="Claims Count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -325,38 +317,34 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
           {/* Enhanced Distribution Chart */}
           <div className="mb-6">
             <h4 className="text-sm font-semibold mb-4">Distribution by Amount and Percentage</h4>
-            <ChartContainer config={distributionChartConfig}>
-              <BarChart
-                data={distributionData}
-                layout="vertical"
-                margin={{ left: 60, right: 12, top: 12, bottom: 12 }}
-              >
-                <XAxis type="number" axisLine={true} tickLine={false} />
-                <YAxis
-                  dataKey="bucket"
-                  type="category"
-                  axisLine={true}
-                  tickLine={false}
-                  width={50}
-                />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value, name) => [
-                        name === 'amount' ? formatCurrency(value as number) : `${value} claims`,
-                        name === 'amount' ? 'Amount' : name === 'claims' ? '' : 'Claims'
-                      ]}
-                    />
-                  }
-                />
-                <Bar
-                  dataKey="amount"
-                  name="Amount"
-                  fill="var(--color-amount)"
-                  radius={[0, 4, 4, 0]}
-                />
-              </BarChart>
-            </ChartContainer>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={distributionData}
+                  layout="vertical"
+                  margin={{ left: 60, right: 12, top: 12, bottom: 12 }}
+                >
+                  <XAxis type="number" axisLine={true} tickLine={false} stroke="#6b7280" />
+                  <YAxis
+                    dataKey="bucket"
+                    type="category"
+                    axisLine={true}
+                    tickLine={false}
+                    width={50}
+                    stroke="#6b7280"
+                  />
+                  <Tooltip
+                    formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                  />
+                  <Bar
+                    dataKey="amount"
+                    name="Amount"
+                    fill="#10b981"
+                    radius={[0, 4, 4, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Bucket-wise Claims Lists */}
@@ -367,7 +355,14 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
 
               const count = rcmMetrics.agingCounts[bucket as keyof typeof rcmMetrics.agingCounts];
               const percentage = rcmMetrics.totalOutstandingAR > 0 ? (amount / rcmMetrics.totalOutstandingAR) * 100 : 0;
-              const isExpanded = bucket === '90+'; // Default expand critical bucket
+              const isOpen = openSections[bucket] ?? (bucket === '90+'); // Default expand critical bucket
+
+              const toggleSection = () => {
+                setOpenSections(prev => ({
+                  ...prev,
+                  [bucket]: !isOpen
+                }));
+              };
 
               // Filter claims for this bucket
               const bucketClaims = outstandingClaims
@@ -395,11 +390,11 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                              bucket === '61-90' ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200';
 
               return (
-                <Collapsible key={bucket} defaultOpen={isExpanded}>
+                <Collapsible key={bucket} open={isOpen} onOpenChange={toggleSection}>
                   <CollapsibleTrigger className={`w-full p-4 rounded-lg border transition-colors hover:bg-muted/50 ${bucketBg}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <ChevronRight className="w-4 h-4 transition-transform data-[state=open]:rotate-90" />
+                        <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
                         <div className="text-left">
                           <div className={`font-medium ${bucketColor}`}>
                             {bucket} Days ({count} claims)

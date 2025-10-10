@@ -2,8 +2,8 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { ChartTooltip } from '@/components/ui/chart';
+import { BarChart, Bar, XAxis, YAxis, PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { StageAnalytics } from '@/utils/stage-analytics';
 
 interface RCMStageAnalyticsProps {
@@ -121,36 +121,37 @@ export function RCMStageAnalytics({
           <h4 className="text-sm font-semibold mb-4">
             Average Stage Durations
           </h4>
-          <ChartContainer config={{ days: { label: "Days", color: "hsl(var(--chart-2))" } }}>
-            <BarChart
-              accessibilityLayer
-              data={durationData}
-              layout="vertical"
-              margin={{ left: -20 }}
-              barCategoryGap="20%"
-            >
-              <XAxis 
-                type="number" 
-                dataKey="days" 
-                axisLine={true}
-                tickLine={true}
-                label={{ value: 'Days', position: 'insideBottom', offset: -10 }}
-              />
-              <YAxis
-                dataKey="stage"
-                type="category"
-                tickLine={true}
-                tickMargin={10}
-                axisLine={true}
-                width={120}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent hideLabel />}
-              />
-              <Bar dataKey="days" fill="hsl(var(--chart-2))" radius={5} maxBarSize={30} />
-            </BarChart>
-          </ChartContainer>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={durationData}
+                layout="vertical"
+                margin={{ left: 20, right: 12, top: 12, bottom: 12 }}
+                barCategoryGap="20%"
+              >
+                <XAxis
+                  type="number"
+                  dataKey="days"
+                  axisLine={true}
+                  tickLine={false}
+                  stroke="#6b7280"
+                />
+                <YAxis
+                  dataKey="stage"
+                  type="category"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={true}
+                  width={120}
+                  stroke="#6b7280"
+                />
+                <Tooltip
+                  formatter={(value: number) => [`${value} days`, "Duration"]}
+                />
+                <Bar dataKey="days" fill="#8b5cf6" radius={5} maxBarSize={30} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </Card>
 
         {/* Initial Outcomes Pie Chart */}
