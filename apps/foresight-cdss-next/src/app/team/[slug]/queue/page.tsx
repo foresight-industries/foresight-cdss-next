@@ -242,7 +242,7 @@ export default function QueuePage() {
         <header className="mb-6">
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">PA Queue</h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage and review prior authorization requests ({filteredData.length} items)
+            Manage and review prior authorization requests
           </p>
         </header>
         <div className="flex gap-2">

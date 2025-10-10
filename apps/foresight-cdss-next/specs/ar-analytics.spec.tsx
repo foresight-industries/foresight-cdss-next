@@ -194,7 +194,7 @@ describe('ARAnalytics', () => {
 
       expect(screen.getByTestId('line-chart')).toBeInTheDocument();
       expect(screen.getByText('A/R Trend (Last 6 Months)')).toBeInTheDocument();
-      expect(screen.getByText('Historical average days in accounts receivable (placeholder data)')).toBeInTheDocument();
+      expect(screen.getByText('Historical average days in accounts receivable')).toBeInTheDocument();
     });
 
     it('should render distribution chart', () => {
