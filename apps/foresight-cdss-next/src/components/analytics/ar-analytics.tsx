@@ -231,7 +231,7 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
               A/R Trend (Last 6 Months)
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              Historical average days in accounts receivable (placeholder data)
+              Historical average days in accounts receivable
             </p>
           </CardHeader>
           <CardContent>

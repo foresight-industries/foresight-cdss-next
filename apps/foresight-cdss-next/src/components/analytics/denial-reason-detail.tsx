@@ -42,9 +42,9 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-// Format claim ID for display
-const formatClaimId = (id: string): string => {
-  return id.replace('CLM-', '');
+// Format claim/PA ID for display
+const formatItemId = (id: string): string => {
+  return id.replace(/^(CLM-|PA-CLM-)/, '');
 };
 
 // Get priority color
@@ -64,6 +64,13 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
   const [selectedTab, setSelectedTab] = useState<'overview' | 'claims' | 'resolution'>('overview');
 
   const { reason, claimCount, totalAmount, averageDaysInAR, payerBreakdown, claims } = analysis;
+  
+  // Detect if this is a PA denial (PA codes start with 'PA')
+  const isPADenial = reason.code.startsWith('PA');
+  const itemType = isPADenial ? 'Prior Auth' : 'Claim';
+  const itemTypePlural = isPADenial ? 'Prior Auths' : 'Claims';
+  const itemTypeLower = isPADenial ? 'prior auth' : 'claim';
+  const itemTypePluralLower = isPADenial ? 'prior auths' : 'claims';
 
   // Prepare payer chart data
   const payerChartData = payerBreakdown.slice(0, 6).map((item, index) => ({
@@ -96,7 +103,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">Affected Claims</p>
+                <p className="text-sm font-medium text-muted-foreground">Affected {itemTypePlural}</p>
                 <p className="text-2xl font-bold text-foreground">{claimCount}</p>
               </div>
               <FileText className="h-8 w-8 text-blue-600" />
@@ -146,7 +153,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
         <div className="flex space-x-12">
           {[
             { key: 'overview', label: 'Overview', icon: TrendingUp },
-            { key: 'claims', label: 'Claims List', icon: FileText },
+            { key: 'claims', label: `${itemTypePlural} List`, icon: FileText },
             { key: 'resolution', label: 'Resolution Guide', icon: Lightbulb }
           ].map(({ key, label, icon: Icon }) => (
             <button
@@ -171,7 +178,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
           {/* Payer Breakdown Chart */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Claims by Payer</CardTitle>
+              <CardTitle className="text-lg">{itemTypePlural} by Payer</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="h-64">
@@ -190,7 +197,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                     </Pie>
                     <Tooltip 
                       formatter={(value: number, name, props) => [
-                        `${value} claims`, 
+                        `${value} ${itemTypePluralLower}`, 
                         props.payload?.payer || 'Payer'
                       ]} 
                     />
@@ -217,7 +224,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                         </span>
                       </div>
                       <div className="text-right ml-2 flex-shrink-0">
-                        <span className="font-medium">{item.count} claims</span>
+                        <span className="font-medium">{item.count} {itemTypePluralLower}</span>
                         <span className="text-muted-foreground ml-2">({percentage}%)</span>
                       </div>
                     </div>
@@ -244,7 +251,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                 <h4 className="font-medium text-foreground mb-2">Financial Impact</h4>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Average claim value:</span>
+                    <span className="text-muted-foreground">Average {itemTypeLower} value:</span>
                     <span className="font-medium">{formatCurrency(totalAmount / claimCount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
@@ -269,7 +276,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                         <span className="text-foreground">{payer.payer}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-medium">{payer.count} claims</div>
+                        <div className="font-medium">{payer.count} {itemTypePluralLower}</div>
                         <div className="text-muted-foreground">{formatCurrency(payer.amount)}</div>
                       </div>
                     </div>
@@ -284,14 +291,14 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
       {selectedTab === 'claims' && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Affected Claims</CardTitle>
+            <CardTitle className="text-lg">Affected {itemTypePlural}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-2 font-medium text-muted-foreground">Claim ID</th>
+                    <th className="text-left p-2 font-medium text-muted-foreground">{itemType} ID</th>
                     <th className="text-left p-2 font-medium text-muted-foreground">Patient</th>
                     <th className="text-left p-2 font-medium text-muted-foreground">Payer</th>
                     <th className="text-right p-2 font-medium text-muted-foreground">Amount</th>
@@ -308,7 +315,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
 
                     return (
                       <tr key={claim.id} className="border-b hover:bg-muted/50">
-                        <td className="p-2 font-mono text-sm">{formatClaimId(claim.id)}</td>
+                        <td className="p-2 font-mono text-sm">{formatItemId(claim.id)}</td>
                         <td className="p-2">{claim.patient.name}</td>
                         <td className="p-2">{claim.payer.name}</td>
                         <td className="p-2 text-right font-medium">{formatCurrency(claim.total_amount)}</td>
@@ -350,21 +357,25 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                     <span className="font-medium">{reason.resolution.timeframe}</span>
                   </div>
 
-                  <Separator />
+                  {!reason.resolution.canAutomate && (
+                    <>
+                      <Separator />
 
-                  <div>
-                    <h4 className="font-medium text-foreground mb-3">Resolution Steps</h4>
-                    <div className="space-y-3">
-                      {reason.resolution.steps.map((step, index) => (
-                        <div key={index} className="flex items-start gap-3">
-                          <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium flex-shrink-0 mt-0.5">
-                            {index + 1}
-                          </div>
-                          <p className="text-sm text-foreground mt-0.5">{step}</p>
+                      <div>
+                        <h4 className="font-medium text-foreground mb-3">Resolution Steps</h4>
+                        <div className="space-y-3">
+                          {reason.resolution.steps.map((step, index) => (
+                            <div key={index} className="flex items-start gap-3">
+                              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium flex-shrink-0 mt-0.5">
+                                {index + 1}
+                              </div>
+                              <p className="text-sm text-foreground mt-0.5">{step}</p>
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                      </div>
+                    </>
+                  )}
 
                   {reason.resolution.canAutomate && (
                     <>
@@ -382,7 +393,7 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">
-                              {reason.resolution.automaticAction} was automatically processed for {claimCount} affected claims.
+                              {reason.resolution.automaticAction} was automatically processed for {claimCount} affected {itemTypePluralLower}.
                             </p>
                             <div className="text-xs text-muted-foreground">
                               Estimated recovery: {formatCurrency(totalAmount)} • Completed in {reason.resolution.timeframe}

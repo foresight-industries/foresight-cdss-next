@@ -1,5 +1,9 @@
 import React from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { ArrowUpRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 export interface AuditEntry {
   id?: string;
@@ -14,6 +18,9 @@ interface AuditTrailProps {
 }
 
 export function AuditTrail({ entries, className = '' }: AuditTrailProps) {
+  const params = useParams();
+  const teamSlug = params?.slug as string;
+  
   return (
     <Card className={`bg-card border shadow-xs ${className}`}>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -21,6 +28,12 @@ export function AuditTrail({ entries, className = '' }: AuditTrailProps) {
           <CardTitle className="text-lg font-semibold">Audit trail</CardTitle>
           <p className="text-sm text-muted-foreground">Latest events across claims and ePA automations</p>
         </div>
+        <Link href={`/team/${teamSlug}/audit-trail`}>
+          <Button variant="outline" size="sm" className="gap-1">
+            View All
+            <ArrowUpRight className="w-4 h-4" />
+          </Button>
+        </Link>
       </CardHeader>
       <CardContent>
         <ul className="text-sm space-y-3">

@@ -238,7 +238,7 @@ export const initialClaims: Claim[] = [
     visit_type: "Telehealth",
     state: "MI",
     total_amount: 112,
-    status: "needs_review",
+    status: "denied",
     pa_status: "needs-review",
     confidence: 0.82,
     issues: [
@@ -263,6 +263,7 @@ export const initialClaims: Claim[] = [
         provenance: "rule",
         confidence: 0.99,
         reason: "Telehealth visits submit with POS 10.",
+        applied: true,
       },
       {
         field: "modifiers",
@@ -350,6 +351,11 @@ export const initialClaims: Claim[] = [
         created_by: "system"
       }
     ],
+    payer_response: {
+      type: "835",
+      carc: "N620",
+      message: "Missing/incomplete/invalid place of service"
+    },
     updatedAt: minutesAgo(45),
     submissionOutcome: "accept",
   },
@@ -731,6 +737,7 @@ export const initialClaims: Claim[] = [
         confidence: 0.68,
         reason: "Medication management documented in note.",
         requiresConfirmation: true,
+        applied: true,
       },
     ],
     validation_results: [
