@@ -1394,17 +1394,19 @@ export default function ClaimsPage() {
 
     // Apply sorting - prioritize dollar-first if enabled
     if (dollarFirst) {
-      // Dollar-first mode: sort by amount descending, then by default sort order for ties
+      // Dollar-first mode: prioritize needs_review status first, then sort by amount within each status group
       filtered.sort((a, b) => {
-        const amountDiff = b.total_amount - a.total_amount;
-        if (amountDiff !== 0) {
-          return amountDiff;
-        }
-        // For equal amounts, fall back to status and date ordering
+        // First, prioritize status (needs_review comes first)
         const statusDiff = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
         if (statusDiff !== 0) {
           return statusDiff;
         }
+        // Within the same status, sort by amount descending (highest first)
+        const amountDiff = b.total_amount - a.total_amount;
+        if (amountDiff !== 0) {
+          return amountDiff;
+        }
+        // For equal amounts and status, fall back to date ordering
         return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       });
     } else if (sortConfig.field && sortConfig.direction) {
