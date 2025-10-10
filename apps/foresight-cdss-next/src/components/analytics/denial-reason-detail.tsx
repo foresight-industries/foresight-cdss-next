@@ -183,15 +183,46 @@ export function DenialReasonDetail({ analysis, onBack, onAutomate }: DenialReaso
                       cy="50%"
                       outerRadius={80}
                       dataKey="count"
-                      label={({ payer, count }) => `${payer}: ${count}`}
                     >
                       {payerChartData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [`${value} claims`, 'Count']} />
+                    <Tooltip 
+                      formatter={(value: number, name, props) => [
+                        `${value} claims`, 
+                        props.payload?.payer || 'Payer'
+                      ]} 
+                    />
                   </PieChart>
                 </ResponsiveContainer>
+              </div>
+              
+              {/* Legend below chart */}
+              <div className="mt-4 space-y-2">
+                {payerChartData.map((item, index) => {
+                  const percentage = payerChartData.reduce((sum, p) => sum + p.count, 0) > 0 
+                    ? (item.count / payerChartData.reduce((sum, p) => sum + p.count, 0) * 100).toFixed(1)
+                    : '0';
+                  
+                  return (
+                    <div key={item.payer} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: item.color }}
+                        />
+                        <span className="text-foreground truncate" title={item.payer}>
+                          {item.payer}
+                        </span>
+                      </div>
+                      <div className="text-right ml-2 flex-shrink-0">
+                        <span className="font-medium">{item.count} claims</span>
+                        <span className="text-muted-foreground ml-2">({percentage}%)</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

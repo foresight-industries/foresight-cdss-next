@@ -86,6 +86,18 @@ export interface ClaimAttachment {
   type: string;
 }
 
+export interface Payment {
+  id: string;
+  claim_id: string;
+  amount: number;
+  date: string;
+  payer: string; // Who paid: "insurance" | "patient" | string
+  reference?: string; // Check number or EFT trace
+  note?: string;
+  created_at: string;
+  created_by?: string; // User who recorded the payment
+}
+
 export interface ScrubResult {
   id: string;
   entity_id: string;
@@ -128,6 +140,7 @@ export interface Claim {
   eligibility_note?: string;
   attachments?: ClaimAttachment[];
   scrubbing_result?: ScrubResult[];
+  payments?: Payment[]; // Payment records for this claim
   updatedAt: string;
   submissionOutcome?: SubmissionOutcome;
 }
@@ -324,6 +337,19 @@ export const initialClaims: Claim[] = [
     attachments: [
       { id: "att-1", name: "Telehealth consent.pdf", type: "pdf" },
     ],
+    payments: [
+      {
+        id: "PAY-ABC123",
+        claim_id: "CLM-3201",
+        amount: 50.0,
+        date: minutesAgo(120),
+        payer: "MI Medicaid",
+        reference: "EFT-789123",
+        note: "Partial payment from insurance",
+        created_at: minutesAgo(120),
+        created_by: "system"
+      }
+    ],
     updatedAt: minutesAgo(45),
     submissionOutcome: "accept",
   },
@@ -399,6 +425,30 @@ export const initialClaims: Claim[] = [
     provider: "Dr. Ash Sterling",
     eligibility_note: "Auto-eligible via batch verification.",
     attachments: [],
+    payments: [
+      {
+        id: "PAY-DEF456",
+        claim_id: "CLM-3205",
+        amount: 80.0,
+        date: minutesAgo(90),
+        payer: "insurance",
+        reference: "CHECK-456789",
+        note: "Insurance payment - partial coverage",
+        created_at: minutesAgo(90),
+        created_by: "auto"
+      },
+      {
+        id: "PAY-GHI789",
+        claim_id: "CLM-3205",
+        amount: 25.0,
+        date: minutesAgo(60),
+        payer: "patient",
+        reference: "COPAY-001",
+        note: "Patient copayment",
+        created_at: minutesAgo(60),
+        created_by: "front_desk"
+      }
+    ],
     updatedAt: minutesAgo(30),
     submissionOutcome: "accept",
   },
@@ -1858,4 +1908,68 @@ export const STATUS_ORDER: ClaimStatus[] = [
   "accepted_277ca",
   "paid",
 ];
+
+// Payment utility functions
+export const generatePaymentId = (): string => {
+  return `PAY-${Date.now().toString(36).toUpperCase()}`;
+};
+
+export const calculateClaimBalance = (claim: Claim): number => {
+  if (!claim.payments || claim.payments.length === 0) {
+    return claim.total_amount;
+  }
+  
+  const totalPaid = claim.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  return Math.max(0, claim.total_amount - totalPaid);
+};
+
+export const isClaimFullyPaid = (claim: Claim): boolean => {
+  return calculateClaimBalance(claim) === 0;
+};
+
+export const addPaymentToClaim = (
+  claim: Claim,
+  amount: number,
+  payer: string,
+  reference?: string,
+  note?: string,
+  createdBy?: string
+): Claim => {
+  const now = new Date().toISOString();
+  
+  const payment: Payment = {
+    id: generatePaymentId(),
+    claim_id: claim.id,
+    amount,
+    date: now,
+    payer,
+    reference,
+    note,
+    created_at: now,
+    created_by: createdBy
+  };
+
+  const updatedPayments = [...(claim.payments || []), payment];
+  const remainingBalance = claim.total_amount - updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+  
+  // Update claim status based on payment
+  const newStatus: ClaimStatus = remainingBalance <= 0 ? 'paid' : claim.status;
+  
+  // Add payment entry to state history
+  const paymentNote = `Payment received: ${formatCurrency(amount)} from ${payer}${reference ? ` (${reference})` : ''}`;
+  const updatedHistory = appendHistory(
+    claim.state_history,
+    newStatus,
+    paymentNote,
+    now
+  );
+
+  return {
+    ...claim,
+    payments: updatedPayments,
+    status: newStatus,
+    state_history: updatedHistory,
+    updatedAt: now
+  };
+};
 

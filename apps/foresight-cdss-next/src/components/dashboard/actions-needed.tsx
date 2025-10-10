@@ -153,12 +153,12 @@ export function ActionsNeededCard({ epaItems, claimItems, preEncounterIssues }: 
                       <p className="mt-2 text-sm text-muted-foreground">{getClaimSummary(claim)}</p>
                       <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                         <span>{claim.payer.name}</span>
-                        <div className="flex items-center gap-2">
-                          <span>{formatRelativeTime(claim.updatedAt)}</span>
-                          <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
-                            Needs review
-                          </Badge>
-                        </div>
+                        <span>{formatRelativeTime(claim.updatedAt)}</span>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                          Needs review
+                        </Badge>
                       </div>
                     </div>
                   );

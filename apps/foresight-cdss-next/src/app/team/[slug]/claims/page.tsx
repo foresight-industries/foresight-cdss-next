@@ -27,6 +27,8 @@ import {
   ArrowUp,
   ArrowDown,
   Calendar as CalendarIcon,
+  DollarSign,
+  Plus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -99,7 +101,10 @@ import {
   findMatchingDenialRule,
   createDenialPlaybookHistoryEntry,
   appendHistory,
+  calculateClaimBalance,
+  addPaymentToClaim,
 } from "@/data/claims";
+import { AddPaymentForm } from "@/components/claims/add-payment-form";
 
 const sortClaims = (claims: Claim[]) =>
   [...claims].sort((a, b) => {
@@ -125,6 +130,7 @@ const ClaimDetailSheet: React.FC<{
   onNext?: () => void;
   disablePrev?: boolean;
   disableNext?: boolean;
+  onUpdateClaim: (claimId: string, updater: (claim: Claim) => Claim) => void;
 }> = ({
   claim,
   open,
@@ -139,8 +145,10 @@ const ClaimDetailSheet: React.FC<{
   onNext,
   disablePrev,
   disableNext,
+  onUpdateClaim,
 }) => {
   const [showSources, setShowSources] = useState(true);
+  const [showAddPayment, setShowAddPayment] = useState(false);
 
   useEffect(() => {
     setShowSources(true);
@@ -637,6 +645,117 @@ const ClaimDetailSheet: React.FC<{
               </div>
             </section>
 
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <DollarSign className="h-4 w-4" /> Payments
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddPayment(true)}
+                  disabled={claim.status !== 'accepted_277ca' && claim.status !== 'paid'}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Payment
+                </Button>
+              </div>
+              
+              {/* Current Payment Status */}
+              <div className="p-3 bg-muted/20 rounded-lg">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Claim Total:</span>
+                  <span className="font-medium">{formatCurrency(claim.total_amount)}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-muted-foreground">Total Paid:</span>
+                  <span className="font-medium">
+                    {claim.payments && claim.payments.length > 0 
+                      ? formatCurrency(claim.payments.reduce((sum, payment) => sum + payment.amount, 0))
+                      : formatCurrency(0)
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between items-center text-sm pt-1 border-t mt-1">
+                  <span className="text-muted-foreground">Balance:</span>
+                  <span className={`font-semibold ${calculateClaimBalance(claim) === 0 ? 'text-green-600' : 'text-foreground'}`}>
+                    {formatCurrency(calculateClaimBalance(claim))}
+                  </span>
+                </div>
+              </div>
+
+              {/* Payment Records */}
+              {claim.payments && claim.payments.length > 0 ? (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-semibold text-muted-foreground">Payment History</h4>
+                  <div className="space-y-3">
+                    {claim.payments
+                      .slice()
+                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex items-start justify-between rounded border border-border/60 bg-background p-3 text-sm"
+                        >
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="font-semibold text-green-600">
+                                {formatCurrency(payment.amount)}
+                              </div>
+                              <div className="text-muted-foreground text-xs">
+                                from {payment.payer}
+                              </div>
+                            </div>
+                            {payment.reference && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Ref: {payment.reference}
+                              </div>
+                            )}
+                            {payment.note && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {payment.note}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(payment.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-6 text-sm text-muted-foreground border border-dashed border-border/60 rounded-lg">
+                  No payments recorded yet
+                </div>
+              )}
+
+              {/* Add Payment Form Modal */}
+              {showAddPayment && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
+                    <AddPaymentForm
+                      claim={claim}
+                      onPaymentAdded={async (paymentData) => {
+                        const updatedClaim = addPaymentToClaim(
+                          claim,
+                          paymentData.amount,
+                          paymentData.payer,
+                          paymentData.reference,
+                          paymentData.note
+                        );
+                        
+                        onUpdateClaim(claim.id, () => updatedClaim);
+                        setShowAddPayment(false);
+                      }}
+                      onCancel={() => setShowAddPayment(false)}
+                    />
+                  </div>
+                </div>
+              )}
+            </section>
+
             {claim.attachments && claim.attachments.length > 0 && (
               <section className="space-y-3">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -696,7 +815,7 @@ export default function ClaimsPage() {
   const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
-  const [dollarFirst, setDollarFirst] = useState(false);
+  const [dollarFirst, setDollarFirst] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
 
   // Function to close claim and remove query parameter
@@ -2547,6 +2666,7 @@ export default function ClaimsPage() {
         onSubmit={(id) => submitClaims([id])}
         onResubmit={(id) => resubmitClaims([id])}
         onApplySuggestion={applySuggestion}
+        onUpdateClaim={updateClaim}
         submittingClaims={submittingClaims}
         onPrev={() => {
           const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;

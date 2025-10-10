@@ -1,6 +1,7 @@
 import type { StatusDistribution } from '@/types/pa.types';
 import type { EpaQueueItem } from '@/data/epa-queue';
 import type { Claim } from '@/data/claims';
+import { calculateClaimBalance, isClaimFullyPaid } from '@/data/claims';
 
 const mapEpaStatusToKey = (status: EpaQueueItem['status']): keyof StatusDistribution => {
   switch (status) {
@@ -93,10 +94,31 @@ const daysBetween = (startDate: string, endDate: Date): number => {
 
 // Calculate RCM metrics from claims data
 export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
-  // Filter to unpaid/outstanding claims (exclude paid and denied)
-  const outstandingClaims = claims.filter(claim => 
-    !['paid', 'denied'].includes(claim.status)
-  );
+  // Handle null/undefined input
+  if (!claims || !Array.isArray(claims)) {
+    return {
+      daysInAR: null,
+      maxDaysOutstanding: null,
+      agingBuckets: { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
+      agingCounts: { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
+      totalOutstandingAR: 0
+    };
+  }
+
+  // Filter to claims with outstanding balances (exclude denied claims and fully paid claims)
+  const outstandingClaims = claims.filter(claim => {
+    // Exclude denied claims entirely
+    if (claim.status === 'denied') {
+      return false;
+    }
+    
+    // Exclude fully paid claims (either status 'paid' or balance is zero)
+    if (claim.status === 'paid' || isClaimFullyPaid(claim)) {
+      return false;
+    }
+    
+    return true;
+  });
 
   if (outstandingClaims.length === 0) {
     return {
@@ -116,10 +138,18 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
   const counts: AgingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
 
   outstandingClaims.forEach(claim => {
+    // Calculate outstanding balance after payments
+    const outstandingBalance = calculateClaimBalance(claim);
+    
+    // Skip if no outstanding balance (should not happen due to filter above, but safety check)
+    if (outstandingBalance <= 0) {
+      return;
+    }
+    
     // Calculate days since date of service (DOS)
     const daysOld = daysBetween(claim.dos, now);
     totalDays += daysOld;
-    totalAmount += claim.total_amount;
+    totalAmount += outstandingBalance; // Use outstanding balance, not total amount
     
     // Track maximum days outstanding
     if (daysOld > maxDays) {
@@ -127,17 +157,18 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
     }
 
     // Add to appropriate aging bucket (both amount and count)
+    // Use outstanding balance instead of total claim amount
     if (daysOld <= 30) {
-      buckets['0-30'] += claim.total_amount;
+      buckets['0-30'] += outstandingBalance;
       counts['0-30'] += 1;
     } else if (daysOld <= 60) {
-      buckets['31-60'] += claim.total_amount;
+      buckets['31-60'] += outstandingBalance;
       counts['31-60'] += 1;
     } else if (daysOld <= 90) {
-      buckets['61-90'] += claim.total_amount;
+      buckets['61-90'] += outstandingBalance;
       counts['61-90'] += 1;
     } else {
-      buckets['90+'] += claim.total_amount;
+      buckets['90+'] += outstandingBalance;
       counts['90+'] += 1;
     }
   });

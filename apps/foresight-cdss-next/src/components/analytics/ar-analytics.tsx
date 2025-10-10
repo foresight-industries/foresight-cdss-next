@@ -179,7 +179,7 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
 
   if (outstandingClaims.length === 0) {
     return (
-      <section id="ar-details" className={`space-y-6 ${className}`}>
+      <section id="ar-details" role="region" className={`space-y-6 ${className}`}>
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
             Accounts Receivable Details
@@ -206,7 +206,7 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
   }
 
   return (
-    <section id="ar-details" className={`space-y-6 ${className}`}>
+    <section id="ar-details" role="region" className={`space-y-6 ${className}`}>
       {/* Section Header */}
       <div>
         <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
@@ -493,34 +493,34 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                     : `/claims?claim=${claim.id}`;
 
                   return (
-                    <Link key={claim.id} href={claimUrl} className="contents">
-                      <tr className="border-b hover:bg-muted/50 cursor-pointer transition-colors">
-                        <td className="p-2 font-mono text-sm">
+                    <tr key={claim.id} className="border-b hover:bg-muted/50 cursor-pointer transition-colors">
+                      <td className="p-2 font-mono text-sm">
+                        <Link href={claimUrl} className="text-blue-600 hover:text-blue-800">
                           {claim.id.replace('CLM-', '')}
-                        </td>
-                        <td className="p-2">{claim.payer.name}</td>
-                        <td className="p-2 text-right font-medium">
-                          {formatCurrency(claim.total_amount)}
-                        </td>
-                        <td className="p-2 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className={claim.daysOutstanding > 90 ? 'font-semibold text-red-600' : claim.daysOutstanding > 60 ? 'font-semibold text-amber-600' : ''}>
-                              {claim.daysOutstanding}
-                            </span>
-                            {claim.daysOutstanding > 90 && (
-                              <Badge variant="destructive" className="text-xs">
-                                Critical
-                              </Badge>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-2">
-                          <Badge variant="outline" className="text-xs">
-                            {claim.status.replace('_', ' ')}
-                          </Badge>
-                        </td>
-                      </tr>
-                    </Link>
+                        </Link>
+                      </td>
+                      <td className="p-2">{claim.payer.name}</td>
+                      <td className="p-2 text-right font-medium">
+                        {formatCurrency(claim.total_amount)}
+                      </td>
+                      <td className="p-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <span className={claim.daysOutstanding > 90 ? 'font-semibold text-red-600' : claim.daysOutstanding > 60 ? 'font-semibold text-amber-600' : ''}>
+                            {claim.daysOutstanding}
+                          </span>
+                          {claim.daysOutstanding > 90 && (
+                            <Badge variant="destructive" className="text-xs">
+                              Critical
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="p-2">
+                        <Badge variant="outline" className="text-xs">
+                          {claim.status.replace('_', ' ')}
+                        </Badge>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
