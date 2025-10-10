@@ -12,6 +12,7 @@ export interface PreEncounterIssue {
   payerName?: string;
   createdAt: string;
   updatedAt: string;
+  infoRequestSentAt?: string;
 }
 
 export interface EligibilityStatus {

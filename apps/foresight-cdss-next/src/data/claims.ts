@@ -86,6 +86,18 @@ export interface ClaimAttachment {
   type: string;
 }
 
+export interface Payment {
+  id: string;
+  claim_id: string;
+  amount: number;
+  date: string;
+  payer: string; // Who paid: "insurance" | "patient" | string
+  reference?: string; // Check number or EFT trace
+  note?: string;
+  created_at: string;
+  created_by?: string; // User who recorded the payment
+}
+
 export interface ScrubResult {
   id: string;
   entity_id: string;
@@ -128,6 +140,7 @@ export interface Claim {
   eligibility_note?: string;
   attachments?: ClaimAttachment[];
   scrubbing_result?: ScrubResult[];
+  payments?: Payment[]; // Payment records for this claim
   updatedAt: string;
   submissionOutcome?: SubmissionOutcome;
 }
@@ -324,6 +337,19 @@ export const initialClaims: Claim[] = [
     attachments: [
       { id: "att-1", name: "Telehealth consent.pdf", type: "pdf" },
     ],
+    payments: [
+      {
+        id: "PAY-ABC123",
+        claim_id: "CLM-3201",
+        amount: 50.0,
+        date: minutesAgo(120),
+        payer: "MI Medicaid",
+        reference: "EFT-789123",
+        note: "Partial payment from insurance",
+        created_at: minutesAgo(120),
+        created_by: "system"
+      }
+    ],
     updatedAt: minutesAgo(45),
     submissionOutcome: "accept",
   },
@@ -399,6 +425,30 @@ export const initialClaims: Claim[] = [
     provider: "Dr. Ash Sterling",
     eligibility_note: "Auto-eligible via batch verification.",
     attachments: [],
+    payments: [
+      {
+        id: "PAY-DEF456",
+        claim_id: "CLM-3205",
+        amount: 80.0,
+        date: minutesAgo(90),
+        payer: "insurance",
+        reference: "CHECK-456789",
+        note: "Insurance payment - partial coverage",
+        created_at: minutesAgo(90),
+        created_by: "auto"
+      },
+      {
+        id: "PAY-GHI789",
+        claim_id: "CLM-3205",
+        amount: 25.0,
+        date: minutesAgo(60),
+        payer: "patient",
+        reference: "COPAY-001",
+        note: "Patient copayment",
+        created_at: minutesAgo(60),
+        created_by: "front_desk"
+      }
+    ],
     updatedAt: minutesAgo(30),
     submissionOutcome: "accept",
   },
@@ -1100,6 +1150,518 @@ export const initialClaims: Claim[] = [
     attachments: [],
     updatedAt: minutesAgo(200),
   },
+  // Additional demo claims with various denial reasons
+  {
+    id: "CLM-4006",
+    encounter_id: "ENC-4006",
+    patient: { id: 7006, name: "Robert Wilson" },
+    payer: { id: 1, name: "Aetna" },
+    dos: "2025-10-03",
+    visit_type: "Surgical Procedure",
+    state: "TX",
+    total_amount: 2800,
+    status: "denied",
+    confidence: 0.85,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.92, diagnosis: 0.88, authorization: 0.15 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(360),
+        note: "Surgical claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(355),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(340),
+        note: "Denied - authorization required",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      carc: "197",
+      rarc: "N700",
+      message: "Precertification/authorization required for surgical procedures",
+    },
+    chart_note: {
+      provider: "Dr. Jessica Martinez",
+      paragraphs: [
+        [
+          { text: "Surgical removal of " },
+          { text: "benign skin lesions", highlight: true },
+          { text: " - multiple sites. Patient tolerated procedure well." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["D23.9", "Z98.890"],
+      cpt: [
+        { code: "11404", description: "Excision benign lesion", amount: 1200 },
+        { code: "11401", description: "Excision benign lesion", amount: 800 },
+        { code: "12031", description: "Layer closure", amount: 800 },
+      ],
+      pos: "11",
+    },
+    provider: "Dr. Jessica Martinez",
+    eligibility_note: "Surgical benefits verified - authorization required.",
+    attachments: [],
+    updatedAt: minutesAgo(340),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4007",
+    encounter_id: "ENC-4007",
+    patient: { id: 7007, name: "Michelle Brown" },
+    payer: { id: 2, name: "Blue Cross Blue Shield" },
+    dos: "2025-10-02",
+    visit_type: "Physical Therapy",
+    state: "CA",
+    total_amount: 420,
+    status: "denied",
+    confidence: 0.76,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.90, diagnosis: 0.65, modifiers: 0.40 },
+    auto_submitted: true,
+    attempt_count: 2,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(400),
+        note: "PT claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(395),
+        note: "Initial submission",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(380),
+        note: "Denied - incorrect modifiers",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      carc: "CO-11",
+      rarc: "N620",
+      message: "Incorrect modifiers applied for therapy services",
+    },
+    chart_note: {
+      provider: "Advanced Physical Therapy",
+      paragraphs: [
+        [
+          { text: "Physical therapy session for " },
+          { text: "lower back pain rehabilitation", highlight: true },
+          { text: ". Patient showing improved range of motion." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["M54.5", "G89.29"],
+      cpt: [
+        { code: "97110", description: "Therapeutic exercise", amount: 140 },
+        { code: "97112", description: "Neuromuscular reeducation", amount: 140 },
+        { code: "97140", description: "Manual therapy", amount: 140 },
+      ],
+      pos: "11",
+    },
+    provider: "Advanced Physical Therapy",
+    eligibility_note: "PT benefits active - modifier requirements apply.",
+    attachments: [],
+    updatedAt: minutesAgo(380),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4008",
+    encounter_id: "ENC-4008",
+    patient: { id: 7008, name: "Kevin Davis" },
+    payer: { id: 5, name: "Anthem Blue Cross" },
+    dos: "2025-10-01",
+    visit_type: "Diagnostic Imaging",
+    state: "NV",
+    total_amount: 850,
+    status: "denied",
+    confidence: 0.81,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.95, diagnosis: 0.45, authorization: 0.20 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(450),
+        note: "Imaging claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(445),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(420),
+        note: "Denied - missing indication details",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      message: "Missing indication detail - clinical justification required",
+    },
+    chart_note: {
+      provider: "Radiology Associates",
+      paragraphs: [
+        [
+          { text: "MRI scan of " },
+          { text: "lumbar spine", highlight: true },
+          { text: " performed. Patient complaining of persistent back pain." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["M54.5"],
+      cpt: [
+        { code: "72148", description: "MRI lumbar spine w/o contrast", amount: 850 },
+      ],
+      pos: "11",
+    },
+    provider: "Radiology Associates",
+    eligibility_note: "Imaging benefits verified - indication required.",
+    attachments: [],
+    updatedAt: minutesAgo(420),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4009",
+    encounter_id: "ENC-4009",
+    patient: { id: 7009, name: "Angela Johnson" },
+    payer: { id: 3, name: "UnitedHealthcare" },
+    dos: "2025-09-30",
+    visit_type: "Specialist Consultation",
+    state: "FL",
+    total_amount: 650,
+    status: "denied",
+    confidence: 0.72,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.88, eligibility: 0.25, authorization: 0.10 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(500),
+        note: "Specialist claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(495),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(480),
+        note: "Denied - eligibility not verified",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      message: "Eligibility not verified at time of service",
+    },
+    chart_note: {
+      provider: "Dr. Mark Thompson",
+      paragraphs: [
+        [
+          { text: "Endocrinology consultation for " },
+          { text: "diabetes management", highlight: true },
+          { text: ". Patient requires medication adjustment and lifestyle counseling." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["E11.9", "Z79.4"],
+      cpt: [
+        { code: "99244", description: "Consultation, comprehensive", amount: 650 },
+      ],
+      pos: "11",
+    },
+    provider: "Dr. Mark Thompson",
+    eligibility_note: "Eligibility verification failed at time of service.",
+    attachments: [],
+    updatedAt: minutesAgo(480),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4010",
+    encounter_id: "ENC-4010",
+    patient: { id: 7010, name: "Steven Clark" },
+    payer: { id: 4, name: "Cigna" },
+    dos: "2025-09-29",
+    visit_type: "Emergency Department",
+    state: "TX",
+    total_amount: 1850,
+    status: "denied",
+    confidence: 0.78,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.85, diagnosis: 0.55, authorization: 0.05 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(550),
+        note: "Emergency claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(545),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(530),
+        note: "Denied - expired authorization",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      message: "Expired authorization - services provided after expiration date",
+    },
+    chart_note: {
+      provider: "Dr. Lisa Rodriguez",
+      paragraphs: [
+        [
+          { text: "Emergency department visit for " },
+          { text: "chest pain evaluation", highlight: true },
+          { text: ". EKG and cardiac enzymes performed. Ruled out MI." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["R06.02", "Z87.891"],
+      cpt: [
+        { code: "99284", description: "ED visit, detailed", amount: 580 },
+        { code: "93005", description: "EKG interpretation", amount: 85 },
+        { code: "80053", description: "Comprehensive metabolic panel", amount: 85 },
+        { code: "82550", description: "Cardiac enzymes", amount: 120 },
+      ],
+      pos: "23",
+    },
+    provider: "Dr. Lisa Rodriguez",
+    eligibility_note: "Emergency authorization expired prior to service.",
+    attachments: [],
+    updatedAt: minutesAgo(530),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4011",
+    encounter_id: "ENC-4011",
+    patient: { id: 7011, name: "Patricia Miller" },
+    payer: { id: 1, name: "Aetna" },
+    dos: "2025-09-28",
+    visit_type: "Laboratory Services",
+    state: "CA",
+    total_amount: 320,
+    status: "denied",
+    confidence: 0.67,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.92, diagnosis: 0.35, modifiers: 0.45 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(600),
+        note: "Lab claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(595),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(580),
+        note: "Denied - incorrect POS/modifiers",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      message: "Incorrect place of service and modifier combination for laboratory services",
+    },
+    chart_note: {
+      provider: "LabCorp",
+      paragraphs: [
+        [
+          { text: "Laboratory testing for " },
+          { text: "annual wellness screening", highlight: true },
+          { text: ". Complete blood count and lipid panel performed." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["Z00.00", "Z13.220"],
+      cpt: [
+        { code: "85025", description: "Complete blood count", amount: 85 },
+        { code: "80061", description: "Lipid panel", amount: 95 },
+        { code: "84703", description: "HbA1c", amount: 65 },
+        { code: "82947", description: "Glucose", amount: 75 },
+      ],
+      pos: "11",
+    },
+    provider: "LabCorp",
+    eligibility_note: "Lab benefits verified - correct POS required.",
+    attachments: [],
+    updatedAt: minutesAgo(580),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4012",
+    encounter_id: "ENC-4012",
+    patient: { id: 7012, name: "Christopher Lee" },
+    payer: { id: 2, name: "Blue Cross Blue Shield" },
+    dos: "2025-09-27",
+    visit_type: "Telemedicine",
+    state: "NY",
+    total_amount: 280,
+    status: "rejected_277ca",
+    confidence: 0.84,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.90, diagnosis: 0.82, modifiers: 0.25 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(650),
+        note: "Telehealth claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(645),
+        note: "Submitted to clearinghouse",
+      },
+      {
+        state: "rejected_277ca",
+        at: minutesAgo(640),
+        note: "Rejected - missing telehealth modifier",
+      },
+    ],
+    rejection_response: {
+      type: "277CA",
+      accepted: false,
+      carc: "N620",
+      message: "Missing modifier 95 for telehealth services",
+    },
+    chart_note: {
+      provider: "Dr. Nancy White",
+      paragraphs: [
+        [
+          { text: "Telehealth consultation for " },
+          { text: "follow-up diabetes care", highlight: true },
+          { text: ". Patient medication compliance reviewed via video call." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["E11.9", "Z79.4"],
+      cpt: [
+        { code: "99213", description: "Office visit, established patient", amount: 280 },
+      ],
+      pos: "02",
+    },
+    provider: "Dr. Nancy White",
+    eligibility_note: "Telehealth benefits verified - modifier 95 required.",
+    attachments: [],
+    updatedAt: minutesAgo(640),
+    submissionOutcome: "reject",
+  },
+  {
+    id: "CLM-4013",
+    encounter_id: "ENC-4013",
+    patient: { id: 7013, name: "Laura Taylor" },
+    payer: { id: 6, name: "Molina Healthcare" },
+    dos: "2025-09-26",
+    visit_type: "Mental Health",
+    state: "AZ",
+    total_amount: 450,
+    status: "denied",
+    confidence: 0.73,
+    issues: [],
+    suggested_fixes: [],
+    validation_results: [],
+    field_confidences: { cpt: 0.87, diagnosis: 0.78, authorization: 0.15 },
+    auto_submitted: true,
+    attempt_count: 1,
+    state_history: [
+      {
+        state: "built",
+        at: minutesAgo(700),
+        note: "Mental health claim auto-built",
+      },
+      {
+        state: "submitted",
+        at: minutesAgo(695),
+        note: "Submitted to payer",
+      },
+      {
+        state: "denied",
+        at: minutesAgo(680),
+        note: "Denied - authorization expired",
+      },
+    ],
+    payer_response: {
+      type: "835",
+      accepted: false,
+      message: "Mental health authorization expired - renewal required",
+    },
+    chart_note: {
+      provider: "Dr. James Wilson",
+      paragraphs: [
+        [
+          { text: "Psychiatric evaluation for " },
+          { text: "anxiety and depression", highlight: true },
+          { text: ". Patient responding well to current medication regimen." },
+        ],
+      ],
+    },
+    codes: {
+      icd10: ["F41.1", "F32.9"],
+      cpt: [
+        { code: "90791", description: "Psychiatric evaluation", amount: 450 },
+      ],
+      pos: "11",
+    },
+    provider: "Dr. James Wilson",
+    eligibility_note: "Mental health benefits verified - authorization expired.",
+    attachments: [],
+    updatedAt: minutesAgo(680),
+    submissionOutcome: "reject",
+  },
 ];
 
 export const formatCurrency = (value: number) =>
@@ -1346,4 +1908,68 @@ export const STATUS_ORDER: ClaimStatus[] = [
   "accepted_277ca",
   "paid",
 ];
+
+// Payment utility functions
+export const generatePaymentId = (): string => {
+  return `PAY-${Date.now().toString(36).toUpperCase()}`;
+};
+
+export const calculateClaimBalance = (claim: Claim): number => {
+  if (!claim.payments || claim.payments.length === 0) {
+    return claim.total_amount;
+  }
+  
+  const totalPaid = claim.payments.reduce((sum, payment) => sum + payment.amount, 0);
+  return Math.max(0, claim.total_amount - totalPaid);
+};
+
+export const isClaimFullyPaid = (claim: Claim): boolean => {
+  return calculateClaimBalance(claim) === 0;
+};
+
+export const addPaymentToClaim = (
+  claim: Claim,
+  amount: number,
+  payer: string,
+  reference?: string,
+  note?: string,
+  createdBy?: string
+): Claim => {
+  const now = new Date().toISOString();
+  
+  const payment: Payment = {
+    id: generatePaymentId(),
+    claim_id: claim.id,
+    amount,
+    date: now,
+    payer,
+    reference,
+    note,
+    created_at: now,
+    created_by: createdBy
+  };
+
+  const updatedPayments = [...(claim.payments || []), payment];
+  const remainingBalance = claim.total_amount - updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+  
+  // Update claim status based on payment
+  const newStatus: ClaimStatus = remainingBalance <= 0 ? 'paid' : claim.status;
+  
+  // Add payment entry to state history
+  const paymentNote = `Payment received: ${formatCurrency(amount)} from ${payer}${reference ? ` (${reference})` : ''}`;
+  const updatedHistory = appendHistory(
+    claim.state_history,
+    newStatus,
+    paymentNote,
+    now
+  );
+
+  return {
+    ...claim,
+    payments: updatedPayments,
+    status: newStatus,
+    state_history: updatedHistory,
+    updatedAt: now
+  };
+};
 

@@ -22,6 +22,11 @@ interface DenialPlaybook {
   autoRetryEnabled?: boolean;
   maxRetryAttempts?: number;
   customRules?: CustomRule[];
+  builtInRules?: {
+    carc96: { enabled: boolean; autoFix: boolean };
+    carc11: { enabled: boolean; autoFix: boolean };
+    carc197: { enabled: boolean; autoFix: boolean };
+  };
 }
 
 interface ValidationSettings {
@@ -37,12 +42,12 @@ export function DenialPlaybookTab({
   validationSettings,
   onSettingChange
 }: DenialPlaybookTabProps) {
-  // Built-in denial rules (could be moved to parent state later)
-  const [builtInDenialRules] = useState({
-    carc96: { enabled: true },
+  // Get built-in denial rules from validation settings, with defaults
+  const builtInDenialRules = validationSettings.denialPlaybook?.builtInRules || {
+    carc96: { enabled: true, autoFix: true },
     carc11: { enabled: true, autoFix: false },
     carc197: { enabled: true, autoFix: true }
-  });
+  };
 
   // Custom Rule Modal State
   const [showCustomRuleDialog, setShowCustomRuleDialog] = useState(false);
@@ -115,9 +120,18 @@ export function DenialPlaybookTab({
   };
 
   const updateBuiltInRule = (ruleKey: string, updates: any) => {
-    // For now, just console.log since built-in rules are local state
-    // In a real app, this would update parent state
-    console.log('Update built-in rule:', ruleKey, updates);
+    const updatedBuiltInRules = {
+      ...builtInDenialRules,
+      [ruleKey]: {
+        ...builtInDenialRules[ruleKey as keyof typeof builtInDenialRules],
+        ...updates
+      }
+    };
+    
+    onSettingChange("denialPlaybook", {
+      ...validationSettings.denialPlaybook,
+      builtInRules: updatedBuiltInRules,
+    });
   };
 
   return (
@@ -283,7 +297,10 @@ export function DenialPlaybookTab({
               </div>
               <label className="flex items-center gap-2">
                 <Checkbox
-                  checked={true}
+                  checked={builtInDenialRules.carc96.autoFix}
+                  onCheckedChange={(checked) =>
+                    updateBuiltInRule("carc96", { autoFix: !!checked })
+                  }
                   className="rounded border-slate-300 text-slate-900 focus:ring-slate-900"
                 />
                 <span className="text-xs text-slate-700 dark:text-slate-300">

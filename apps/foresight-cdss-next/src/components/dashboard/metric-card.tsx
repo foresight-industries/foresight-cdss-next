@@ -11,31 +11,35 @@ interface MetricCardProps {
 
 export function MetricCard({ metric }: MetricCardProps) {
   const cardContent = (
-    <Card className="p-6 transition-all duration-150 ease-in-out hover:translate-y-[-2px] hover:shadow-lg bg-card border shadow-xs">
-      <h3 className="text-sm font-medium text-muted-foreground mb-1">
-        {metric.label}
-      </h3>
-      <p className="text-3xl font-bold mt-1 mb-2 text-foreground">
-        {metric.value}
-      </p>
-      {metric.change && (
-        <div
-          className={cn(
-            'flex items-center gap-1 text-xs',
-            metric.change.positive ? 'text-green-600' : 'text-red-600'
-          )}
-        >
-          {metric.change.trend === 'up' ? (
-            <ArrowUp className="w-3 h-3" />
-          ) : (
-            <ArrowDown className="w-3 h-3" />
-          )}
-          <span>{metric.change.value}</span>
-        </div>
-      )}
-      {metric.target && (
-        <p className="text-xs text-muted-foreground mt-1">Target: {metric.target}</p>
-      )}
+    <Card className="p-6 h-full flex flex-col justify-between transition-all duration-200 ease-in-out hover:translate-y-[-2px] hover:shadow-lg hover:border-primary/20 bg-card border border-border/60 shadow-xs">
+      <div>
+        <h3 className="text-sm font-medium text-muted-foreground mb-1">
+          {metric.label}
+        </h3>
+        <p className="text-3xl font-bold mt-1 mb-2 text-foreground">
+          {metric.value}
+        </p>
+      </div>
+      <div className="flex flex-col gap-1">
+        {metric.change && (
+          <div
+            className={cn(
+              'flex items-center gap-1 text-xs',
+              metric.change.positive ? 'text-green-600' : 'text-red-600'
+            )}
+          >
+            {metric.change.trend === 'up' ? (
+              <ArrowUp className="w-3 h-3" />
+            ) : (
+              <ArrowDown className="w-3 h-3" />
+            )}
+            <span>{metric.change.value}</span>
+          </div>
+        )}
+        {metric.target && (
+          <p className="text-xs text-muted-foreground">Target: {metric.target}</p>
+        )}
+      </div>
     </Card>
   );
 

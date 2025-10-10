@@ -31,22 +31,31 @@ export default function DashboardClient({
 
   // Calculate RCM metrics from claims data
   const rcmMetrics = calculateRCMMetrics(claimItems);
-  
+
   // Calculate submission pipeline metrics
   const submissionMetrics = calculateSubmissionPipelineMetrics(claimItems);
 
-  // Prepare Days in A/R metric for MetricCard with trend indicator
+  // Prepare Days in A/R metric for MetricCard with trend indicator and enhanced info
+  const avgDays = rcmMetrics.daysInAR;
+  const maxDays = rcmMetrics.maxDaysOutstanding;
+
   const daysInARMetric: DashboardMetric = {
     label: "Days in A/R",
-    value: rcmMetrics.daysInAR !== null ? rcmMetrics.daysInAR.toString() : "N/A",
-    change: rcmMetrics.daysInAR !== null ? {
+    value: avgDays !== null ? `${avgDays} days` : "N/A",
+    change: avgDays !== null ? {
       value: "2.1",
       trend: "down",
       positive: true // Downtrend is positive for Days in AR
     } : undefined,
     target: "<40",
-    tooltip: "Average number of days claims remain in accounts receivable before payment"
+    tooltip: avgDays !== null && maxDays !== null
+      ? `Average: ${avgDays} days • Max outstanding: ${maxDays} days • Target: under 40 days`
+      : "Average number of days claims remain in accounts receivable before payment"
   };
+
+  // Calculate total dollar amount awaiting review
+  const claimsAwaitingReview = claimItems.filter(claim => claim.status === 'needs_review');
+  const totalAwaitingReview = claimsAwaitingReview.reduce((sum, claim) => sum + claim.total_amount, 0);
 
   // Prepare submission pipeline metrics for MetricCards
   const claimsMissingInfoMetric: DashboardMetric = {
@@ -66,11 +75,24 @@ export default function DashboardClient({
     value: submissionMetrics.claimsScrubberRejects.toString(),
     change: {
       value: "1",
-      trend: "down", 
+      trend: "down",
       positive: true // Fewer scrub rejects is positive
     },
     target: "0",
     tooltip: "Claims that failed initial validation and received no claim ID"
+  };
+
+  // Add total dollars awaiting review metric
+  const totalAwaitingReviewMetric: DashboardMetric = {
+    label: "💰 $ Awaiting Review",
+    value: totalAwaitingReview > 0 ? `$${(totalAwaitingReview / 1000).toFixed(1)}k` : "$0",
+    change: {
+      value: "5.2",
+      trend: "down",
+      positive: true // Less money awaiting review is positive
+    },
+    target: "<$10k",
+    tooltip: `Total value: ${totalAwaitingReview.toLocaleString('en-US', { style: 'currency', currency: 'USD' })} across ${claimsAwaitingReview.length} claims requiring review`
   };
 
   return (
@@ -81,25 +103,29 @@ export default function DashboardClient({
 
         {/* AR KPI tiles row */}
         <div className="grid w-full gap-4 md:grid-cols-2">
-          <Link href={teamSlug ? `/team/${teamSlug}/analytics` : "/analytics"} className="block">
-            <MetricCard metric={daysInARMetric} />
+          <Link href={teamSlug ? `/team/${teamSlug}/analytics#ar-details` : "/analytics#ar-details"} className="block h-full group">
+            <div className={`h-full ${avgDays !== null && avgDays > 40 ? 'text-red-600' : ''}`}>
+              <MetricCard metric={daysInARMetric} />
+            </div>
           </Link>
-          <Link href={teamSlug ? `/team/${teamSlug}/analytics` : "/analytics"} className="block">
-            <AgingBucketsCard
-              buckets={rcmMetrics.agingBuckets}
-              totalOutstandingAR={rcmMetrics.totalOutstandingAR}
-              tooltip="Breakdown of outstanding receivables by age groups to track collection efficiency"
-            />
-          </Link>
+          <AgingBucketsCard
+            buckets={rcmMetrics.agingBuckets}
+            counts={rcmMetrics.agingCounts}
+            totalOutstandingAR={rcmMetrics.totalOutstandingAR}
+            tooltip="Breakdown of outstanding receivables by age groups to track collection efficiency"
+          />
         </div>
 
         {/* Submission Pipeline Metrics row */}
-        <div className="grid w-full gap-4 md:grid-cols-2">
-          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review` : "/claims?filter=needs_review"} className="block">
+        <div className="grid w-full gap-4 md:grid-cols-3">
+          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review` : "/claims?filter=needs_review"} className="block group">
             <MetricCard metric={claimsMissingInfoMetric} />
           </Link>
-          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=rejected_277ca` : "/claims?filter=rejected_277ca"} className="block">
+          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=rejected_277ca` : "/claims?filter=rejected_277ca"} className="block group">
             <MetricCard metric={scrubberRejectsMetric} />
+          </Link>
+          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review&sort=high_dollar` : "/claims?filter=needs_review&sort=high_dollar"} className="block group">
+            <MetricCard metric={totalAwaitingReviewMetric} />
           </Link>
         </div>
 

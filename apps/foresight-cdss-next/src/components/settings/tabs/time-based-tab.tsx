@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Clock } from 'lucide-react';
+import { Plus, Trash2, Clock, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 interface CptRule {
@@ -47,6 +47,10 @@ export function TimeBasedTab({
     flagIfNotDocumented: true,
     enabled: true,
   });
+
+  // Delete Confirmation State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [ruleToDelete, setRuleToDelete] = useState<{ index: number; rule: CptRule } | null>(null);
 
   const handleAddCptRule = () => {
     setCptRuleForm({
@@ -103,12 +107,26 @@ export function TimeBasedTab({
     });
   };
 
-  const removeCptRule = (index: number) => {
-    const updatedRules = (validationSettings.timeBasedValidation?.cptRules || []).filter((_, i) => i !== index);
-    onSettingChange("timeBasedValidation", {
-      ...validationSettings.timeBasedValidation,
-      cptRules: updatedRules,
-    });
+  const handleDeleteClick = (index: number, rule: CptRule) => {
+    setRuleToDelete({ index, rule });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (ruleToDelete) {
+      const updatedRules = (validationSettings.timeBasedValidation?.cptRules || []).filter((_, i) => i !== ruleToDelete.index);
+      onSettingChange("timeBasedValidation", {
+        ...validationSettings.timeBasedValidation,
+        cptRules: updatedRules,
+      });
+    }
+    setShowDeleteConfirm(false);
+    setRuleToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setRuleToDelete(null);
   };
 
   return (
@@ -184,7 +202,7 @@ export function TimeBasedTab({
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => removeCptRule(index)}
+                      onClick={() => handleDeleteClick(index, rule)}
                     >
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
@@ -362,6 +380,46 @@ export function TimeBasedTab({
               disabled={!cptRuleForm.cptCode || !cptRuleForm.description}
             >
               Create Rule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
+              Delete CPT Rule
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this CPT rule? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {ruleToDelete !== null && (
+            <div className="py-4">
+              <div className="p-3 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-950">
+                <p className="font-medium text-red-900 dark:text-red-100">
+                  CPT {ruleToDelete.rule.cptCode} - {ruleToDelete.rule.description}
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  Time Range: {ruleToDelete.rule.minMinutes} - {ruleToDelete.rule.maxMinutes} minutes
+                  {ruleToDelete.rule.flagIfNotDocumented && " • Flags if not documented"}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelDelete}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Rule
             </Button>
           </DialogFooter>
         </DialogContent>
