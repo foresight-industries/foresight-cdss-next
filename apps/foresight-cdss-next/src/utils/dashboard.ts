@@ -71,7 +71,9 @@ export interface AgingBuckets {
 
 export interface RCMMetrics {
   daysInAR: number | null;
+  maxDaysOutstanding: number | null;
   agingBuckets: AgingBuckets;
+  agingCounts: AgingBuckets;
   totalOutstandingAR: number;
 }
 
@@ -99,31 +101,44 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
   if (outstandingClaims.length === 0) {
     return {
       daysInAR: null,
+      maxDaysOutstanding: null,
       agingBuckets: { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
+      agingCounts: { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 },
       totalOutstandingAR: 0
     };
   }
 
   const now = new Date();
   let totalDays = 0;
+  let maxDays = 0;
   let totalAmount = 0;
   const buckets: AgingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+  const counts: AgingBuckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
 
   outstandingClaims.forEach(claim => {
     // Calculate days since date of service (DOS)
     const daysOld = daysBetween(claim.dos, now);
     totalDays += daysOld;
     totalAmount += claim.total_amount;
+    
+    // Track maximum days outstanding
+    if (daysOld > maxDays) {
+      maxDays = daysOld;
+    }
 
-    // Add to appropriate aging bucket
+    // Add to appropriate aging bucket (both amount and count)
     if (daysOld <= 30) {
       buckets['0-30'] += claim.total_amount;
+      counts['0-30'] += 1;
     } else if (daysOld <= 60) {
       buckets['31-60'] += claim.total_amount;
+      counts['31-60'] += 1;
     } else if (daysOld <= 90) {
       buckets['61-90'] += claim.total_amount;
+      counts['61-90'] += 1;
     } else {
       buckets['90+'] += claim.total_amount;
+      counts['90+'] += 1;
     }
   });
 
@@ -132,7 +147,9 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
 
   return {
     daysInAR: Math.round(avgDaysInAR),
+    maxDaysOutstanding: maxDays,
     agingBuckets: buckets,
+    agingCounts: counts,
     totalOutstandingAR: totalAmount
   };
 };

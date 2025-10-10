@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Users, Clock, Target, BarChart3 } from 'lucide-react';
 import {
   // useDashboardMetrics,
@@ -10,7 +10,10 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RCMStageAnalytics } from '@/components/analytics/rcm-stage-analytics';
+import { AnalyticsOverview } from '@/components/dashboard/dashboard-charts';
+import { ARAnalytics } from '@/components/analytics/ar-analytics';
 import { computeStageAnalytics } from '@/utils/stage-analytics';
+import { calculateRCMMetrics } from '@/utils/dashboard';
 import { initialClaims } from '@/data/claims';
 
 interface TimeRange {
@@ -56,6 +59,61 @@ export default function AnalyticsPage() {
   // Compute stage analytics from claims data
   const stageMetrics = useMemo(() => {
     return computeStageAnalytics(initialClaims);
+  }, []);
+
+  // Compute RCM metrics from claims data
+  const rcmMetrics = useMemo(() => {
+    return calculateRCMMetrics(initialClaims);
+  }, []);
+
+  // Compute real status distribution from claims data
+  const realStatusDistribution = useMemo(() => {
+    // Claims status distribution
+    const claimStatuses = initialClaims.reduce((acc, claim) => {
+      acc[claim.status] = (acc[claim.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // PA status distribution (only for claims that have pa_status)
+    const paStatuses = initialClaims
+      .filter(claim => claim.pa_status)
+      .reduce((acc, claim) => {
+        acc[claim.pa_status!] = (acc[claim.pa_status!] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+    return {
+      claims: {
+        needs_review: claimStatuses.needs_review || 0,
+        built: claimStatuses.built || 0,
+        submitted: claimStatuses.submitted || 0,
+        awaiting_277ca: claimStatuses.awaiting_277ca || 0,
+        accepted_277ca: claimStatuses.accepted_277ca || 0,
+        rejected_277ca: claimStatuses.rejected_277ca || 0,
+        paid: claimStatuses.paid || 0,
+        denied: claimStatuses.denied || 0,
+        total: initialClaims.length
+      },
+      pas: {
+        needsReview: paStatuses['needs-review'] || 0,
+        autoProcessing: paStatuses['auto-processing'] || 0,
+        autoApproved: paStatuses['auto-approved'] || 0,
+        autoDenied: paStatuses['auto-denied'] || 0,
+        denied: paStatuses.denied || 0,
+        error: paStatuses.error || 0,
+        total: initialClaims.filter(claim => claim.pa_status).length
+      }
+    };
+  }, []);
+
+  // Handle anchor navigation for A/R details
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash === '#ar-details') {
+      const element = document.getElementById('ar-details');
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
   }, []);
 
   return (
@@ -259,58 +317,101 @@ export default function AnalyticsPage() {
         </div>
       </Card>
 
+      {/* Denial Management & Analytics Section */}
+      {distribution && (
+        <AnalyticsOverview statusDistribution={distribution} claimItems={initialClaims} />
+      )}
+
       {/* RCM Stage Analytics Section */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
         <RCMStageAnalytics stageMetrics={stageMetrics} />
       </div>
 
-      {/* Status Distribution Visualization */}
-      {distribution && (
+      {/* A/R Details Section */}
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
+        <ARAnalytics claims={initialClaims} rcmMetrics={rcmMetrics} />
+      </div>
+
+      {/* Combined Status Distribution Visualization */}
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Current Status Distribution</h3>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{distribution.needsReview}</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Needs Review</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{distribution.autoProcessing}</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Auto Processing</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{distribution.autoApproved}</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Auto Approved</p>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{distribution.denied}</div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Denied</p>
-            </div>
+        <h3 className="text-lg font-semibold text-foreground mb-6">Current Status Distribution</h3>
+
+        {/* Claims Status Distribution */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="text-md font-medium text-foreground">Claims Status</h4>
+            <span className="text-sm text-muted-foreground">Total: {realStatusDistribution.claims.total} Claims</span>
           </div>
 
-          {/* Status distribution bar */}
-          <div className="mt-6">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 flex overflow-hidden">
-              <div
-                className="bg-yellow-500"
-                style={{ width: `${(distribution.needsReview / distribution.total) * 100}%` }}
-              ></div>
-              <div
-                className="bg-blue-500"
-                style={{ width: `${(distribution.autoProcessing / distribution.total) * 100}%` }}
-              ></div>
-              <div
-                className="bg-green-500"
-                style={{ width: `${(distribution.autoApproved / distribution.total) * 100}%` }}
-              ></div>
-              <div
-                className="bg-red-500"
-                style={{ width: `${(distribution.denied / distribution.total) * 100}%` }}
-              ></div>
-            </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Total: {distribution.total} PAs</p>
+          <div className="space-y-3">
+            {[
+              { key: 'needs_review', label: 'Needs Review', color: 'bg-yellow-500', count: realStatusDistribution.claims.needs_review },
+              { key: 'built', label: 'Built', color: 'bg-blue-500', count: realStatusDistribution.claims.built },
+              { key: 'submitted', label: 'Submitted', color: 'bg-indigo-500', count: realStatusDistribution.claims.submitted },
+              { key: 'awaiting_277ca', label: 'Awaiting 277CA', color: 'bg-purple-500', count: realStatusDistribution.claims.awaiting_277ca },
+              { key: 'accepted_277ca', label: 'Accepted', color: 'bg-green-500', count: realStatusDistribution.claims.accepted_277ca },
+              { key: 'rejected_277ca', label: 'Rejected', color: 'bg-red-500', count: realStatusDistribution.claims.rejected_277ca },
+              { key: 'paid', label: 'Paid', color: 'bg-emerald-500', count: realStatusDistribution.claims.paid },
+              { key: 'denied', label: 'Denied', color: 'bg-rose-600', count: realStatusDistribution.claims.denied }
+            ].filter(item => item.count > 0).map((item) => (
+              <div key={item.key} className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-4 h-4 rounded ${item.color}`}></div>
+                  <span className="text-sm font-medium text-foreground">{item.label}</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${item.color}`}
+                      style={{ width: `${(item.count / realStatusDistribution.claims.total) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-semibold text-foreground w-8 text-right">{item.count}</span>
+                </div>
+              </div>
+            ))}
           </div>
+        </div>
+
+        {/* PA Status Distribution */}
+        {realStatusDistribution.pas.total > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-md font-medium text-foreground">Prior Authorization Status</h4>
+              <span className="text-sm text-muted-foreground">Total: {realStatusDistribution.pas.total} PAs</span>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { key: 'needsReview', label: 'Needs Review', color: 'bg-yellow-500', count: realStatusDistribution.pas.needsReview },
+                { key: 'autoProcessing', label: 'Auto Processing', color: 'bg-blue-500', count: realStatusDistribution.pas.autoProcessing },
+                { key: 'autoApproved', label: 'Auto Approved', color: 'bg-green-500', count: realStatusDistribution.pas.autoApproved },
+                { key: 'autoDenied', label: 'Auto Denied', color: 'bg-orange-600', count: realStatusDistribution.pas.autoDenied },
+                { key: 'denied', label: 'Denied', color: 'bg-red-500', count: realStatusDistribution.pas.denied },
+                { key: 'error', label: 'Error', color: 'bg-pink-600', count: realStatusDistribution.pas.error }
+              ].filter(item => item.count > 0).map((item) => (
+                <div key={item.key} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded ${item.color}`}></div>
+                    <span className="text-sm font-medium text-foreground">{item.label}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${item.color}`}
+                        style={{ width: `${(item.count / realStatusDistribution.pas.total) * 100}%` }}
+                      ></div>
+                    </div>
+                    <span className="text-sm font-semibold text-foreground w-8 text-right">{item.count}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         </Card>
-      )}
+      </div>
     </div>
   );
 }

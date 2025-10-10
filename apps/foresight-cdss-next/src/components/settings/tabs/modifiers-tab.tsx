@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Code2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Code2, AlertTriangle } from 'lucide-react';
 import { useState } from 'react';
 
 interface ModifierRules {
@@ -51,6 +51,10 @@ export function ModifiersTab({
     description: "",
     enabled: true,
   });
+
+  // Delete Confirmation State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [ruleToDelete, setRuleToDelete] = useState<{ index: number; rule: any } | null>(null);
 
   const handleAddConflictRule = () => {
     setEditingConflictRule(null);
@@ -124,6 +128,28 @@ export function ModifiersTab({
 
   const handleConflictRuleFormChange = (key: string, value: any) => {
     setConflictRuleForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleDeleteClick = (index: number, rule: any) => {
+    setRuleToDelete({ index, rule });
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (ruleToDelete) {
+      const updatedRules = (validationSettings.modifierRules?.conflictRules || []).filter((_, i) => i !== ruleToDelete.index);
+      onSettingChange("modifierRules", {
+        ...validationSettings.modifierRules,
+        conflictRules: updatedRules,
+      });
+    }
+    setShowDeleteConfirm(false);
+    setRuleToDelete(null);
+  };
+
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setRuleToDelete(null);
   };
   return (
     <div className="space-y-6">
@@ -356,15 +382,7 @@ export function ModifiersTab({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => {
-                      const updatedRules = (
-                        validationSettings.modifierRules?.conflictRules || []
-                      ).filter((_, i) => i !== index);
-                      onSettingChange("modifierRules", {
-                        ...validationSettings.modifierRules,
-                        conflictRules: updatedRules,
-                      });
-                    }}
+                    onClick={() => handleDeleteClick(index, rule)}
                   >
                     <Trash2 className="w-4 h-4 text-red-500" />
                   </Button>
@@ -548,6 +566,50 @@ export function ModifiersTab({
               disabled={!conflictRuleForm.name || !conflictRuleForm.conflictingModifiers}
             >
               {editingConflictRule ? "Update Rule" : "Create Rule"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <AlertTriangle className="w-5 h-5 mr-2 text-red-500" />
+              Delete Conflict Rule
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this conflict resolution rule? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {ruleToDelete !== null && (
+            <div className="py-4">
+              <div className="p-3 border border-red-200 dark:border-red-800 rounded-lg bg-red-50 dark:bg-red-950">
+                <p className="font-medium text-red-900 dark:text-red-100">
+                  {ruleToDelete.rule.name}
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
+                  Conflicts: {ruleToDelete.rule.conflictingModifiers.join(", ")} • Resolution: {ruleToDelete.rule.resolution.replace("_", " ")}
+                </p>
+                {ruleToDelete.rule.description && (
+                  <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                    {ruleToDelete.rule.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelDelete}
+            >
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Rule
             </Button>
           </DialogFooter>
         </DialogContent>

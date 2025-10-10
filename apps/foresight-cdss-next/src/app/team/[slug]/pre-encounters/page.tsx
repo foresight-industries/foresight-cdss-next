@@ -92,7 +92,14 @@ export default function PreEncountersPage() {
     return matchesSearch && matchesStatus && matchesPriority && matchesIssueType && matchesPayer && matchesDateFrom && matchesDateTo;
   });
 
-  const handleSendInfoRequest = (patientName: string) => {
+  const handleSendInfoRequest = (issueId: string, patientName: string) => {
+    // Update the issue to mark when the info request was sent
+    setIssues(prev => prev.map(issue =>
+      issue.id === issueId
+        ? { ...issue, infoRequestSentAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
+        : issue
+    ));
+
     // Stub: Send email/SMS to patient for updated insurance
     toast.success(`Info request sent to ${patientName} via email/SMS`, {
       description: "The patient will receive notifications about updating their insurance information.",
@@ -583,41 +590,57 @@ export default function PreEncountersPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedIssue(issue);
-                        setShowDetailsDialog(true);
-                      }}
-                    >
-                      <ExternalLink className="w-4 h-4 mr-1" />
-                      Details
-                    </Button>
-
-                    {(issue.issueType === 'missing_information' || issue.issueType === 'expired_insurance') && (
+                  <div className="flex flex-col items-end ml-4">
+                    <div className="flex items-center space-x-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => handleSendInfoRequest(issue.patientName)}
-                      >
-                        <Mail className="w-4 h-4 mr-1" />
-                        Send Info Request
-                      </Button>
-                    )}
-
-                    {issue.status !== 'resolved' && (
-                      <Button
-                        variant="default"
-                        size="sm"
                         onClick={() => {
                           setSelectedIssue(issue);
-                          setShowResolveDialog(true);
+                          setShowDetailsDialog(true);
                         }}
                       >
-                        Resolve
+                        <ExternalLink className="w-4 h-4 mr-1" />
+                        Details
                       </Button>
+
+                      {(issue.issueType === 'missing_information' || issue.issueType === 'expired_insurance') && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSendInfoRequest(issue.id, issue.patientName)}
+                          disabled={!!issue.infoRequestSentAt}
+                        >
+                          <Mail className="w-4 h-4 mr-1" />
+                          Send Info Request
+                        </Button>
+                      )}
+
+                      {issue.status !== 'resolved' && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedIssue(issue);
+                            setShowResolveDialog(true);
+                          }}
+                        >
+                          Resolve
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Info Request Status - shown below buttons */}
+                    {(issue.issueType === 'missing_information' || issue.issueType === 'expired_insurance') && issue.infoRequestSentAt && (
+                      <div className="flex items-center space-x-2 mt-2">
+                        <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Request Sent
+                        </Badge>
+                        <span className="text-xs text-gray-500">
+                          {formatDate(issue.infoRequestSentAt)} at {formatTime(issue.infoRequestSentAt)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -697,6 +720,28 @@ export default function PreEncountersPage() {
                   <p className="text-sm">{formatDate(selectedIssue.updatedAt)} at {formatTime(selectedIssue.updatedAt)}</p>
                 </div>
               </div>
+
+              {/* Info Request Status */}
+              {(selectedIssue.issueType === 'missing_information' || selectedIssue.issueType === 'expired_insurance') && (
+                <div>
+                  <Label className="text-sm font-medium">Info Request Status</Label>
+                  {selectedIssue.infoRequestSentAt ? (
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Request Sent
+                      </Badge>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        on {formatDate(selectedIssue.infoRequestSentAt)} at {formatTime(selectedIssue.infoRequestSentAt)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      No info request sent yet
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

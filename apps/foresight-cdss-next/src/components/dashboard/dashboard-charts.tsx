@@ -1,11 +1,14 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { StatusDistribution } from '@/components/dashboard/status-distribution';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import type { StatusDistribution as StatusDistributionType } from '@/types/pa.types';
 import type { Claim } from '@/data/claims';
 import { calculateSubmissionPipelineMetrics } from '@/utils/dashboard';
+import { getTopDenialReasons, analyzeDenialReasons, type DenialReasonAnalysis } from '@/data/denial-reasons';
+import { DenialReasonDetail } from '@/components/analytics/denial-reason-detail';
+import { toast } from 'sonner';
 import {
   ResponsiveContainer,
   BarChart,
@@ -17,7 +20,6 @@ import {
   Legend,
   LineChart,
   Line,
-  Cell,
 } from 'recharts';
 
 interface AnalyticsOverviewProps {
@@ -52,35 +54,91 @@ const automationQuality = [
 ];
 
 export function AnalyticsOverview({ statusDistribution, claimItems = [], className = '' }: AnalyticsOverviewProps) {
+  const [selectedDenialReason, setSelectedDenialReason] = useState<DenialReasonAnalysis | null>(null);
+
   // Calculate submission pipeline metrics if claim data is available
   const submissionMetrics = claimItems.length > 0 ? calculateSubmissionPipelineMetrics(claimItems) : null;
-  
+
+  // Calculate denial reason analyses from actual claim data
+  const denialReasonAnalyses = useMemo(() => {
+    return claimItems.length > 0 ? analyzeDenialReasons(claimItems) : [];
+  }, [claimItems]);
+
+  // Get top denial reasons for display
+  const topDenialReasons = useMemo(() => {
+    return claimItems.length > 0 ? getTopDenialReasons(claimItems, 4) : denialReasons;
+  }, [claimItems]);
+
   // Prepare submission outcomes data for chart
   const submissionOutcomes = submissionMetrics ? [
-    { 
-      name: 'Successful Submissions', 
+    {
+      category: 'Successful',
       value: submissionMetrics.totalSubmissionAttempts - submissionMetrics.claimsScrubberRejects,
-      color: '#22c55e' 
+      fill: 'var(--color-successful)'
     },
-    { 
-      name: 'Scrubber Rejects', 
+    {
+      category: 'Scrubber Rejects',
       value: submissionMetrics.claimsScrubberRejects,
-      color: '#ef4444' 
+      fill: 'var(--color-rejects)'
     },
-    { 
-      name: 'Missing Info', 
+    {
+      category: 'Missing Info',
       value: submissionMetrics.claimsMissingInfo,
-      color: '#f59e0b' 
+      fill: 'var(--color-missing)'
     }
   ] : [];
+
+  const submissionChartConfig = {
+    value: {
+      label: "Claims",
+    },
+    successful: {
+      label: "Successful",
+      color: "hsl(142 76% 36%)",
+    },
+    rejects: {
+      label: "Scrubber Rejects",
+      color: "hsl(0 84% 60%)",
+    },
+    missing: {
+      label: "Missing Info",
+      color: "hsl(43 96% 56%)",
+    },
+  } satisfies ChartConfig;
+
+  const handleDenialReasonClick = (reasonCode: string) => {
+    const analysis = denialReasonAnalyses.find(a => a.reason.code === reasonCode);
+    if (analysis) {
+      setSelectedDenialReason(analysis);
+    }
+  };
+
+  const handleAutomateAction = (action: string) => {
+    // TODO: Implement automation logic
+    console.log('Automating action:', action);
+    toast.info(`Automation started: ${action}`);
+  };
+
+  // If a denial reason is selected, show the detail view
+  if (selectedDenialReason) {
+    return (
+      <Card className={`bg-card border shadow-xs ${className}`}>
+        <CardContent className="p-6">
+          <DenialReasonDetail
+            analysis={selectedDenialReason}
+            onBack={() => setSelectedDenialReason(null)}
+            onAutomate={handleAutomateAction}
+          />
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card className={`bg-card border shadow-xs ${className}`}>
       <CardHeader>
         <CardTitle className="text-xl font-semibold text-foreground">Analytics</CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
-        <StatusDistribution distribution={statusDistribution} variant="inline" />
-
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
             <h4 className="text-sm font-semibold text-foreground mb-2">Volume trends (last 6 months)</h4>
@@ -102,15 +160,52 @@ export function AnalyticsOverview({ statusDistribution, claimItems = [], classNa
 
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
             <h4 className="text-sm font-semibold text-foreground mb-2">Top denial reasons</h4>
-            <p className="text-xs text-muted-foreground mb-4">Aggregate across automated resubmits</p>
+            <p className="text-xs text-muted-foreground mb-4">Click on any reason for detailed analysis and resolution guidance</p>
             <ul className="space-y-3">
-              {denialReasons.map((item) => (
-                <li key={item.reason} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground">{item.reason}</span>
-                  <span className="font-semibold text-muted-foreground">{item.count}</span>
-                </li>
-              ))}
+              {topDenialReasons.map((item) => {
+                const hasCode = 'code' in item && typeof item.code === 'string';
+                const isClickable = hasCode && denialReasonAnalyses.some(a => a.reason.code === item.code);
+                const handleClick = () => {
+                  if (isClickable && hasCode) {
+                    handleDenialReasonClick(item.code as string);
+                  }
+                };
+
+                if (isClickable) {
+                  return (
+                    <li key={item.reason}>
+                      <button
+                        className="w-full flex items-center justify-between text-sm p-2 rounded-md transition-colors border border-transparent hover:bg-muted/50 hover:border-border focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 text-left"
+                        onClick={handleClick}
+                        aria-label={`View details for ${item.reason}`}
+                      >
+                        <span className="text-foreground hover:text-primary">
+                          {item.reason}
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-muted-foreground">{item.count}</span>
+                          <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+                    </li>
+                  );
+                } else {
+                  return (
+                    <li key={item.reason} className="flex items-center justify-between text-sm p-2">
+                      <span className="text-foreground">{item.reason}</span>
+                      <span className="font-semibold text-muted-foreground">{item.count}</span>
+                    </li>
+                  );
+                }
+              })}
             </ul>
+            {denialReasonAnalyses.length === 0 && claimItems.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-4 italic">
+                No denial patterns found in current data
+              </p>
+            )}
           </div>
         </div>
 
@@ -119,21 +214,29 @@ export function AnalyticsOverview({ statusDistribution, claimItems = [], classNa
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
             <h4 className="text-sm font-semibold text-foreground mb-2">Submission Outcomes</h4>
             <p className="text-xs text-muted-foreground mb-4">Claims pipeline performance with absolute numbers</p>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={submissionOutcomes} layout="horizontal">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                  <XAxis type="number" stroke="#6b7280" tickLine={false} axisLine={false} />
-                  <YAxis dataKey="name" type="category" stroke="#6b7280" tickLine={false} axisLine={false} width={120} />
-                  <Tooltip formatter={(value: number) => `${value} claims`} />
-                  <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {submissionOutcomes.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartContainer config={submissionChartConfig}>
+              <BarChart
+                accessibilityLayer
+                data={submissionOutcomes}
+                layout="vertical"
+                margin={{ left: 20 }}
+                barCategoryGap="20%"
+              >
+                <YAxis
+                  dataKey="category"
+                  type="category"
+                  tickLine={false}
+                  tickMargin={10}
+                  axisLine={true}
+                />
+                <XAxis dataKey="value" type="number" axisLine={true} tickLine={false} />
+                <ChartTooltip
+                  cursor={false}
+                  content={<ChartTooltipContent hideLabel />}
+                />
+                <Bar dataKey="value" layout="vertical" radius={5} maxBarSize={20} />
+              </BarChart>
+            </ChartContainer>
             <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
               <div className="text-center">
                 <div className="flex items-center justify-center gap-2">

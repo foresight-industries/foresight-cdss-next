@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -260,31 +261,31 @@ const ClaimDetailSheet: React.FC<{
                   <FileText className="h-4 w-4" /> Patient & Encounter
                 </h3>
                 <div className="grid gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Patient</span>
-                    <span className="font-medium">{claim.patient.name}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">Patient</span>
+                    <span className="font-medium text-right">{claim.patient.name}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Encounter</span>
-                    <span className="font-medium">{claim.encounter_id}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">Encounter</span>
+                    <span className="font-medium text-right">{claim.encounter_id}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">State</span>
-                    <span className="font-medium">{claim.state}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">State</span>
+                    <span className="font-medium text-right">{claim.state}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Provider</span>
-                    <span className="font-medium">{claim.provider}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">Provider</span>
+                    <span className="font-medium text-right">{claim.provider}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Date of service</span>
-                    <span className="font-medium">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">Date of service</span>
+                    <span className="font-medium text-right">
                       {new Date(claim.dos).toLocaleDateString()}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Visit type</span>
-                    <span className="font-medium">{claim.visit_type}</span>
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="text-muted-foreground flex-shrink-0">Visit type</span>
+                    <span className="font-medium text-right">{claim.visit_type}</span>
                   </div>
                 </div>
               </div>
@@ -462,15 +463,24 @@ const ClaimDetailSheet: React.FC<{
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
                   <FileText className="h-4 w-4" /> Chart Note
                 </h3>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>Show sources</span>
-                  <Switch
-                    checked={showSources}
-                    onCheckedChange={(checked) =>
-                      setShowSources(checked === true)
-                    }
-                  />
-                </div>
+                {(() => {
+                  // Check if there are any highlighted segments in the chart note
+                  const hasHighlightedSources = claim.chart_note.paragraphs.some(paragraph =>
+                    paragraph.some(segment => segment.highlight)
+                  );
+                  
+                  return hasHighlightedSources ? (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>Show sources</span>
+                      <Switch
+                        checked={showSources}
+                        onCheckedChange={(checked) =>
+                          setShowSources(checked === true)
+                        }
+                      />
+                    </div>
+                  ) : null;
+                })()}
               </div>
               <div className="space-y-3 rounded border border-border/60 bg-muted/10 p-4 text-sm leading-relaxed">
                 {claim.chart_note.paragraphs.map((paragraph, index) => (
@@ -503,35 +513,41 @@ const ClaimDetailSheet: React.FC<{
                 </h3>
                 <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
                   <div className="space-y-3">
-                    {/* Display real clearinghouse errors from scrubbing_result */}
-                    {((claim as Claim).scrubbing_result ?? [])?.filter(result => result.severity === 'error').map((error, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                        <div className="flex-1">
-                          <div className="font-medium text-destructive">{error.message}</div>
-                          <p className="text-xs text-muted-foreground mt-1 mb-2">
-                            {error.field_path && `Field: ${error.field_path}`}
-                            {error.error_code && ` | Error Code: ${error.error_code}`}
-                          </p>
-                        </div>
-                      </div>
-                    )) || (
-                      // Fallback to demo errors if no real errors found
-                      <>
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                          <div className="flex-1">
-                            <div className="font-medium text-destructive">Missing Provider NPI</div>
-                            <p className="text-xs text-muted-foreground mt-1 mb-2">
-                              Field: billing_provider.npi | Error Code: AAE-44
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
-                            </p>
+                    {(() => {
+                      const clearinghouseErrors = ((claim as Claim).scrubbing_result ?? []).filter(result => result.severity === 'error');
+                      
+                      if (clearinghouseErrors.length > 0) {
+                        // Display real clearinghouse errors from scrubbing_result
+                        return clearinghouseErrors.map((error, index) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                            <div className="flex-1">
+                              <div className="font-medium text-destructive">{error.message}</div>
+                              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                                {error.field_path && `Field: ${error.field_path}`}
+                                {error.error_code && ` | Error Code: ${error.error_code}`}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      </>
-                    )}
+                        ));
+                      } else {
+                        // Fallback to demo errors if no real errors found
+                        return (
+                          <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
+                            <div className="flex-1">
+                              <div className="font-medium text-destructive">Missing Provider NPI</div>
+                              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                                Field: billing_provider.npi | Error Code: AAE-44
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                    })()}
                   </div>
                 </div>
               </section>
@@ -568,17 +584,19 @@ const ClaimDetailSheet: React.FC<{
                   <AlertTriangle className="h-4 w-4" /> Payer Response
                 </h3>
                 <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
-                  <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-destructive">
-                    {claim.payer_response.carc && (
-                      <Badge variant="destructive">CARC {claim.payer_response.carc}</Badge>
-                    )}
-                    {claim.payer_response.rarc && (
-                      <Badge variant="outline" className="border-destructive/40 text-destructive">
-                        RARC {claim.payer_response.rarc}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm text-destructive">
+                  {(claim.payer_response.carc || claim.payer_response.rarc) && (
+                    <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-destructive mb-2">
+                      {claim.payer_response.carc && (
+                        <Badge variant="destructive">CARC {claim.payer_response.carc}</Badge>
+                      )}
+                      {claim.payer_response.rarc && (
+                        <Badge variant="outline" className="border-destructive/40 text-destructive">
+                          RARC {claim.payer_response.rarc}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                  <p className="text-sm text-destructive">
                     {claim.payer_response.message}
                   </p>
                 </div>
@@ -647,6 +665,9 @@ const ClaimDetailSheet: React.FC<{
 };
 
 export default function ClaimsPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
     search: "",
@@ -677,6 +698,24 @@ export default function ClaimsPage() {
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+
+  // Function to close claim and remove query parameter
+  const handleCloseClaim = useCallback(() => {
+    setActiveClaimId(null);
+    // Remove the claim query parameter from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('claim');
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Function to open claim and set query parameter
+  const handleOpenClaim = useCallback((claimId: string) => {
+    setActiveClaimId(claimId);
+    // Add the claim query parameter to URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('claim', claimId);
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
 
   const hasActiveFilters = useCallback(() => {
     return (
@@ -1108,6 +1147,18 @@ export default function ClaimsPage() {
     });
   }, [claims, handleDenialViaPlaybook, mockValidationSettings.denialPlaybook.autoRetryEnabled]);
 
+  // Handle claim query parameter to auto-open claim details
+  useEffect(() => {
+    const claimParam = searchParams.get('claim');
+    if (claimParam) {
+      // Find the claim by ID
+      const claim = claims.find(c => c.id === claimParam);
+      if (claim && !activeClaimId) {
+        setActiveClaimId(claimParam);
+      }
+    }
+  }, [searchParams, claims]);
+
   // Auto-submission disabled for demo
   // useEffect(() => {
   //   claims.forEach((claim) => {
@@ -1388,7 +1439,7 @@ export default function ClaimsPage() {
         event.preventDefault();
         const claimToOpen = filteredClaims[focusedIndex];
         if (claimToOpen) {
-          setActiveClaimId(claimToOpen.id);
+          handleOpenClaim(claimToOpen.id);
         }
       } else if (event.key === "ArrowDown" && activeClaimId) {
         // If detail open, go to next claim
@@ -1396,7 +1447,7 @@ export default function ClaimsPage() {
         const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
         if (currentIndex !== -1 && currentIndex < filteredClaims.length - 1) {
           const nextClaim = filteredClaims[currentIndex + 1];
-          setActiveClaimId(nextClaim.id);
+          handleOpenClaim(nextClaim.id);
           setFocusedIndex(currentIndex + 1);
         }
       } else if (event.key === "ArrowUp" && activeClaimId) {
@@ -1405,7 +1456,7 @@ export default function ClaimsPage() {
         const currentIndex = filteredClaims.findIndex(c => c.id === activeClaimId);
         if (currentIndex > 0) {
           const prevClaim = filteredClaims[currentIndex - 1];
-          setActiveClaimId(prevClaim.id);
+          handleOpenClaim(prevClaim.id);
           setFocusedIndex(currentIndex - 1);
         }
       }
@@ -1437,45 +1488,20 @@ export default function ClaimsPage() {
                   type="text"
                   placeholder="Search patients, claims, encounters, payers, codes..."
                   value={filters.search}
-                  onChange={(event) =>
+                  onChange={(event) => {
                     setFilters((prev) => ({
                       ...prev,
                       search: event.target.value,
-                    }))
-                  }
+                    }));
+                    // Turn off dollar-first when search is used
+                    if (event.target.value.trim() !== '' && dollarFirst) {
+                      setDollarFirst(false);
+                    }
+                  }}
                   className="pl-10"
                 />
               </div>
 
-              {/* Dollar-First Toggle */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className={cn(
-                    "flex items-center gap-2 rounded-md border px-3 py-2 transition-colors",
-                    dollarFirst ? "border-primary/50 bg-primary/5" : "border-border"
-                  )}>
-                    <Switch
-                      id="dollar-first-toggle"
-                      checked={dollarFirst}
-                      onCheckedChange={(checked) => setDollarFirst(checked)}
-                    />
-                    <Label htmlFor="dollar-first-toggle" className={cn(
-                      "mt-2 text-sm font-medium cursor-pointer leading-none",
-                      dollarFirst ? "text-primary" : "text-foreground"
-                    )}>
-                      High $ first
-                    </Label>
-                    {dollarFirst && (
-                      <Badge variant="secondary" className="ml-1 text-xs">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Sort the queue by highest charge amount first.</p>
-                </TooltipContent>
-              </Tooltip>
 
               {/* Filter Toggle */}
               <div className="flex gap-2">
@@ -1749,12 +1775,16 @@ export default function ClaimsPage() {
                     <Label htmlFor="status-select">Status</Label>
                     <Select
                       value={filters.status}
-                      onValueChange={(value) =>
+                      onValueChange={(value) => {
                         setFilters((prev) => ({
                           ...prev,
                           status: value as StatusFilterValue,
-                        }))
-                      }
+                        }));
+                        // Turn off dollar-first when status filter is used
+                        if (value !== 'all' && dollarFirst) {
+                          setDollarFirst(false);
+                        }
+                      }}
                     >
                       <SelectTrigger id="status-select">
                         <SelectValue placeholder="All Statuses" />
@@ -1774,9 +1804,13 @@ export default function ClaimsPage() {
                     <Label htmlFor="payer-select">Payer</Label>
                     <Select
                       value={filters.payer}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({ ...prev, payer: value }))
-                      }
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({ ...prev, payer: value }));
+                        // Turn off dollar-first when payer filter is used
+                        if (value !== 'all' && dollarFirst) {
+                          setDollarFirst(false);
+                        }
+                      }}
                     >
                       <SelectTrigger id="payer-select">
                         <SelectValue placeholder="All Payers" />
@@ -1796,9 +1830,13 @@ export default function ClaimsPage() {
                     <Label htmlFor="state-select">State</Label>
                     <Select
                       value={filters.state}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({ ...prev, state: value }))
-                      }
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({ ...prev, state: value }));
+                        // Turn off dollar-first when state filter is used
+                        if (value !== 'all' && dollarFirst) {
+                          setDollarFirst(false);
+                        }
+                      }}
                     >
                       <SelectTrigger id="state-select">
                         <SelectValue placeholder="All States" />
@@ -1820,9 +1858,13 @@ export default function ClaimsPage() {
                     <Label htmlFor="visit-select">Visit Type</Label>
                     <Select
                       value={filters.visit}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({ ...prev, visit: value }))
-                      }
+                      onValueChange={(value) => {
+                        setFilters((prev) => ({ ...prev, visit: value }));
+                        // Turn off dollar-first when visit filter is used
+                        if (value !== 'all' && dollarFirst) {
+                          setDollarFirst(false);
+                        }
+                      }}
                     >
                       <SelectTrigger id="visit-select">
                         <SelectValue placeholder="All Visit Types" />
@@ -1860,6 +1902,10 @@ export default function ClaimsPage() {
                               ...prev,
                               dateFrom: date ? date.toISOString().split('T')[0] : '',
                             }));
+                            // Turn off dollar-first when date filter is used
+                            if (date && dollarFirst) {
+                              setDollarFirst(false);
+                            }
                           }}
                           disabled={(date) => {
                             const today = new Date();
@@ -1894,6 +1940,10 @@ export default function ClaimsPage() {
                               ...prev,
                               dateTo: date ? date.toISOString().split('T')[0] : '',
                             }));
+                            // Turn off dollar-first when date filter is used
+                            if (date && dollarFirst) {
+                              setDollarFirst(false);
+                            }
                           }}
                           disabled={(date) => {
                             const today = new Date();
@@ -1910,20 +1960,49 @@ export default function ClaimsPage() {
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id="only-review"
-                    checked={filters.onlyNeedsReview}
-                    onCheckedChange={(checked) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        onlyNeedsReview: checked === true,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="only-review" className="mt-2 text-sm leading-none self-center">
-                    Only show claims needing review
-                  </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="only-review"
+                      checked={filters.onlyNeedsReview}
+                      onCheckedChange={(checked) => {
+                        setFilters((prev) => ({
+                          ...prev,
+                          onlyNeedsReview: checked === true,
+                        }));
+                        // Turn off dollar-first when onlyNeedsReview filter is used
+                        if (checked && dollarFirst) {
+                          setDollarFirst(false);
+                        }
+                      }}
+                    />
+                    <Label htmlFor="only-review" className="mt-2 text-sm leading-none self-center">
+                      Only show claims needing review
+                    </Label>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id="dollar-first"
+                      checked={dollarFirst}
+                      onCheckedChange={(checked) => setDollarFirst(checked === true)}
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Label htmlFor="dollar-first" className="mt-2 text-sm leading-none self-center cursor-pointer">
+                          High $ first
+                        </Label>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="center">
+                        <p>Sort claims by highest dollar amount first. Automatically turns off when using other filters.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    {dollarFirst && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        Active
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2033,7 +2112,13 @@ export default function ClaimsPage() {
                               id="claim-filter"
                               placeholder="Enter claim ID..."
                               value={filters.claimId}
-                              onChange={(e) => setFilters(prev => ({ ...prev, claimId: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, claimId: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           <div className="space-y-2">
@@ -2042,7 +2127,13 @@ export default function ClaimsPage() {
                               id="visit-filter"
                               placeholder="Enter visit type..."
                               value={filters.visitType}
-                              onChange={(e) => setFilters(prev => ({ ...prev, visitType: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, visitType: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           {(filters.claimId || filters.visitType) && (
@@ -2092,7 +2183,13 @@ export default function ClaimsPage() {
                               id="patient-filter"
                               placeholder="Enter patient name..."
                               value={filters.patientName}
-                              onChange={(e) => setFilters(prev => ({ ...prev, patientName: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, patientName: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           {filters.patientName && (
@@ -2142,7 +2239,13 @@ export default function ClaimsPage() {
                               id="payer-filter"
                               placeholder="Enter payer name..."
                               value={filters.payerName}
-                              onChange={(e) => setFilters(prev => ({ ...prev, payerName: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, payerName: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           <div className="space-y-2">
@@ -2151,7 +2254,13 @@ export default function ClaimsPage() {
                               id="provider-filter"
                               placeholder="Enter provider name..."
                               value={filters.provider}
-                              onChange={(e) => setFilters(prev => ({ ...prev, provider: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, provider: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           <div className="space-y-2">
@@ -2160,7 +2269,13 @@ export default function ClaimsPage() {
                               id="state-filter-column"
                               placeholder="Enter state..."
                               value={filters.claimState}
-                              onChange={(e) => setFilters(prev => ({ ...prev, claimState: e.target.value }))}
+                              onChange={(e) => {
+                                setFilters(prev => ({ ...prev, claimState: e.target.value }));
+                                // Turn off dollar-first when column filter is used
+                                if (e.target.value.trim() !== '' && dollarFirst) {
+                                  setDollarFirst(false);
+                                }
+                              }}
                             />
                           </div>
                           {(filters.payerName || filters.provider || filters.claimState) && (
@@ -2238,6 +2353,10 @@ export default function ClaimsPage() {
                                           ? [...prev.paStatuses, option.value]
                                           : prev.paStatuses.filter(status => status !== option.value)
                                       }));
+                                      // Turn off dollar-first when PA status filter is used
+                                      if (checked && dollarFirst) {
+                                        setDollarFirst(false);
+                                      }
                                     }}
                                   />
                                   <Label
@@ -2322,7 +2441,7 @@ export default function ClaimsPage() {
                       if (interactive) {
                         return;
                       }
-                      setActiveClaimId(claim.id);
+                      handleOpenClaim(claim.id);
                       setFocusedIndex(idx);
                     }}
                   >
@@ -2393,12 +2512,14 @@ export default function ClaimsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => setActiveClaimId(claim.id)}>
+                          <DropdownMenuItem onClick={() => handleOpenClaim(claim.id)}>
                             Open
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={() => {
-                              navigator.clipboard?.writeText(claim.id);
+                            onClick={async (event) => {
+                              event.stopPropagation();
+                              await navigator.clipboard?.writeText(claim.id);
+                              toast.success(`Claim ID ${claim.id} copied to clipboard`);
                             }}
                           >
                             Copy claim #
@@ -2420,7 +2541,7 @@ export default function ClaimsPage() {
       <ClaimDetailSheet
         claim={activeClaim}
         open={!!activeClaimId}
-        onClose={() => setActiveClaimId(null)}
+        onClose={handleCloseClaim}
         threshold={threshold}
         onApplyAllFixes={(id) => applyAllFixes([id])}
         onSubmit={(id) => submitClaims([id])}
@@ -2431,7 +2552,7 @@ export default function ClaimsPage() {
           const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
           if (currentIndex > 0) {
             const prevClaim = filteredClaims[currentIndex - 1];
-            setActiveClaimId(prevClaim.id);
+            handleOpenClaim(prevClaim.id);
             setFocusedIndex(currentIndex - 1);
           }
         }}
@@ -2439,7 +2560,7 @@ export default function ClaimsPage() {
           const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
           if (currentIndex < filteredClaims.length - 1) {
             const nextClaim = filteredClaims[currentIndex + 1];
-            setActiveClaimId(nextClaim.id);
+            handleOpenClaim(nextClaim.id);
             setFocusedIndex(currentIndex + 1);
           }
         }}
