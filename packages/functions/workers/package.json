@@ -1,0 +1,16 @@
+{
+  "name": "rcm-workers",
+  "version": "1.0.0",
+  "description": "RCM Lambda worker functions",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "test": "echo 'No tests specified'"
+  },
+  "dependencies": {
+    "aws-sdk": "^2.1400.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

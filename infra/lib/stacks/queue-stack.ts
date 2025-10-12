@@ -68,12 +68,7 @@ export class QueueStack extends cdk.Stack {
       handler: 'claims-processor.handler',
       timeout: cdk.Duration.minutes(10),
       memorySize: 1024,
-      code: lambda.Code.fromAsset('packages/functions/workers', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
@@ -88,11 +83,10 @@ export class QueueStack extends cdk.Stack {
     props.database.grantDataApiAccess(claimsProcessor);
     props.documentsBucket.grantReadWrite(claimsProcessor);
 
-    // Add SQS trigger
+    // Add SQS trigger (FIFO queues don't support maxBatchingWindow)
     claimsProcessor.addEventSource(
       new lambdaEventSources.SqsEventSource(this.claimsQueue, {
         batchSize: 5,
-        maxBatchingWindow: cdk.Duration.seconds(10),
         reportBatchItemFailures: true,
       })
     );
@@ -104,12 +98,7 @@ export class QueueStack extends cdk.Stack {
       handler: 'webhook-delivery.handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
-      code: lambda.Code.fromAsset('packages/functions/workers', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
@@ -136,12 +125,7 @@ export class QueueStack extends cdk.Stack {
       handler: 'eligibility-checker.handler',
       timeout: cdk.Duration.minutes(2),
       memorySize: 512,
-      code: lambda.Code.fromAsset('packages/functions/workers', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',

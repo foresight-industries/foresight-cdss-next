@@ -83,6 +83,10 @@ export class DatabaseStack extends cdk.Stack {
       defaultDatabaseName: 'rcm',
       serverlessV2MinCapacity: props.config.dbMinCapacity,
       serverlessV2MaxCapacity: props.config.dbMaxCapacity,
+      writer: rds.ClusterInstance.serverlessV2('writer'),
+      readers: props.stageName === 'prod' ? [
+        rds.ClusterInstance.serverlessV2('reader1', { scaleWithWriter: true })
+      ] : [],
       vpc: this.vpc,
       vpcSubnets: {
         subnetType: ec2.SubnetType.PRIVATE_ISOLATED,

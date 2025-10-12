@@ -21,7 +21,7 @@ export class ApiStack extends cdk.Stack {
 
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
-      code: lambda.Code.fromAsset('layers/dependencies'),
+      code: lambda.Code.fromAsset('../layers/dependencies'),
       compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
       description: 'Common dependencies for Lambda functions',
     });
@@ -47,13 +47,8 @@ export class ApiStack extends cdk.Stack {
     const authorizerFn = new lambda.Function(this, 'ClerkAuthorizer', {
       ...functionProps,
       functionName: `rcm-clerk-authorizer-${props.stageName}`,
-      handler: 'authorizer.handler',
-      code: lambda.Code.fromAsset('packages/functions/auth', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      handler: 'clerk-authorizer.handler',
+      code: lambda.Code.fromAsset('../packages/functions/auth'),
     });
 
     // Create HTTP API with Clerk authorizer
@@ -84,13 +79,8 @@ export class ApiStack extends cdk.Stack {
     const patientsFn = new lambda.Function(this, 'PatientsFunction', {
       ...functionProps,
       functionName: `rcm-patients-${props.stageName}`,
-      handler: 'patients.handler',
-      code: lambda.Code.fromAsset('packages/functions/api', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      handler: 'patients-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
     });
 
     // Grant permissions
@@ -111,13 +101,8 @@ export class ApiStack extends cdk.Stack {
     const claimsFn = new lambda.Function(this, 'ClaimsFunction', {
       ...functionProps,
       functionName: `rcm-claims-${props.stageName}`,
-      handler: 'claims.handler',
-      code: lambda.Code.fromAsset('packages/functions/api', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      handler: 'claims-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
     });
 
     props.database.grantDataApiAccess(claimsFn);
@@ -136,13 +121,8 @@ export class ApiStack extends cdk.Stack {
     const presignFn = new lambda.Function(this, 'PresignFunction', {
       ...functionProps,
       functionName: `rcm-presign-${props.stageName}`,
-      handler: 'presign.handler',
-      code: lambda.Code.fromAsset('packages/functions/api', {
-        bundling: {
-          image: lambda.Runtime.NODEJS_20_X.bundlingImage,
-          command: ['bash', '-c', 'npm ci && npm run build && cp -r dist/* /asset-output/'],
-        },
-      }),
+      handler: 'presign-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
     });
 
     props.documentssBucket.grantPut(presignFn);
