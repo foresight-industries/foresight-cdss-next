@@ -33,7 +33,7 @@ export class MonitoringStack extends cdk.Stack {
     // Add email subscription
     alarmTopic.addSubscription(
       new snsSubscriptions.EmailSubscription(
-        process.env.ALARM_EMAIL || 'ops@yourdomain.com'
+        process.env.ALARM_EMAIL || 'ops@have-foresight.com'
       )
     );
 
