@@ -22,12 +22,10 @@ import {
   ShieldCheck,
   Sparkles,
   X,
-  Search,
   Filter,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Calendar as CalendarIcon,
   DollarSign,
   Plus,
 } from "lucide-react";
@@ -46,7 +44,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import {
   Sheet,
   SheetContent,
@@ -55,13 +52,6 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { toast } from "sonner";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
   Table,
@@ -72,10 +62,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 // import { supabase } from "@/lib/supabase/client";
@@ -86,7 +73,6 @@ import {
   STATUS_FILTER_OPTIONS,
   PA_STATUS_FILTER_OPTIONS,
   type StatusFilterValue,
-  type ClaimFilters,
   type SortField,
   type SortConfig,
   STATUS_BADGE_VARIANTS,
@@ -105,6 +91,7 @@ import {
   calculateClaimBalance,
   addPaymentToClaim,
 } from "@/data/claims";
+import { ClaimsFilters, type ClaimFilters } from "@/components/filters";
 import { AddPaymentForm } from "@/components/claims/add-payment-form";
 
 const sortClaims = (claims: Claim[]) =>
@@ -416,7 +403,7 @@ const ClaimDetailSheet: React.FC<{
                                            field === "diagnosis_code" ? "Diagnosis Code" :
                                            field === "procedure_code" ? "Procedure Code" :
                                            field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                          
+
                           return (
                             <div key={field} className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
                               <div className="flex-shrink-0 w-2 h-2 bg-amber-500 rounded-full mt-2"></div>
@@ -438,7 +425,7 @@ const ClaimDetailSheet: React.FC<{
                                 </div>
                                 {suggestedFix && (
                                   <div className="text-xs text-gray-600 mb-2">
-                                    AI suggests: "{suggestedFix.value}" - {suggestedFix.reason}
+                                    AI suggests: &quot;{suggestedFix.value}&quot; - {suggestedFix.reason}
                                   </div>
                                 )}
                                 <div className="space-y-2">
@@ -469,7 +456,7 @@ const ClaimDetailSheet: React.FC<{
                             </div>
                           );
                         })}
-                      
+
                       {/* Show fields that are completely missing (no confidence data) */}
                       {claim.suggested_fixes
                         .filter(fix => !fix.applied && !claim.field_confidences?.[fix.field])
@@ -506,7 +493,7 @@ const ClaimDetailSheet: React.FC<{
                             </div>
                           </div>
                         ))}
-                      
+
                       {/* If no fields need attention, show validation issues */}
                       {Object.entries(claim.field_confidences || {}).filter(([, confidence]) => confidence < threshold).length === 0 &&
                        claim.suggested_fixes.filter(fix => !fix.applied && !claim.field_confidences?.[fix.field]).length === 0 && (
@@ -617,7 +604,7 @@ const ClaimDetailSheet: React.FC<{
                   const hasHighlightedSources = claim.chart_note.paragraphs.some(paragraph =>
                     paragraph.some(segment => segment.highlight)
                   );
-                  
+
                   return hasHighlightedSources ? (
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <span>Show sources</span>
@@ -664,7 +651,7 @@ const ClaimDetailSheet: React.FC<{
                   <div className="space-y-3">
                     {(() => {
                       const clearinghouseErrors = ((claim as Claim).scrubbing_result ?? []).filter(result => result.severity === 'error');
-                      
+
                       if (clearinghouseErrors.length > 0) {
                         // Display real clearinghouse errors from scrubbing_result
                         return clearinghouseErrors.map((error, index) => (
@@ -802,7 +789,7 @@ const ClaimDetailSheet: React.FC<{
                   Add Payment
                 </Button>
               </div>
-              
+
               {/* Current Payment Status */}
               <div className="p-3 bg-muted/20 rounded-lg">
                 <div className="flex justify-between items-center text-sm">
@@ -812,7 +799,7 @@ const ClaimDetailSheet: React.FC<{
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-muted-foreground">Total Paid:</span>
                   <span className="font-medium">
-                    {claim.payments && claim.payments.length > 0 
+                    {claim.payments && claim.payments.length > 0
                       ? formatCurrency(claim.payments.reduce((sum, payment) => sum + payment.amount, 0))
                       : formatCurrency(0)
                     }
@@ -886,7 +873,7 @@ const ClaimDetailSheet: React.FC<{
                           paymentData.reference,
                           paymentData.note
                         );
-                        
+
                         onUpdateClaim(claim.id, () => updatedClaim);
                         setShowAddPayment(false);
                       }}
@@ -927,7 +914,7 @@ const ClaimDetailSheet: React.FC<{
 export default function ClaimsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  
+
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
     search: "",
@@ -954,7 +941,6 @@ export default function ClaimsPage() {
   const [claims, setClaims] = useState<Claim[]>(() => sortClaims(initialClaims));
   const [selectedClaimIds, setSelectedClaimIds] = useState<string[]>([]);
   const [activeClaimId, setActiveClaimId] = useState<string | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
@@ -976,27 +962,6 @@ export default function ClaimsPage() {
     url.searchParams.set('claim', claimId);
     router.replace(url.pathname + url.search, { scroll: false });
   }, [router]);
-
-  const hasActiveFilters = useCallback(() => {
-    return (
-      filters.search.trim() !== '' ||
-      filters.status !== 'all' ||
-      filters.paStatuses.length > 0 ||
-      filters.payer !== 'all' ||
-      filters.state !== 'all' ||
-      filters.visit !== 'all' ||
-      filters.dateFrom !== '' ||
-      filters.dateTo !== '' ||
-      filters.onlyNeedsReview ||
-      filters.claimId !== '' ||
-      filters.patientName !== '' ||
-      filters.payerName !== '' ||
-      filters.provider !== '' ||
-      filters.visitType !== '' ||
-      filters.claimState !== '' ||
-      sortConfig.field !== null
-    );
-  }, [filters, sortConfig]);
 
   const handleSort = useCallback((field: SortField) => {
     // If dollar-first mode is active, disable it when user tries to manually sort
@@ -1739,538 +1704,17 @@ export default function ClaimsPage() {
       </header>
 
       {/* Search and Filters */}
-      <Card className="border shadow-xs">
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-4 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search patients, claims, encounters, payers, codes..."
-                  value={filters.search}
-                  onChange={(event) => {
-                    setFilters((prev) => ({
-                      ...prev,
-                      search: event.target.value,
-                    }));
-                    // Turn off dollar-first when search is used
-                    if (event.target.value.trim() !== '' && dollarFirst) {
-                      setDollarFirst(false);
-                    }
-                  }}
-                  className="pl-10"
-                />
-              </div>
-
-
-              {/* Filter Toggle */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={cn(
-                    "cursor-pointer",
-                    showFilters && "bg-accent",
-                    hasActiveFilters() && "border-primary text-primary"
-                  )}
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filters
-                  {hasActiveFilters() && (
-                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                      {[filters.status !== 'all', filters.payer !== 'all', filters.state !== 'all',
-                        filters.visit !== 'all', filters.dateFrom, filters.dateTo, filters.onlyNeedsReview,
-                        filters.claimId, filters.patientName, filters.payerName, filters.provider,
-                        filters.visitType, filters.claimState, filters.search]
-                        .filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-                {hasActiveFilters() && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFilters({
-                        search: "",
-                        status: "all" as StatusFilterValue,
-                        paStatuses: [],
-                        payer: "all",
-                        state: "all",
-                        visit: "all",
-                        dateFrom: "",
-                        dateTo: "",
-                        onlyNeedsReview: false,
-                        claimId: "",
-                        patientName: "",
-                        payerName: "",
-                        provider: "",
-                        visitType: "",
-                        claimState: "",
-                      });
-                      setSortConfig({ field: null, direction: null });
-                    }}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear All
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Active Filters Display */}
-            {hasActiveFilters() && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-muted-foreground mr-2">Active filters:</span>
-                  {filters.search && (
-                    <Badge variant="secondary" className="gap-1">
-                      Search: {filters.search}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.status !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
-                      Status: {STATUS_FILTER_OPTIONS.find(opt => opt.value === filters.status)?.label || filters.status}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.paStatuses.length > 0 && (
-                    <Badge variant="secondary" className="gap-1">
-                      PA Status: {filters.paStatuses.length === 1
-                        ? PA_STATUS_FILTER_OPTIONS.find(opt => opt.value === filters.paStatuses[0])?.label
-                        : `${filters.paStatuses.length} selected`
-                      }
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, paStatuses: [] }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.payer !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
-                      Payer: {payers.find(p => String(p.id) === filters.payer)?.name || filters.payer}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, payer: 'all' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.state !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
-                      State: {filters.state}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, state: 'all' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.visit !== 'all' && (
-                    <Badge variant="secondary" className="gap-1">
-                      Visit: {filters.visit}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, visit: 'all' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {(filters.dateFrom || filters.dateTo) && (
-                    <Badge variant="secondary" className="gap-1">
-                      Date: {filters.dateFrom || '...'} to {filters.dateTo || '...'}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.onlyNeedsReview && (
-                    <Badge variant="secondary" className="gap-1">
-                      Only Needs Review
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, onlyNeedsReview: false }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {/* Column-specific filters */}
-                  {filters.claimId && (
-                    <Badge variant="outline" className="gap-1">
-                      Claim ID: {filters.claimId}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, claimId: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.patientName && (
-                    <Badge variant="outline" className="gap-1">
-                      Patient: {filters.patientName}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, patientName: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.payerName && (
-                    <Badge variant="outline" className="gap-1">
-                      Payer Name: {filters.payerName}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, payerName: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.provider && (
-                    <Badge variant="outline" className="gap-1">
-                      Provider: {filters.provider}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, provider: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.visitType && (
-                    <Badge variant="outline" className="gap-1">
-                      Visit Type: {filters.visitType}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, visitType: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {filters.claimState && (
-                    <Badge variant="outline" className="gap-1">
-                      State Filter: {filters.claimState}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setFilters(prev => ({ ...prev, claimState: '' }))}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-                  {sortConfig.field && (
-                    <Badge variant="outline" className="gap-1">
-                      Sorted by: {sortConfig.field} ({sortConfig.direction})
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto p-0 ml-1"
-                        onClick={() => setSortConfig({ field: null, direction: null })}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </Badge>
-                  )}
-              </div>
-            )}
-          </div>
-
-          {/* Filter Controls */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="space-y-4">
-                <div className="text-sm font-medium text-muted-foreground mb-3">Quick Filters</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status-select">Status</Label>
-                    <Select
-                      value={filters.status}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({
-                          ...prev,
-                          status: value as StatusFilterValue,
-                        }));
-                        // Turn off dollar-first when status filter is used
-                        if (value !== 'all' && dollarFirst) {
-                          setDollarFirst(false);
-                        }
-                      }}
-                    >
-                      <SelectTrigger id="status-select">
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent className="min-w-[180px]">
-                        <SelectItem value="all">All statuses</SelectItem>
-                        {STATUS_FILTER_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="payer-select">Payer</Label>
-                    <Select
-                      value={filters.payer}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({ ...prev, payer: value }));
-                        // Turn off dollar-first when payer filter is used
-                        if (value !== 'all' && dollarFirst) {
-                          setDollarFirst(false);
-                        }
-                      }}
-                    >
-                      <SelectTrigger id="payer-select">
-                        <SelectValue placeholder="All Payers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All payers</SelectItem>
-                        {payers.map((payer) => (
-                          <SelectItem key={payer.id} value={String(payer.id)}>
-                            {payer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="state-select">State</Label>
-                    <Select
-                      value={filters.state}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({ ...prev, state: value }));
-                        // Turn off dollar-first when state filter is used
-                        if (value !== 'all' && dollarFirst) {
-                          setDollarFirst(false);
-                        }
-                      }}
-                    >
-                      <SelectTrigger id="state-select">
-                        <SelectValue placeholder="All States" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All states</SelectItem>
-                        {states.map((state) => (
-                          <SelectItem key={state} value={state}>
-                            {state}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="visit-select">Visit Type</Label>
-                    <Select
-                      value={filters.visit}
-                      onValueChange={(value) => {
-                        setFilters((prev) => ({ ...prev, visit: value }));
-                        // Turn off dollar-first when visit filter is used
-                        if (value !== 'all' && dollarFirst) {
-                          setDollarFirst(false);
-                        }
-                      }}
-                    >
-                      <SelectTrigger id="visit-select">
-                        <SelectValue placeholder="All Visit Types" />
-                      </SelectTrigger>
-                      <SelectContent className="min-w-[160px]">
-                        <SelectItem value="all">All visit types</SelectItem>
-                        {visitTypes.map((visit) => (
-                          <SelectItem key={visit} value={visit}>
-                            {visit}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date-from">From Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="date-from"
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString() : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
-                          onSelect={(date) => {
-                            setFilters((prev) => ({
-                              ...prev,
-                              dateFrom: date ? date.toISOString().split('T')[0] : '',
-                            }));
-                            // Turn off dollar-first when date filter is used
-                            if (date && dollarFirst) {
-                              setDollarFirst(false);
-                            }
-                          }}
-                          disabled={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            return date > today;
-                          }}
-                          className="rounded-lg border shadow-xs"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date-to">To Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="date-to"
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateTo ? new Date(filters.dateTo).toLocaleDateString() : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
-                          onSelect={(date) => {
-                            setFilters((prev) => ({
-                              ...prev,
-                              dateTo: date ? date.toISOString().split('T')[0] : '',
-                            }));
-                            // Turn off dollar-first when date filter is used
-                            if (date && dollarFirst) {
-                              setDollarFirst(false);
-                            }
-                          }}
-                          disabled={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-                            const isAfterToday = date > today;
-                            const isBeforeFromDate = fromDate ? date < fromDate : false;
-                            return isAfterToday || isBeforeFromDate;
-                          }}
-                          className="rounded-lg border shadow-xs"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="only-review"
-                      checked={filters.onlyNeedsReview}
-                      onCheckedChange={(checked) => {
-                        setFilters((prev) => ({
-                          ...prev,
-                          onlyNeedsReview: checked === true,
-                        }));
-                        // Turn off dollar-first when onlyNeedsReview filter is used
-                        if (checked && dollarFirst) {
-                          setDollarFirst(false);
-                        }
-                      }}
-                    />
-                    <Label htmlFor="only-review" className="mt-2 text-sm leading-none self-center">
-                      Only show claims needing review
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <Switch
-                      id="dollar-first"
-                      checked={dollarFirst}
-                      onCheckedChange={(checked) => setDollarFirst(checked === true)}
-                    />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Label htmlFor="dollar-first" className="mt-2 text-sm leading-none self-center cursor-pointer">
-                          High $ first
-                        </Label>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" align="center">
-                        <p>Sort claims by highest dollar amount first. Automatically turns off when using other filters.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                    {dollarFirst && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        Active
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ClaimsFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        statusOptions={STATUS_FILTER_OPTIONS}
+        paStatusOptions={PA_STATUS_FILTER_OPTIONS}
+        payers={payers}
+        states={states}
+        visitTypes={visitTypes}
+        dollarFirst={dollarFirst}
+        onDollarFirstChange={setDollarFirst}
+      />
 
       {/* Work Queue Table */}
       <Card className="border shadow-xs mt-8">
@@ -2729,7 +2173,7 @@ export default function ClaimsPage() {
                         const carc = claim.payer_response?.carc || claim.rejection_response?.carc || "";
                         const rarc = claim.payer_response?.rarc || claim.rejection_response?.rarc || "";
                         const hasCode = carc || rarc;
-                        
+
                         return (claim.status === "rejected_277ca" || claim.status === "denied") && hasCode ? (
                           <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
                             {carc}
