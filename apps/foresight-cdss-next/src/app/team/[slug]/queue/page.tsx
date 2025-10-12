@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
 import { type QueueFiltersType, QueueFilters } from '@/components/filters';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +62,7 @@ const formatRelativeTime = (value: string) => {
 
 export default function QueuePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<QueueFiltersType>({
     search: '',
     status: 'all',
@@ -80,6 +81,8 @@ export default function QueuePage() {
     direction: null
   });
   const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [initialAction, setInitialAction] = useState<'edit' | 'documents' | 'notes' | undefined>(undefined);
 
   // Mock data for demonstration
   // Use shared mock data instead of API call
@@ -163,19 +166,26 @@ export default function QueuePage() {
 
 
   const handleAction = (action: string, paId: string) => {
-    // Handle different actions
+    // All actions now open the PA details sheet with specific actions
     switch (action) {
       case 'view':
-        setSelectedPaId(paId);
+        setInitialAction(undefined);
+        handleOpenPA(paId);
         break;
       case 'edit':
-        router.push(`/pa/${paId}?action=edit`);
+        // Open PA details and show edit modal
+        setInitialAction('edit');
+        handleOpenPA(paId);
         break;
       case 'documents':
-        router.push(`/pa/${paId}?tab=documents`);
+        // Open PA details with documents tab
+        setInitialAction('documents');
+        handleOpenPA(paId);
         break;
       case 'notes':
-        router.push(`/pa/${paId}?action=note`);
+        // Open PA details and show add note modal
+        setInitialAction('notes');
+        handleOpenPA(paId);
         break;
       case 'archive':
         alert(`Archive PA ${paId} - This would archive the PA request`);
@@ -211,6 +221,84 @@ export default function QueuePage() {
     }
     return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
   };
+
+  // Function to close PA and remove query parameter
+  const handleClosePA = useCallback(() => {
+    setSelectedPaId(null);
+    setInitialAction(undefined); // Clear any pending actions
+    // Remove the pa query parameter from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('pa');
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Function to open PA and set query parameter
+  const handleOpenPA = useCallback((paId: string) => {
+    setSelectedPaId(paId);
+    // Add the pa query parameter to URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('pa', paId);
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Handle PA query parameter to auto-open PA details
+  useEffect(() => {
+    const paParam = searchParams.get('pa');
+    if (paParam) {
+      // Find the PA by ID
+      const pa = queueData.find(item => item.id === paParam);
+      if (pa && !selectedPaId) {
+        setSelectedPaId(paParam);
+      }
+    }
+  }, [searchParams, queueData, selectedPaId]);
+
+  // Keyboard navigation event handler
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      // Don't handle keyboard navigation if user is typing in an input field
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if (event.key === "Escape" && selectedPaId) {
+        event.preventDefault();
+        handleClosePA();
+        // Restore focus to the previously opened PA in the list
+        const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+        if (currentIndex !== -1) {
+          setFocusedIndex(currentIndex);
+        }
+        return;
+      }
+
+      // Navigation only works when no PA is open
+      if (selectedPaId) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedIndex(prev => {
+          const newIndex = prev === null ? 0 : Math.min(prev + 1, filteredData.length - 1);
+          return newIndex;
+        });
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedIndex(prev => {
+          const newIndex = prev === null ? filteredData.length - 1 : Math.max(prev - 1, 0);
+          return newIndex;
+        });
+      } else if (event.key === "Enter" && focusedIndex !== null) {
+        event.preventDefault();
+        const pa = filteredData[focusedIndex];
+        if (pa) {
+          handleOpenPA(pa.id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedPaId, filteredData, focusedIndex, handleClosePA, handleOpenPA]);
 
 
   if (error) {
@@ -549,13 +637,16 @@ export default function QueuePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((item) => {
+                {filteredData.map((item, index) => {
                   const StatusIcon = statusConfig[item.status].icon;
+                  const isFocused = focusedIndex === index;
                   return (
                     <TableRow
                       key={item.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedPaId(item.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isFocused ? 'bg-muted/50 ring-2 ring-primary/20' : ''
+                      }`}
+                      onClick={() => handleOpenPA(item.id)}
                     >
                       <TableCell className="px-6 py-4">
                         <div>
@@ -697,7 +788,7 @@ export default function QueuePage() {
         open={Boolean(selectedPaId)}
         onOpenChange={(open) => {
           if (!open) {
-            setSelectedPaId(null);
+            handleClosePA();
           }
         }}
       >
@@ -708,7 +799,34 @@ export default function QueuePage() {
           {selectedPaId && (
             <PADetails
               paId={selectedPaId}
-              onClose={() => setSelectedPaId(null)}
+              onClose={handleClosePA}
+              onPrev={() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                if (currentIndex > 0) {
+                  const prevPA = filteredData[currentIndex - 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(prevPA.id);
+                  setFocusedIndex(currentIndex - 1);
+                }
+              }}
+              onNext={() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                if (currentIndex < filteredData.length - 1) {
+                  const nextPA = filteredData[currentIndex + 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(nextPA.id);
+                  setFocusedIndex(currentIndex + 1);
+                }
+              }}
+              disablePrev={(() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                return currentIndex <= 0;
+              })()}
+              disableNext={(() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                return currentIndex >= filteredData.length - 1;
+              })()}
+              initialAction={initialAction}
             />
           )}
         </SheetContent>
