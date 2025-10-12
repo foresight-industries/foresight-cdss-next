@@ -645,10 +645,10 @@ export function AnalyticsOverview({ statusDistribution, claimItems = [], classNa
             <p className="text-xs text-muted-foreground mb-4">{chartDescription}</p>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volumeTrend} stackOffset="expand">
+                <BarChart data={volumeTrend}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} stroke="#6b7280" />
-                  <YAxis hide />
+                  <YAxis axisLine={false} tickLine={false} stroke="#6b7280" />
                   <Tooltip formatter={(value: number) => `${value} items`} />
                   <Legend />
                   {barElements}
