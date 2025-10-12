@@ -59,7 +59,8 @@
     "test": "jest"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "infra"
   ],
   "packageManager": "yarn@4.10.3"
 }
