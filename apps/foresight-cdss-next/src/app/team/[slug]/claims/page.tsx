@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
+  AlertCircle,
   AlertTriangle,
   ArrowUpRight,
   CheckCircle2,
@@ -390,6 +391,146 @@ const ClaimDetailSheet: React.FC<{
                 )}
               </div>
             </section>
+
+            {(Object.entries(claim.field_confidences || {}).some(([, confidence]) => confidence < threshold) ||
+              claim.suggested_fixes.some(fix => !fix.applied && !claim.field_confidences?.[fix.field])) && (
+              <section className="space-y-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" /> Needs Action
+                </h3>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-4">
+                  <div className="space-y-3">
+                    <p className="text-sm text-amber-800 font-medium">
+                      The following fields require attention before this claim can be submitted:
+                    </p>
+                    <div className="space-y-3">
+                      {/* Show fields that are below confidence threshold */}
+                      {Object.entries(claim.field_confidences || {})
+                        .filter(([field, confidence]) => confidence < threshold)
+                        .map(([field, confidence]) => {
+                          const suggestedFix = claim.suggested_fixes.find(fix => fix.field === field);
+                          const fieldLabel = field === "member_id" ? "Member ID" :
+                                           field === "patient_dob" ? "Date of Birth" :
+                                           field === "provider_npi" ? "Provider NPI" :
+                                           field === "patient_name" ? "Patient Name" :
+                                           field === "diagnosis_code" ? "Diagnosis Code" :
+                                           field === "procedure_code" ? "Procedure Code" :
+                                           field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                          
+                          return (
+                            <div key={field} className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
+                              <div className="flex-shrink-0 w-2 h-2 bg-amber-500 rounded-full mt-2"></div>
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {fieldLabel}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {suggestedFix && (
+                                      <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
+                                        AI: {(confidence * 100).toFixed(0)}% confidence
+                                      </Badge>
+                                    )}
+                                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
+                                      Below {(threshold * 100).toFixed(0)}% threshold
+                                    </Badge>
+                                  </div>
+                                </div>
+                                {suggestedFix && (
+                                  <div className="text-xs text-gray-600 mb-2">
+                                    AI suggests: "{suggestedFix.value}" - {suggestedFix.reason}
+                                  </div>
+                                )}
+                                <div className="space-y-2">
+                                  <label htmlFor={`field-${field}`} className="block text-xs font-medium text-gray-700">
+                                    {suggestedFix ? "Correct or confirm value:" : "Enter correct value:"}
+                                  </label>
+                                  <input
+                                    id={`field-${field}`}
+                                    type={field === "patient_dob" ? "date" : field === "total_amount" ? "number" : "text"}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    placeholder={suggestedFix ? suggestedFix.value : `Enter ${fieldLabel.toLowerCase()}...`}
+                                    defaultValue={suggestedFix ? suggestedFix.value : ""}
+                                  />
+                                  {suggestedFix && (
+                                    <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs h-7"
+                                        onClick={() => onApplySuggestion(claim.id, field)}
+                                      >
+                                        Apply AI Suggestion
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      
+                      {/* Show fields that are completely missing (no confidence data) */}
+                      {claim.suggested_fixes
+                        .filter(fix => !fix.applied && !claim.field_confidences?.[fix.field])
+                        .map((fix, index) => (
+                          <div key={`missing-${index}`} className="flex items-start gap-3 p-3 bg-white rounded border border-red-200">
+                            <div className="flex-shrink-0 w-2 h-2 bg-red-500 rounded-full mt-2"></div>
+                            <div className="flex-1 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {fix.field === "member_id" ? "Member ID" :
+                                   fix.field === "patient_dob" ? "Date of Birth" :
+                                   fix.field === "provider_npi" ? "Provider NPI" :
+                                   fix.field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </div>
+                                <Badge variant="destructive" className="text-xs">
+                                  Missing from EHR
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-gray-600 mb-2">
+                                {fix.reason}
+                              </div>
+                              <div className="space-y-2">
+                                <label htmlFor={`missing-${index}`} className="block text-xs font-medium text-gray-700">
+                                  Enter required value:
+                                </label>
+                                <input
+                                  id={`missing-${index}`}
+                                  type={fix.field === "patient_dob" ? "date" : fix.field === "total_amount" ? "number" : "text"}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  placeholder={fix.value || `Enter ${fix.field.replace(/_/g, ' ')}...`}
+                                  defaultValue={fix.value || ""}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      
+                      {/* If no fields need attention, show validation issues */}
+                      {Object.entries(claim.field_confidences || {}).filter(([, confidence]) => confidence < threshold).length === 0 &&
+                       claim.suggested_fixes.filter(fix => !fix.applied && !claim.field_confidences?.[fix.field]).length === 0 && (
+                        <div className="text-center py-4 text-sm text-gray-600">
+                          <div className="flex items-center justify-center gap-2 mb-2">
+                            <AlertTriangle className="h-4 w-4 text-amber-500" />
+                            <span>Manual review required</span>
+                          </div>
+                          <p>This claim requires manual verification before submission. Please review all details and confirm accuracy.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
+                      Save & Continue
+                    </Button>
+                    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                      Add Note
+                    </Button>
+                  </div>
+                </div>
+              </section>
+            )}
 
             <section className="space-y-3">
               <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

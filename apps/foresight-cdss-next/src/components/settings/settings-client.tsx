@@ -1553,7 +1553,7 @@ function SettingsPageContent({
             Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage your PA automation system configuration
+            Manage your RCM automation system configuration
           </p>
         </div>
 

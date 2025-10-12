@@ -3,6 +3,8 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Info } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AutomationSettings {
   autoApprovalThreshold: number;
@@ -17,7 +19,6 @@ interface AutomationSettings {
   fieldConfidenceThresholds: {
     cptCode: number;
     icd10: number;
-    placeOfService: number;
     modifiers: number;
   };
 }
@@ -29,6 +30,7 @@ interface AutomationTabProps {
 
 export function AutomationTab({ automationSettings, onSettingChange }: AutomationTabProps) {
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       <Card className="p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -106,21 +108,40 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-8 mb-4">
           <div className="flex-1">
-            <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              Field-Level Confidence Minimums
-            </Label>
+            <div className="flex items-center gap-2">
+              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                AI Extraction Confidence Thresholds
+              </Label>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="max-w-xs">AI will auto-fill these fields when its confidence is above the set percentage. Below that, it will ask for human review.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
             <p className="text-sm text-muted-foreground mt-1">
-              Minimum confidence required for individual fields before
-              auto-submission
+              These settings control the confidence required from the AI for auto-filling each field. Fields populated from your EHR or set by rule are not subject to AI confidence.
             </p>
           </div>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm text-slate-900 dark:text-slate-100">
-                CPT Code
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-slate-900 dark:text-slate-100">
+                  CPT Code
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>AI-extracted procedure codes from clinical documentation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {automationSettings.fieldConfidenceThresholds?.cptCode || 85}%
               </span>
@@ -142,9 +163,19 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm text-slate-900 dark:text-slate-100">
-                ICD-10 Code
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-slate-900 dark:text-slate-100">
+                  ICD-10 Code
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>AI-extracted diagnosis codes from clinical documentation</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
                 {automationSettings.fieldConfidenceThresholds?.icd10 || 85}%
               </span>
@@ -166,39 +197,25 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm text-slate-900 dark:text-slate-100">
-                Place of Service
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-slate-900 dark:text-slate-100">
+                  Modifiers
+                </Label>
+                <Tooltip>
+                  <TooltipTrigger>
+                    <Info className="h-3 w-3 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>AI-suggested modifiers based on clinical context</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                {automationSettings.fieldConfidenceThresholds?.placeOfService || 85}%
+                {automationSettings.fieldConfidenceThresholds?.modifiers || 80}%
               </span>
             </div>
             <Slider
-              value={[automationSettings.fieldConfidenceThresholds?.placeOfService || 85]}
-              onValueChange={(value) => 
-                onSettingChange("fieldConfidenceThresholds", {
-                  ...automationSettings.fieldConfidenceThresholds,
-                  placeOfService: value[0]
-                })
-              }
-              max={98}
-              min={60}
-              step={1}
-              className="w-full"
-            />
-          </div>
-
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm text-slate-900 dark:text-slate-100">
-                Modifiers
-              </Label>
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                {automationSettings.fieldConfidenceThresholds?.modifiers || 85}%
-              </span>
-            </div>
-            <Slider
-              value={[automationSettings.fieldConfidenceThresholds?.modifiers || 85]}
+              value={[automationSettings.fieldConfidenceThresholds?.modifiers || 80]}
               onValueChange={(value) => 
                 onSettingChange("fieldConfidenceThresholds", {
                   ...automationSettings.fieldConfidenceThresholds,
@@ -219,21 +236,6 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
           Processing Rules
         </h3>
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium">Enable Bulk Processing</Label>
-              <p className="text-sm text-muted-foreground">
-                Process multiple PAs simultaneously
-              </p>
-            </div>
-            <Switch
-              checked={automationSettings.enableBulkProcessing}
-              onCheckedChange={(checked) =>
-                onSettingChange("enableBulkProcessing", checked)
-              }
-            />
-          </div>
-
           <div className="flex items-center justify-between">
             <div>
               <Label className="font-medium">Confidence Score Display</Label>
@@ -273,5 +275,6 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
         </div>
       </Card>
     </div>
+    </TooltipProvider>
   );
 }

@@ -561,125 +561,123 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Processing Time Trends */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Processing Time Trends</h3>
-          <div className="space-y-4">
-            {processingTimeData.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">{item.period}</span>
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${(item.avgTime / item.target) * 100}%` }}
-                      ></div>
-                    </div>
-                    <span className="text-sm font-medium">{item.avgTime}h</span>
-                  </div>
-                  <Badge variant="default" className="text-xs">
-                    Target: {item.target}h
-                  </Badge>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Automation & Quality Over Time - Combined */}
-        <Card className="p-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Automation & Quality Over Time - {activeTab === 'all' ? 'Combined' : activeTab === 'claims' ? 'Claims' : 'PAs'}
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              {activeTab === 'all'
-                ? 'Weighted combination of automation rates and quality scores from both Claims and PAs'
-                : activeTab === 'claims'
-                ? 'Claims automation and quality trends over time'
-                : 'Prior Authorization automation and quality trends over time'
-              }
-            </p>
-          </div>
-          <div className="space-y-4">
-            {combinedAutomationTrends.map((item, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">{item.month}</span>
-                  <div className="flex items-center gap-4">
-                    <span className="text-gray-900 dark:text-gray-100">
-                      {activeTab === 'all' ? item.combinedAutomation
-                       : activeTab === 'claims' ? item.claimsAutomation
-                       : item.pasAutomation}% automated
-                    </span>
-                    <span className="text-cyan-600 dark:text-cyan-400">
-                      {activeTab === 'all' ? item.combinedQuality
-                       : activeTab === 'claims' ? item.claimsQuality
-                       : item.pasQuality}% quality
-                    </span>
-                  </div>
-                </div>
-
-                {/* Automation Rate Bar */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Automation Rate</span>
-                    <span className="text-gray-500">
-                      {activeTab === 'all' ? item.combinedAutomation
-                       : activeTab === 'claims' ? item.claimsAutomation
-                       : item.pasAutomation}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+      {/* Processing Time Trends */}
+      <Card className="p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Processing Time Trends</h3>
+        <div className="space-y-4">
+          {processingTimeData.map((item, index) => (
+            <div key={index} className="flex items-center justify-between">
+              <span className="text-sm text-gray-600 dark:text-gray-400">{item.period}</span>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
-                      className="bg-blue-500 h-2 rounded-full"
-                      style={{
-                        width: `${Math.min(100, Math.max(0, activeTab === 'all' ? item.combinedAutomation
-                                 : activeTab === 'claims' ? item.claimsAutomation
-                                 : item.pasAutomation))}%`
-                      }}
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ width: `${(item.avgTime / item.target) * 100}%` }}
                     ></div>
                   </div>
+                  <span className="text-sm font-medium">{item.avgTime}h</span>
                 </div>
-
-                {/* Quality Score Bar */}
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Quality Score</span>
-                    <span className="text-gray-500">
-                      {activeTab === 'all' ? item.combinedQuality
-                       : activeTab === 'claims' ? item.claimsQuality
-                       : item.pasQuality}%
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div
-                      className="h-2 rounded-full"
-                      style={{
-                        width: `${activeTab === 'all' ? item.combinedQuality
-                                 : activeTab === 'claims' ? item.claimsQuality
-                                 : item.pasQuality}%`,
-                        backgroundColor: '#06b6d4'
-                      }}
-                    >
-                    </div>
-                  </div>
-                </div>
-
-                {/* Breakdown for "All" tab */}
-                {activeTab === 'all' && (
-                  <div className="text-xs text-gray-500 mt-2 space-y-1">
-                    <div>Claims: {item.claimsAutomation}% automation, {item.claimsQuality}% quality</div>
-                    <div>PAs: {item.pasAutomation}% automation, {item.pasQuality}% quality</div>
-                  </div>
-                )}
+                <Badge variant="default" className="text-xs">
+                  Target: {item.target}h
+                </Badge>
               </div>
-            ))}
-          </div>
-        </Card>
-      </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Automation & Quality Over Time - Combined */}
+      <Card className="p-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            Automation & Quality Over Time - {activeTab === 'all' ? 'Combined' : activeTab === 'claims' ? 'Claims' : 'PAs'}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {activeTab === 'all'
+              ? 'Weighted combination of automation rates and quality scores from both Claims and PAs'
+              : activeTab === 'claims'
+              ? 'Claims automation and quality trends over time'
+              : 'Prior Authorization automation and quality trends over time'
+            }
+          </p>
+        </div>
+        <div className="space-y-4">
+          {combinedAutomationTrends.map((item, index) => (
+            <div key={index} className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600 dark:text-gray-400">{item.month}</span>
+                <div className="flex items-center gap-4">
+                  <span className="text-gray-900 dark:text-gray-100">
+                    {activeTab === 'all' ? item.combinedAutomation
+                     : activeTab === 'claims' ? item.claimsAutomation
+                     : item.pasAutomation}% automated
+                  </span>
+                  <span className="text-cyan-600 dark:text-cyan-400">
+                    {activeTab === 'all' ? item.combinedQuality
+                     : activeTab === 'claims' ? item.claimsQuality
+                     : item.pasQuality}% quality
+                  </span>
+                </div>
+              </div>
+
+              {/* Automation Rate Bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Automation Rate</span>
+                  <span className="text-gray-500">
+                    {activeTab === 'all' ? item.combinedAutomation
+                     : activeTab === 'claims' ? item.claimsAutomation
+                     : item.pasAutomation}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="bg-blue-500 h-2 rounded-full"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, activeTab === 'all' ? item.combinedAutomation
+                               : activeTab === 'claims' ? item.claimsAutomation
+                               : item.pasAutomation))}%`
+                    }}
+                  ></div>
+                </div>
+              </div>
+
+              {/* Quality Score Bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="text-gray-500">Quality Score</span>
+                  <span className="text-gray-500">
+                    {activeTab === 'all' ? item.combinedQuality
+                     : activeTab === 'claims' ? item.claimsQuality
+                     : item.pasQuality}%
+                  </span>
+                </div>
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div
+                    className="h-2 rounded-full"
+                    style={{
+                      width: `${activeTab === 'all' ? item.combinedQuality
+                               : activeTab === 'claims' ? item.claimsQuality
+                               : item.pasQuality}%`,
+                      backgroundColor: '#06b6d4'
+                    }}
+                  >
+                  </div>
+                </div>
+              </div>
+
+              {/* Breakdown for "All" tab */}
+              {activeTab === 'all' && (
+                <div className="text-xs text-gray-500 mt-2 space-y-1">
+                  <div>Claims: {item.claimsAutomation}% automation, {item.claimsQuality}% quality</div>
+                  <div>PAs: {item.pasAutomation}% automation, {item.pasQuality}% quality</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </Card>
 
       {/* Payer Performance Analysis */}
       <Card className="p-6">

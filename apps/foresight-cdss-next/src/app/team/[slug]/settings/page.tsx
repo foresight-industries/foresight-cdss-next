@@ -40,7 +40,6 @@ export default async function SettingsPage() {
     autoApprovalThreshold: 90,
     requireReviewThreshold: 70,
     maxRetryAttempts: 3,
-    enableBulkProcessing: true,
     confidenceScoreEnabled: true,
     ocrAccuracyThreshold: 95,
     globalConfidenceThreshold: 88,
@@ -49,7 +48,6 @@ export default async function SettingsPage() {
     fieldConfidenceThresholds: {
       cptCode: 85,
       icd10: 85,
-      placeOfService: 90,
       modifiers: 80,
     },
   };
