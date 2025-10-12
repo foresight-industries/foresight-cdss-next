@@ -421,7 +421,7 @@ function SettingsPageContent({
     auditLogging: {
       logRuleApplications: true,
       logAutoFixes: true,
-      retentionPeriod: "1 year",
+      retentionPeriod: "7years",
     },
   };
 
@@ -1483,15 +1483,16 @@ function SettingsPageContent({
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-start space-x-2">
               <Checkbox
                 id="invite-welcomeEmail"
                 checked={inviteForm.sendWelcomeEmail}
                 onCheckedChange={(checked) =>
                   handleInviteFormChange("sendWelcomeEmail", checked)
                 }
+                className="mt-0.5"
               />
-              <Label htmlFor="invite-welcomeEmail" className="text-sm">
+              <Label htmlFor="invite-welcomeEmail" className="text-sm leading-tight">
                 Send welcome email with setup instructions
               </Label>
             </div>

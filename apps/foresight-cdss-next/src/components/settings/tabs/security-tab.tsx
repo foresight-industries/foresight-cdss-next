@@ -3,16 +3,14 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface SecuritySettings {
-  auditLogging: {
-    logRuleApplications: boolean;
-    logAutoFixes: boolean;
-    retentionPeriod: string;
-  };
-}
-
 interface SecurityTabProps {
-  validationSettings: SecuritySettings;
+  validationSettings: {
+    auditLogging?: {
+      logRuleApplications?: boolean;
+      logAutoFixes?: boolean;
+      retentionPeriod?: string;
+    };
+  };
   onSettingChange: (key: string, value: any) => void;
 }
 
@@ -156,7 +154,7 @@ export function SecurityTab({ validationSettings, onSettingChange }: Readonly<Se
               </div>
               <Select
                 value={
-                  validationSettings.auditLogging?.retentionPeriod ?? "1year"
+                  validationSettings.auditLogging?.retentionPeriod ?? "7years"
                 }
                 onValueChange={(value) =>
                   handleSettingChange("auditLogging", {

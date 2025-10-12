@@ -129,13 +129,13 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <Label className="text-sm text-slate-900 dark:text-slate-100">
                   CPT Code
                 </Label>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="h-3 w-3 text-muted-foreground" />
+                  <TooltipTrigger className="inline-flex">
+                    <Info className="h-3 w-3 text-muted-foreground translate-y-[-4px]" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>AI-extracted procedure codes from clinical documentation</p>
@@ -148,7 +148,7 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
             </div>
             <Slider
               value={[automationSettings.fieldConfidenceThresholds?.cptCode || 85]}
-              onValueChange={(value) => 
+              onValueChange={(value) =>
                 onSettingChange("fieldConfidenceThresholds", {
                   ...automationSettings.fieldConfidenceThresholds,
                   cptCode: value[0]
@@ -163,13 +163,13 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <Label className="text-sm text-slate-900 dark:text-slate-100">
                   ICD-10 Code
                 </Label>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="h-3 w-3 text-muted-foreground" />
+                  <TooltipTrigger className="inline-flex">
+                    <Info className="h-3 w-3 text-muted-foreground translate-y-[-4px]" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>AI-extracted diagnosis codes from clinical documentation</p>
@@ -182,7 +182,7 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
             </div>
             <Slider
               value={[automationSettings.fieldConfidenceThresholds?.icd10 || 85]}
-              onValueChange={(value) => 
+              onValueChange={(value) =>
                 onSettingChange("fieldConfidenceThresholds", {
                   ...automationSettings.fieldConfidenceThresholds,
                   icd10: value[0]
@@ -197,13 +197,13 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <Label className="text-sm text-slate-900 dark:text-slate-100">
                   Modifiers
                 </Label>
                 <Tooltip>
-                  <TooltipTrigger>
-                    <Info className="h-3 w-3 text-muted-foreground" />
+                  <TooltipTrigger className="inline-flex">
+                    <Info className="h-3 w-3 text-muted-foreground translate-y-[-4px]" />
                   </TooltipTrigger>
                   <TooltipContent>
                     <p>AI-suggested modifiers based on clinical context</p>
@@ -216,7 +216,7 @@ export function AutomationTab({ automationSettings, onSettingChange }: Readonly<
             </div>
             <Slider
               value={[automationSettings.fieldConfidenceThresholds?.modifiers || 80]}
-              onValueChange={(value) => 
+              onValueChange={(value) =>
                 onSettingChange("fieldConfidenceThresholds", {
                   ...automationSettings.fieldConfidenceThresholds,
                   modifiers: value[0]
