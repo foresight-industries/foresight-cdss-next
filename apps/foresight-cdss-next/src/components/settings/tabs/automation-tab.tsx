@@ -28,7 +28,7 @@ interface AutomationTabProps {
   onSettingChange: (key: string, value: any) => void;
 }
 
-export function AutomationTab({ automationSettings, onSettingChange }: AutomationTabProps) {
+export function AutomationTab({ automationSettings, onSettingChange }: Readonly<AutomationTabProps>) {
   return (
     <TooltipProvider>
     <div className="space-y-6">
@@ -108,10 +108,10 @@ export function AutomationTab({ automationSettings, onSettingChange }: Automatio
       <Card className="p-6 bg-slate-50 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-8 mb-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <Label className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 AI Extraction Confidence Thresholds
-              </Label>
+              </span>
               <Tooltip>
                 <TooltipTrigger>
                   <Info className="h-4 w-4 text-muted-foreground" />
