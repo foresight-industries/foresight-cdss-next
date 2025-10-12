@@ -66,8 +66,8 @@ export class ApiStack extends cdk.Stack {
       apiName: `rcm-api-${props.stageName}`,
       corsPreflight: {
         allowOrigins: props.stageName === 'prod'
-          ? ['https://yourdomain.com']
-          : ['http://localhost:3000', 'https://*.vercel.app'],
+          ? ['https://have-foresight.app']
+          : ['http://localhost:3000', 'https://localhost:3001'],
         allowMethods: [apigateway.CorsHttpMethod.ANY],
         allowHeaders: ['*'],
         allowCredentials: true,

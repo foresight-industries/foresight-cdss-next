@@ -19,9 +19,18 @@ export class QueueStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: QueueStackProps) {
     super(scope, id, props);
 
-    // Shared DLQ
+    // Standard DLQ for non-FIFO queues
     this.dlq = new sqs.Queue(this, 'DeadLetterQueue', {
       queueName: `rcm-dlq-${props.stageName}`,
+      retentionPeriod: cdk.Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    // FIFO DLQ for FIFO queues
+    const fifoDlq = new sqs.Queue(this, 'FifoDeadLetterQueue', {
+      queueName: `rcm-dlq-fifo-${props.stageName}.fifo`,
+      fifo: true,
+      contentBasedDeduplication: true,
       retentionPeriod: cdk.Duration.days(14),
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
@@ -33,7 +42,7 @@ export class QueueStack extends cdk.Stack {
       contentBasedDeduplication: true,
       visibilityTimeout: cdk.Duration.minutes(15),
       deadLetterQueue: {
-        queue: this.dlq,
+        queue: fifoDlq,
         maxReceiveCount: 3,
       },
       encryption: sqs.QueueEncryption.KMS_MANAGED,
@@ -76,7 +85,7 @@ export class QueueStack extends cdk.Stack {
         DATABASE_NAME: 'rcm',
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
       },
-      reservedConcurrentExecutions: props.stageName === 'prod' ? 10 : 2,
+      // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 10 } : {}),
     });
 
     // Grant permissions
@@ -105,7 +114,7 @@ export class QueueStack extends cdk.Stack {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
       },
-      reservedConcurrentExecutions: props.stageName === 'prod' ? 50 : 10,
+      // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 50 } : {}),
     });
 
     props.database.grantDataApiAccess(webhookDelivery);
@@ -113,7 +122,7 @@ export class QueueStack extends cdk.Stack {
     webhookDelivery.addEventSource(
       new lambdaEventSources.SqsEventSource(this.webhookQueue, {
         batchSize: 10,
-        maxConcurrency: 20,
+        // maxConcurrency: 20,
         reportBatchItemFailures: true,
       })
     );
@@ -133,7 +142,7 @@ export class QueueStack extends cdk.Stack {
         DATABASE_NAME: 'rcm',
         PAYER_API_KEY: process.env.PAYER_API_KEY || '',
       },
-      reservedConcurrentExecutions: props.stageName === 'prod' ? 20 : 5,
+      // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 20 } : {}),
     });
 
     props.database.grantDataApiAccess(eligibilityChecker);
@@ -141,7 +150,7 @@ export class QueueStack extends cdk.Stack {
     eligibilityChecker.addEventSource(
       new lambdaEventSources.SqsEventSource(this.eligibilityQueue, {
         batchSize: 5,
-        maxConcurrency: 10,
+        // maxConcurrency: 10,
         reportBatchItemFailures: true,
       })
     );

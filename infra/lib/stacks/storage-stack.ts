@@ -58,7 +58,7 @@ export class StorageStack extends cdk.Stack {
       ],
       cors: [{
         allowedOrigins: props.stageName === 'prod'
-          ? ['https://yourdomain.com']
+          ? ['https://have-foresight.app']
           : ['http://localhost:3000', 'https://*.vercel.app'],
         allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.POST],
         allowedHeaders: ['*'],

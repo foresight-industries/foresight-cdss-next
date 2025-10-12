@@ -50,7 +50,7 @@ export class SecurityStack extends cdk.Stack {
       name: `rcm-allowed-ips-${props.stageName}`,
       scope: 'REGIONAL',
       ipAddressVersion: 'IPV4',
-      addresses: props.stageName === 'prod' ? [] : ['0.0.0.0/0'], // Add your office IPs in prod
+      addresses: props.stageName === 'prod' ? [] : ['127.0.0.1/32'], // Placeholder for staging, add real IPs in prod
     });
 
     // Rate limit rule
@@ -78,7 +78,7 @@ export class SecurityStack extends cdk.Stack {
       },
     };
 
-    // Geo blocking rule (block high-risk countries)
+    // Geo-blocking rule (block high-risk countries)
     const geoBlockRule: wafv2.CfnWebACL.RuleProperty = {
       name: 'GeoBlockingRule',
       priority: 2,
@@ -269,22 +269,22 @@ export class SecurityStack extends cdk.Stack {
       resourceArn: webAcl.attrArn,
       logDestinationConfigs: [wafLogsFirehose.attrArn],
       loggingFilter: {
-        defaultBehavior: 'KEEP',
-        filters: [{
-          behavior: 'KEEP',
-          conditions: [{
-            actionCondition: {
-              action: 'BLOCK',
+        DefaultBehavior: 'KEEP',
+        Filters: [{
+          Behavior: 'KEEP',
+          Conditions: [{
+            ActionCondition: {
+              Action: 'BLOCK',
             },
           }],
-          requirement: 'MEETS_ANY',
+          Requirement: 'MEETS_ANY',
         }],
       },
     });
 
     // Associate WAF with API Gateway
     new wafv2.CfnWebACLAssociation(this, 'WebACLAssociation', {
-      resourceArn: `arn:aws:apigateway:${this.region}::/restapis/${props.api.httpApiId}/stages/$default`,
+      resourceArn: `arn:aws:apigateway:${this.region}::/apis/${props.api.httpApiId}/stages/$default`,
       webAclArn: webAcl.attrArn,
     });
 
