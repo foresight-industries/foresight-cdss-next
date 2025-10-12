@@ -289,3 +289,102 @@ export const getQueueFilterLabel = (key: string): string => {
   };
   return labels[key] || key;
 };
+
+// Credentialing Filter Configuration
+export interface CredentialingFilters {
+  search: string;
+  state: string;
+  status: string;
+  payer: string;
+  contact: string;
+  dateFrom: string;
+  dateTo: string;
+}
+
+export const createCredentialingFilterSections = (
+  stateOptions: Array<{ value: string; label: string }>,
+  statusOptions: Array<{ value: string; label: string }>,
+  payerOptions: Array<{ value: string; label: string }>,
+  contactOptions: Array<{ value: string; label: string }>
+): FilterSection[] => [
+  {
+    title: "Quick Filters",
+    gridCols: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+    filters: [
+      {
+        key: 'state',
+        label: 'State',
+        type: 'select',
+        options: stateOptions
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: statusOptions
+      },
+      {
+        key: 'payer',
+        label: 'Payer',
+        type: 'select',
+        options: payerOptions
+      },
+      {
+        key: 'contact',
+        label: 'Contact Method',
+        type: 'select',
+        options: contactOptions
+      }
+    ]
+  },
+  {
+    title: "Date Range",
+    gridCols: "grid-cols-1 md:grid-cols-2",
+    filters: [
+      {
+        key: 'dateFrom',
+        label: 'From Date',
+        type: 'date',
+        placeholder: 'Select start date'
+      },
+      {
+        key: 'dateTo',
+        label: 'To Date',
+        type: 'date',
+        placeholder: 'Select end date'
+      }
+    ]
+  }
+];
+
+export const getCredentialingFilterDisplayValue = (key: string, value: any, payerOptions?: any[]): string | null => {
+  switch (key) {
+    case 'status':
+      return value.replace(/([A-Z])/g, ' $1').trim(); // Convert camelCase to spaced
+    case 'payer':
+      return payerOptions?.find(p => p.value === value)?.label || value;
+    case 'contact':
+      switch (value) {
+        case 'portal':
+          return 'Portal';
+        case 'email':
+          return 'Email';
+        case 'rep':
+          return 'Representative';
+        default:
+          return value;
+      }
+    default:
+      return null;
+  }
+};
+
+export const getCredentialingFilterLabel = (key: string): string => {
+  const labels: { [key: string]: string } = {
+    state: 'State',
+    status: 'Status',
+    payer: 'Payer',
+    contact: 'Contact Method'
+  };
+  return labels[key] || key;
+};
