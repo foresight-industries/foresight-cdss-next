@@ -1,6 +1,6 @@
-# Welcome to your CDK TypeScript project
+# Foresight IaC (AWS CDK)
 
-This is a blank project for CDK development with TypeScript.
+This is Foresight's Infrastructure as Code (IaC) module.
 
 The `cdk.json` file tells the CDK Toolkit how to execute your app.
 

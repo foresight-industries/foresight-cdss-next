@@ -1,10 +1,11 @@
 {
+  "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "nodenext",
     "lib": [
-      "es2022"
+      "ES2022"
     ],
     "declaration": true,
     "strict": true,

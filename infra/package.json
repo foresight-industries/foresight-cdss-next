@@ -1,6 +1,6 @@
 {
-  "name": "infra",
-  "version": "0.1.0",
+  "name": "@foresight-cdss-next/infra",
+  "version": "1.0.0",
   "bin": "bin/infra.js",
   "scripts": {
     "build": "tsc",
@@ -16,7 +16,7 @@
     "esbuild": "^0.25.10",
     "jest": "^29.7.0",
     "ts-jest": "^29.2.5",
-    "ts-node": "^10.9.2",
+    "tsx": "*",
     "typescript": "~5.6.3"
   },
   "dependencies": {

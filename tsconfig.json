@@ -11,6 +11,9 @@
     },
     {
       "path": "./supabase"
+    },
+    {
+      "path": "./infra"
     }
   ],
   "exclude": [

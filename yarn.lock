@@ -2460,15 +2460,93 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@foresight-cdss-next/foresight-cdss-next-e2e@workspace:apps/foresight-cdss-next-e2e":
+"@foresight-cdss-next/infra@workspace:infra":
   version: 0.0.0-use.local
-  resolution: "@foresight-cdss-next/foresight-cdss-next-e2e@workspace:apps/foresight-cdss-next-e2e"
+  resolution: "@foresight-cdss-next/infra@workspace:infra"
+  dependencies:
+    "@aws-cdk/aws-apigatewayv2-alpha": "npm:^2.114.1-alpha.0"
+    "@aws-cdk/aws-apigatewayv2-authorizers-alpha": "npm:^2.114.1-alpha.0"
+    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "npm:^2.114.1-alpha.0"
+    "@dotenvx/dotenvx": "npm:*"
+    "@types/jest": "npm:^29.5.14"
+    "@types/node": "npm:22.7.9"
+    aws-cdk: "npm:2.1030.0"
+    aws-cdk-lib: "npm:2.215.0"
+    constructs: "npm:^10.0.0"
+    esbuild: "npm:^0.25.10"
+    jest: "npm:^29.7.0"
+    ts-jest: "npm:^29.2.5"
+    tsx: "npm:*"
+    typescript: "npm:~5.6.3"
+  bin:
+    infra: bin/infra.js
   languageName: unknown
   linkType: soft
 
-"@foresight-cdss-next/foresight-cdss-next@workspace:apps/foresight-cdss-next":
+"@foresight-cdss-next/source@workspace:.":
   version: 0.0.0-use.local
-  resolution: "@foresight-cdss-next/foresight-cdss-next@workspace:apps/foresight-cdss-next"
+  resolution: "@foresight-cdss-next/source@workspace:."
+  dependencies:
+    "@dotenvx/dotenvx": "npm:^1.51.0"
+    "@eslint/compat": "npm:^1.1.1"
+    "@eslint/eslintrc": "npm:^2.1.1"
+    "@eslint/js": "npm:^9.8.0"
+    "@next/eslint-plugin-next": "npm:^15.5.4"
+    "@nx/cypress": "npm:21.4.1"
+    "@nx/eslint": "npm:21.4.1"
+    "@nx/eslint-plugin": "npm:21.4.1"
+    "@nx/jest": "npm:21.4.1"
+    "@nx/js": "npm:21.4.1"
+    "@nx/next": "npm:21.4.1"
+    "@nx/workspace": "npm:21.4.1"
+    "@nxlv/python": "npm:^21.2.0"
+    "@swc-node/register": "npm:~1.9.1"
+    "@swc/cli": "npm:~0.6.0"
+    "@swc/core": "npm:~1.5.7"
+    "@swc/helpers": "npm:~0.5.11"
+    "@testing-library/dom": "npm:10.4.0"
+    "@testing-library/react": "npm:16.1.0"
+    "@types/jest": "npm:^30.0.0"
+    "@types/node": "npm:20.19.9"
+    "@types/pg": "npm:^8"
+    "@types/react": "npm:19.0.0"
+    "@types/react-dom": "npm:19.0.0"
+    babel-jest: "npm:^30.0.2"
+    cypress: "npm:^14.2.1"
+    eslint: "npm:^9.8.0"
+    eslint-config-next: "npm:^15.2.4"
+    eslint-config-prettier: "npm:^10.0.0"
+    eslint-plugin-cypress: "npm:^3.5.0"
+    eslint-plugin-import: "npm:2.31.0"
+    eslint-plugin-jsx-a11y: "npm:6.10.1"
+    eslint-plugin-react: "npm:7.35.0"
+    eslint-plugin-react-hooks: "npm:5.0.0"
+    jest: "npm:^30.0.2"
+    jest-environment-jsdom: "npm:^30.0.2"
+    jest-util: "npm:^30.0.2"
+    next: "npm:~15.5.4"
+    nx: "npm:21.4.1"
+    pg: "npm:^8.16.3"
+    prettier: "npm:^2.6.2"
+    react: "npm:19.0.0"
+    react-dom: "npm:19.0.0"
+    ts-jest: "npm:^29.4.0"
+    tslib: "npm:^2.3.0"
+    tsx: "npm:^4.20.6"
+    typescript: "npm:~5.8.2"
+    typescript-eslint: "npm:^8.29.0"
+  languageName: unknown
+  linkType: soft
+
+"@foresight-cdss-next/web-e2e@workspace:apps/foresight-cdss-next-e2e":
+  version: 0.0.0-use.local
+  resolution: "@foresight-cdss-next/web-e2e@workspace:apps/foresight-cdss-next-e2e"
+  languageName: unknown
+  linkType: soft
+
+"@foresight-cdss-next/web@workspace:apps/foresight-cdss-next":
+  version: 0.0.0-use.local
+  resolution: "@foresight-cdss-next/web@workspace:apps/foresight-cdss-next"
   dependencies:
     "@clerk/elements": "npm:^0.23.68"
     "@clerk/nextjs": "npm:^6.33.2"
@@ -2548,61 +2626,6 @@ __metadata:
     vercel: "npm:^48.2.0"
     zod: "npm:^4.1.12"
     zustand: "npm:^5.0.8"
-  languageName: unknown
-  linkType: soft
-
-"@foresight-cdss-next/source@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@foresight-cdss-next/source@workspace:."
-  dependencies:
-    "@dotenvx/dotenvx": "npm:^1.51.0"
-    "@eslint/compat": "npm:^1.1.1"
-    "@eslint/eslintrc": "npm:^2.1.1"
-    "@eslint/js": "npm:^9.8.0"
-    "@next/eslint-plugin-next": "npm:^15.5.4"
-    "@nx/cypress": "npm:21.4.1"
-    "@nx/eslint": "npm:21.4.1"
-    "@nx/eslint-plugin": "npm:21.4.1"
-    "@nx/jest": "npm:21.4.1"
-    "@nx/js": "npm:21.4.1"
-    "@nx/next": "npm:21.4.1"
-    "@nx/workspace": "npm:21.4.1"
-    "@nxlv/python": "npm:^21.2.0"
-    "@swc-node/register": "npm:~1.9.1"
-    "@swc/cli": "npm:~0.6.0"
-    "@swc/core": "npm:~1.5.7"
-    "@swc/helpers": "npm:~0.5.11"
-    "@testing-library/dom": "npm:10.4.0"
-    "@testing-library/react": "npm:16.1.0"
-    "@types/jest": "npm:^30.0.0"
-    "@types/node": "npm:20.19.9"
-    "@types/pg": "npm:^8"
-    "@types/react": "npm:19.0.0"
-    "@types/react-dom": "npm:19.0.0"
-    babel-jest: "npm:^30.0.2"
-    cypress: "npm:^14.2.1"
-    eslint: "npm:^9.8.0"
-    eslint-config-next: "npm:^15.2.4"
-    eslint-config-prettier: "npm:^10.0.0"
-    eslint-plugin-cypress: "npm:^3.5.0"
-    eslint-plugin-import: "npm:2.31.0"
-    eslint-plugin-jsx-a11y: "npm:6.10.1"
-    eslint-plugin-react: "npm:7.35.0"
-    eslint-plugin-react-hooks: "npm:5.0.0"
-    jest: "npm:^30.0.2"
-    jest-environment-jsdom: "npm:^30.0.2"
-    jest-util: "npm:^30.0.2"
-    next: "npm:~15.5.4"
-    nx: "npm:21.4.1"
-    pg: "npm:^8.16.3"
-    prettier: "npm:^2.6.2"
-    react: "npm:19.0.0"
-    react-dom: "npm:19.0.0"
-    ts-jest: "npm:^29.4.0"
-    ts-node: "npm:10.9.1"
-    tslib: "npm:^2.3.0"
-    typescript: "npm:~5.8.2"
-    typescript-eslint: "npm:^8.29.0"
   languageName: unknown
   linkType: soft
 
@@ -14642,7 +14665,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"esbuild@npm:^0.25.10":
+"esbuild@npm:^0.25.10, esbuild@npm:~0.25.0":
   version: 0.25.10
   resolution: "esbuild@npm:0.25.10"
   dependencies:
@@ -16055,7 +16078,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fsevents@npm:^2.3.2, fsevents@npm:^2.3.3, fsevents@npm:~2.3.2":
+"fsevents@npm:^2.3.2, fsevents@npm:^2.3.3, fsevents@npm:~2.3.2, fsevents@npm:~2.3.3":
   version: 2.3.3
   resolution: "fsevents@npm:2.3.3"
   dependencies:
@@ -16074,7 +16097,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fsevents@patch:fsevents@npm%3A^2.3.2#optional!builtin<compat/fsevents>, fsevents@patch:fsevents@npm%3A^2.3.3#optional!builtin<compat/fsevents>, fsevents@patch:fsevents@npm%3A~2.3.2#optional!builtin<compat/fsevents>":
+"fsevents@patch:fsevents@npm%3A^2.3.2#optional!builtin<compat/fsevents>, fsevents@patch:fsevents@npm%3A^2.3.3#optional!builtin<compat/fsevents>, fsevents@patch:fsevents@npm%3A~2.3.2#optional!builtin<compat/fsevents>, fsevents@patch:fsevents@npm%3A~2.3.3#optional!builtin<compat/fsevents>":
   version: 2.3.3
   resolution: "fsevents@patch:fsevents@npm%3A2.3.3#optional!builtin<compat/fsevents>::version=2.3.3&hash=df0bf1"
   dependencies:
@@ -16240,6 +16263,15 @@ __metadata:
   dependencies:
     resolve-pkg-maps: "npm:^1.0.0"
   checksum: 10c0/7f8e3dabc6a49b747920a800fb88e1952fef871cdf51b79e98db48275a5de6cdaf499c55ee67df5fa6fe7ce65f0063e26de0f2e53049b408c585aa74d39ffa21
+  languageName: node
+  linkType: hard
+
+"get-tsconfig@npm:^4.7.5":
+  version: 4.12.0
+  resolution: "get-tsconfig@npm:4.12.0"
+  dependencies:
+    resolve-pkg-maps: "npm:^1.0.0"
+  checksum: 10c0/3438106bd46bfc6595fce6117190f1ac0998de2e6916b40ec23b20c784b0b47e79ea2b920895b9ed26029b1f80b8867626fb24795d5f45abbdab716a4ba1ef92
   languageName: node
   linkType: hard
 
@@ -17100,29 +17132,6 @@ __metadata:
   checksum: 10c0/7faca22584600a9dc5b9fca2cd5feb7135ac8c935449837b315676b4c90aa4f391ec4f42240178244b5a34e8bede1948627fda392ca3191522fc46b34e985ab2
   languageName: node
   linkType: hard
-
-"infra@workspace:infra":
-  version: 0.0.0-use.local
-  resolution: "infra@workspace:infra"
-  dependencies:
-    "@aws-cdk/aws-apigatewayv2-alpha": "npm:^2.114.1-alpha.0"
-    "@aws-cdk/aws-apigatewayv2-authorizers-alpha": "npm:^2.114.1-alpha.0"
-    "@aws-cdk/aws-apigatewayv2-integrations-alpha": "npm:^2.114.1-alpha.0"
-    "@dotenvx/dotenvx": "npm:*"
-    "@types/jest": "npm:^29.5.14"
-    "@types/node": "npm:22.7.9"
-    aws-cdk: "npm:2.1030.0"
-    aws-cdk-lib: "npm:2.215.0"
-    constructs: "npm:^10.0.0"
-    esbuild: "npm:^0.25.10"
-    jest: "npm:^29.7.0"
-    ts-jest: "npm:^29.2.5"
-    ts-node: "npm:^10.9.2"
-    typescript: "npm:~5.6.3"
-  bin:
-    infra: bin/infra.js
-  languageName: unknown
-  linkType: soft
 
 "inherits@npm:2, inherits@npm:2.0.4, inherits@npm:^2.0.1, inherits@npm:^2.0.3, inherits@npm:^2.0.4, inherits@npm:~2.0.3":
   version: 2.0.4
@@ -25642,44 +25651,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ts-node@npm:^10.9.2":
-  version: 10.9.2
-  resolution: "ts-node@npm:10.9.2"
-  dependencies:
-    "@cspotcode/source-map-support": "npm:^0.8.0"
-    "@tsconfig/node10": "npm:^1.0.7"
-    "@tsconfig/node12": "npm:^1.0.7"
-    "@tsconfig/node14": "npm:^1.0.0"
-    "@tsconfig/node16": "npm:^1.0.2"
-    acorn: "npm:^8.4.1"
-    acorn-walk: "npm:^8.1.1"
-    arg: "npm:^4.1.0"
-    create-require: "npm:^1.1.0"
-    diff: "npm:^4.0.1"
-    make-error: "npm:^1.1.1"
-    v8-compile-cache-lib: "npm:^3.0.1"
-    yn: "npm:3.1.1"
-  peerDependencies:
-    "@swc/core": ">=1.2.50"
-    "@swc/wasm": ">=1.2.50"
-    "@types/node": "*"
-    typescript: ">=2.7"
-  peerDependenciesMeta:
-    "@swc/core":
-      optional: true
-    "@swc/wasm":
-      optional: true
-  bin:
-    ts-node: dist/bin.js
-    ts-node-cwd: dist/bin-cwd.js
-    ts-node-esm: dist/bin-esm.js
-    ts-node-script: dist/bin-script.js
-    ts-node-transpile-only: dist/bin-transpile.js
-    ts-script: dist/bin-script-deprecated.js
-  checksum: 10c0/5f29938489f96982a25ba650b64218e83a3357d76f7bede80195c65ab44ad279c8357264639b7abdd5d7e75fc269a83daa0e9c62fd8637a3def67254ecc9ddc2
-  languageName: node
-  linkType: hard
-
 "ts-toolbelt@npm:^6.15.5":
   version: 6.15.5
   resolution: "ts-toolbelt@npm:6.15.5"
@@ -25733,6 +25704,22 @@ __metadata:
   version: 1.0.6
   resolution: "tsscmp@npm:1.0.6"
   checksum: 10c0/2f79a9455e7e3e8071995f98cdf3487ccfc91b760bec21a9abb4d90519557eafaa37246e87c92fa8bf3fef8fd30cfd0cc3c4212bb929baa9fb62494bfa4d24b2
+  languageName: node
+  linkType: hard
+
+"tsx@npm:*, tsx@npm:^4.20.6":
+  version: 4.20.6
+  resolution: "tsx@npm:4.20.6"
+  dependencies:
+    esbuild: "npm:~0.25.0"
+    fsevents: "npm:~2.3.3"
+    get-tsconfig: "npm:^4.7.5"
+  dependenciesMeta:
+    fsevents:
+      optional: true
+  bin:
+    tsx: dist/cli.mjs
+  checksum: 10c0/07757a9bf62c271e0a00869b2008c5f2d6e648766536e4faf27d9d8027b7cde1ac8e4871f4bb570c99388bcee0018e6869dad98c07df809b8052f9c549cd216f
   languageName: node
   linkType: hard
 
