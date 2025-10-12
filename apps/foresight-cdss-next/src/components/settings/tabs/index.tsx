@@ -11,3 +11,5 @@ export { EHRTab } from './ehr-tab';
 export { WebhooksTab } from './webhooks-tab';
 export { PayersTab } from './payers-tab';
 export { FieldMappingsTab } from './field-mappings-tab';
+export { SecurityTab } from './security-tab';
+export { UserManagementTab } from './user-management-tab';

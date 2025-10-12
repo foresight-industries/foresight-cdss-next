@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,13 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { DataFilters } from "@/components/filters/data-filters";
+import {
+  CredentialingFilters,
+  createCredentialingFilterSections,
+  getCredentialingFilterDisplayValue,
+  getCredentialingFilterLabel
+} from "@/components/filters/filter-configs";
 
 // Type definition for credentialing items
 interface CredentialingItem {
@@ -43,11 +50,21 @@ const initialCredentialingData = [
   { id: 8, state: 'IN', payer: 'MDwise', status: 'Planned', next: 'Credential NPs', contact: 'rep: mdw-in' }
 ];
 
-// State filter options
-const states = ['All', 'MI', 'OH', 'KY', 'TX', 'AZ', 'FL', 'IN'];
+// Filter options
+const states = ['MI', 'OH', 'KY', 'TX', 'AZ', 'FL', 'IN'];
+const statuses = ['Active', 'In Progress', 'Requested', 'Planned'];
+const payers = ['Meridian', 'Molina', 'CareSource', 'Anthem', 'Superior', 'AZ Complete Health', 'Sunshine', 'MDwise'];
 
 export default function CredentialingPage() {
-  const [stateFilter, setStateFilter] = useState('All');
+  const [filters, setFilters] = useState<CredentialingFilters>({
+    search: '',
+    state: 'all',
+    status: 'all',
+    payer: 'all',
+    contact: 'all',
+    dateFrom: '',
+    dateTo: ''
+  });
   const [selectedItem, setSelectedItem] = useState<CredentialingItem | null>(
     null
   );
@@ -82,9 +99,72 @@ export default function CredentialingPage() {
     }
   };
 
-  const filteredData = credentialingData.filter(item =>
-    stateFilter === 'All' || item.state === stateFilter
-  );
+  // Create filter options
+  const filterOptions = useMemo(() => {
+    const stateOptions = states.map(state => ({ value: state, label: state }));
+    const statusOptions = statuses.map(status => ({ value: status, label: status }));
+    const payerOptions = payers.map(payer => ({ value: payer, label: payer }));
+    const contactOptions = [
+      { value: 'portal', label: 'Portal' },
+      { value: 'email', label: 'Email' },
+      { value: 'rep', label: 'Representative' }
+    ];
+
+    return {
+      stateOptions,
+      statusOptions,
+      payerOptions,
+      contactOptions
+    };
+  }, []);
+
+  const filterSections = useMemo(() =>
+    createCredentialingFilterSections(
+      filterOptions.stateOptions,
+      filterOptions.statusOptions,
+      filterOptions.payerOptions,
+      filterOptions.contactOptions
+    ), [filterOptions]);
+
+  const filteredData = useMemo(() => {
+    return credentialingData.filter(item => {
+      // Search filter
+      if (filters.search.trim() !== '') {
+        const searchTerm = filters.search.toLowerCase();
+        const matchesSearch =
+          item.state.toLowerCase().includes(searchTerm) ||
+          item.payer.toLowerCase().includes(searchTerm) ||
+          item.status.toLowerCase().includes(searchTerm) ||
+          item.next.toLowerCase().includes(searchTerm) ||
+          item.contact.toLowerCase().includes(searchTerm);
+        if (!matchesSearch) return false;
+      }
+
+      // State filter
+      if (filters.state !== 'all' && item.state !== filters.state) {
+        return false;
+      }
+
+      // Status filter
+      if (filters.status !== 'all' && item.status !== filters.status) {
+        return false;
+      }
+
+      // Payer filter
+      if (filters.payer !== 'all' && item.payer !== filters.payer) {
+        return false;
+      }
+
+      // Contact filter
+      if (filters.contact !== 'all') {
+        if (filters.contact === 'portal' && item.contact !== 'portal') return false;
+        if (filters.contact === 'email' && item.contact !== 'email') return false;
+        if (filters.contact === 'rep' && !item.contact.startsWith('rep:')) return false;
+      }
+
+      return true;
+    });
+  }, [credentialingData, filters]);
 
   const getStatusCounts = () => {
     const counts = {
@@ -190,26 +270,20 @@ export default function CredentialingPage() {
       </div>
 
       {/* Filters */}
-      <div className="mb-4">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-foreground">
-            Filter by State:
-          </span>
-          <Select value={stateFilter} onValueChange={setStateFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select state" />
-            </SelectTrigger>
-            <SelectContent>
-              {states.map((state) => (
-                <SelectItem key={state} value={state}>
-                  {state}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      <div className="mb-6">
+        <DataFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          searchPlaceholder="Search credentialing records..."
+          filterSections={filterSections}
+          getFilterDisplayValue={(key, value) =>
+            getCredentialingFilterDisplayValue(key, value, filterOptions.payerOptions)
+          }
+          getFilterLabel={getCredentialingFilterLabel}
+        />
+        <div className="mt-4">
           <span className="text-xs text-muted-foreground">
-            Showing {filteredData.length} of {credentialingData.length}{" "}
-            credentialing records
+            Showing {filteredData.length} of {credentialingData.length} credentialing records
           </span>
         </div>
       </div>

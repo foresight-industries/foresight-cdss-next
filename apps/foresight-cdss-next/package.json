@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "npx next dev",
+    "dev": "npx next dev --turbopack",
     "build": "npx next build",
     "start": "npx next start",
     "supabase:types": "dotenvx run --quiet --env-file=.env.local -- cross-var yarn supabase gen types typescript --project-id=%SUPABASE_PROJECT_REF_PROD% --schema public > src/types/database.types.d.ts && echo \"✅ Successfully generated Supabase types\"",

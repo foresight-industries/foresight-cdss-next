@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Search, Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X, Calendar as CalendarIcon } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
+import { type QueueFiltersType, QueueFilters } from '@/components/filters';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,20 +21,8 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { PADetails } from "@/components/pa/pa-details";
-import { Calendar } from "@/components/ui/calendar";
 
-interface QueueFilters {
-  status: 'all' | 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
-  priority: 'all' | 'high' | 'medium' | 'low';
-  payer: 'all' | 'Aetna' | 'UnitedHealth' | 'Cigna' | 'Anthem';
-  dateFrom: string;
-  dateTo: string;
-  patientName: string;
-  paId: string;
-  medication: string;
-  conditions: string;
-  attempt: string;
-}
+// Using shared QueueFilters type from filters component
 
 type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'updatedAt';
 type SortDirection = 'asc' | 'desc' | null;
@@ -73,8 +62,9 @@ const formatRelativeTime = (value: string) => {
 
 export default function QueuePage() {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<QueueFilters>({
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<QueueFiltersType>({
+    search: '',
     status: 'all',
     priority: 'all',
     payer: 'all',
@@ -90,8 +80,9 @@ export default function QueuePage() {
     field: null,
     direction: null
   });
-  const [showFilters, setShowFilters] = useState(false);
   const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [initialAction, setInitialAction] = useState<'edit' | 'documents' | 'notes' | undefined>(undefined);
 
   // Mock data for demonstration
   // Use shared mock data instead of API call
@@ -102,10 +93,10 @@ export default function QueuePage() {
   const filteredData = useMemo(() => {
     const filtered = queueData.filter(item => {
       const matchesSearch =
-        item.patientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.medication.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.payer.toLowerCase().includes(searchTerm.toLowerCase());
+        item.patientName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.id.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.medication.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.payer.toLowerCase().includes(filters.search.toLowerCase());
 
       const matchesStatus = filters.status === 'all' || item.status === filters.status;
       const matchesPayer = filters.payer === 'all' || item.payer === filters.payer;
@@ -156,26 +147,45 @@ export default function QueuePage() {
         if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
+    } else {
+      // Default sorting: prioritize "needs-review" status first, then by updated date descending
+      filtered.sort((a, b) => {
+        // First priority: needs-review status should come first
+        if (a.status === 'needs-review' && b.status !== 'needs-review') return -1;
+        if (b.status === 'needs-review' && a.status !== 'needs-review') return 1;
+        
+        // Second priority: sort by updated date (newest first)
+        const aTime = new Date(a.updatedAt).getTime();
+        const bTime = new Date(b.updatedAt).getTime();
+        return bTime - aTime;
+      });
     }
 
     return filtered;
-  }, [queueData, searchTerm, filters, sortConfig]);
+  }, [queueData, filters, sortConfig]);
 
 
   const handleAction = (action: string, paId: string) => {
-    // Handle different actions
+    // All actions now open the PA details sheet with specific actions
     switch (action) {
       case 'view':
-        setSelectedPaId(paId);
+        setInitialAction(undefined);
+        handleOpenPA(paId);
         break;
       case 'edit':
-        router.push(`/pa/${paId}?action=edit`);
+        // Open PA details and show edit modal
+        setInitialAction('edit');
+        handleOpenPA(paId);
         break;
       case 'documents':
-        router.push(`/pa/${paId}?tab=documents`);
+        // Open PA details with documents tab
+        setInitialAction('documents');
+        handleOpenPA(paId);
         break;
       case 'notes':
-        router.push(`/pa/${paId}?action=note`);
+        // Open PA details and show add note modal
+        setInitialAction('notes');
+        handleOpenPA(paId);
         break;
       case 'archive':
         alert(`Archive PA ${paId} - This would archive the PA request`);
@@ -212,18 +222,84 @@ export default function QueuePage() {
     return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
   };
 
-  const hasActiveFilters = () => {
-    return filters.status !== 'all' ||
-           filters.payer !== 'all' ||
-           filters.dateFrom !== '' ||
-           filters.dateTo !== '' ||
-           filters.patientName !== '' ||
-           filters.paId !== '' ||
-           filters.medication !== '' ||
-           filters.conditions !== '' ||
-           filters.attempt !== '' ||
-           searchTerm !== '';
-  };
+  // Function to close PA and remove query parameter
+  const handleClosePA = useCallback(() => {
+    setSelectedPaId(null);
+    setInitialAction(undefined); // Clear any pending actions
+    // Remove the pa query parameter from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('pa');
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Function to open PA and set query parameter
+  const handleOpenPA = useCallback((paId: string) => {
+    setSelectedPaId(paId);
+    // Add the pa query parameter to URL
+    const url = new URL(window.location.href);
+    url.searchParams.set('pa', paId);
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Handle PA query parameter to auto-open PA details
+  useEffect(() => {
+    const paParam = searchParams.get('pa');
+    if (paParam) {
+      // Find the PA by ID
+      const pa = queueData.find(item => item.id === paParam);
+      if (pa && !selectedPaId) {
+        setSelectedPaId(paParam);
+      }
+    }
+  }, [searchParams, queueData, selectedPaId]);
+
+  // Keyboard navigation event handler
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      // Don't handle keyboard navigation if user is typing in an input field
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((document.activeElement as HTMLElement)?.tagName)) {
+        return;
+      }
+
+      if (event.key === "Escape" && selectedPaId) {
+        event.preventDefault();
+        handleClosePA();
+        // Restore focus to the previously opened PA in the list
+        const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+        if (currentIndex !== -1) {
+          setFocusedIndex(currentIndex);
+        }
+        return;
+      }
+
+      // Navigation only works when no PA is open
+      if (selectedPaId) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedIndex(prev => {
+          const newIndex = prev === null ? 0 : Math.min(prev + 1, filteredData.length - 1);
+          return newIndex;
+        });
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedIndex(prev => {
+          const newIndex = prev === null ? filteredData.length - 1 : Math.max(prev - 1, 0);
+          return newIndex;
+        });
+      } else if (event.key === "Enter" && focusedIndex !== null) {
+        event.preventDefault();
+        const pa = filteredData[focusedIndex];
+        if (pa) {
+          handleOpenPA(pa.id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedPaId, filteredData, focusedIndex, handleClosePA, handleOpenPA]);
+
 
   if (error) {
     return (
@@ -254,390 +330,27 @@ export default function QueuePage() {
       </div>
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search by patient, PA ID, medication, or payer..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              {/* Filter Toggle */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`cursor-pointer${showFilters ? ' bg-accent' : ' '} ${hasActiveFilters() ? 'border-primary text-primary' : ''}`}
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filters
-                  {hasActiveFilters() && (
-                    <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                      {[filters.status !== 'all', filters.payer !== 'all', filters.dateFrom, filters.dateTo,
-                        filters.patientName, filters.paId, filters.medication, filters.conditions, filters.attempt, searchTerm]
-                        .filter(Boolean).length}
-                    </Badge>
-                  )}
-                </Button>
-                {hasActiveFilters() && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFilters({
-                        status: 'all',
-                        priority: 'all',
-                        payer: 'all',
-                        dateFrom: '',
-                        dateTo: '',
-                        patientName: '',
-                        paId: '',
-                        medication: '',
-                        conditions: '',
-                        attempt: ''
-                      });
-                      setSearchTerm('');
-                      setSortConfig({ field: null, direction: null });
-                    }}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear All
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Active Filters Display */}
-            {hasActiveFilters() && (
-              <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                <span className="text-sm text-muted-foreground mr-2">Active filters:</span>
-                {searchTerm && (
-                  <Badge variant="secondary" className="gap-1">
-                    Search: {searchTerm}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.status !== 'all' && (
-                  <Badge variant="secondary" className="gap-1">
-                    Status: {filters.status.replace('-', ' ')}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.payer !== 'all' && (
-                  <Badge variant="secondary" className="gap-1">
-                    Payer: {filters.payer}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, payer: 'all' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.dateFrom && (
-                  <Badge variant="secondary" className="gap-1">
-                    From: {filters.dateFrom}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, dateFrom: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.dateTo && (
-                  <Badge variant="secondary" className="gap-1">
-                    To: {filters.dateTo}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, dateTo: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.patientName && (
-                  <Badge variant="secondary" className="gap-1">
-                    Patient: {filters.patientName}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, patientName: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.paId && (
-                  <Badge variant="secondary" className="gap-1">
-                    PA ID: {filters.paId}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, paId: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.medication && (
-                  <Badge variant="secondary" className="gap-1">
-                    Medication: {filters.medication}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, medication: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.conditions && (
-                  <Badge variant="secondary" className="gap-1">
-                    Condition: {filters.conditions}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, conditions: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {filters.attempt && (
-                  <Badge variant="secondary" className="gap-1">
-                    Attempt: {filters.attempt}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setFilters(prev => ({ ...prev, attempt: '' }))}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-                {sortConfig.field && (
-                  <Badge variant="outline" className="gap-1">
-                    Sorted by: {sortConfig.field} ({sortConfig.direction})
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-auto p-0 ml-1"
-                      onClick={() => setSortConfig({ field: null, direction: null })}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </Badge>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Filter Controls */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="space-y-4">
-                <div className="text-sm font-medium text-muted-foreground mb-3">Quick Filters</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status-select">Status</Label>
-                    <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value as any }))}>
-                      <SelectTrigger id="status-select">
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="needs-review">Needs Review</SelectItem>
-                        <SelectItem value="auto-processing">Auto Processing</SelectItem>
-                        <SelectItem value="auto-approved">Auto Approved</SelectItem>
-                        <SelectItem value="denied">Denied</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="payer-select">Payer</Label>
-                    <Select value={filters.payer} onValueChange={(value) => setFilters(prev => ({ ...prev, payer: value as any }))}>
-                      <SelectTrigger id="payer-select">
-                        <SelectValue placeholder="All Payers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Payers</SelectItem>
-                        <SelectItem value="Aetna">Aetna</SelectItem>
-                        <SelectItem value="UnitedHealth">UnitedHealth</SelectItem>
-                        <SelectItem value="Cigna">Cigna</SelectItem>
-                        <SelectItem value="Anthem">Anthem</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-name-filter">Patient Name</Label>
-                    <Input
-                      id="patient-name-filter"
-                      placeholder="Enter patient name..."
-                      value={filters.patientName}
-                      onChange={(e) => setFilters(prev => ({ ...prev, patientName: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="pa-id-filter">PA ID</Label>
-                    <Input
-                      id="pa-id-filter"
-                      placeholder="Enter PA ID..."
-                      value={filters.paId}
-                      onChange={(e) => setFilters(prev => ({ ...prev, paId: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="medication-filter">Medication</Label>
-                    <Input
-                      id="medication-filter"
-                      placeholder="Enter medication..."
-                      value={filters.medication}
-                      onChange={(e) => setFilters(prev => ({ ...prev, medication: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="conditions-filter">Conditions</Label>
-                    <Input
-                      id="conditions-filter"
-                      placeholder="Enter condition..."
-                      value={filters.conditions}
-                      onChange={(e) => setFilters(prev => ({ ...prev, conditions: e.target.value }))}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="attempt-filter">Attempt Type</Label>
-                    <Input
-                      id="attempt-filter"
-                      placeholder="Enter attempt type..."
-                      value={filters.attempt}
-                      onChange={(e) => setFilters(prev => ({ ...prev, attempt: e.target.value }))}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date-from">Date From</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="date-from"
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateFrom ? filters.dateFrom : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, dateFrom: date ? date.toISOString().split('T')[0] : '' }))}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="date-to">Date To</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          id="date-to"
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateTo ? filters.dateTo : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
-                          onSelect={(date) => setFilters(prev => ({ ...prev, dateTo: date ? date.toISOString().split('T')[0] : '' }))}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center pt-2">
-                  <div className="text-xs text-muted-foreground">
-                    💡 Use column filters by hovering over column headers for more specific filtering
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFilters({
-                        status: 'all',
-                        priority: 'all',
-                        payer: 'all',
-                        dateFrom: '',
-                        dateTo: '',
-                        patientName: '',
-                        paId: '',
-                        medication: '',
-                        conditions: '',
-                        attempt: ''
-                      });
-                      setSearchTerm('');
-                      setSortConfig({ field: null, direction: null });
-                    }}
-                  >
-                    <X className="w-4 h-4 mr-2" />
-                    Clear All
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <QueueFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        statusOptions={[
+          { value: 'needs-review', label: 'Needs Review' },
+          { value: 'auto-processing', label: 'Auto Processing' },
+          { value: 'auto-approved', label: 'Auto Approved' },
+          { value: 'denied', label: 'Denied' }
+        ]}
+        priorityOptions={[
+          { value: 'high', label: 'High' },
+          { value: 'medium', label: 'Medium' },
+          { value: 'low', label: 'Low' }
+        ]}
+        payerOptions={[
+          { value: 'Aetna', label: 'Aetna' },
+          { value: 'UnitedHealth', label: 'UnitedHealth' },
+          { value: 'Cigna', label: 'Cigna' },
+          { value: 'Anthem', label: 'Anthem' }
+        ]}
+      />
 
       {/* Queue Table */}
       <Card>
@@ -924,13 +637,16 @@ export default function QueuePage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredData.map((item) => {
+                {filteredData.map((item, index) => {
                   const StatusIcon = statusConfig[item.status].icon;
+                  const isFocused = focusedIndex === index;
                   return (
                     <TableRow
                       key={item.id}
-                      className="cursor-pointer"
-                      onClick={() => setSelectedPaId(item.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isFocused ? 'bg-muted/50 ring-2 ring-primary/20' : ''
+                      }`}
+                      onClick={() => handleOpenPA(item.id)}
                     >
                       <TableCell className="px-6 py-4">
                         <div>
@@ -1044,8 +760,8 @@ export default function QueuePage() {
                 size="sm"
                 className="mt-2"
                 onClick={() => {
-                  setSearchTerm('');
                   setFilters({
+                    search: '',
                     status: 'all',
                     priority: 'all',
                     payer: 'all',
@@ -1072,7 +788,7 @@ export default function QueuePage() {
         open={Boolean(selectedPaId)}
         onOpenChange={(open) => {
           if (!open) {
-            setSelectedPaId(null);
+            handleClosePA();
           }
         }}
       >
@@ -1083,7 +799,34 @@ export default function QueuePage() {
           {selectedPaId && (
             <PADetails
               paId={selectedPaId}
-              onClose={() => setSelectedPaId(null)}
+              onClose={handleClosePA}
+              onPrev={() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                if (currentIndex > 0) {
+                  const prevPA = filteredData[currentIndex - 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(prevPA.id);
+                  setFocusedIndex(currentIndex - 1);
+                }
+              }}
+              onNext={() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                if (currentIndex < filteredData.length - 1) {
+                  const nextPA = filteredData[currentIndex + 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(nextPA.id);
+                  setFocusedIndex(currentIndex + 1);
+                }
+              }}
+              disablePrev={(() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                return currentIndex <= 0;
+              })()}
+              disableNext={(() => {
+                const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
+                return currentIndex >= filteredData.length - 1;
+              })()}
+              initialAction={initialAction}
             />
           )}
         </SheetContent>

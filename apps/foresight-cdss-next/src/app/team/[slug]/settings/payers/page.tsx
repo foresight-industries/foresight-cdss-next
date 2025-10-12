@@ -269,14 +269,14 @@ function CreatePayerForm({
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold">{template.name}</h3>
-                      <p className="text-sm text-muted-foreground">ID: {template.external_payer_id}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold truncate">{template.name}</h3>
+                      <p className="text-sm text-muted-foreground truncate">ID: {template.external_payer_id}</p>
                       <Badge variant="outline" className="text-xs mt-2">
                         {getConfigTypeLabel(template.payer_type)}
                       </Badge>
                     </div>
-                    <div className="text-right">
+                    <div className="flex-shrink-0 text-right">
                       {selectedTemplate === key && <CheckCircle className="h-5 w-5 text-primary" />}
                     </div>
                   </div>
@@ -294,12 +294,12 @@ function CreatePayerForm({
             >
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <h3 className="font-semibold">Custom Payer</h3>
                     <p className="text-sm text-muted-foreground">Configure a custom insurance payer</p>
                     <Badge variant="outline" className="text-xs mt-2">Custom</Badge>
                   </div>
-                  <div className="text-right">
+                  <div className="flex-shrink-0 text-right">
                     {!selectedTemplate && formData.name && <CheckCircle className="h-5 w-5 text-primary" />}
                   </div>
                 </div>
@@ -426,20 +426,20 @@ function PayerCard({
                 {statusLabel}
               </Badge>
             </CardTitle>
-            <CardDescription className="flex items-center gap-4 mt-2">
-              <span className="flex items-center gap-1">
-                <Building2 className="h-4 w-4" />
-                ID: {payer.external_payer_id}
+            <CardDescription className="flex flex-wrap items-center gap-4 mt-2">
+              <span className="flex items-center gap-1 min-w-0">
+                <Building2 className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">ID: {payer.external_payer_id}</span>
               </span>
               {config && (
-                <span className="flex items-center gap-1">
-                  <Settings className="h-4 w-4" />
-                  {getConfigTypeLabel(config.config_type)}
+                <span className="flex items-center gap-1 min-w-0">
+                  <Settings className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{getConfigTypeLabel(config.config_type)}</span>
                 </span>
               )}
               {performance_stats && (
-                <span className="flex items-center gap-1">
-                  <TrendingUp className="h-4 w-4" />
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  <TrendingUp className="h-4 w-4 flex-shrink-0" />
                   {performance_stats.approval_rate}% approval rate
                 </span>
               )}

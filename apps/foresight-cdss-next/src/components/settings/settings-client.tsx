@@ -11,7 +11,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Mail,
-  UserPlus,
   Edit,
   Globe,
   Webhook,
@@ -37,7 +36,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Switch } from '@/components/ui/switch';
 import {
   AutomationTab,
   NotificationsTab,
@@ -52,6 +50,8 @@ import {
   WebhooksTab,
   PayersTab,
   FieldMappingsTab,
+  SecurityTab,
+  UserManagementTab,
 } from './tabs';
 
 interface SettingsSection {
@@ -287,6 +287,8 @@ function SettingsPageContent({
   });
 
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showRemoveUserModal, setShowRemoveUserModal] = useState(false);
+  const [userToRemove, setUserToRemove] = useState<{ index: number; name: string } | null>(null);
   const [editingUser, setEditingUser] = useState<{
     index: number;
     name: string;
@@ -419,7 +421,7 @@ function SettingsPageContent({
     auditLogging: {
       logRuleApplications: true,
       logAutoFixes: true,
-      retentionPeriod: "1 year",
+      retentionPeriod: "7years",
     },
   };
 
@@ -726,6 +728,22 @@ function SettingsPageContent({
 
   const handleEditFormChange = (key: string, value: any) => {
     setEditForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleRemoveUser = (index: number) => {
+    const user = teamMembers[index];
+    setUserToRemove({ index, name: user.name });
+    setShowRemoveUserModal(true);
+  };
+
+  const confirmRemoveUser = () => {
+    if (userToRemove !== null) {
+      const updatedMembers = teamMembers.filter((_, i) => i !== userToRemove.index);
+      setTeamMembers(updatedMembers);
+      alert(`User ${userToRemove.name} has been removed from the team.`);
+    }
+    setShowRemoveUserModal(false);
+    setUserToRemove(null);
   };
 
   // Conflict Rule Handlers
@@ -1126,54 +1144,6 @@ function SettingsPageContent({
     setSpecialHandlingRules((prev) => ({ ...prev, [rule]: enabled }));
   };
 
-  const renderUserManagement = () => (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            Team Members
-          </h3>
-          <Button size="sm" onClick={() => setShowInviteModal(true)}>
-            <UserPlus className="w-4 h-4 mr-2" />
-            Invite User
-          </Button>
-        </div>
-        <div className="space-y-3">
-          {teamMembers.map((user, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
-            >
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">
-                  {user.name}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {user.email}
-                </p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Badge variant="outline">{user.role}</Badge>
-                <Badge
-                  variant={user.status === "Active" ? "default" : "secondary"}
-                >
-                  {user.status}
-                </Badge>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleEditUser(index)}
-                >
-                  <Edit className="w-4 h-4 mr-1" />
-                  Edit
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-    </div>
-  );
 
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
@@ -1240,184 +1210,6 @@ function SettingsPageContent({
     </div>
   );
 
-  const renderSecuritySettings = () => (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Access Controls
-        </h3>
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <Label>Default User Role</Label>
-            <Select defaultValue="PA Coordinator">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="PA Coordinator">PA Coordinator</SelectItem>
-                <SelectItem value="PA Reviewer">PA Reviewer</SelectItem>
-                <SelectItem value="Administrator">Administrator</SelectItem>
-                <SelectItem value="Read Only">Read Only</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium">Require MFA</Label>
-              <p className="text-sm text-muted-foreground">
-                Require multi-factor authentication for all users
-              </p>
-            </div>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium">Session Timeout</Label>
-              <p className="text-sm text-muted-foreground">
-                Automatically log out inactive users
-              </p>
-            </div>
-            <Select defaultValue="1 hour">
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="30 minutes">30 minutes</SelectItem>
-                <SelectItem value="1 hour">1 hour</SelectItem>
-                <SelectItem value="4 hours">4 hours</SelectItem>
-                <SelectItem value="8 hours">8 hours</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-          Audit & Compliance
-        </h3>
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium">Enable Audit Logging</Label>
-              <p className="text-sm text-muted-foreground">
-                Track all user actions and system events
-              </p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label className="font-medium">HIPAA Compliance Mode</Label>
-              <p className="text-sm text-muted-foreground">
-                Enable additional privacy and security controls
-              </p>
-            </div>
-            <Switch checked disabled />
-          </div>
-
-          {/* Detailed Audit Trail Configuration */}
-          <div className="border-t pt-6 space-y-4">
-            <h4 className="text-md font-medium text-gray-900 dark:text-gray-100">
-              Detailed Audit Trail Configuration
-            </h4>
-
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Log All Rule Applications
-                </Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Track when validation rules are applied and their outcomes
-                </p>
-              </div>
-              <Switch
-                checked={
-                  validationSettings.auditLogging?.logRuleApplications || false
-                }
-                onCheckedChange={(checked) =>
-                  handleSettingChange("validation", "auditLogging", {
-                    ...validationSettings.auditLogging,
-                    logRuleApplications: checked,
-                  })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Log Auto-Fix Actions
-                </Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Record all automatic corrections made to claims and ePAs
-                </p>
-              </div>
-              <Switch
-                checked={validationSettings.auditLogging?.logAutoFixes || false}
-                onCheckedChange={(checked) =>
-                  handleSettingChange("validation", "auditLogging", {
-                    ...validationSettings.auditLogging,
-                    logAutoFixes: checked,
-                  })
-                }
-              />
-            </div>
-
-            <div className="flex items-center justify-between border-t pt-4">
-              <div className="flex-1">
-                <Label className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                  Audit Log Retention Period
-                </Label>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  How long to keep detailed audit trail records for compliance
-                </p>
-              </div>
-              <Select
-                value={
-                  validationSettings.auditLogging?.retentionPeriod ?? "1year"
-                }
-                onValueChange={(value) =>
-                  handleSettingChange("validation", "auditLogging", {
-                    ...validationSettings.auditLogging,
-                    retentionPeriod: value,
-                  })
-                }
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30days">30 days</SelectItem>
-                  <SelectItem value="90days">90 days</SelectItem>
-                  <SelectItem value="1year">1 year</SelectItem>
-                  <SelectItem value="3years">3 years</SelectItem>
-                  <SelectItem value="7years">7 years</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Original Data Retention Setting */}
-          <div className="space-y-2 border-t pt-4">
-            <Label>General Data Retention Period</Label>
-            <Select defaultValue="7 years">
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1 year">1 year</SelectItem>
-                <SelectItem value="2 years">2 years</SelectItem>
-                <SelectItem value="5 years">5 years</SelectItem>
-                <SelectItem value="7 years">7 years</SelectItem>
-                <SelectItem value="Indefinite">Indefinite</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Card>
-    </div>
-  );
 
   const renderSectionContent = () => {
     switch (activeSection) {
@@ -1531,9 +1323,21 @@ function SettingsPageContent({
       case "integrations":
         return renderIntegrationSettings();
       case "security":
-        return renderSecuritySettings();
+        return (
+          <SecurityTab
+            validationSettings={validationSettings}
+            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+          />
+        );
       case "users":
-        return renderUserManagement();
+        return (
+          <UserManagementTab
+            teamMembers={teamMembers}
+            onInviteUser={() => setShowInviteModal(true)}
+            onEditUser={handleEditUser}
+            onRemoveUser={handleRemoveUser}
+          />
+        );
       default:
         return (
           <AutomationTab
@@ -1553,7 +1357,7 @@ function SettingsPageContent({
             Settings
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage your PA automation system configuration
+            Manage your RCM automation system configuration
           </p>
         </div>
 
@@ -1679,15 +1483,16 @@ function SettingsPageContent({
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-start space-x-2">
               <Checkbox
                 id="invite-welcomeEmail"
                 checked={inviteForm.sendWelcomeEmail}
                 onCheckedChange={(checked) =>
                   handleInviteFormChange("sendWelcomeEmail", checked)
                 }
+                className="mt-0.5"
               />
-              <Label htmlFor="invite-welcomeEmail" className="text-sm">
+              <Label htmlFor="invite-welcomeEmail" className="text-sm leading-tight">
                 Send welcome email with setup instructions
               </Label>
             </div>
@@ -1791,7 +1596,12 @@ function SettingsPageContent({
                 onChange={(e) => handleEditFormChange("email", e.target.value)}
                 placeholder="jane.doe@company.com"
                 required
+                disabled
+                className="bg-gray-100 dark:bg-gray-800"
               />
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed. To use a different email, create a new user.
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -3063,6 +2873,31 @@ function SettingsPageContent({
             <Button variant="destructive" onClick={confirmDeleteMapping}>
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Mapping
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove User Confirmation Modal */}
+      <Dialog open={showRemoveUserModal} onOpenChange={setShowRemoveUserModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Trash2 className="w-5 h-5 mr-2 text-red-600" />
+              Remove Team Member
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to remove {userToRemove?.name} from the team? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRemoveUserModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmRemoveUser}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Remove User
             </Button>
           </DialogFooter>
         </DialogContent>

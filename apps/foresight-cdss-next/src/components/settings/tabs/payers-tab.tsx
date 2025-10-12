@@ -380,7 +380,7 @@ export function PayersTab({
               key={payer}
               className="text-center p-3 border border-slate-200 dark:border-slate-700 rounded-lg"
             >
-              <p className="font-medium text-sm">{payer}</p>
+              <p className="font-medium text-sm truncate" title={payer}>{payer}</p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Portal Integration
               </p>

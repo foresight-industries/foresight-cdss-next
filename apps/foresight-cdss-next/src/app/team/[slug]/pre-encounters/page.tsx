@@ -4,15 +4,11 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, User, AlertTriangle, CheckCircle, Mail, ExternalLink, Filter, Search, X } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Calendar as CalendarIcon, User, AlertTriangle, CheckCircle, Mail, ExternalLink } from 'lucide-react';
+import { PreEncounterFilters, type PreEncounterFiltersType } from '@/components/filters';
 import { toast } from 'sonner';
 import type { PreEncounterIssue } from '@/types/pre-encounter.types';
 import {
@@ -31,12 +27,11 @@ export default function PreEncountersPage() {
   const [resolveNotes, setResolveNotes] = useState('');
 
   // Filters
-  const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<PreEncounterFiltersType>({
     search: '',
-    status: 'all' as 'all' | 'pending' | 'in_progress' | 'resolved',
-    priority: 'all' as 'all' | 'low' | 'medium' | 'high',
-    issueType: 'all' as 'all' | PreEncounterIssue['issueType'],
+    status: 'all',
+    priority: 'all',
+    issueType: 'all',
     payer: 'all',
     dateFrom: '',
     dateTo: '',
@@ -50,17 +45,6 @@ export default function PreEncountersPage() {
     return Array.from(payerSet).sort().map(name => ({ name }));
   }, [issues]);
 
-  const hasActiveFilters = () => {
-    return (
-      filters.search.trim() !== '' ||
-      filters.status !== 'all' ||
-      filters.priority !== 'all' ||
-      filters.issueType !== 'all' ||
-      filters.payer !== 'all' ||
-      filters.dateFrom !== '' ||
-      filters.dateTo !== ''
-    );
-  };
 
   const filteredIssues = issues.filter(issue => {
     const matchesSearch = !filters.search.trim() ||
@@ -214,326 +198,29 @@ export default function PreEncountersPage() {
       </div>
 
       {/* Search and Filters */}
-      <Card className="mb-6">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex-1 max-w-md">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  type="text"
-                  placeholder="Search patients, issues, payers..."
-                  value={filters.search}
-                  onChange={(event) =>
-                    setFilters((prev) => ({
-                      ...prev,
-                      search: event.target.value,
-                    }))
-                  }
-                  className="pl-10"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className={cn(
-                  "cursor-pointer",
-                  showFilters && "bg-accent",
-                  hasActiveFilters() && "border-primary text-primary"
-                )}
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                Filters
-                {hasActiveFilters() && (
-                  <Badge variant="secondary" className="ml-2 h-5 px-1.5">
-                    {[filters.status !== 'all', filters.priority !== 'all', filters.issueType !== 'all', filters.payer !== 'all', filters.dateFrom, filters.dateTo, filters.search]
-                      .filter(Boolean).length}
-                  </Badge>
-                )}
-              </Button>
-              {hasActiveFilters() && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setFilters({
-                      search: '',
-                      status: 'all',
-                      priority: 'all',
-                      issueType: 'all',
-                      payer: 'all',
-                      dateFrom: '',
-                      dateTo: '',
-                    });
-                  }}
-                  className="flex-shrink-0"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Clear All
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Active Filter Badges */}
-          {hasActiveFilters() && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-              <span className="text-sm text-muted-foreground mr-2">Active filters:</span>
-              {filters.search && (
-                <Badge variant="secondary" className="gap-1">
-                  Search: {filters.search}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, search: '' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-              {filters.status !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Status: {filters.status.replace('_', ' ')}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, status: 'all' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-              {filters.priority !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Priority: {filters.priority}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, priority: 'all' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-              {filters.issueType !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Type: {getIssueTypeLabel(filters.issueType)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, issueType: 'all' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-              {filters.payer !== 'all' && (
-                <Badge variant="secondary" className="gap-1">
-                  Payer: {filters.payer}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, payer: 'all' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-              {(filters.dateFrom || filters.dateTo) && (
-                <Badge variant="secondary" className="gap-1">
-                  Date: {filters.dateFrom || '...'} to {filters.dateTo || '...'}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0 ml-1"
-                    onClick={() => setFilters(prev => ({ ...prev, dateFrom: '', dateTo: '' }))}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </Badge>
-              )}
-            </div>
-          )}
-
-          {/* Filter Controls */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-              <div className="space-y-4">
-                <div className="text-sm font-medium text-muted-foreground mb-3">Quick Filters</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="status-select">Status</Label>
-                    <Select
-                      value={filters.status}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          status: value as 'all' | 'pending' | 'in_progress' | 'resolved',
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="status-select">
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="priority-select">Priority</Label>
-                    <Select
-                      value={filters.priority}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          priority: value as 'all' | 'low' | 'medium' | 'high',
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="priority-select">
-                        <SelectValue placeholder="All Priorities" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Priorities</SelectItem>
-                        <SelectItem value="high">High Priority</SelectItem>
-                        <SelectItem value="medium">Medium Priority</SelectItem>
-                        <SelectItem value="low">Low Priority</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="issue-type-select">Issue Type</Label>
-                    <Select
-                      value={filters.issueType}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({
-                          ...prev,
-                          issueType: value as 'all' | PreEncounterIssue['issueType'],
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="issue-type-select">
-                        <SelectValue placeholder="All Types" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="insurance_not_verified">Insurance Not Verified</SelectItem>
-                        <SelectItem value="provider_not_credentialed">Provider Not Credentialed</SelectItem>
-                        <SelectItem value="expired_insurance">Expired Insurance</SelectItem>
-                        <SelectItem value="missing_information">Missing Information</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="payer-select">Payer</Label>
-                    <Select
-                      value={filters.payer}
-                      onValueChange={(value) =>
-                        setFilters((prev) => ({ ...prev, payer: value }))
-                      }
-                    >
-                      <SelectTrigger id="payer-select">
-                        <SelectValue placeholder="All Payers" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Payers</SelectItem>
-                        {payers.map((payer) => (
-                          <SelectItem key={payer.name} value={payer.name}>
-                            {payer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Date From</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateFrom ? new Date(filters.dateFrom).toLocaleDateString() : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateFrom ? new Date(filters.dateFrom) : undefined}
-                          onSelect={(date) => {
-                            setFilters((prev) => ({
-                              ...prev,
-                              dateFrom: date ? date.toISOString().split('T')[0] : '',
-                            }));
-                          }}
-                          disabled={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            return date > today;
-                          }}
-                          className="rounded-lg border shadow-xs"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Date To</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                        >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {filters.dateTo ? new Date(filters.dateTo).toLocaleDateString() : "Select date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={filters.dateTo ? new Date(filters.dateTo) : undefined}
-                          onSelect={(date) => {
-                            setFilters((prev) => ({
-                              ...prev,
-                              dateTo: date ? date.toISOString().split('T')[0] : '',
-                            }));
-                          }}
-                          disabled={(date) => {
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            const fromDate = filters.dateFrom ? new Date(filters.dateFrom) : undefined;
-                            const isAfterToday = date > today;
-                            const isBeforeFromDate = fromDate ? date < fromDate : false;
-                            return isAfterToday || isBeforeFromDate;
-                          }}
-                          className="rounded-lg border shadow-xs"
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="mb-6">
+        <PreEncounterFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          statusOptions={[
+            { value: 'pending', label: 'Pending' },
+            { value: 'in_progress', label: 'In Progress' },
+            { value: 'resolved', label: 'Resolved' }
+          ]}
+          priorityOptions={[
+            { value: 'high', label: 'High Priority' },
+            { value: 'medium', label: 'Medium Priority' },
+            { value: 'low', label: 'Low Priority' }
+          ]}
+          issueTypeOptions={[
+            { value: 'insurance_not_verified', label: 'Insurance Not Verified' },
+            { value: 'provider_not_credentialed', label: 'Provider Not Credentialed' },
+            { value: 'expired_insurance', label: 'Expired Insurance' },
+            { value: 'missing_information', label: 'Missing Information' }
+          ]}
+          payerOptions={payers.map(payer => ({ value: payer.name, label: payer.name }))}
+        />
+      </div>
 
       {/* Issues List */}
       <Card>

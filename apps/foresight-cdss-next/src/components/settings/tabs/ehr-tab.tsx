@@ -62,7 +62,7 @@ export function EHRTab() {
               key={system}
               className="text-center p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
             >
-              <p className="font-medium text-sm">{system}</p>
+              <p className="font-medium text-sm truncate" title={system}>{system}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 FHIR/REST API
               </p>
