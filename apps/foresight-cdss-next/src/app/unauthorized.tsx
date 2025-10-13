@@ -31,11 +31,7 @@ export default function UnauthorizedPage() {
   };
 
   const handleGoBack = () => {
-    if (window.history.length > 1) {
-      window.history.back();
-    } else {
-      router.push('/');
-    }
+    router.back();
   };
 
   return (
