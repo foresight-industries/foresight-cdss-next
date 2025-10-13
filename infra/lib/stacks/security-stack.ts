@@ -334,10 +334,75 @@ export class SecurityStack extends cdk.Stack {
       }),
     );
 
+    // GitHub Actions OIDC Identity Provider (only create once per account)
+    let githubOidcProvider: iam.IOpenIdConnectProvider;
+    
+    if (props.stageName === 'staging') {
+      githubOidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOIDCProvider', {
+        url: 'https://token.actions.githubusercontent.com',
+        clientIds: ['sts.amazonaws.com'],
+        thumbprints: ['6938fd4d98bab03faadb97b34396831e3780aea1', '1c58a3a8518e8759bf075b76b750d4f2df264fcd'],
+      });
+    } else {
+      // Reference existing provider for prod
+      githubOidcProvider = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+        this,
+        'GitHubOIDCProvider',
+        `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`
+      );
+    }
+
+    // IAM Role for GitHub Actions
+    const githubActionsRole = new iam.Role(this, 'GitHubActionsRole', {
+      roleName: `RCM-GitHubActions-${props.stageName}`,
+      assumedBy: new iam.WebIdentityPrincipal(githubOidcProvider.openIdConnectProviderArn, {
+        StringEquals: {
+          'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+        },
+        StringLike: {
+          'token.actions.githubusercontent.com:sub': 'repo:foresight-industries/foresight-cdss-next:*',
+        },
+      }),
+      description: 'Role for GitHub Actions to deploy CDK infrastructure',
+      maxSessionDuration: cdk.Duration.hours(2),
+    });
+
+    // Attach necessary policies for CDK deployment
+    githubActionsRole.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName('PowerUserAccess')
+    );
+
+    // Additional IAM permissions for CDK bootstrapping and deployment
+    githubActionsRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'iam:*',
+        'organizations:DescribeOrganization',
+        'account:GetContactInformation',
+        'account:GetAlternateContact',
+        'account:GetAccountInformation',
+      ],
+      resources: ['*'],
+    }));
+
     // Output WAF ACL ID
     new cdk.CfnOutput(this, 'WebACLId', {
       value: webAcl.attrId,
       exportName: `RCM-WebACLId-${props.stageName}`,
+    });
+
+    // Output GitHub Actions Role ARN
+    new cdk.CfnOutput(this, 'GitHubActionsRoleArn', {
+      value: githubActionsRole.roleArn,
+      exportName: `RCM-GitHubActionsRoleArn-${props.stageName}`,
+      description: 'ARN of the IAM role for GitHub Actions',
+    });
+
+    // Output GitHub OIDC Provider ARN
+    new cdk.CfnOutput(this, 'GitHubOIDCProviderArn', {
+      value: githubOidcProvider.openIdConnectProviderArn,
+      exportName: `RCM-GitHubOIDCProviderArn-${props.stageName}`,
+      description: 'ARN of the GitHub OIDC provider',
     });
   }
 }
