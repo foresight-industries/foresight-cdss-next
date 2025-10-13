@@ -166,7 +166,7 @@ export default function UnauthorizedPage() {
         {/* Footer */}
         <div className="text-center">
           <p className="text-xs text-gray-500">
-            � 2025 Foresight Industries. All rights reserved.
+            &copy; 2025 Foresight Industries. All rights reserved.
           </p>
         </div>
       </div>

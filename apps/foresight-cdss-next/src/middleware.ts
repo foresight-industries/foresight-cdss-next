@@ -47,15 +47,8 @@ export default clerkMiddleware(async (auth, req) => {
         return NextResponse.redirect(new URL(`/team-not-found?slug=${teamSlug}`, req.url));
       }
 
-      // Team exists - continue with Clerk auth logic
-      const response = await handleClerkAuth(auth, req);
-
-      // Add team info to headers for use in pages
-      if (response.headers) {
-        response.headers.set('x-team-slug', teamSlug);
-        response.headers.set('x-team-id', team.id);
-        response.headers.set('x-team-name', team.name);
-      }
+      // Team exists - continue with Clerk auth logic and verify membership
+      const response = await handleClerkAuth(auth, req, null, { team, teamSlug });
 
       return response;
 
@@ -71,7 +64,7 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 // Extracted Clerk auth logic to reuse
-async function handleClerkAuth(auth: any, req: any, url?: any) {
+async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { team: any, teamSlug: string }) {
   const { sessionClaims, isAuthenticated } = await auth({
     treatPendingAsSignedOut: false
   });
@@ -139,6 +132,44 @@ async function handleClerkAuth(auth: any, req: any, url?: any) {
     } catch (error) {
       // On database error, allow request to continue
       console.error('Error checking team membership:', error);
+    }
+  }
+
+  // TEAM ROUTE SECURITY: Validate team membership and set headers
+  if (teamContext && isAuthenticated) {
+    try {
+      const { userId } = await auth();
+      
+      if (userId) {
+        const supabase = await createSupabaseMiddlewareClient();
+        
+        // Verify user has active membership to this specific team
+        const { data: membership } = await supabase
+          .from('team_member')
+          .select('team_id, role, status')
+          .eq('clerk_user_id', userId)
+          .eq('team_id', teamContext.team.id)
+          .eq('status', 'active')
+          .single();
+
+        if (!membership) {
+          // User is not a member of this team - redirect to unauthorized or onboarding
+          console.log(`User ${userId} attempted to access team ${teamContext.teamSlug} without membership`);
+          return NextResponse.redirect(new URL('/unauthorized', req.url));
+        }
+
+        // User is authenticated and has valid team membership - set secure headers
+        const response = NextResponse.next();
+        response.headers.set('x-team-slug', teamContext.teamSlug);
+        response.headers.set('x-team-id', teamContext.team.id);
+        response.headers.set('x-team-name', teamContext.team.name);
+        response.headers.set('x-user-role', membership.role);
+        
+        return response;
+      }
+    } catch (error) {
+      console.error('Error validating team membership:', error);
+      return NextResponse.redirect(new URL('/error', req.url));
     }
   }
 
