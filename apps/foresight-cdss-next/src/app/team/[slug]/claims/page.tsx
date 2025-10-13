@@ -104,6 +104,73 @@ const sortClaims = (claims: Claim[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
+const getDescriptiveFieldName = (field: string): string => {
+  const fieldMappings: Record<string, string> = {
+    // Patient Information
+    member_id: "Insurance Member ID",
+    patient_id: "Patient ID",
+    patient_name: "Patient Full Name",
+    patient_dob: "Patient Date of Birth",
+    patient_ssn: "Patient Social Security Number",
+    patient_gender: "Patient Gender",
+    patient_address: "Patient Address",
+    patient_phone: "Patient Phone Number",
+    
+    // Provider Information
+    provider_npi: "Provider NPI Number",
+    provider_name: "Provider Name",
+    provider_taxonomy: "Provider Taxonomy Code",
+    billing_provider_npi: "Billing Provider NPI",
+    rendering_provider_npi: "Rendering Provider NPI",
+    referring_provider_npi: "Referring Provider NPI",
+    
+    // Payer Information
+    payer_id: "Insurance Payer ID",
+    payer_name: "Insurance Company Name",
+    group_number: "Insurance Group Number",
+    subscriber_id: "Primary Subscriber ID",
+    
+    // Service Information
+    diagnosis_code: "Primary Diagnosis Code (ICD-10)",
+    procedure_code: "Procedure Code (CPT/HCPCS)",
+    place_of_service: "Place of Service Code",
+    service_date: "Date of Service",
+    admission_date: "Hospital Admission Date",
+    discharge_date: "Hospital Discharge Date",
+    
+    // Authorization and Prior Auth
+    authorization_number: "Prior Authorization Number",
+    referral_number: "Referral Authorization Number",
+    precertification_number: "Precertification Number",
+    
+    // Financial Information
+    total_amount: "Total Claim Amount",
+    copay_amount: "Patient Copay Amount",
+    deductible_amount: "Patient Deductible Amount",
+    coinsurance_amount: "Patient Coinsurance Amount",
+    allowed_amount: "Insurance Allowed Amount",
+    
+    // Claim Details
+    claim_frequency: "Claim Frequency Type Code",
+    accident_indicator: "Accident Related Indicator",
+    emergency_indicator: "Emergency Service Indicator",
+    units_of_service: "Units of Service Provided",
+    modifier: "Procedure Modifier Code",
+    
+    // Contact Information
+    subscriber_name: "Primary Subscriber Name",
+    subscriber_dob: "Primary Subscriber Date of Birth",
+    subscriber_gender: "Primary Subscriber Gender",
+    
+    // Miscellaneous
+    policy_number: "Insurance Policy Number",
+    plan_name: "Insurance Plan Name",
+    network_status: "Provider Network Status",
+  };
+  
+  return fieldMappings[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const ClaimDetailSheet: React.FC<{
   claim: Claim | null;
   open: boolean;
@@ -379,7 +446,7 @@ const ClaimDetailSheet: React.FC<{
               </div>
             </section>
 
-            {(Object.entries(claim.field_confidences || {}).some(([, confidence]) => confidence < threshold) ||
+            {claim.status === "needs_review" && (Object.entries(claim.field_confidences || {}).some(([, confidence]) => confidence < threshold) ||
               claim.suggested_fixes.some(fix => !fix.applied && !claim.field_confidences?.[fix.field])) && (
               <section className="space-y-4">
                 <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -396,13 +463,7 @@ const ClaimDetailSheet: React.FC<{
                         .filter(([field, confidence]) => confidence < threshold)
                         .map(([field, confidence]) => {
                           const suggestedFix = claim.suggested_fixes.find(fix => fix.field === field);
-                          const fieldLabel = field === "member_id" ? "Member ID" :
-                                           field === "patient_dob" ? "Date of Birth" :
-                                           field === "provider_npi" ? "Provider NPI" :
-                                           field === "patient_name" ? "Patient Name" :
-                                           field === "diagnosis_code" ? "Diagnosis Code" :
-                                           field === "procedure_code" ? "Procedure Code" :
-                                           field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                          const fieldLabel = getDescriptiveFieldName(field);
 
                           return (
                             <div key={field} className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
@@ -466,10 +527,7 @@ const ClaimDetailSheet: React.FC<{
                             <div className="flex-1 space-y-2">
                               <div className="flex items-center justify-between">
                                 <div className="text-sm font-medium text-gray-900">
-                                  {fix.field === "member_id" ? "Member ID" :
-                                   fix.field === "patient_dob" ? "Date of Birth" :
-                                   fix.field === "provider_npi" ? "Provider NPI" :
-                                   fix.field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                  {getDescriptiveFieldName(fix.field)}
                                 </div>
                                 <Badge variant="destructive" className="text-xs">
                                   Missing from EHR
