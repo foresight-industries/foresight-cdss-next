@@ -29,10 +29,10 @@ interface AnalyticsClientProps {
 
 // Mock data for charts - keep these in client component as they're not heavy to compute
 const processingTimeData = [
-  { period: 'Week 1', avgTime: 4.2, target: 6.0 },
-  { period: 'Week 2', avgTime: 3.8, target: 6.0 },
-  { period: 'Week 3', avgTime: 2.1, target: 6.0 },
-  { period: 'Week 4', avgTime: 1.9, target: 6.0 },
+  { period: 'Week 1', avgTime: 4.2, target: 6 },
+  { period: 'Week 2', avgTime: 3.8, target: 6 },
+  { period: 'Week 3', avgTime: 2.1, target: 6 },
+  { period: 'Week 4', avgTime: 1.9, target: 6 },
 ];
 
 const combinedAutomationTrends = [
