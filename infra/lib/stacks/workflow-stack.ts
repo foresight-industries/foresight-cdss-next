@@ -2,6 +2,8 @@ import * as cdk from 'aws-cdk-lib';
 import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
 import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 interface WorkflowStackProps extends cdk.StackProps {
@@ -53,6 +55,25 @@ export class WorkflowStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
     });
 
+    // CloudWatch Log Groups for Step Functions
+    const priorAuthLogGroup = new logs.LogGroup(this, 'PriorAuthLogGroup', {
+      logGroupName: `/aws/stepfunctions/rcm-prior-auth-${props.stageName}`,
+      retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    const claimProcessingLogGroup = new logs.LogGroup(this, 'ClaimProcessingLogGroup', {
+      logGroupName: `/aws/stepfunctions/rcm-claim-processing-${props.stageName}`,
+      retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    const eraProcessingLogGroup = new logs.LogGroup(this, 'ERAProcessingLogGroup', {
+      logGroupName: `/aws/stepfunctions/rcm-era-processing-${props.stageName}`,
+      retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
     // Prior Authorization Workflow
     const priorAuthWorkflow = new stepfunctions.StateMachine(this, 'PriorAuthWorkflow', {
       stateMachineName: `rcm-prior-auth-${props.stageName}`,
@@ -86,6 +107,11 @@ export class WorkflowStack extends cdk.Stack {
           })
         ),
       tracingEnabled: true,
+      logs: {
+        destination: priorAuthLogGroup,
+        level: stepfunctions.LogLevel.ALL,
+        includeExecutionData: true,
+      },
     });
 
     // Claim Processing Workflow
@@ -152,6 +178,11 @@ export class WorkflowStack extends cdk.Stack {
             )
         ),
       tracingEnabled: true,
+      logs: {
+        destination: claimProcessingLogGroup,
+        level: stepfunctions.LogLevel.ALL,
+        includeExecutionData: true,
+      },
     });
 
     // ERA Processing Workflow
@@ -182,6 +213,30 @@ export class WorkflowStack extends cdk.Stack {
       stateMachineName: `rcm-era-processing-${props.stageName}`,
       definition: eraProcessingWorkflow,
       tracingEnabled: true,
+      logs: {
+        destination: eraProcessingLogGroup,
+        level: stepfunctions.LogLevel.ALL,
+        includeExecutionData: true,
+      },
+    });
+
+    // Output log group ARNs for monitoring integration
+    new cdk.CfnOutput(this, 'PriorAuthLogGroupArn', {
+      value: priorAuthLogGroup.logGroupArn,
+      exportName: `RCM-PriorAuthLogGroup-${props.stageName}`,
+      description: 'ARN of the Prior Authorization workflow log group',
+    });
+
+    new cdk.CfnOutput(this, 'ClaimProcessingLogGroupArn', {
+      value: claimProcessingLogGroup.logGroupArn,
+      exportName: `RCM-ClaimProcessingLogGroup-${props.stageName}`,
+      description: 'ARN of the Claim Processing workflow log group',
+    });
+
+    new cdk.CfnOutput(this, 'ERAProcessingLogGroupArn', {
+      value: eraProcessingLogGroup.logGroupArn,
+      exportName: `RCM-ERAProcessingLogGroup-${props.stageName}`,
+      description: 'ARN of the ERA Processing workflow log group',
     });
 
     // Grant permissions
