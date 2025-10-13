@@ -287,7 +287,7 @@ export const analyzeDenialReasons = (claims: Claim[]): DenialReasonAnalysis[] =>
   const reasonGroups: Record<string, Claim[]> = {};
 
   // Group claims by denial reason
-  deniedClaims.forEach(claim => {
+  for (const claim of deniedClaims) {
     const reasonCode = extractDenialReason(claim);
     if (reasonCode) {
       if (!reasonGroups[reasonCode]) {
@@ -295,7 +295,7 @@ export const analyzeDenialReasons = (claims: Claim[]): DenialReasonAnalysis[] =>
       }
       reasonGroups[reasonCode].push(claim);
     }
-  });
+  }
 
   // Create analysis for each denial reason
   const analyses: DenialReasonAnalysis[] = [];

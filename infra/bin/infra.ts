@@ -16,7 +16,7 @@ if (!process.env.CDK_DEFAULT_ACCOUNT) {
   throw new Error('CDK_DEFAULT_ACCOUNT is not defined');
 }
 
-['staging', 'prod'].forEach(envName => {
+for (const envName of ['staging', 'prod']) {
   const env = {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: 'us-east-1',
@@ -99,4 +99,4 @@ if (!process.env.CDK_DEFAULT_ACCOUNT) {
   security.addDependency(api);
   monitoring.addDependency(api);
   monitoring.addDependency(queues);
-});
+}

@@ -189,7 +189,7 @@ async function calculateStatusDistributionFallback(): Promise<StatusDistribution
     total: data?.length || 0
   };
 
-  data?.forEach(item => {
+  for (const item of data) {
     if (
       item.status === "in_review" ||
       item.status === "pending_info" ||
@@ -209,7 +209,7 @@ async function calculateStatusDistributionFallback(): Promise<StatusDistribution
     } else if (item.status === "denied" || item.status === "expired") {
       distribution.denied++;
     }
-  });
+  }
 
   return distribution;
 }

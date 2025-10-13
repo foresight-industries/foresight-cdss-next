@@ -106,7 +106,7 @@ export class CacheManager {
   // Invalidate keys matching pattern
   invalidatePattern(pattern: RegExp): number {
     const keysToDelete = this.getKeys(pattern);
-    keysToDelete.forEach((key) => this.cache.delete(key));
+    for (const key of keysToDelete) this.cache.delete(key);
     return keysToDelete.length;
   }
 }

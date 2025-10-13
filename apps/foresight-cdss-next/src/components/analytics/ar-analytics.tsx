@@ -56,37 +56,41 @@ const arTrendData = [
   { month: 'Oct', avgDays: 39, totalAR: 125000 },
 ];
 
-export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsProps) {
+export function ARAnalytics({
+  claims,
+  rcmMetrics,
+  className = "",
+}: Readonly<ARAnalyticsProps>) {
   const params = useParams();
   const teamSlug = params?.slug as string;
 
   // State for tracking which collapsible sections are open
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    '90+': true, // Default open for critical bucket
+    "90+": true, // Default open for critical bucket
   });
 
   // Get outstanding claims for analysis
   const outstandingClaims = useMemo(() => {
-    return claims.filter(claim => !['paid', 'denied'].includes(claim.status));
+    return claims.filter((claim) => !["paid", "denied"].includes(claim.status));
   }, [claims]);
 
   // Calculate aging buckets by count (not just amount)
   const agingCountBuckets = useMemo(() => {
-    const buckets = { '0-30': 0, '31-60': 0, '61-90': 0, '90+': 0 };
+    const buckets = { "0-30": 0, "31-60": 0, "61-90": 0, "90+": 0 };
     const now = new Date();
 
-    outstandingClaims.forEach(claim => {
+    for (const claim of outstandingClaims) {
       const daysOld = daysBetween(claim.dos, now);
       if (daysOld <= 30) {
-        buckets['0-30']++;
+        buckets["0-30"]++;
       } else if (daysOld <= 60) {
-        buckets['31-60']++;
+        buckets["31-60"]++;
       } else if (daysOld <= 90) {
-        buckets['61-90']++;
+        buckets["61-90"]++;
       } else {
-        buckets['90+']++;
+        buckets["90+"]++;
       }
-    });
+    }
 
     return buckets;
   }, [outstandingClaims]);
@@ -95,9 +99,9 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
   const longestClaims = useMemo(() => {
     const now = new Date();
     return outstandingClaims
-      .map(claim => ({
+      .map((claim) => ({
         ...claim,
-        daysOutstanding: daysBetween(claim.dos, now)
+        daysOutstanding: daysBetween(claim.dos, now),
       }))
       .sort((a, b) => b.daysOutstanding - a.daysOutstanding)
       .slice(0, 10);
@@ -105,38 +109,80 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
 
   // Prepare chart data for aging distribution
   const distributionData = [
-    { bucket: '0-30', count: agingCountBuckets['0-30'], amount: rcmMetrics.agingBuckets['0-30'] },
-    { bucket: '31-60', count: agingCountBuckets['31-60'], amount: rcmMetrics.agingBuckets['31-60'] },
-    { bucket: '61-90', count: agingCountBuckets['61-90'], amount: rcmMetrics.agingBuckets['61-90'] },
-    { bucket: '90+', count: agingCountBuckets['90+'], amount: rcmMetrics.agingBuckets['90+'] },
+    {
+      bucket: "0-30",
+      count: agingCountBuckets["0-30"],
+      amount: rcmMetrics.agingBuckets["0-30"],
+    },
+    {
+      bucket: "31-60",
+      count: agingCountBuckets["31-60"],
+      amount: rcmMetrics.agingBuckets["31-60"],
+    },
+    {
+      bucket: "61-90",
+      count: agingCountBuckets["61-90"],
+      amount: rcmMetrics.agingBuckets["61-90"],
+    },
+    {
+      bucket: "90+",
+      count: agingCountBuckets["90+"],
+      amount: rcmMetrics.agingBuckets["90+"],
+    },
   ];
 
   // Generate insights with aging-specific recommendations
   const insights = useMemo(() => {
     const insights: string[] = [];
     const totalOutstanding = rcmMetrics.totalOutstandingAR;
-    const oldestBucketPct = totalOutstanding > 0 ? (rcmMetrics.agingBuckets['90+'] / totalOutstanding) * 100 : 0;
-    const oldBucketsPct = totalOutstanding > 0 ? ((rcmMetrics.agingBuckets['61-90'] + rcmMetrics.agingBuckets['90+']) / totalOutstanding) * 100 : 0;
+    const oldestBucketPct =
+      totalOutstanding > 0
+        ? (rcmMetrics.agingBuckets["90+"] / totalOutstanding) * 100
+        : 0;
+    const oldBucketsPct =
+      totalOutstanding > 0
+        ? ((rcmMetrics.agingBuckets["61-90"] + rcmMetrics.agingBuckets["90+"]) /
+            totalOutstanding) *
+          100
+        : 0;
 
     // Critical aging issues
     if (rcmMetrics.maxDaysOutstanding && rcmMetrics.maxDaysOutstanding > 90) {
-      insights.push(`Urgent: Claims outstanding for ${rcmMetrics.maxDaysOutstanding} days require immediate attention.`);
+      insights.push(
+        `Urgent: Claims outstanding for ${rcmMetrics.maxDaysOutstanding} days require immediate attention.`
+      );
     }
 
-    if (rcmMetrics.agingBuckets['90+'] > 0) {
-      insights.push(`Critical aging: ${formatCurrency(rcmMetrics.agingBuckets['90+'])} in 90+ days bucket (${rcmMetrics.agingCounts['90+']} claims) - prioritize follow-up.`);
+    if (rcmMetrics.agingBuckets["90+"] > 0) {
+      insights.push(
+        `Critical aging: ${formatCurrency(
+          rcmMetrics.agingBuckets["90+"]
+        )} in 90+ days bucket (${
+          rcmMetrics.agingCounts["90+"]
+        } claims) - prioritize follow-up.`
+      );
     }
 
     if (oldestBucketPct > 20) {
-      insights.push(`High concern: ${oldestBucketPct.toFixed(1)}% of total A/R is aging 90+ days - investigate potential collection issues.`);
+      insights.push(
+        `High concern: ${oldestBucketPct.toFixed(
+          1
+        )}% of total A/R is aging 90+ days - investigate potential collection issues.`
+      );
     }
 
     if (oldBucketsPct > 40) {
-      insights.push(`${oldBucketsPct.toFixed(1)}% of A/R is older than 60 days - review collection processes and payer relationships.`);
+      insights.push(
+        `${oldBucketsPct.toFixed(
+          1
+        )}% of A/R is older than 60 days - review collection processes and payer relationships.`
+      );
     }
 
     if (rcmMetrics.daysInAR && rcmMetrics.daysInAR > 40) {
-      insights.push(`Average Days in A/R (${rcmMetrics.daysInAR}) exceeds target of 40 days.`);
+      insights.push(
+        `Average Days in A/R (${rcmMetrics.daysInAR}) exceeds target of 40 days.`
+      );
     }
 
     // Payer-specific insights for aging buckets
@@ -151,15 +197,22 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
       return acc;
     }, {} as Record<string, { count: number; amount: number }>);
 
-    const topProblemPayer = Object.entries(payerAnalysis)
-      .sort(([,a], [,b]) => b.amount - a.amount)[0];
+    const topProblemPayer = Object.entries(payerAnalysis).sort(
+      ([, a], [, b]) => b.amount - a.amount
+    )[0];
 
     if (topProblemPayer && topProblemPayer[1].count >= 3) {
-      insights.push(`${topProblemPayer[0]} has ${topProblemPayer[1].count} claims in 90+ days totaling ${formatCurrency(topProblemPayer[1].amount)} - investigate payer issues.`);
+      insights.push(
+        `${topProblemPayer[0]} has ${
+          topProblemPayer[1].count
+        } claims in 90+ days totaling ${formatCurrency(
+          topProblemPayer[1].amount
+        )} - investigate payer issues.`
+      );
     }
 
     if (insights.length === 0) {
-      insights.push('A/R performance is within acceptable ranges.');
+      insights.push("A/R performance is within acceptable ranges.");
     }
 
     return insights;
@@ -167,7 +220,11 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
 
   if (outstandingClaims.length === 0) {
     return (
-      <section id="ar-details" role="region" className={`space-y-6 ${className}`}>
+      <section
+        id="ar-details"
+        role="region"
+        className={`space-y-6 ${className}`}
+      >
         <div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
             Accounts Receivable Details
@@ -183,8 +240,12 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                 <DollarSign className="h-8 w-8 text-green-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-foreground">No Outstanding Claims</h3>
-                <p className="text-sm text-muted-foreground">All claims have been paid or resolved.</p>
+                <h3 className="text-lg font-semibold text-foreground">
+                  No Outstanding Claims
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  All claims have been paid or resolved.
+                </p>
               </div>
             </div>
           </CardContent>
@@ -238,7 +299,11 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={arTrendData} margin={{ left: 12, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                  />
                   <XAxis
                     dataKey="month"
                     tickLine={false}
@@ -252,7 +317,9 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                     stroke="#6b7280"
                     className="text-xs"
                   />
-                  <Tooltip formatter={(value: number) => [`${value} days`, "Avg Days"]} />
+                  <Tooltip
+                    formatter={(value: number) => [`${value} days`, "Avg Days"]}
+                  />
                   <Line
                     dataKey="avgDays"
                     type="monotone"
@@ -280,8 +347,16 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={distributionData} margin={{ left: 12, right: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" className="dark:stroke-gray-600" />
+                <BarChart
+                  data={distributionData}
+                  margin={{ left: 12, right: 12 }}
+                >
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#e5e7eb"
+                    className="dark:stroke-gray-600"
+                  />
                   <XAxis
                     dataKey="bucket"
                     tickLine={false}
@@ -295,9 +370,19 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                     stroke="#6b7280"
                     className="text-xs"
                   />
-                  <Tooltip formatter={(value: number) => [`${value} claims`, "Claims Count"]} />
+                  <Tooltip
+                    formatter={(value: number) => [
+                      `${value} claims`,
+                      "Claims Count",
+                    ]}
+                  />
                   <Legend />
-                  <Bar dataKey="count" name="Claims Count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="count"
+                    name="Claims Count"
+                    fill="#3b82f6"
+                    radius={[4, 4, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -310,13 +395,16 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
         <CardHeader>
           <CardTitle className="text-lg">A/R Aging Breakdown</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Detailed breakdown of claims by aging buckets with actionable insights
+            Detailed breakdown of claims by aging buckets with actionable
+            insights
           </p>
         </CardHeader>
         <CardContent>
           {/* Enhanced Distribution Chart */}
           <div className="mb-6">
-            <h4 className="text-sm font-semibold mb-4">Distribution by Amount and Percentage</h4>
+            <h4 className="text-sm font-semibold mb-4">
+              Distribution by Amount and Percentage
+            </h4>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -324,7 +412,12 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                   layout="vertical"
                   margin={{ left: 60, right: 12, top: 12, bottom: 12 }}
                 >
-                  <XAxis type="number" axisLine={true} tickLine={false} stroke="#6b7280" />
+                  <XAxis
+                    type="number"
+                    axisLine={true}
+                    tickLine={false}
+                    stroke="#6b7280"
+                  />
                   <YAxis
                     dataKey="bucket"
                     type="category"
@@ -334,7 +427,10 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                     stroke="#6b7280"
                   />
                   <Tooltip
-                    formatter={(value: number) => [formatCurrency(value), "Amount"]}
+                    formatter={(value: number) => [
+                      formatCurrency(value),
+                      "Amount",
+                    ]}
                   />
                   <Bar
                     dataKey="amount"
@@ -353,58 +449,85 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
             {Object.entries(rcmMetrics.agingBuckets).map(([bucket, amount]) => {
               if (amount === 0) return null;
 
-              const count = rcmMetrics.agingCounts[bucket as keyof typeof rcmMetrics.agingCounts];
-              const percentage = rcmMetrics.totalOutstandingAR > 0 ? (amount / rcmMetrics.totalOutstandingAR) * 100 : 0;
-              const isOpen = openSections[bucket] ?? (bucket === '90+'); // Default expand critical bucket
+              const count =
+                rcmMetrics.agingCounts[
+                  bucket as keyof typeof rcmMetrics.agingCounts
+                ];
+              const percentage =
+                rcmMetrics.totalOutstandingAR > 0
+                  ? (amount / rcmMetrics.totalOutstandingAR) * 100
+                  : 0;
+              const isOpen = openSections[bucket] ?? bucket === "90+"; // Default expand critical bucket
 
               const toggleSection = () => {
-                setOpenSections(prev => ({
+                setOpenSections((prev) => ({
                   ...prev,
-                  [bucket]: !isOpen
+                  [bucket]: !isOpen,
                 }));
               };
 
               // Filter claims for this bucket
               const bucketClaims = outstandingClaims
-                .map(claim => ({
+                .map((claim) => ({
                   ...claim,
-                  daysOutstanding: daysBetween(claim.dos, new Date())
+                  daysOutstanding: daysBetween(claim.dos, new Date()),
                 }))
-                .filter(claim => {
+                .filter((claim) => {
                   const days = claim.daysOutstanding;
-                  if (bucket === '0-30') return days <= 30;
-                  if (bucket === '31-60') return days > 30 && days <= 60;
-                  if (bucket === '61-90') return days > 60 && days <= 90;
-                  if (bucket === '90+') return days > 90;
+                  if (bucket === "0-30") return days <= 30;
+                  if (bucket === "31-60") return days > 30 && days <= 60;
+                  if (bucket === "61-90") return days > 60 && days <= 90;
+                  if (bucket === "90+") return days > 90;
                   return false;
                 })
                 .sort((a, b) => b.total_amount - a.total_amount) // Sort by amount descending
                 .slice(0, 10); // Show top 10 by amount
 
-              const bucketColor = bucket === '0-30' ? 'text-green-600' :
-                                bucket === '31-60' ? 'text-amber-600' :
-                                bucket === '61-90' ? 'text-orange-600' : 'text-red-600';
+              const bucketColor =
+                bucket === "0-30"
+                  ? "text-green-600"
+                  : bucket === "31-60"
+                  ? "text-amber-600"
+                  : bucket === "61-90"
+                  ? "text-orange-600"
+                  : "text-red-600";
 
-              const bucketBg = bucket === '0-30' ? 'bg-green-50 border-green-200' :
-                             bucket === '31-60' ? 'bg-amber-50 border-amber-200' :
-                             bucket === '61-90' ? 'bg-orange-50 border-orange-200' : 'bg-red-50 border-red-200';
+              const bucketBg =
+                bucket === "0-30"
+                  ? "bg-green-50 border-green-200"
+                  : bucket === "31-60"
+                  ? "bg-amber-50 border-amber-200"
+                  : bucket === "61-90"
+                  ? "bg-orange-50 border-orange-200"
+                  : "bg-red-50 border-red-200";
 
               return (
-                <Collapsible key={bucket} open={isOpen} onOpenChange={toggleSection}>
-                  <CollapsibleTrigger className={`w-full p-4 rounded-lg border transition-colors hover:bg-muted/50 ${bucketBg}`}>
+                <Collapsible
+                  key={bucket}
+                  open={isOpen}
+                  onOpenChange={toggleSection}
+                >
+                  <CollapsibleTrigger
+                    className={`w-full p-4 rounded-lg border transition-colors hover:bg-muted/50 ${bucketBg}`}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`} />
+                        <ChevronRight
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            isOpen ? "rotate-90" : ""
+                          }`}
+                        />
                         <div className="text-left">
                           <div className={`font-medium ${bucketColor}`}>
                             {bucket} Days ({count} claims)
                           </div>
                           <div className="text-sm text-muted-foreground">
-                            {formatCurrency(amount)} ({percentage.toFixed(1)}% of total A/R)
+                            {formatCurrency(amount)} ({percentage.toFixed(1)}%
+                            of total A/R)
                           </div>
                         </div>
                       </div>
-                      {bucket === '90+' && amount > 0 && (
+                      {bucket === "90+" && amount > 0 && (
                         <Badge variant="destructive" className="text-xs">
                           Critical
                         </Badge>
@@ -424,7 +547,7 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                               <div className="flex items-center justify-between p-3 rounded-md border hover:bg-muted/50 transition-colors cursor-pointer">
                                 <div className="flex items-center gap-3">
                                   <span className="font-mono text-sm">
-                                    {claim.id.replace('CLM-', '')}
+                                    {claim.id.replace("CLM-", "")}
                                   </span>
                                   <span className="text-sm text-muted-foreground">
                                     {claim.payer.name}
@@ -474,11 +597,21 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left p-2 font-medium text-muted-foreground">Claim</th>
-                  <th className="text-left p-2 font-medium text-muted-foreground">Payer</th>
-                  <th className="text-right p-2 font-medium text-muted-foreground">Amount</th>
-                  <th className="text-right p-2 font-medium text-muted-foreground">Days Outstanding</th>
-                  <th className="text-left p-2 font-medium text-muted-foreground">Status</th>
+                  <th className="text-left p-2 font-medium text-muted-foreground">
+                    Claim
+                  </th>
+                  <th className="text-left p-2 font-medium text-muted-foreground">
+                    Payer
+                  </th>
+                  <th className="text-right p-2 font-medium text-muted-foreground">
+                    Amount
+                  </th>
+                  <th className="text-right p-2 font-medium text-muted-foreground">
+                    Days Outstanding
+                  </th>
+                  <th className="text-left p-2 font-medium text-muted-foreground">
+                    Status
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -488,10 +621,16 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                     : `/claims?claim=${claim.id}`;
 
                   return (
-                    <tr key={claim.id} className="border-b hover:bg-muted/50 cursor-pointer transition-colors">
+                    <tr
+                      key={claim.id}
+                      className="border-b hover:bg-muted/50 cursor-pointer transition-colors"
+                    >
                       <td className="p-2 font-mono text-sm">
-                        <Link href={claimUrl} className="text-blue-600 hover:text-blue-800">
-                          {claim.id.replace('CLM-', '')}
+                        <Link
+                          href={claimUrl}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          {claim.id.replace("CLM-", "")}
                         </Link>
                       </td>
                       <td className="p-2">{claim.payer.name}</td>
@@ -500,7 +639,15 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                       </td>
                       <td className="p-2 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className={claim.daysOutstanding > 90 ? 'font-semibold text-red-600' : claim.daysOutstanding > 60 ? 'font-semibold text-amber-600' : ''}>
+                          <span
+                            className={
+                              claim.daysOutstanding > 90
+                                ? "font-semibold text-red-600"
+                                : claim.daysOutstanding > 60
+                                ? "font-semibold text-amber-600"
+                                : ""
+                            }
+                          >
                             {claim.daysOutstanding}
                           </span>
                           {claim.daysOutstanding > 90 && (
@@ -512,7 +659,7 @@ export function ARAnalytics({ claims, rcmMetrics, className = '' }: ARAnalyticsP
                       </td>
                       <td className="p-2">
                         <Badge variant="outline" className="text-xs">
-                          {claim.status.replace('_', ' ')}
+                          {claim.status.replace("_", " ")}
                         </Badge>
                       </td>
                     </tr>

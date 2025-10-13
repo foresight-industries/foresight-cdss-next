@@ -47,17 +47,17 @@ export const combineStatusDistribution = (
     total: 0,
   };
 
-  epaItems.forEach((item) => {
+  for (const item of epaItems) {
     const key = mapEpaStatusToKey(item.status);
     distribution[key] += 1;
     distribution.total += 1;
-  });
+  }
 
-  claimItems.forEach((claim) => {
+  for (const claim of claimItems) {
     const key = mapClaimStatusToKey(claim.status);
     distribution[key] += 1;
     distribution.total += 1;
-  });
+  }
 
   return distribution;
 };
@@ -111,12 +111,12 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
     if (claim.status === 'denied') {
       return false;
     }
-    
+
     // Exclude fully paid claims (either status 'paid' or balance is zero)
     if (claim.status === 'paid' || isClaimFullyPaid(claim)) {
       return false;
     }
-    
+
     return true;
   });
 
@@ -140,17 +140,17 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
   outstandingClaims.forEach(claim => {
     // Calculate outstanding balance after payments
     const outstandingBalance = calculateClaimBalance(claim);
-    
+
     // Skip if no outstanding balance (should not happen due to filter above, but safety check)
     if (outstandingBalance <= 0) {
       return;
     }
-    
+
     // Calculate days since date of service (DOS)
     const daysOld = daysBetween(claim.dos, now);
     totalDays += daysOld;
     totalAmount += outstandingBalance; // Use outstanding balance, not total amount
-    
+
     // Track maximum days outstanding
     if (daysOld > maxDays) {
       maxDays = daysOld;
@@ -188,27 +188,27 @@ export const calculateRCMMetrics = (claims: Claim[]): RCMMetrics => {
 // Calculate submission pipeline metrics from claims data
 export const calculateSubmissionPipelineMetrics = (claims: Claim[]): SubmissionPipelineMetrics => {
   // Claims missing info: needs_review status with blocking issues (severity "fail")
-  const claimsMissingInfo = claims.filter(claim => 
-    claim.status === 'needs_review' && 
+  const claimsMissingInfo = claims.filter(claim =>
+    claim.status === 'needs_review' &&
     claim.issues.some(issue => issue.severity === 'fail')
   ).length;
 
   // Claims rejected by scrubber: rejected_277ca status (never got claim ID)
-  const claimsScrubberRejects = claims.filter(claim => 
+  const claimsScrubberRejects = claims.filter(claim =>
     claim.status === 'rejected_277ca'
   ).length;
 
   // Calculate submission success rate
   // Consider successful submissions as those that made it past scrubbing
-  const submissionAttempts = claims.filter(claim => 
+  const submissionAttempts = claims.filter(claim =>
     ['submitted', 'awaiting_277ca', 'accepted_277ca', 'rejected_277ca', 'paid', 'denied'].includes(claim.status)
   );
-  
-  const successfulSubmissions = claims.filter(claim => 
+
+  const successfulSubmissions = claims.filter(claim =>
     ['submitted', 'awaiting_277ca', 'accepted_277ca', 'paid'].includes(claim.status)
   );
 
-  const submissionSuccessRate = submissionAttempts.length > 0 
+  const submissionSuccessRate = submissionAttempts.length > 0
     ? Math.round((successfulSubmissions.length / submissionAttempts.length) * 100)
     : 0;
 

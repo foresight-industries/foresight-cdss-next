@@ -315,11 +315,11 @@ export const createProviderSlice: StateCreator<
   removeProviderSchedule: (id) =>
     set((state) => {
       const newSchedules = { ...state.providerSchedules };
-      Object.keys(newSchedules).forEach((clinicianId) => {
-        newSchedules[parseInt(clinicianId)] = newSchedules[
-          parseInt(clinicianId)
+      for (const clinicianId of Object.keys(newSchedules)) {
+        newSchedules[Number.parseInt(clinicianId)] = newSchedules[
+          Number.parseInt(clinicianId)
         ].filter((s) => s.id !== id);
-      });
+      }
       return { providerSchedules: newSchedules };
     }),
 

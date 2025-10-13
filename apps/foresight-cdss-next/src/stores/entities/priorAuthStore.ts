@@ -247,11 +247,11 @@ export const createPriorAuthSlice: StateCreator<
   updatePASupportingDocument: (id, updates) =>
     set((state) => {
       const newDocuments = { ...state.paSupportingDocuments };
-      Object.keys(newDocuments).forEach((paId) => {
+      for (const paId of Object.keys(newDocuments)) {
         newDocuments[paId] = newDocuments[paId].map((d) =>
           d.id === id ? { ...d, ...updates } : d
         );
-      });
+      }
       return { paSupportingDocuments: newDocuments };
     }),
 

@@ -131,8 +131,8 @@ useUIStore.subscribe(
   (state) => state.notifications,
   (notifications) => {
     if (notifications.length > 5) {
-      const toRemove = notifications.slice(0, notifications.length - 5);
-      toRemove.forEach((n) => useUIStore.getState().removeNotification(n.id));
+      const toRemove = notifications.slice(0, -5);
+      for (const n of toRemove) useUIStore.getState().removeNotification(n.id);
     }
   }
 );

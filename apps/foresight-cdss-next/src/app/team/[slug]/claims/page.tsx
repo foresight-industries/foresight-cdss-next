@@ -223,8 +223,8 @@ export default function ClaimsPage() {
     // Check if all required fields have values and proper format
     const missingFields: string[] = [];
     const invalidFields: string[] = [];
-    
-    fieldsNeedingAction.forEach(field => {
+
+    for (const field of fieldsNeedingAction) {
       const confidenceKey = `${claimId}-${field}`;
       const missingKey = `${claimId}-missing-${field}`;
       const value = needsActionFieldValues[confidenceKey] || needsActionFieldValues[missingKey];
@@ -236,7 +236,7 @@ export default function ClaimsPage() {
 
       // Validate field format for submission (stricter than editing validation)
       const trimmedValue = value.trim();
-      
+
       if (field.includes("icd") && !/^[A-Z]\d{2,3}(\.\d{1,4})?$/i.test(trimmedValue)) {
         invalidFields.push(field);
       } else if (field.includes("npi") && !/^\d{10}$/.test(trimmedValue)) {
@@ -248,7 +248,7 @@ export default function ClaimsPage() {
       } else if (field.includes("ssn") && !/^\d{3}-\d{2}-\d{4}$/.test(trimmedValue)) {
         invalidFields.push(field);
       }
-    });
+    }
 
     if (missingFields.length > 0) {
       const fieldNames = missingFields.map(field => getDescriptiveFieldName(field)).join(', ');
@@ -296,11 +296,11 @@ export default function ClaimsPage() {
     // Clear the field values for this claim
     setNeedsActionFieldValues(prev => {
       const updated = { ...prev };
-      Object.keys(prev).forEach(key => {
+      for (const key of Object.keys(prev)) {
         if (key.startsWith(`${claimId}-`)) {
           delete updated[key];
         }
-      });
+      }
       return updated;
     });
 
@@ -650,14 +650,14 @@ export default function ClaimsPage() {
 
   const submitClaims = useCallback(
     (ids: string[], auto = false, options?: { resubmitting?: boolean }) => {
-      ids.forEach((id) => triggerSubmit(id, auto, options));
+      for (const id of ids) triggerSubmit(id, auto, options);
     },
     [triggerSubmit]
   );
 
   const resubmitClaims = useCallback(
     (ids: string[]) => {
-      ids.forEach((id) => triggerSubmit(id, false, { resubmitting: true }));
+      for (const id of ids) triggerSubmit(id, false, { resubmitting: true });
     },
     [triggerSubmit]
   );
@@ -795,14 +795,14 @@ export default function ClaimsPage() {
   const processedClaimIds = React.useRef(new Set<string>());
 
   useEffect(() => {
-    claims.forEach(claim => {
+    for (const claim of claims) {
       if (claim.status === 'denied' && !processedClaimIds.current.has(claim.id)) {
         const wasProcessed = handleDenialViaPlaybook(claim);
         if (wasProcessed || !mockValidationSettings.denialPlaybook.autoRetryEnabled) {
           processedClaimIds.current.add(claim.id);
         }
       }
-    });
+    }
   }, [claims, handleDenialViaPlaybook, mockValidationSettings.denialPlaybook.autoRetryEnabled]);
 
   // Handle claim query parameter to auto-open claim details
@@ -819,7 +819,7 @@ export default function ClaimsPage() {
 
   // Auto-submission disabled for demo
   // useEffect(() => {
-  //   claims.forEach((claim) => {
+  //   for (const claim of claims) {
   //     if (
   //       claim.status === "built" &&
   //       getBlockingIssueCount(claim) === 0 &&
@@ -828,7 +828,7 @@ export default function ClaimsPage() {
   //     ) {
   //       triggerSubmit(claim.id, true);
   //     }
-  //   });
+  //   }
   // }, [claims, threshold, triggerSubmit]);
 
   const filteredClaims = useMemo(() => {
@@ -1746,7 +1746,7 @@ export default function ClaimsPage() {
             <Button variant="outline" onClick={handleCancelNote}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSaveNote}
               disabled={!noteText.trim()}
             >

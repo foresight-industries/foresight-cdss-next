@@ -97,9 +97,9 @@ export function DataFilters<T extends BaseFilters>({
         value !== "" && value !== "all" && value !== null && value !== undefined
       );
     });
-    
+
     const hasExternalFilters = externalActiveFilters && externalActiveFilters.length > 0;
-    
+
     return hasMainFilters || hasExternalFilters;
   };
 
@@ -113,9 +113,9 @@ export function DataFilters<T extends BaseFilters>({
         value !== "" && value !== "all" && value !== null && value !== undefined
       );
     }).length;
-    
+
     const externalFilterCount = externalActiveFilters ? externalActiveFilters.length : 0;
-    
+
     return mainFilterCount + externalFilterCount;
   };
 
@@ -127,7 +127,7 @@ export function DataFilters<T extends BaseFilters>({
         acc[key as keyof T] = [] as T[keyof T];
       } else if (typeof filters[key as keyof T] === "boolean") {
         acc[key as keyof T] = false as T[keyof T];
-      } else if (key.includes("Id") || key.includes("Name") || key.includes("State") || key.includes("provider") || 
+      } else if (key.includes("Id") || key.includes("Name") || key.includes("State") || key.includes("provider") ||
                  key === "medication" || key === "conditions" || key === "attempt") {
         // Column-specific filters should be cleared to empty string
         acc[key as keyof T] = "" as T[keyof T];
@@ -137,10 +137,10 @@ export function DataFilters<T extends BaseFilters>({
       return acc;
     }, {} as T);
     onFiltersChange(clearedFilters);
-    
+
     // Also clear external filters
     if (externalActiveFilters && externalActiveFilters.length > 0) {
-      externalActiveFilters.forEach(filter => filter.onRemove());
+      for (const filter of externalActiveFilters) filter.onRemove();
     }
   };
 
@@ -151,7 +151,7 @@ export function DataFilters<T extends BaseFilters>({
       updateFilter(key, [] as T[keyof T]);
     } else if (typeof filters[key] === "boolean") {
       updateFilter(key, false as T[keyof T]);
-    } else if (String(key).includes("Id") || String(key).includes("Name") || String(key).includes("State") || String(key).includes("provider") || 
+    } else if (String(key).includes("Id") || String(key).includes("Name") || String(key).includes("State") || String(key).includes("provider") ||
                key === "medication" || key === "conditions" || key === "attempt") {
       // Column-specific filters should be cleared to empty string
       updateFilter(key, "" as T[keyof T]);
@@ -290,7 +290,7 @@ export function DataFilters<T extends BaseFilters>({
   const getActiveFilterBadges = () => {
     const badges: JSX.Element[] = [];
 
-    Object.entries(filters).forEach(([key, value]) => {
+    for (const [key, value] of Object.entries(filters)) {
       if (key === "search" && value && String(value).trim() !== "") {
         badges.push(
           <Badge key={key} variant="secondary" className="gap-1">
@@ -377,11 +377,11 @@ export function DataFilters<T extends BaseFilters>({
           </Badge>
         );
       }
-    });
+    }
 
     // Add external filter badges
     if (externalActiveFilters) {
-      externalActiveFilters.forEach((filter) => {
+      for (const filter of externalActiveFilters) {
         badges.push(
           <Badge key={filter.key} variant="secondary" className="gap-1">
             {filter.label}
@@ -396,7 +396,7 @@ export function DataFilters<T extends BaseFilters>({
             </Button>
           </Badge>
         );
-      });
+      }
     }
 
     return badges;
