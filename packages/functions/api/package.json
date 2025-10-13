@@ -1,0 +1,14 @@
+{
+  "name": "rcm-api-functions",
+  "version": "1.0.0",
+  "description": "RCM API Lambda functions",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Build complete'",
+    "test": "echo 'No tests specified'"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

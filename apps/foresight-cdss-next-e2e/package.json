@@ -1,10 +1,10 @@
 {
-  "name": "@foresight-cdss-next/foresight-cdss-next-e2e",
+  "name": "@foresight-cdss-next/web-e2e",
   "version": "0.0.1",
   "private": true,
   "nx": {
     "implicitDependencies": [
-      "@foresight-cdss-next/foresight-cdss-next"
+      "@foresight-cdss-next/web"
     ]
   }
 }

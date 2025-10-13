@@ -1,0 +1,31 @@
+{
+  "name": "@foresight-cdss-next/db",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:introspect": "npx drizzle-kit pull",
+    "db:generate": "npx drizzle-kit generate",
+    "db:push": "npx drizzle-kit push",
+    "db:migrate": "npx tsx migrate.ts",
+    "db:studio": "npx drizzle-kit studio",
+    "db:reset": "tsx scripts/reset-db.ts",
+    "db:reset:force": "tsx scripts/reset-db.ts --force",
+    "db:seed": "tsx scripts/seed.ts"
+  },
+  "type": "commonjs",
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.908.0",
+    "@aws-sdk/client-secrets-manager": "^3.908.0",
+    "drizzle-orm": "^0.44.6",
+    "drizzle-zod": "^0.8.3",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@dotenvx/dotenvx": "*",
+    "@types/node": "^24.7.2",
+    "drizzle-kit": "^0.31.5",
+    "tsx": "*",
+    "typescript": "~5.8.2"
+  }
+}

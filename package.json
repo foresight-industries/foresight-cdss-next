@@ -4,9 +4,11 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
+    "esbuild": "^0.25.10",
     "next": "~15.5.4",
     "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react-dom": "19.0.0",
+    "trpc-openapi": "^1.2.0"
   },
   "devDependencies": {
     "@dotenvx/dotenvx": "^1.51.0",
@@ -50,16 +52,22 @@
     "pg": "^8.16.3",
     "prettier": "^2.6.2",
     "ts-jest": "^29.4.0",
-    "ts-node": "10.9.1",
     "tslib": "^2.3.0",
+    "tsx": "^4.20.6",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "db:gen-types": "yarn run db:generate",
+    "db:introspect": "yarn run db:introspect --workspace=packages/db",
+    "type-check": "tsc --noEmit",
+    "codegen": "npm run db:generate-types && npm run type-check"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "infra",
+    "packages/*"
   ],
   "packageManager": "yarn@4.10.3"
 }
