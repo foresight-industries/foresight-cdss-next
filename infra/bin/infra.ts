@@ -12,6 +12,10 @@ import { SecurityStack } from '../lib/stacks/security-stack';
 
 const app = new cdk.App();
 
+if (!process.env.CDK_DEFAULT_ACCOUNT) {
+  throw new Error('CDK_DEFAULT_ACCOUNT is not defined');
+}
+
 ['staging', 'prod'].forEach(envName => {
   const env = {
     account: process.env.CDK_DEFAULT_ACCOUNT,

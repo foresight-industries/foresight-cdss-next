@@ -38,7 +38,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ github.ref == 'refs/heads/main' && secrets.AWS_ROLE_ARN_PROD || secrets.AWS_ROLE_ARN_STAGING }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
           role-session-name: GitHubActions-CDKDeploy
           aws-region: ${{ env.AWS_REGION }}
 
@@ -57,9 +57,9 @@ jobs:
           cd infra
           yarn cdk deploy --all --require-approval never --verbose
         env:
-          STAGE_NAME: ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }}
+          STAGE_NAME: prod
 
       - name: Output deployment results
         run: |
           echo "Deployment completed successfully!"
-          echo "Stage: ${{ github.ref == 'refs/heads/main' && 'prod' || 'staging' }}"
+          echo "Stage: prod"
