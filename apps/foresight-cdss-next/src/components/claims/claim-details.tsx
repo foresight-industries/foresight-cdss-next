@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -1015,6 +1017,9 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
               {/* Add Payment Form Modal */}
               <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
                 <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle className="sr-only">Add Payment</DialogTitle>
+                  </DialogHeader>
                   <AddPaymentForm
                     claim={claim}
                     onPaymentAdded={async (paymentData) => {
