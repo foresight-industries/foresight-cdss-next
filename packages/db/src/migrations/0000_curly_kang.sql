@@ -16,6 +16,7 @@ CREATE TYPE "public"."contact_type" AS ENUM('emergency', 'family', 'friend', 'ca
 CREATE TYPE "public"."contract_status" AS ENUM('active', 'inactive', 'pending', 'expired', 'terminated');--> statement-breakpoint
 CREATE TYPE "public"."credentialing_status" AS ENUM('not_started', 'in_progress', 'pending_review', 'approved', 'denied', 'expired', 'suspended');--> statement-breakpoint
 CREATE TYPE "public"."data_quality_status" AS ENUM('high', 'medium', 'low', 'critical');--> statement-breakpoint
+CREATE TYPE "public"."data_source_type" AS ENUM('ehr', 'manual_entry', 'api', 'file_import', 'automated_extraction');--> statement-breakpoint
 CREATE TYPE "public"."denial_category" AS ENUM('authorization', 'eligibility', 'coverage', 'medical_necessity', 'coding', 'documentation', 'duplicate', 'timely_filing', 'coordination_of_benefits');--> statement-breakpoint
 CREATE TYPE "public"."denial_status" AS ENUM('new', 'under_review', 'appealed', 'resolved', 'written_off');--> statement-breakpoint
 CREATE TYPE "public"."document_type" AS ENUM('medical_record', 'insurance_card', 'id_verification', 'prior_auth', 'appeal_document', 'correspondence', 'claim_attachment', 'other');--> statement-breakpoint
@@ -25,6 +26,7 @@ CREATE TYPE "public"."eligibility_check_type" AS ENUM('real_time', 'batch', 'man
 CREATE TYPE "public"."eligibility_response" AS ENUM('active', 'inactive', 'terminated', 'unknown', 'error');--> statement-breakpoint
 CREATE TYPE "public"."encounter_status" AS ENUM('scheduled', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show');--> statement-breakpoint
 CREATE TYPE "public"."era_status" AS ENUM('pending', 'processing', 'posted', 'failed', 'partial');--> statement-breakpoint
+CREATE TYPE "public"."formulary_tier" AS ENUM('tier_1', 'tier_2', 'tier_3', 'tier_4', 'specialty', 'non_formulary');--> statement-breakpoint
 CREATE TYPE "public"."gender" AS ENUM('M', 'F', 'O', 'U');--> statement-breakpoint
 CREATE TYPE "public"."integration_type" AS ENUM('ehr', 'clearinghouse', 'payer', 'pharmacy', 'lab', 'imaging', 'other');--> statement-breakpoint
 CREATE TYPE "public"."lab_status" AS ENUM('ordered', 'collected', 'in_progress', 'completed', 'cancelled', 'resulted');--> statement-breakpoint
@@ -40,12 +42,15 @@ CREATE TYPE "public"."provider_enrollment_type" AS ENUM('initial', 'revalidation
 CREATE TYPE "public"."reconciliation_status" AS ENUM('pending', 'matched', 'unmatched', 'disputed', 'resolved');--> statement-breakpoint
 CREATE TYPE "public"."resource_status" AS ENUM('available', 'in_use', 'maintenance', 'out_of_service', 'reserved');--> statement-breakpoint
 CREATE TYPE "public"."resource_type" AS ENUM('room', 'equipment', 'vehicle', 'device', 'other');--> statement-breakpoint
+CREATE TYPE "public"."retry_backoff_strategy" AS ENUM('linear', 'exponential', 'fibonacci', 'fixed');--> statement-breakpoint
 CREATE TYPE "public"."schedule_status" AS ENUM('scheduled', 'confirmed', 'cancelled', 'completed', 'no_show');--> statement-breakpoint
 CREATE TYPE "public"."shift_type" AS ENUM('regular', 'overtime', 'on_call', 'emergency', 'vacation_coverage', 'sick_coverage');--> statement-breakpoint
 CREATE TYPE "public"."statement_status" AS ENUM('draft', 'sent', 'paid', 'overdue', 'disputed', 'written_off');--> statement-breakpoint
 CREATE TYPE "public"."sync_status" AS ENUM('pending', 'in_progress', 'completed', 'failed', 'partial');--> statement-breakpoint
 CREATE TYPE "public"."validation_status" AS ENUM('pending', 'valid', 'invalid', 'warning', 'needs_review');--> statement-breakpoint
+CREATE TYPE "public"."variance_type" AS ENUM('overpayment', 'underpayment', 'timing_difference', 'policy_change', 'coding_error', 'other');--> statement-breakpoint
 CREATE TYPE "public"."visit_type" AS ENUM('office_visit', 'telemedicine', 'emergency', 'inpatient', 'outpatient', 'consultation', 'procedure', 'follow_up', 'annual_physical');--> statement-breakpoint
+CREATE TYPE "public"."work_queue_type" AS ENUM('claim_review', 'prior_auth', 'appeal', 'payment_posting', 'denial_management', 'follow_up');--> statement-breakpoint
 CREATE TYPE "public"."workflow_status" AS ENUM('pending', 'in_progress', 'completed', 'failed', 'cancelled');--> statement-breakpoint
 CREATE TABLE "address" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
@@ -60,6 +65,27 @@ CREATE TABLE "address" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "adjustment_reason_code" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"code" varchar(10) NOT NULL,
+	"code_type" "adjustment_code_type" NOT NULL,
+	"category" "adjustment_reason_category" NOT NULL,
+	"description" text NOT NULL,
+	"short_description" varchar(100),
+	"payer_id" uuid,
+	"payer_specific_code" varchar(20),
+	"financial_class" varchar(50),
+	"requires_patient_notification" boolean DEFAULT false,
+	"appealable" boolean DEFAULT false,
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"expiration_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "analytics_event" (
@@ -93,6 +119,23 @@ CREATE TABLE "api_key" (
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp,
 	"created_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "api_version" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"service_name" varchar(100) NOT NULL,
+	"version" varchar(20) NOT NULL,
+	"release_date" date NOT NULL,
+	"status" varchar(20) DEFAULT 'active' NOT NULL,
+	"is_backward_compatible" boolean DEFAULT true,
+	"deprecation_date" date,
+	"sunset_date" date,
+	"migration_guide" text,
+	"release_notes" text,
+	"breaking_changes" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "appeal" (
@@ -162,6 +205,37 @@ CREATE TABLE "audit_log" (
 	"contains_phi" boolean DEFAULT false NOT NULL,
 	"access_reason" text,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "automation_event" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"automation_rule_id" uuid NOT NULL,
+	"event_type" varchar(50) NOT NULL,
+	"event_data" json DEFAULT '{}'::json,
+	"context_type" varchar(50),
+	"context_id" uuid,
+	"execution_id" uuid,
+	"started_at" timestamp DEFAULT now() NOT NULL,
+	"completed_at" timestamp,
+	"status" varchar(20) DEFAULT 'pending',
+	"error_message" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "automation_retry" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"task_type" varchar(100) NOT NULL,
+	"task_id" varchar(255) NOT NULL,
+	"attempt_number" integer NOT NULL,
+	"max_attempts" integer DEFAULT 3 NOT NULL,
+	"next_retry_at" timestamp,
+	"backoff_strategy" "retry_backoff_strategy" DEFAULT 'exponential',
+	"last_error" text,
+	"metadata" jsonb,
+	"status" varchar(50) DEFAULT 'pending' NOT NULL,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
 CREATE TABLE "automation_rule" (
@@ -246,6 +320,37 @@ CREATE TABLE "batch_job" (
 	"updated_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "benefits_coverage" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"patient_id" uuid NOT NULL,
+	"insurance_policy_id" uuid NOT NULL,
+	"service_category" varchar(50) NOT NULL,
+	"service_type" varchar(50),
+	"deductible" numeric(10, 2),
+	"deductible_met" numeric(10, 2) DEFAULT '0',
+	"out_of_pocket_max" numeric(10, 2),
+	"out_of_pocket_met" numeric(10, 2) DEFAULT '0',
+	"copay" numeric(8, 2),
+	"coinsurance_patient" numeric(5, 4),
+	"coinsurance_plan" numeric(5, 4),
+	"visit_limit" integer,
+	"visit_limit_period" varchar(20),
+	"amount_limit" numeric(10, 2),
+	"amount_limit_period" varchar(20),
+	"prior_auth_required" boolean DEFAULT false,
+	"referral_required" boolean DEFAULT false,
+	"pre_approval_required" boolean DEFAULT false,
+	"in_network" boolean DEFAULT true,
+	"network_tier" varchar(20),
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"termination_date" date,
+	"last_verified_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "business_rule_action" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -277,6 +382,22 @@ CREATE TABLE "business_rule_action" (
 	"environment" varchar(20),
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"executed_by" varchar(20) DEFAULT 'system'
+);
+--> statement-breakpoint
+CREATE TABLE "business_rule_condition" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"business_rule_id" uuid NOT NULL,
+	"condition_type" varchar(50) NOT NULL,
+	"field_name" varchar(100) NOT NULL,
+	"operator" varchar(20) NOT NULL,
+	"expected_value" text,
+	"logical_operator" varchar(10) DEFAULT 'AND',
+	"grouping" varchar(10),
+	"is_active" boolean DEFAULT true,
+	"evaluation_order" integer DEFAULT 1,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "business_rule" (
@@ -330,6 +451,21 @@ CREATE TABLE "charge_capture" (
 	"updated_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "claim_attachment" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"claim_id" uuid,
+	"filename" varchar(255) NOT NULL,
+	"file_type" varchar(50) NOT NULL,
+	"file_size" integer NOT NULL,
+	"s3_key" varchar(255) NOT NULL,
+	"description" text,
+	"is_required" boolean DEFAULT false,
+	"uploaded_by" uuid,
+	"uploaded_at" timestamp DEFAULT now(),
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "claim_line" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"claim_id" uuid NOT NULL,
@@ -352,6 +488,41 @@ CREATE TABLE "claim_line" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "claim_state_history" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"claim_id" uuid NOT NULL,
+	"from_status" "claim_status",
+	"to_status" "claim_status" NOT NULL,
+	"change_reason" text,
+	"changed_by" uuid,
+	"change_date" timestamp DEFAULT now() NOT NULL,
+	"notes" text,
+	"metadata" json DEFAULT '{}'::json,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "claim_validation" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"claim_id" uuid NOT NULL,
+	"validation_type" varchar(50) NOT NULL,
+	"validation_rule" text NOT NULL,
+	"validation_result" varchar(20) NOT NULL,
+	"error_code" varchar(20),
+	"error_message" text,
+	"error_severity" varchar(20),
+	"can_auto_fix" boolean DEFAULT false,
+	"auto_fix_applied" boolean DEFAULT false,
+	"manual_review_required" boolean DEFAULT false,
+	"confidence_score" numeric(5, 4),
+	"status" varchar(20) DEFAULT 'pending',
+	"resolved_at" timestamp,
+	"resolved_by" uuid,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "claim" (
@@ -571,6 +742,19 @@ CREATE TABLE "compliance_tracking" (
 	"updated_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "confidence_thresholds" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"organization_id" uuid,
+	"task_type" varchar(100) NOT NULL,
+	"low_threshold" numeric(5, 4) NOT NULL,
+	"medium_threshold" numeric(5, 4) NOT NULL,
+	"high_threshold" numeric(5, 4) NOT NULL,
+	"auto_process_threshold" numeric(5, 4),
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "contracted_rate" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"payer_contract_id" uuid NOT NULL,
@@ -588,6 +772,30 @@ CREATE TABLE "contracted_rate" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "cpt_code_master" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"cpt_code" varchar(10) NOT NULL,
+	"short_description" varchar(100) NOT NULL,
+	"long_description" text NOT NULL,
+	"category" varchar(50),
+	"section" varchar(50),
+	"subsection" varchar(50),
+	"rvu_work" numeric(10, 4),
+	"rvu_practice_expense" numeric(10, 4),
+	"rvu_malpractice" numeric(10, 4),
+	"rvu_total" numeric(10, 4),
+	"bilateral_surgery" boolean DEFAULT false,
+	"assistant_surgeon" boolean DEFAULT false,
+	"co_surgeon" boolean DEFAULT false,
+	"multiple_proc" boolean DEFAULT false,
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"termination_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "credentialing_application" (
@@ -651,6 +859,44 @@ CREATE TABLE "credentialing_application" (
 	"deleted_at" timestamp,
 	"created_by" uuid,
 	"updated_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "custom_field_mapping" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"custom_field_id" integer,
+	"ehr_system" varchar(100) NOT NULL,
+	"ehr_field_path" varchar(500) NOT NULL,
+	"transformation_rules" jsonb,
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "custom_field_value" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"custom_field_id" integer,
+	"entity_type" varchar(100) NOT NULL,
+	"entity_id" integer NOT NULL,
+	"value" text,
+	"data_source" "data_source_type" DEFAULT 'manual_entry',
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "custom_field" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"organization_id" uuid,
+	"name" varchar(255) NOT NULL,
+	"display_name" varchar(255) NOT NULL,
+	"field_type" varchar(50) NOT NULL,
+	"is_required" boolean DEFAULT false,
+	"default_value" text,
+	"validation_rules" jsonb,
+	"options" jsonb,
+	"description" text,
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
 CREATE TABLE "denial_playbook" (
@@ -781,6 +1027,29 @@ CREATE TABLE "ehr_connection" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "ehr_system" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"system_name" text NOT NULL,
+	"vendor" varchar(100) NOT NULL,
+	"version" varchar(50),
+	"api_type" "ehr_api_type" DEFAULT 'fhir' NOT NULL,
+	"base_url" text NOT NULL,
+	"auth_method" "ehr_auth_method" DEFAULT 'oauth2' NOT NULL,
+	"client_id" varchar(255),
+	"redirect_uri" text,
+	"scopes" text,
+	"supported_resources" text,
+	"supported_operations" text,
+	"sync_enabled" boolean DEFAULT false,
+	"sync_frequency" varchar(20),
+	"last_sync_at" timestamp,
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
+);
+--> statement-breakpoint
 CREATE TABLE "eligibility_cache" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -815,6 +1084,25 @@ CREATE TABLE "eligibility_check" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"checked_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "em_time_rule" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"cpt_code" varchar(10) NOT NULL,
+	"service_category" varchar(50) NOT NULL,
+	"min_time" integer NOT NULL,
+	"max_time" integer,
+	"typical_time" integer,
+	"requires_counseling_coordination" boolean DEFAULT false,
+	"counseling_threshold_percent" integer,
+	"time_documentation_required" boolean DEFAULT true,
+	"start_end_time_required" boolean DEFAULT false,
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"expiration_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "emergency_contact" (
@@ -943,6 +1231,23 @@ CREATE TABLE "fee_schedule" (
 	"updated_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "fhir_resource" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"resource_type" varchar(50) NOT NULL,
+	"resource_id" varchar(100) NOT NULL,
+	"version" varchar(10) DEFAULT 'R4',
+	"source_system" varchar(100) NOT NULL,
+	"source_id" varchar(100),
+	"resource_data" jsonb NOT NULL,
+	"last_modified" timestamp NOT NULL,
+	"sync_status" varchar(20) DEFAULT 'pending',
+	"sync_error" text,
+	"last_sync_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "field_confidence" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -961,6 +1266,28 @@ CREATE TABLE "field_confidence" (
 	"score_change_reason" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "field_mapping_template" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"template_name" varchar(100) NOT NULL,
+	"description" text,
+	"source_system" varchar(100) NOT NULL,
+	"target_system" varchar(100) NOT NULL,
+	"source_entity" varchar(100) NOT NULL,
+	"target_entity" varchar(100) NOT NULL,
+	"field_mappings" jsonb NOT NULL,
+	"transformation_rules" jsonb,
+	"validation_rules" jsonb,
+	"version" varchar(20) DEFAULT '1.0',
+	"is_default" boolean DEFAULT false,
+	"is_active" boolean DEFAULT true,
+	"usage_count" integer DEFAULT 0,
+	"last_used_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "formulary" (
@@ -1309,6 +1636,23 @@ CREATE TABLE "ml_prediction" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "modifier_code" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"modifier_code" varchar(5) NOT NULL,
+	"description" text NOT NULL,
+	"short_description" varchar(100),
+	"category" varchar(50),
+	"type" varchar(30),
+	"level_i_indicator" varchar(10),
+	"level_ii_indicator" varchar(10),
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"termination_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "notification_template" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -1343,6 +1687,20 @@ CREATE TABLE "notification" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "organization_invitation" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"email" varchar(255) NOT NULL,
+	"role" varchar(50) NOT NULL,
+	"token" varchar(255) NOT NULL,
+	"status" varchar(20) DEFAULT 'pending',
+	"expires_at" timestamp NOT NULL,
+	"accepted_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"invited_by" uuid NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "organization" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"clerk_org_id" text NOT NULL,
@@ -1364,6 +1722,38 @@ CREATE TABLE "organization" (
 	"deleted_at" timestamp,
 	CONSTRAINT "organization_clerk_org_id_unique" UNIQUE("clerk_org_id"),
 	CONSTRAINT "organization_slug_unique" UNIQUE("slug")
+);
+--> statement-breakpoint
+CREATE TABLE "pa_clinical_criteria" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"name" varchar(255) NOT NULL,
+	"description" text,
+	"cpt_codes" jsonb,
+	"icd_codes" jsonb,
+	"drug_codes" jsonb,
+	"criteria" jsonb NOT NULL,
+	"payer_id" uuid,
+	"is_active" boolean DEFAULT true,
+	"effective_from" timestamp,
+	"effective_to" timestamp,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "pa_requirement_rule" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"payer_id" uuid,
+	"name" varchar(255) NOT NULL,
+	"description" text,
+	"conditions" jsonb NOT NULL,
+	"required_documents" jsonb,
+	"auto_approval_criteria" jsonb,
+	"priority" integer DEFAULT 0,
+	"is_active" boolean DEFAULT true,
+	"effective_from" timestamp,
+	"effective_to" timestamp,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
 );
 --> statement-breakpoint
 CREATE TABLE "pathology_report" (
@@ -1562,6 +1952,31 @@ CREATE TABLE "patient_payment" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "patient_quality_measure" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"patient_id" uuid NOT NULL,
+	"quality_measure_id" uuid NOT NULL,
+	"measurement_date" date NOT NULL,
+	"reporting_period" varchar(20) NOT NULL,
+	"is_eligible" boolean NOT NULL,
+	"eligibility_reason" text,
+	"meets_numerator" boolean DEFAULT false,
+	"meets_denominator" boolean DEFAULT false,
+	"is_excluded" boolean DEFAULT false,
+	"exclusion_reason" text,
+	"clinical_data_elements" jsonb,
+	"evidence_sources" jsonb,
+	"risk_factors" jsonb,
+	"risk_score" numeric(8, 4),
+	"performance_score" numeric(5, 4),
+	"improvement_opportunities" text,
+	"recommended_actions" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"calculated_by" uuid
+);
+--> statement-breakpoint
 CREATE TABLE "patient_statement" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -1612,6 +2027,35 @@ CREATE TABLE "patient" (
 	"updated_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "payer_config" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"payer_id" uuid NOT NULL,
+	"submission_method" varchar(30) NOT NULL,
+	"clearinghouse_id" uuid,
+	"requires_prior_auth" boolean DEFAULT false,
+	"prior_auth_types" text,
+	"max_claims_per_batch" integer DEFAULT 100,
+	"submission_frequency" varchar(20),
+	"submission_times" text,
+	"follow_up_days" integer DEFAULT 30,
+	"appeal_time_limit" integer DEFAULT 90,
+	"second_level_appeal_time_limit" integer DEFAULT 180,
+	"appeal_submission_method" varchar(30),
+	"payment_method" varchar(30),
+	"payment_frequency" varchar(20),
+	"expected_payment_days" integer DEFAULT 30,
+	"contact_name" varchar(100),
+	"contact_phone" varchar(20),
+	"contact_email" varchar(100),
+	"submission_address" text,
+	"appeal_address" text,
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
+);
+--> statement-breakpoint
 CREATE TABLE "payer_contract" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -1634,6 +2078,127 @@ CREATE TABLE "payer_contract" (
 	"deleted_at" timestamp,
 	"created_by" uuid,
 	"updated_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "payer_override_action" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"rule_id" integer,
+	"action_type" varchar(100) NOT NULL,
+	"target_field" varchar(255),
+	"new_value" text,
+	"parameters" jsonb,
+	"created_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "payer_override_condition" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"rule_id" integer,
+	"field" varchar(255) NOT NULL,
+	"operator" varchar(50) NOT NULL,
+	"value" text,
+	"logical_operator" varchar(10) DEFAULT 'AND',
+	"created_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "payer_override_rule" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"payer_id" uuid,
+	"name" varchar(255) NOT NULL,
+	"description" text,
+	"priority" integer DEFAULT 0,
+	"is_active" boolean DEFAULT true,
+	"effective_from" timestamp,
+	"effective_to" timestamp,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "payer_portal_credential" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"payer_id" uuid NOT NULL,
+	"portal_name" varchar(100) NOT NULL,
+	"portal_url" text NOT NULL,
+	"portal_type" varchar(50),
+	"username" varchar(100) NOT NULL,
+	"encrypted_password" text NOT NULL,
+	"security_questions" jsonb,
+	"two_factor_secret" varchar(100),
+	"session_timeout" integer DEFAULT 30,
+	"last_login_at" timestamp,
+	"session_token" text,
+	"is_active" boolean DEFAULT true,
+	"credential_status" varchar(20) DEFAULT 'active',
+	"last_validated" timestamp,
+	"auto_login_enabled" boolean DEFAULT false,
+	"last_auto_login" timestamp,
+	"login_frequency" varchar(20),
+	"password_last_changed" timestamp,
+	"password_expiry_date" date,
+	"failed_login_attempts" integer DEFAULT 0,
+	"last_failed_login" timestamp,
+	"notes" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "payer_response_message" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"payer_id" uuid NOT NULL,
+	"claim_id" uuid,
+	"message_type" varchar(50) NOT NULL,
+	"message_id" varchar(100),
+	"response_code" varchar(20),
+	"raw_message" text NOT NULL,
+	"parsed_data" jsonb,
+	"processing_status" varchar(20) DEFAULT 'pending',
+	"processed_at" timestamp,
+	"processing_error" text,
+	"remittance_advice_id" uuid,
+	"batch_id" uuid,
+	"received_at" timestamp DEFAULT now() NOT NULL,
+	"message_size" integer,
+	"message_format" varchar(20),
+	"actions_taken" jsonb,
+	"requires_manual_review" boolean DEFAULT false,
+	"reviewed_by" uuid,
+	"reviewed_at" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payer_submission_config" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"payer_id" uuid NOT NULL,
+	"submission_method" varchar(30) NOT NULL,
+	"clearinghouse_id" uuid,
+	"submitter_tax_id" varchar(20),
+	"submitter_npi" varchar(10),
+	"receiver_id" varchar(50),
+	"max_claims_per_batch" integer DEFAULT 100,
+	"batch_submission_times" jsonb,
+	"file_format" varchar(20),
+	"file_version" varchar(10),
+	"character_set" varchar(20) DEFAULT 'UTF-8',
+	"portal_credential_id" uuid,
+	"portal_submission_path" text,
+	"pre_submission_validation" boolean DEFAULT true,
+	"validation_rules" jsonb,
+	"acknowledgment_required" boolean DEFAULT true,
+	"acknowledgment_timeout" integer DEFAULT 72,
+	"auto_process_acknowledgment" boolean DEFAULT true,
+	"retry_on_failure" boolean DEFAULT true,
+	"max_retry_attempts" integer DEFAULT 3,
+	"retry_delay" integer DEFAULT 60,
+	"track_submission_status" boolean DEFAULT true,
+	"status_check_frequency" integer DEFAULT 24,
+	"is_active" boolean DEFAULT true,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "payer" (
@@ -1705,6 +2270,22 @@ CREATE TABLE "payment_plan" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "payment_posting_activity" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"session_id" uuid NOT NULL,
+	"batch_number" varchar(50),
+	"payment_id" uuid,
+	"claim_id" uuid,
+	"activity_type" varchar(50) NOT NULL,
+	"amount" numeric(10, 2) NOT NULL,
+	"posted_by" uuid NOT NULL,
+	"posted_at" timestamp DEFAULT now() NOT NULL,
+	"status" varchar(20) DEFAULT 'posted',
+	"notes" text,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "payment_reconciliation" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -1718,6 +2299,73 @@ CREATE TABLE "payment_reconciliation" (
 	"reconciled_by" uuid,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "payment_variance" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"payment_id" uuid,
+	"claim_id" uuid,
+	"variance_type" "variance_type" NOT NULL,
+	"expected_amount" numeric(10, 2) NOT NULL,
+	"actual_amount" numeric(10, 2) NOT NULL,
+	"variance_amount" numeric(10, 2) NOT NULL,
+	"reason" text,
+	"status" varchar(50) DEFAULT 'pending',
+	"resolved_by" uuid,
+	"resolved_at" timestamp,
+	"notes" text,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "place_of_service" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"pos_code" varchar(5) NOT NULL,
+	"description" text NOT NULL,
+	"short_description" varchar(100),
+	"category" varchar(50),
+	"subcategory" varchar(50),
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"termination_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "portal_automation_task" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"payer_id" uuid NOT NULL,
+	"portal_credential_id" uuid NOT NULL,
+	"task_type" varchar(50) NOT NULL,
+	"task_name" varchar(100) NOT NULL,
+	"description" text,
+	"is_scheduled" boolean DEFAULT false,
+	"schedule_expression" varchar(100),
+	"next_run_time" timestamp,
+	"last_run_time" timestamp,
+	"task_parameters" jsonb,
+	"automation_steps" jsonb,
+	"status" varchar(20) DEFAULT 'active',
+	"execution_count" integer DEFAULT 0,
+	"success_count" integer DEFAULT 0,
+	"error_count" integer DEFAULT 0,
+	"last_execution_status" varchar(20),
+	"last_execution_duration" integer,
+	"last_execution_error" text,
+	"last_execution_log" text,
+	"average_execution_time" integer,
+	"success_rate" numeric(5, 4),
+	"retry_on_failure" boolean DEFAULT true,
+	"max_retries" integer DEFAULT 3,
+	"retry_delay" integer DEFAULT 300,
+	"enable_alerts" boolean DEFAULT true,
+	"alert_threshold" integer DEFAULT 3,
+	"last_alert_sent" timestamp,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "prior_auth" (
@@ -2104,6 +2752,64 @@ CREATE TABLE "resource_schedule" (
 	"created_by" uuid
 );
 --> statement-breakpoint
+CREATE TABLE "revenue_cycle_metrics" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"reporting_period" date NOT NULL,
+	"period_type" varchar(20) NOT NULL,
+	"days_in_ar" numeric(6, 2),
+	"days_in_ar_30" numeric(6, 2),
+	"days_in_ar_60" numeric(6, 2),
+	"days_in_ar_90" numeric(6, 2),
+	"days_in_ar_120_plus" numeric(6, 2),
+	"collection_rate" numeric(5, 4),
+	"net_collection_rate" numeric(5, 4),
+	"gross_collection_rate" numeric(5, 4),
+	"denial_rate" numeric(5, 4),
+	"denial_overturn_rate" numeric(5, 4),
+	"clean_claim_rate" numeric(5, 4),
+	"total_charges" numeric(12, 2),
+	"total_collections" numeric(12, 2),
+	"total_adjustments" numeric(12, 2),
+	"total_write_offs" numeric(12, 2),
+	"claims_submitted" integer,
+	"claims_paid" integer,
+	"claims_denied" integer,
+	"claims_pending" integer,
+	"cost_to_collect" numeric(8, 4),
+	"calculated_at" timestamp DEFAULT now() NOT NULL,
+	"calculated_by" uuid,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "rule_condition" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"rule_id" integer NOT NULL,
+	"rule_type" varchar(100) NOT NULL,
+	"field" varchar(255) NOT NULL,
+	"operator" varchar(50) NOT NULL,
+	"value" text,
+	"logical_operator" varchar(10) DEFAULT 'AND',
+	"group_id" varchar(50),
+	"created_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
+CREATE TABLE "rule_execution_log" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"rule_id" integer NOT NULL,
+	"rule_type" varchar(100) NOT NULL,
+	"entity_type" varchar(100) NOT NULL,
+	"entity_id" integer NOT NULL,
+	"executed_at" timestamp DEFAULT now(),
+	"result" varchar(50) NOT NULL,
+	"conditions" jsonb,
+	"actions" jsonb,
+	"execution_time" integer,
+	"error" text,
+	"metadata" jsonb
+);
+--> statement-breakpoint
 CREATE TABLE "scrubbing_result" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -2273,6 +2979,56 @@ CREATE TABLE "suggested_fix" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "sync_job" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"ehr_system_id" uuid NOT NULL,
+	"job_name" varchar(100) NOT NULL,
+	"job_type" varchar(50) NOT NULL,
+	"direction" varchar(10) NOT NULL,
+	"sync_frequency" varchar(20),
+	"sync_schedule" varchar(100),
+	"entity_type" varchar(50) NOT NULL,
+	"field_mapping_template_id" uuid,
+	"sync_filters" jsonb,
+	"data_range" jsonb,
+	"status" "sync_status" DEFAULT 'pending' NOT NULL,
+	"is_active" boolean DEFAULT true,
+	"last_sync_at" timestamp,
+	"next_sync_at" timestamp,
+	"last_sync_duration" integer,
+	"total_records_processed" integer DEFAULT 0,
+	"records_created" integer DEFAULT 0,
+	"records_updated" integer DEFAULT 0,
+	"records_skipped" integer DEFAULT 0,
+	"records_errored" integer DEFAULT 0,
+	"last_sync_error" text,
+	"error_count" integer DEFAULT 0,
+	"consecutive_errors" integer DEFAULT 0,
+	"rate_limit_per_minute" integer DEFAULT 60,
+	"batch_size" integer DEFAULT 100,
+	"enable_alerts_on_failure" boolean DEFAULT true,
+	"alert_after_consecutive_failures" integer DEFAULT 3,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
+);
+--> statement-breakpoint
+CREATE TABLE "system_settings" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid,
+	"setting_key" varchar(100) NOT NULL,
+	"setting_value" text,
+	"setting_type" varchar(20) NOT NULL,
+	"scope" varchar(20) DEFAULT 'organization',
+	"user_id" uuid,
+	"description" text,
+	"is_readonly" boolean DEFAULT false,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"updated_by" uuid
+);
+--> statement-breakpoint
 CREATE TABLE "team_member" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -2286,6 +3042,56 @@ CREATE TABLE "team_member" (
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	"deleted_at" timestamp
+);
+--> statement-breakpoint
+CREATE TABLE "trading_partner" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"partner_name" varchar(100) NOT NULL,
+	"partner_type" varchar(50) NOT NULL,
+	"business_type" varchar(50),
+	"edi_id" varchar(50),
+	"isa_sender_id" varchar(15),
+	"isa_receiver_id" varchar(15),
+	"gs_application_sender_id" varchar(15),
+	"gs_application_receiver_id" varchar(15),
+	"contact_name" varchar(100),
+	"contact_email" varchar(100),
+	"contact_phone" varchar(20),
+	"technical_contact_name" varchar(100),
+	"technical_contact_email" varchar(100),
+	"technical_contact_phone" varchar(20),
+	"address_line_1" varchar(255),
+	"address_line_2" varchar(255),
+	"city" varchar(100),
+	"state" varchar(50),
+	"zip_code" varchar(20),
+	"country" varchar(100) DEFAULT 'US',
+	"preferred_communication_method" varchar(20),
+	"connection_type" varchar(20),
+	"supported_transactions" jsonb,
+	"testing_capabilities" jsonb,
+	"production_capabilities" jsonb,
+	"hipaa_compliant" boolean DEFAULT true,
+	"certifications" jsonb,
+	"compliance_notes" text,
+	"sla_document_path" text,
+	"response_time_guarantee" integer,
+	"uptime_guarantee" numeric(5, 4),
+	"support_hours" varchar(100),
+	"fee_structure" jsonb,
+	"contract_start_date" date,
+	"contract_end_date" date,
+	"auto_renewal" boolean DEFAULT false,
+	"partnership_status" varchar(20) DEFAULT 'active',
+	"relationship_start_date" date,
+	"total_transactions_processed" integer DEFAULT 0,
+	"average_response_time" integer,
+	"last_activity_date" timestamp,
+	"notes" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	"created_by" uuid
 );
 --> statement-breakpoint
 CREATE TABLE "webhook_config" (
@@ -2359,6 +3165,22 @@ CREATE TABLE "workflow_execution" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "workflow_state" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"workflow_type" varchar(100) NOT NULL,
+	"entity_type" varchar(100) NOT NULL,
+	"entity_id" integer NOT NULL,
+	"current_state" varchar(100) NOT NULL,
+	"previous_state" varchar(100),
+	"state_data" jsonb,
+	"transitions" jsonb,
+	"assigned_to" uuid,
+	"due_at" timestamp,
+	"completed_at" timestamp,
+	"created_at" timestamp DEFAULT now(),
+	"updated_at" timestamp DEFAULT now()
+);
+--> statement-breakpoint
 CREATE TABLE "write_off" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -2388,10 +3210,14 @@ CREATE TABLE "write_off" (
 );
 --> statement-breakpoint
 ALTER TABLE "address" ADD CONSTRAINT "address_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "adjustment_reason_code" ADD CONSTRAINT "adjustment_reason_code_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "adjustment_reason_code" ADD CONSTRAINT "adjustment_reason_code_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "adjustment_reason_code" ADD CONSTRAINT "adjustment_reason_code_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "analytics_event" ADD CONSTRAINT "analytics_event_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "analytics_event" ADD CONSTRAINT "analytics_event_team_member_id_team_member_id_fk" FOREIGN KEY ("team_member_id") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "api_key" ADD CONSTRAINT "api_key_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "api_key" ADD CONSTRAINT "api_key_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "api_version" ADD CONSTRAINT "api_version_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "appeal" ADD CONSTRAINT "appeal_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "appeal" ADD CONSTRAINT "appeal_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "appeal" ADD CONSTRAINT "appeal_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2404,6 +3230,8 @@ ALTER TABLE "appointment" ADD CONSTRAINT "appointment_provider_id_provider_id_fk
 ALTER TABLE "appointment" ADD CONSTRAINT "appointment_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "audit_log" ADD CONSTRAINT "audit_log_user_id_team_member_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_event" ADD CONSTRAINT "automation_event_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "automation_event" ADD CONSTRAINT "automation_event_automation_rule_id_automation_rule_id_fk" FOREIGN KEY ("automation_rule_id") REFERENCES "public"."automation_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "automation_rule" ADD CONSTRAINT "automation_rule_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2411,10 +3239,15 @@ ALTER TABLE "batch_job_item" ADD CONSTRAINT "batch_job_item_batch_job_id_batch_j
 ALTER TABLE "batch_job" ADD CONSTRAINT "batch_job_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "batch_job" ADD CONSTRAINT "batch_job_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "batch_job" ADD CONSTRAINT "batch_job_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "benefits_coverage" ADD CONSTRAINT "benefits_coverage_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "benefits_coverage" ADD CONSTRAINT "benefits_coverage_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "benefits_coverage" ADD CONSTRAINT "benefits_coverage_insurance_policy_id_insurance_policy_id_fk" FOREIGN KEY ("insurance_policy_id") REFERENCES "public"."insurance_policy"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule_action" ADD CONSTRAINT "business_rule_action_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule_action" ADD CONSTRAINT "business_rule_action_automation_rule_id_automation_rule_id_fk" FOREIGN KEY ("automation_rule_id") REFERENCES "public"."automation_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule_action" ADD CONSTRAINT "business_rule_action_business_rule_id_business_rule_id_fk" FOREIGN KEY ("business_rule_id") REFERENCES "public"."business_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule_action" ADD CONSTRAINT "business_rule_action_original_execution_id_business_rule_action_id_fk" FOREIGN KEY ("original_execution_id") REFERENCES "public"."business_rule_action"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "business_rule_condition" ADD CONSTRAINT "business_rule_condition_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "business_rule_condition" ADD CONSTRAINT "business_rule_condition_business_rule_id_business_rule_id_fk" FOREIGN KEY ("business_rule_id") REFERENCES "public"."business_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule" ADD CONSTRAINT "business_rule_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule" ADD CONSTRAINT "business_rule_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "business_rule" ADD CONSTRAINT "business_rule_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2426,7 +3259,15 @@ ALTER TABLE "charge_capture" ADD CONSTRAINT "charge_capture_original_charge_id_c
 ALTER TABLE "charge_capture" ADD CONSTRAINT "charge_capture_validated_by_team_member_id_fk" FOREIGN KEY ("validated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "charge_capture" ADD CONSTRAINT "charge_capture_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "charge_capture" ADD CONSTRAINT "charge_capture_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_attachment" ADD CONSTRAINT "claim_attachment_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_attachment" ADD CONSTRAINT "claim_attachment_uploaded_by_team_member_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claim_line" ADD CONSTRAINT "claim_line_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_state_history" ADD CONSTRAINT "claim_state_history_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_state_history" ADD CONSTRAINT "claim_state_history_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_state_history" ADD CONSTRAINT "claim_state_history_changed_by_team_member_id_fk" FOREIGN KEY ("changed_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_validation" ADD CONSTRAINT "claim_validation_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_validation" ADD CONSTRAINT "claim_validation_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "claim_validation" ADD CONSTRAINT "claim_validation_resolved_by_team_member_id_fk" FOREIGN KEY ("resolved_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claim" ADD CONSTRAINT "claim_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claim" ADD CONSTRAINT "claim_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "claim" ADD CONSTRAINT "claim_provider_id_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2454,12 +3295,17 @@ ALTER TABLE "compliance_tracking" ADD CONSTRAINT "compliance_tracking_responsibl
 ALTER TABLE "compliance_tracking" ADD CONSTRAINT "compliance_tracking_backup_responsible_team_member_id_fk" FOREIGN KEY ("backup_responsible") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "compliance_tracking" ADD CONSTRAINT "compliance_tracking_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "compliance_tracking" ADD CONSTRAINT "compliance_tracking_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "confidence_thresholds" ADD CONSTRAINT "confidence_thresholds_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "contracted_rate" ADD CONSTRAINT "contracted_rate_payer_contract_id_payer_contract_id_fk" FOREIGN KEY ("payer_contract_id") REFERENCES "public"."payer_contract"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "cpt_code_master" ADD CONSTRAINT "cpt_code_master_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "credentialing_application" ADD CONSTRAINT "credentialing_application_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "credentialing_application" ADD CONSTRAINT "credentialing_application_provider_id_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "credentialing_application" ADD CONSTRAINT "credentialing_application_responsible_party_team_member_id_fk" FOREIGN KEY ("responsible_party") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "credentialing_application" ADD CONSTRAINT "credentialing_application_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "credentialing_application" ADD CONSTRAINT "credentialing_application_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "custom_field_mapping" ADD CONSTRAINT "custom_field_mapping_custom_field_id_custom_field_id_fk" FOREIGN KEY ("custom_field_id") REFERENCES "public"."custom_field"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "custom_field_value" ADD CONSTRAINT "custom_field_value_custom_field_id_custom_field_id_fk" FOREIGN KEY ("custom_field_id") REFERENCES "public"."custom_field"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "custom_field" ADD CONSTRAINT "custom_field_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "denial_playbook" ADD CONSTRAINT "denial_playbook_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "denial_playbook" ADD CONSTRAINT "denial_playbook_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "denial_playbook" ADD CONSTRAINT "denial_playbook_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2477,6 +3323,8 @@ ALTER TABLE "document" ADD CONSTRAINT "document_encounter_id_encounter_id_fk" FO
 ALTER TABLE "document" ADD CONSTRAINT "document_uploaded_by_team_member_id_fk" FOREIGN KEY ("uploaded_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "drug_interaction" ADD CONSTRAINT "drug_interaction_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ehr_connection" ADD CONSTRAINT "ehr_connection_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ehr_system" ADD CONSTRAINT "ehr_system_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ehr_system" ADD CONSTRAINT "ehr_system_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "eligibility_cache" ADD CONSTRAINT "eligibility_cache_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "eligibility_cache" ADD CONSTRAINT "eligibility_cache_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "eligibility_cache" ADD CONSTRAINT "eligibility_cache_insurance_policy_id_insurance_policy_id_fk" FOREIGN KEY ("insurance_policy_id") REFERENCES "public"."insurance_policy"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2484,6 +3332,7 @@ ALTER TABLE "eligibility_check" ADD CONSTRAINT "eligibility_check_organization_i
 ALTER TABLE "eligibility_check" ADD CONSTRAINT "eligibility_check_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "eligibility_check" ADD CONSTRAINT "eligibility_check_insurance_policy_id_insurance_policy_id_fk" FOREIGN KEY ("insurance_policy_id") REFERENCES "public"."insurance_policy"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "eligibility_check" ADD CONSTRAINT "eligibility_check_checked_by_team_member_id_fk" FOREIGN KEY ("checked_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "em_time_rule" ADD CONSTRAINT "em_time_rule_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "emergency_contact" ADD CONSTRAINT "emergency_contact_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "emergency_contact" ADD CONSTRAINT "emergency_contact_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "emergency_contact" ADD CONSTRAINT "emergency_contact_verified_by_team_member_id_fk" FOREIGN KEY ("verified_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2502,7 +3351,10 @@ ALTER TABLE "fee_schedule" ADD CONSTRAINT "fee_schedule_organization_id_organiza
 ALTER TABLE "fee_schedule" ADD CONSTRAINT "fee_schedule_base_schedule_id_fee_schedule_id_fk" FOREIGN KEY ("base_schedule_id") REFERENCES "public"."fee_schedule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fee_schedule" ADD CONSTRAINT "fee_schedule_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "fee_schedule" ADD CONSTRAINT "fee_schedule_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "fhir_resource" ADD CONSTRAINT "fhir_resource_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "field_confidence" ADD CONSTRAINT "field_confidence_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "field_mapping_template" ADD CONSTRAINT "field_mapping_template_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "field_mapping_template" ADD CONSTRAINT "field_mapping_template_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "formulary" ADD CONSTRAINT "formulary_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "formulary" ADD CONSTRAINT "formulary_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "imaging_order" ADD CONSTRAINT "imaging_order_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2545,10 +3397,15 @@ ALTER TABLE "medication" ADD CONSTRAINT "medication_created_by_team_member_id_fk
 ALTER TABLE "medication" ADD CONSTRAINT "medication_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ml_model_metric" ADD CONSTRAINT "ml_model_metric_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ml_prediction" ADD CONSTRAINT "ml_prediction_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "modifier_code" ADD CONSTRAINT "modifier_code_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification_template" ADD CONSTRAINT "notification_template_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_team_member_id_team_member_id_fk" FOREIGN KEY ("team_member_id") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification" ADD CONSTRAINT "notification_template_id_notification_template_id_fk" FOREIGN KEY ("template_id") REFERENCES "public"."notification_template"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "organization_invitation" ADD CONSTRAINT "organization_invitation_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "organization_invitation" ADD CONSTRAINT "organization_invitation_invited_by_team_member_id_fk" FOREIGN KEY ("invited_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "pa_clinical_criteria" ADD CONSTRAINT "pa_clinical_criteria_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "pa_requirement_rule" ADD CONSTRAINT "pa_requirement_rule_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pathology_report" ADD CONSTRAINT "pathology_report_pathology_specimen_id_pathology_specimen_id_fk" FOREIGN KEY ("pathology_specimen_id") REFERENCES "public"."pathology_specimen"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pathology_report" ADD CONSTRAINT "pathology_report_primary_pathologist_provider_id_fk" FOREIGN KEY ("primary_pathologist") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pathology_report" ADD CONSTRAINT "pathology_report_reviewing_pathologist_provider_id_fk" FOREIGN KEY ("reviewing_pathologist") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2577,16 +3434,40 @@ ALTER TABLE "patient_extension" ADD CONSTRAINT "patient_extension_updated_by_tea
 ALTER TABLE "patient_payment" ADD CONSTRAINT "patient_payment_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient_payment" ADD CONSTRAINT "patient_payment_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient_payment" ADD CONSTRAINT "patient_payment_payment_plan_id_payment_plan_id_fk" FOREIGN KEY ("payment_plan_id") REFERENCES "public"."payment_plan"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "patient_quality_measure" ADD CONSTRAINT "patient_quality_measure_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "patient_quality_measure" ADD CONSTRAINT "patient_quality_measure_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "patient_quality_measure" ADD CONSTRAINT "patient_quality_measure_quality_measure_id_quality_measure_id_fk" FOREIGN KEY ("quality_measure_id") REFERENCES "public"."quality_measure"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "patient_quality_measure" ADD CONSTRAINT "patient_quality_measure_calculated_by_team_member_id_fk" FOREIGN KEY ("calculated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient_statement" ADD CONSTRAINT "patient_statement_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient_statement" ADD CONSTRAINT "patient_statement_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient_statement" ADD CONSTRAINT "patient_statement_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient" ADD CONSTRAINT "patient_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient" ADD CONSTRAINT "patient_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "patient" ADD CONSTRAINT "patient_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_config" ADD CONSTRAINT "payer_config_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_config" ADD CONSTRAINT "payer_config_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_config" ADD CONSTRAINT "payer_config_clearinghouse_id_clearinghouse_connection_id_fk" FOREIGN KEY ("clearinghouse_id") REFERENCES "public"."clearinghouse_connection"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_config" ADD CONSTRAINT "payer_config_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payer_contract" ADD CONSTRAINT "payer_contract_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payer_contract" ADD CONSTRAINT "payer_contract_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payer_contract" ADD CONSTRAINT "payer_contract_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payer_contract" ADD CONSTRAINT "payer_contract_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_override_action" ADD CONSTRAINT "payer_override_action_rule_id_payer_override_rule_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."payer_override_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_override_condition" ADD CONSTRAINT "payer_override_condition_rule_id_payer_override_rule_id_fk" FOREIGN KEY ("rule_id") REFERENCES "public"."payer_override_rule"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_override_rule" ADD CONSTRAINT "payer_override_rule_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_portal_credential" ADD CONSTRAINT "payer_portal_credential_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_portal_credential" ADD CONSTRAINT "payer_portal_credential_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_portal_credential" ADD CONSTRAINT "payer_portal_credential_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_response_message" ADD CONSTRAINT "payer_response_message_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_response_message" ADD CONSTRAINT "payer_response_message_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_response_message" ADD CONSTRAINT "payer_response_message_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_response_message" ADD CONSTRAINT "payer_response_message_remittance_advice_id_remittance_advice_id_fk" FOREIGN KEY ("remittance_advice_id") REFERENCES "public"."remittance_advice"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_response_message" ADD CONSTRAINT "payer_response_message_reviewed_by_team_member_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_submission_config" ADD CONSTRAINT "payer_submission_config_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_submission_config" ADD CONSTRAINT "payer_submission_config_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_submission_config" ADD CONSTRAINT "payer_submission_config_clearinghouse_id_clearinghouse_connection_id_fk" FOREIGN KEY ("clearinghouse_id") REFERENCES "public"."clearinghouse_connection"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_submission_config" ADD CONSTRAINT "payer_submission_config_portal_credential_id_payer_portal_credential_id_fk" FOREIGN KEY ("portal_credential_id") REFERENCES "public"."payer_portal_credential"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payer_submission_config" ADD CONSTRAINT "payer_submission_config_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_adjustment" ADD CONSTRAINT "payment_adjustment_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_adjustment" ADD CONSTRAINT "payment_adjustment_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_adjustment" ADD CONSTRAINT "payment_adjustment_payment_detail_id_payment_detail_id_fk" FOREIGN KEY ("payment_detail_id") REFERENCES "public"."payment_detail"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2597,9 +3478,21 @@ ALTER TABLE "payment_detail" ADD CONSTRAINT "payment_detail_patient_id_patient_i
 ALTER TABLE "payment_detail" ADD CONSTRAINT "payment_detail_remittance_advice_id_remittance_advice_id_fk" FOREIGN KEY ("remittance_advice_id") REFERENCES "public"."remittance_advice"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_plan" ADD CONSTRAINT "payment_plan_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_plan" ADD CONSTRAINT "payment_plan_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_posting_activity" ADD CONSTRAINT "payment_posting_activity_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_posting_activity" ADD CONSTRAINT "payment_posting_activity_payment_id_payment_detail_id_fk" FOREIGN KEY ("payment_id") REFERENCES "public"."payment_detail"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_posting_activity" ADD CONSTRAINT "payment_posting_activity_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_posting_activity" ADD CONSTRAINT "payment_posting_activity_posted_by_team_member_id_fk" FOREIGN KEY ("posted_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_reconciliation" ADD CONSTRAINT "payment_reconciliation_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_reconciliation" ADD CONSTRAINT "payment_reconciliation_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "payment_reconciliation" ADD CONSTRAINT "payment_reconciliation_reconciled_by_team_member_id_fk" FOREIGN KEY ("reconciled_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_variance" ADD CONSTRAINT "payment_variance_payment_id_payment_detail_id_fk" FOREIGN KEY ("payment_id") REFERENCES "public"."payment_detail"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_variance" ADD CONSTRAINT "payment_variance_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "payment_variance" ADD CONSTRAINT "payment_variance_resolved_by_team_member_id_fk" FOREIGN KEY ("resolved_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "place_of_service" ADD CONSTRAINT "place_of_service_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "portal_automation_task" ADD CONSTRAINT "portal_automation_task_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "portal_automation_task" ADD CONSTRAINT "portal_automation_task_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "portal_automation_task" ADD CONSTRAINT "portal_automation_task_portal_credential_id_payer_portal_credential_id_fk" FOREIGN KEY ("portal_credential_id") REFERENCES "public"."payer_portal_credential"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "portal_automation_task" ADD CONSTRAINT "portal_automation_task_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "prior_auth" ADD CONSTRAINT "prior_auth_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "prior_auth" ADD CONSTRAINT "prior_auth_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "prior_auth" ADD CONSTRAINT "prior_auth_provider_id_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2647,6 +3540,8 @@ ALTER TABLE "resource_schedule" ADD CONSTRAINT "resource_schedule_assigned_patie
 ALTER TABLE "resource_schedule" ADD CONSTRAINT "resource_schedule_assigned_appointment_id_appointment_id_fk" FOREIGN KEY ("assigned_appointment_id") REFERENCES "public"."appointment"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resource_schedule" ADD CONSTRAINT "resource_schedule_approved_by_team_member_id_fk" FOREIGN KEY ("approved_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "resource_schedule" ADD CONSTRAINT "resource_schedule_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "revenue_cycle_metrics" ADD CONSTRAINT "revenue_cycle_metrics_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "revenue_cycle_metrics" ADD CONSTRAINT "revenue_cycle_metrics_calculated_by_team_member_id_fk" FOREIGN KEY ("calculated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "scrubbing_result" ADD CONSTRAINT "scrubbing_result_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "scrubbing_result" ADD CONSTRAINT "scrubbing_result_batch_job_id_batch_job_id_fk" FOREIGN KEY ("batch_job_id") REFERENCES "public"."batch_job"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "scrubbing_result" ADD CONSTRAINT "scrubbing_result_reviewed_by_team_member_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2671,7 +3566,16 @@ ALTER TABLE "staff_time_off" ADD CONSTRAINT "staff_time_off_covering_staff_id_te
 ALTER TABLE "suggested_fix" ADD CONSTRAINT "suggested_fix_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "suggested_fix" ADD CONSTRAINT "suggested_fix_reviewed_by_team_member_id_fk" FOREIGN KEY ("reviewed_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "suggested_fix" ADD CONSTRAINT "suggested_fix_applied_by_team_member_id_fk" FOREIGN KEY ("applied_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sync_job" ADD CONSTRAINT "sync_job_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sync_job" ADD CONSTRAINT "sync_job_ehr_system_id_ehr_system_id_fk" FOREIGN KEY ("ehr_system_id") REFERENCES "public"."ehr_system"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sync_job" ADD CONSTRAINT "sync_job_field_mapping_template_id_field_mapping_template_id_fk" FOREIGN KEY ("field_mapping_template_id") REFERENCES "public"."field_mapping_template"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "sync_job" ADD CONSTRAINT "sync_job_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_user_id_team_member_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "system_settings" ADD CONSTRAINT "system_settings_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_member" ADD CONSTRAINT "team_member_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "trading_partner" ADD CONSTRAINT "trading_partner_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "trading_partner" ADD CONSTRAINT "trading_partner_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "webhook_config" ADD CONSTRAINT "webhook_config_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "webhook_delivery" ADD CONSTRAINT "webhook_delivery_webhook_config_id_webhook_config_id_fk" FOREIGN KEY ("webhook_config_id") REFERENCES "public"."webhook_config"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "work_queue" ADD CONSTRAINT "work_queue_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2679,6 +3583,7 @@ ALTER TABLE "work_queue" ADD CONSTRAINT "work_queue_assigned_to_team_member_id_f
 ALTER TABLE "work_queue" ADD CONSTRAINT "work_queue_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workflow_execution" ADD CONSTRAINT "workflow_execution_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "workflow_execution" ADD CONSTRAINT "workflow_execution_triggered_by_team_member_id_fk" FOREIGN KEY ("triggered_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "workflow_state" ADD CONSTRAINT "workflow_state_assigned_to_team_member_id_fk" FOREIGN KEY ("assigned_to") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "write_off" ADD CONSTRAINT "write_off_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "write_off" ADD CONSTRAINT "write_off_claim_id_claim_id_fk" FOREIGN KEY ("claim_id") REFERENCES "public"."claim"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "write_off" ADD CONSTRAINT "write_off_claim_line_id_claim_line_id_fk" FOREIGN KEY ("claim_line_id") REFERENCES "public"."claim_line"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -2689,6 +3594,12 @@ ALTER TABLE "write_off" ADD CONSTRAINT "write_off_created_by_team_member_id_fk" 
 ALTER TABLE "write_off" ADD CONSTRAINT "write_off_updated_by_team_member_id_fk" FOREIGN KEY ("updated_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "address_patient_idx" ON "address" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "address_primary_idx" ON "address" USING btree ("patient_id","is_primary");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_org_idx" ON "adjustment_reason_code" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_code_idx" ON "adjustment_reason_code" USING btree ("code");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_type_idx" ON "adjustment_reason_code" USING btree ("code_type");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_category_idx" ON "adjustment_reason_code" USING btree ("category");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_payer_idx" ON "adjustment_reason_code" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "adjustment_reason_code_active_idx" ON "adjustment_reason_code" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "analytics_event_org_idx" ON "analytics_event" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "analytics_event_member_idx" ON "analytics_event" USING btree ("team_member_id");--> statement-breakpoint
 CREATE INDEX "analytics_event_event_idx" ON "analytics_event" USING btree ("event_name");--> statement-breakpoint
@@ -2698,6 +3609,10 @@ CREATE INDEX "api_key_org_idx" ON "api_key" USING btree ("organization_id");--> 
 CREATE INDEX "api_key_key_prefix_idx" ON "api_key" USING btree ("key_prefix");--> statement-breakpoint
 CREATE INDEX "api_key_active_idx" ON "api_key" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "api_key_expires_at_idx" ON "api_key" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "api_version_org_idx" ON "api_version" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "api_version_service_idx" ON "api_version" USING btree ("service_name");--> statement-breakpoint
+CREATE INDEX "api_version_version_idx" ON "api_version" USING btree ("version");--> statement-breakpoint
+CREATE INDEX "api_version_status_idx" ON "api_version" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "appeal_org_idx" ON "appeal" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "appeal_claim_idx" ON "appeal" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "appeal_patient_idx" ON "appeal" USING btree ("patient_id");--> statement-breakpoint
@@ -2716,6 +3631,12 @@ CREATE INDEX "audit_log_entity_idx" ON "audit_log" USING btree ("entity_type","e
 CREATE INDEX "audit_log_user_idx" ON "audit_log" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "audit_log_created_at_idx" ON "audit_log" USING btree ("created_at");--> statement-breakpoint
 CREATE INDEX "audit_log_phi_idx" ON "audit_log" USING btree ("contains_phi");--> statement-breakpoint
+CREATE INDEX "automation_event_org_idx" ON "automation_event" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "automation_event_rule_idx" ON "automation_event" USING btree ("automation_rule_id");--> statement-breakpoint
+CREATE INDEX "automation_event_context_idx" ON "automation_event" USING btree ("context_type","context_id");--> statement-breakpoint
+CREATE INDEX "automation_event_execution_idx" ON "automation_event" USING btree ("execution_id");--> statement-breakpoint
+CREATE INDEX "automation_event_status_idx" ON "automation_event" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "automation_event_started_at_idx" ON "automation_event" USING btree ("started_at");--> statement-breakpoint
 CREATE INDEX "automation_rule_org_idx" ON "automation_rule" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "automation_rule_status_idx" ON "automation_rule" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "automation_rule_category_idx" ON "automation_rule" USING btree ("category");--> statement-breakpoint
@@ -2735,6 +3656,11 @@ CREATE INDEX "batch_job_status_idx" ON "batch_job" USING btree ("status");--> st
 CREATE INDEX "batch_job_job_type_idx" ON "batch_job" USING btree ("job_type");--> statement-breakpoint
 CREATE INDEX "batch_job_scheduled_at_idx" ON "batch_job" USING btree ("scheduled_at");--> statement-breakpoint
 CREATE INDEX "batch_job_created_at_idx" ON "batch_job" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "benefits_coverage_org_idx" ON "benefits_coverage" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "benefits_coverage_patient_idx" ON "benefits_coverage" USING btree ("patient_id");--> statement-breakpoint
+CREATE INDEX "benefits_coverage_insurance_idx" ON "benefits_coverage" USING btree ("insurance_policy_id");--> statement-breakpoint
+CREATE INDEX "benefits_coverage_service_category_idx" ON "benefits_coverage" USING btree ("service_category");--> statement-breakpoint
+CREATE INDEX "benefits_coverage_active_idx" ON "benefits_coverage" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "business_rule_action_org_idx" ON "business_rule_action" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "business_rule_action_automation_rule_idx" ON "business_rule_action" USING btree ("automation_rule_id");--> statement-breakpoint
 CREATE INDEX "business_rule_action_business_rule_idx" ON "business_rule_action" USING btree ("business_rule_id");--> statement-breakpoint
@@ -2747,6 +3673,10 @@ CREATE INDEX "business_rule_action_conditions_met_idx" ON "business_rule_action"
 CREATE INDEX "business_rule_action_is_retry_idx" ON "business_rule_action" USING btree ("is_retry");--> statement-breakpoint
 CREATE INDEX "business_rule_action_environment_idx" ON "business_rule_action" USING btree ("environment");--> statement-breakpoint
 CREATE INDEX "business_rule_action_created_at_idx" ON "business_rule_action" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "business_rule_condition_org_idx" ON "business_rule_condition" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "business_rule_condition_rule_idx" ON "business_rule_condition" USING btree ("business_rule_id");--> statement-breakpoint
+CREATE INDEX "business_rule_condition_field_idx" ON "business_rule_condition" USING btree ("field_name");--> statement-breakpoint
+CREATE INDEX "business_rule_condition_active_idx" ON "business_rule_condition" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "business_rule_org_idx" ON "business_rule" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "business_rule_category_idx" ON "business_rule" USING btree ("category");--> statement-breakpoint
 CREATE INDEX "business_rule_trigger_idx" ON "business_rule" USING btree ("trigger_event");--> statement-breakpoint
@@ -2763,6 +3693,15 @@ CREATE INDEX "charge_capture_validated_idx" ON "charge_capture" USING btree ("is
 CREATE INDEX "claim_line_claim_idx" ON "claim_line" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "claim_line_cpt_idx" ON "claim_line" USING btree ("cpt_code");--> statement-breakpoint
 CREATE INDEX "claim_line_service_date_idx" ON "claim_line" USING btree ("service_date");--> statement-breakpoint
+CREATE INDEX "claim_state_history_org_idx" ON "claim_state_history" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "claim_state_history_claim_idx" ON "claim_state_history" USING btree ("claim_id");--> statement-breakpoint
+CREATE INDEX "claim_state_history_to_status_idx" ON "claim_state_history" USING btree ("to_status");--> statement-breakpoint
+CREATE INDEX "claim_state_history_change_date_idx" ON "claim_state_history" USING btree ("change_date");--> statement-breakpoint
+CREATE INDEX "claim_validation_org_idx" ON "claim_validation" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "claim_validation_claim_idx" ON "claim_validation" USING btree ("claim_id");--> statement-breakpoint
+CREATE INDEX "claim_validation_type_idx" ON "claim_validation" USING btree ("validation_type");--> statement-breakpoint
+CREATE INDEX "claim_validation_result_idx" ON "claim_validation" USING btree ("validation_result");--> statement-breakpoint
+CREATE INDEX "claim_validation_status_idx" ON "claim_validation" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "claim_org_idx" ON "claim" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "claim_patient_idx" ON "claim" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "claim_provider_idx" ON "claim" USING btree ("provider_id");--> statement-breakpoint
@@ -2818,6 +3757,10 @@ CREATE INDEX "contracted_rate_contract_idx" ON "contracted_rate" USING btree ("p
 CREATE INDEX "contracted_rate_cpt_idx" ON "contracted_rate" USING btree ("cpt_code");--> statement-breakpoint
 CREATE INDEX "contracted_rate_effective_date_idx" ON "contracted_rate" USING btree ("effective_date");--> statement-breakpoint
 CREATE INDEX "contracted_rate_cpt_contract_idx" ON "contracted_rate" USING btree ("cpt_code","payer_contract_id");--> statement-breakpoint
+CREATE INDEX "cpt_code_master_org_idx" ON "cpt_code_master" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "cpt_code_master_cpt_code_idx" ON "cpt_code_master" USING btree ("cpt_code");--> statement-breakpoint
+CREATE INDEX "cpt_code_master_category_idx" ON "cpt_code_master" USING btree ("category");--> statement-breakpoint
+CREATE INDEX "cpt_code_master_active_idx" ON "cpt_code_master" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "credentialing_application_org_idx" ON "credentialing_application" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "credentialing_application_provider_idx" ON "credentialing_application" USING btree ("provider_id");--> statement-breakpoint
 CREATE INDEX "credentialing_application_application_number_idx" ON "credentialing_application" USING btree ("application_number");--> statement-breakpoint
@@ -2858,6 +3801,9 @@ CREATE INDEX "ehr_connection_org_idx" ON "ehr_connection" USING btree ("organiza
 CREATE INDEX "ehr_connection_system_name_idx" ON "ehr_connection" USING btree ("ehr_system_name");--> statement-breakpoint
 CREATE INDEX "ehr_connection_active_idx" ON "ehr_connection" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "ehr_connection_last_sync_idx" ON "ehr_connection" USING btree ("last_sync_at");--> statement-breakpoint
+CREATE INDEX "ehr_system_org_idx" ON "ehr_system" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "ehr_system_vendor_idx" ON "ehr_system" USING btree ("vendor");--> statement-breakpoint
+CREATE INDEX "ehr_system_active_idx" ON "ehr_system" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "eligibility_cache_org_idx" ON "eligibility_cache" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "eligibility_cache_patient_idx" ON "eligibility_cache" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "eligibility_cache_policy_idx" ON "eligibility_cache" USING btree ("insurance_policy_id");--> statement-breakpoint
@@ -2868,6 +3814,10 @@ CREATE INDEX "eligibility_check_patient_idx" ON "eligibility_check" USING btree 
 CREATE INDEX "eligibility_check_policy_idx" ON "eligibility_check" USING btree ("insurance_policy_id");--> statement-breakpoint
 CREATE INDEX "eligibility_check_status_idx" ON "eligibility_check" USING btree ("eligibility_status");--> statement-breakpoint
 CREATE INDEX "eligibility_check_service_date_idx" ON "eligibility_check" USING btree ("service_date");--> statement-breakpoint
+CREATE INDEX "em_time_rule_org_idx" ON "em_time_rule" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "em_time_rule_cpt_code_idx" ON "em_time_rule" USING btree ("cpt_code");--> statement-breakpoint
+CREATE INDEX "em_time_rule_service_category_idx" ON "em_time_rule" USING btree ("service_category");--> statement-breakpoint
+CREATE INDEX "em_time_rule_active_idx" ON "em_time_rule" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "emergency_contact_org_idx" ON "emergency_contact" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "emergency_contact_patient_idx" ON "emergency_contact" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "emergency_contact_is_primary_contact_idx" ON "emergency_contact" USING btree ("is_primary_contact");--> statement-breakpoint
@@ -2893,12 +3843,23 @@ CREATE INDEX "fee_schedule_name_idx" ON "fee_schedule" USING btree ("name");--> 
 CREATE INDEX "fee_schedule_active_idx" ON "fee_schedule" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "fee_schedule_default_idx" ON "fee_schedule" USING btree ("is_default");--> statement-breakpoint
 CREATE INDEX "fee_schedule_effective_date_idx" ON "fee_schedule" USING btree ("effective_date");--> statement-breakpoint
+CREATE INDEX "fhir_resource_org_idx" ON "fhir_resource" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "fhir_resource_type_idx" ON "fhir_resource" USING btree ("resource_type");--> statement-breakpoint
+CREATE INDEX "fhir_resource_id_idx" ON "fhir_resource" USING btree ("resource_id");--> statement-breakpoint
+CREATE INDEX "fhir_resource_source_system_idx" ON "fhir_resource" USING btree ("source_system");--> statement-breakpoint
+CREATE INDEX "fhir_resource_sync_status_idx" ON "fhir_resource" USING btree ("sync_status");--> statement-breakpoint
+CREATE INDEX "fhir_resource_last_modified_idx" ON "fhir_resource" USING btree ("last_modified");--> statement-breakpoint
 CREATE INDEX "field_confidence_org_idx" ON "field_confidence" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "field_confidence_entity_idx" ON "field_confidence" USING btree ("entity_type","entity_id");--> statement-breakpoint
 CREATE INDEX "field_confidence_field_name_idx" ON "field_confidence" USING btree ("field_name");--> statement-breakpoint
 CREATE INDEX "field_confidence_confidence_score_idx" ON "field_confidence" USING btree ("confidence_score");--> statement-breakpoint
 CREATE INDEX "field_confidence_quality_status_idx" ON "field_confidence" USING btree ("quality_status");--> statement-breakpoint
 CREATE INDEX "field_confidence_last_validated_idx" ON "field_confidence" USING btree ("last_validated");--> statement-breakpoint
+CREATE INDEX "field_mapping_template_org_idx" ON "field_mapping_template" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "field_mapping_template_name_idx" ON "field_mapping_template" USING btree ("template_name");--> statement-breakpoint
+CREATE INDEX "field_mapping_template_source_system_idx" ON "field_mapping_template" USING btree ("source_system");--> statement-breakpoint
+CREATE INDEX "field_mapping_template_target_system_idx" ON "field_mapping_template" USING btree ("target_system");--> statement-breakpoint
+CREATE INDEX "field_mapping_template_active_idx" ON "field_mapping_template" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "formulary_org_idx" ON "formulary" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "formulary_payer_idx" ON "formulary" USING btree ("payer_id");--> statement-breakpoint
 CREATE INDEX "formulary_medication_name_idx" ON "formulary" USING btree ("medication_name");--> statement-breakpoint
@@ -2996,6 +3957,10 @@ CREATE INDEX "ml_prediction_model_idx" ON "ml_prediction" USING btree ("model_na
 CREATE INDEX "ml_prediction_entity_idx" ON "ml_prediction" USING btree ("entity_type","entity_id");--> statement-breakpoint
 CREATE INDEX "ml_prediction_confidence_idx" ON "ml_prediction" USING btree ("confidence");--> statement-breakpoint
 CREATE INDEX "ml_prediction_created_at_idx" ON "ml_prediction" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "modifier_code_org_idx" ON "modifier_code" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "modifier_code_modifier_code_idx" ON "modifier_code" USING btree ("modifier_code");--> statement-breakpoint
+CREATE INDEX "modifier_code_category_idx" ON "modifier_code" USING btree ("category");--> statement-breakpoint
+CREATE INDEX "modifier_code_active_idx" ON "modifier_code" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "notification_template_org_idx" ON "notification_template" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "notification_template_type_idx" ON "notification_template" USING btree ("type");--> statement-breakpoint
 CREATE INDEX "notification_template_active_idx" ON "notification_template" USING btree ("is_active");--> statement-breakpoint
@@ -3004,6 +3969,10 @@ CREATE INDEX "notification_member_idx" ON "notification" USING btree ("team_memb
 CREATE INDEX "notification_type_idx" ON "notification" USING btree ("type");--> statement-breakpoint
 CREATE INDEX "notification_unread_idx" ON "notification" USING btree ("team_member_id","is_read");--> statement-breakpoint
 CREATE INDEX "notification_entity_idx" ON "notification" USING btree ("entity_type","entity_id");--> statement-breakpoint
+CREATE INDEX "org_invitation_org_idx" ON "organization_invitation" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "org_invitation_email_idx" ON "organization_invitation" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "org_invitation_token_idx" ON "organization_invitation" USING btree ("token");--> statement-breakpoint
+CREATE INDEX "org_invitation_status_idx" ON "organization_invitation" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "organization_clerk_org_id_idx" ON "organization" USING btree ("clerk_org_id");--> statement-breakpoint
 CREATE INDEX "organization_slug_idx" ON "organization" USING btree ("slug");--> statement-breakpoint
 CREATE INDEX "pathology_report_pathology_specimen_idx" ON "pathology_report" USING btree ("pathology_specimen_id");--> statement-breakpoint
@@ -3052,6 +4021,13 @@ CREATE INDEX "patient_payment_patient_idx" ON "patient_payment" USING btree ("pa
 CREATE INDEX "patient_payment_payment_plan_idx" ON "patient_payment" USING btree ("payment_plan_id");--> statement-breakpoint
 CREATE INDEX "patient_payment_status_idx" ON "patient_payment" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "patient_payment_payment_date_idx" ON "patient_payment" USING btree ("payment_date");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_org_idx" ON "patient_quality_measure" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_patient_idx" ON "patient_quality_measure" USING btree ("patient_id");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_quality_measure_idx" ON "patient_quality_measure" USING btree ("quality_measure_id");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_measurement_date_idx" ON "patient_quality_measure" USING btree ("measurement_date");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_reporting_period_idx" ON "patient_quality_measure" USING btree ("reporting_period");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_is_eligible_idx" ON "patient_quality_measure" USING btree ("is_eligible");--> statement-breakpoint
+CREATE INDEX "patient_quality_measure_meets_numerator_idx" ON "patient_quality_measure" USING btree ("meets_numerator");--> statement-breakpoint
 CREATE INDEX "patient_statement_org_idx" ON "patient_statement" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "patient_statement_patient_idx" ON "patient_statement" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "patient_statement_status_idx" ON "patient_statement" USING btree ("status");--> statement-breakpoint
@@ -3062,12 +4038,34 @@ CREATE INDEX "patient_org_idx" ON "patient" USING btree ("organization_id");--> 
 CREATE INDEX "patient_mrn_idx" ON "patient" USING btree ("organization_id","mrn");--> statement-breakpoint
 CREATE INDEX "patient_name_idx" ON "patient" USING btree ("last_name","first_name");--> statement-breakpoint
 CREATE INDEX "patient_dob_idx" ON "patient" USING btree ("date_of_birth");--> statement-breakpoint
+CREATE INDEX "payer_config_org_idx" ON "payer_config" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "payer_config_payer_idx" ON "payer_config" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "payer_config_submission_method_idx" ON "payer_config" USING btree ("submission_method");--> statement-breakpoint
+CREATE INDEX "payer_config_active_idx" ON "payer_config" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "payer_contract_org_idx" ON "payer_contract" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "payer_contract_payer_idx" ON "payer_contract" USING btree ("payer_id");--> statement-breakpoint
 CREATE INDEX "payer_contract_status_idx" ON "payer_contract" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "payer_contract_effective_date_idx" ON "payer_contract" USING btree ("effective_date");--> statement-breakpoint
 CREATE INDEX "payer_contract_expiration_date_idx" ON "payer_contract" USING btree ("expiration_date");--> statement-breakpoint
 CREATE INDEX "payer_contract_contract_number_idx" ON "payer_contract" USING btree ("contract_number");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_org_idx" ON "payer_portal_credential" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_payer_idx" ON "payer_portal_credential" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_portal_name_idx" ON "payer_portal_credential" USING btree ("portal_name");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_username_idx" ON "payer_portal_credential" USING btree ("username");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_active_idx" ON "payer_portal_credential" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "payer_portal_credential_status_idx" ON "payer_portal_credential" USING btree ("credential_status");--> statement-breakpoint
+CREATE INDEX "payer_response_message_org_idx" ON "payer_response_message" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "payer_response_message_payer_idx" ON "payer_response_message" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "payer_response_message_claim_idx" ON "payer_response_message" USING btree ("claim_id");--> statement-breakpoint
+CREATE INDEX "payer_response_message_type_idx" ON "payer_response_message" USING btree ("message_type");--> statement-breakpoint
+CREATE INDEX "payer_response_message_processing_status_idx" ON "payer_response_message" USING btree ("processing_status");--> statement-breakpoint
+CREATE INDEX "payer_response_message_received_at_idx" ON "payer_response_message" USING btree ("received_at");--> statement-breakpoint
+CREATE INDEX "payer_response_message_requires_manual_review_idx" ON "payer_response_message" USING btree ("requires_manual_review");--> statement-breakpoint
+CREATE INDEX "payer_submission_config_org_idx" ON "payer_submission_config" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "payer_submission_config_payer_idx" ON "payer_submission_config" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "payer_submission_config_submission_method_idx" ON "payer_submission_config" USING btree ("submission_method");--> statement-breakpoint
+CREATE INDEX "payer_submission_config_clearinghouse_idx" ON "payer_submission_config" USING btree ("clearinghouse_id");--> statement-breakpoint
+CREATE INDEX "payer_submission_config_active_idx" ON "payer_submission_config" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "payer_payer_id_idx" ON "payer" USING btree ("payer_id");--> statement-breakpoint
 CREATE INDEX "payer_name_idx" ON "payer" USING btree ("name");--> statement-breakpoint
 CREATE INDEX "payment_adjustment_org_idx" ON "payment_adjustment" USING btree ("organization_id");--> statement-breakpoint
@@ -3084,10 +4082,26 @@ CREATE INDEX "payment_plan_org_idx" ON "payment_plan" USING btree ("organization
 CREATE INDEX "payment_plan_patient_idx" ON "payment_plan" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "payment_plan_status_idx" ON "payment_plan" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "payment_plan_next_payment_idx" ON "payment_plan" USING btree ("next_payment_date");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_org_idx" ON "payment_posting_activity" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_session_idx" ON "payment_posting_activity" USING btree ("session_id");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_payment_idx" ON "payment_posting_activity" USING btree ("payment_id");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_claim_idx" ON "payment_posting_activity" USING btree ("claim_id");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_activity_type_idx" ON "payment_posting_activity" USING btree ("activity_type");--> statement-breakpoint
+CREATE INDEX "payment_posting_activity_posted_at_idx" ON "payment_posting_activity" USING btree ("posted_at");--> statement-breakpoint
 CREATE INDEX "payment_reconciliation_org_idx" ON "payment_reconciliation" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "payment_reconciliation_claim_idx" ON "payment_reconciliation" USING btree ("claim_id");--> statement-breakpoint
 CREATE INDEX "payment_reconciliation_status_idx" ON "payment_reconciliation" USING btree ("reconciliation_status");--> statement-breakpoint
 CREATE INDEX "payment_reconciliation_date_idx" ON "payment_reconciliation" USING btree ("reconciliation_date");--> statement-breakpoint
+CREATE INDEX "place_of_service_org_idx" ON "place_of_service" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "place_of_service_pos_code_idx" ON "place_of_service" USING btree ("pos_code");--> statement-breakpoint
+CREATE INDEX "place_of_service_active_idx" ON "place_of_service" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_org_idx" ON "portal_automation_task" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_payer_idx" ON "portal_automation_task" USING btree ("payer_id");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_portal_credential_idx" ON "portal_automation_task" USING btree ("portal_credential_id");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_type_idx" ON "portal_automation_task" USING btree ("task_type");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_status_idx" ON "portal_automation_task" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_next_run_time_idx" ON "portal_automation_task" USING btree ("next_run_time");--> statement-breakpoint
+CREATE INDEX "portal_automation_task_is_scheduled_idx" ON "portal_automation_task" USING btree ("is_scheduled");--> statement-breakpoint
 CREATE INDEX "prior_auth_org_idx" ON "prior_auth" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "prior_auth_patient_idx" ON "prior_auth" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "prior_auth_provider_idx" ON "prior_auth" USING btree ("provider_id");--> statement-breakpoint
@@ -3176,6 +4190,10 @@ CREATE INDEX "resource_schedule_assigned_patient_idx" ON "resource_schedule" USI
 CREATE INDEX "resource_schedule_department_idx" ON "resource_schedule" USING btree ("department_id");--> statement-breakpoint
 CREATE INDEX "resource_schedule_usage_purpose_idx" ON "resource_schedule" USING btree ("usage_purpose");--> statement-breakpoint
 CREATE INDEX "resource_schedule_recurring_idx" ON "resource_schedule" USING btree ("is_recurring");--> statement-breakpoint
+CREATE INDEX "revenue_cycle_metrics_org_idx" ON "revenue_cycle_metrics" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "revenue_cycle_metrics_reporting_period_idx" ON "revenue_cycle_metrics" USING btree ("reporting_period");--> statement-breakpoint
+CREATE INDEX "revenue_cycle_metrics_period_type_idx" ON "revenue_cycle_metrics" USING btree ("period_type");--> statement-breakpoint
+CREATE INDEX "revenue_cycle_metrics_calculated_at_idx" ON "revenue_cycle_metrics" USING btree ("calculated_at");--> statement-breakpoint
 CREATE INDEX "scrubbing_result_org_idx" ON "scrubbing_result" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "scrubbing_result_batch_job_idx" ON "scrubbing_result" USING btree ("batch_job_id");--> statement-breakpoint
 CREATE INDEX "scrubbing_result_session_idx" ON "scrubbing_result" USING btree ("session_id");--> statement-breakpoint
@@ -3218,8 +4236,27 @@ CREATE INDEX "suggested_fix_field_name_idx" ON "suggested_fix" USING btree ("fie
 CREATE INDEX "suggested_fix_source_idx" ON "suggested_fix" USING btree ("source");--> statement-breakpoint
 CREATE INDEX "suggested_fix_confidence_idx" ON "suggested_fix" USING btree ("confidence");--> statement-breakpoint
 CREATE INDEX "suggested_fix_created_at_idx" ON "suggested_fix" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "sync_job_org_idx" ON "sync_job" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "sync_job_ehr_system_idx" ON "sync_job" USING btree ("ehr_system_id");--> statement-breakpoint
+CREATE INDEX "sync_job_type_idx" ON "sync_job" USING btree ("job_type");--> statement-breakpoint
+CREATE INDEX "sync_job_entity_type_idx" ON "sync_job" USING btree ("entity_type");--> statement-breakpoint
+CREATE INDEX "sync_job_status_idx" ON "sync_job" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "sync_job_active_idx" ON "sync_job" USING btree ("is_active");--> statement-breakpoint
+CREATE INDEX "sync_job_next_sync_at_idx" ON "sync_job" USING btree ("next_sync_at");--> statement-breakpoint
+CREATE INDEX "system_settings_org_idx" ON "system_settings" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "system_settings_key_idx" ON "system_settings" USING btree ("setting_key");--> statement-breakpoint
+CREATE INDEX "system_settings_scope_idx" ON "system_settings" USING btree ("scope");--> statement-breakpoint
+CREATE INDEX "system_settings_user_idx" ON "system_settings" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "system_settings_unique_org_key" ON "system_settings" USING btree ("organization_id","setting_key","user_id");--> statement-breakpoint
 CREATE INDEX "team_member_org_user_idx" ON "team_member" USING btree ("organization_id","clerk_user_id");--> statement-breakpoint
 CREATE INDEX "team_member_clerk_user_idx" ON "team_member" USING btree ("clerk_user_id");--> statement-breakpoint
+CREATE INDEX "trading_partner_org_idx" ON "trading_partner" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "trading_partner_name_idx" ON "trading_partner" USING btree ("partner_name");--> statement-breakpoint
+CREATE INDEX "trading_partner_type_idx" ON "trading_partner" USING btree ("partner_type");--> statement-breakpoint
+CREATE INDEX "trading_partner_edi_id_idx" ON "trading_partner" USING btree ("edi_id");--> statement-breakpoint
+CREATE INDEX "trading_partner_status_idx" ON "trading_partner" USING btree ("partnership_status");--> statement-breakpoint
+CREATE INDEX "trading_partner_isa_sender_id_idx" ON "trading_partner" USING btree ("isa_sender_id");--> statement-breakpoint
+CREATE INDEX "trading_partner_isa_receiver_id_idx" ON "trading_partner" USING btree ("isa_receiver_id");--> statement-breakpoint
 CREATE INDEX "webhook_config_org_idx" ON "webhook_config" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "webhook_config_active_idx" ON "webhook_config" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "webhook_config_url_idx" ON "webhook_config" USING btree ("url");--> statement-breakpoint

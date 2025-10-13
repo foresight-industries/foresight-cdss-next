@@ -45,7 +45,7 @@ const app = new cdk.App();
     env,
     stageName: envName,
     database: database.cluster,
-    documentssBucket: storage.documentsBucket,
+    documentsBucket: storage.documentsBucket,
   });
 
   const workflows = new WorkflowStack(app, `RCM-Workflows-${envName}`, {

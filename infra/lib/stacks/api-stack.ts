@@ -10,7 +10,7 @@ import { Construct } from 'constructs';
 interface ApiStackProps extends cdk.StackProps {
   stageName: string;
   database: rds.DatabaseCluster;
-  documentssBucket: s3.Bucket;
+  documentsBucket: s3.Bucket;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -36,7 +36,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
-        DOCUMENTS_BUCKET: props.documentssBucket.bucketName,
+        DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
         CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || '',
       },
       layers: [dependenciesLayer],
@@ -85,7 +85,7 @@ export class ApiStack extends cdk.Stack {
 
     // Grant permissions
     props.database.grantDataApiAccess(patientsFn);
-    props.documentssBucket.grantReadWrite(patientsFn);
+    props.documentsBucket.grantReadWrite(patientsFn);
 
     // Add routes
     this.httpApi.addRoutes({
@@ -106,7 +106,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     props.database.grantDataApiAccess(claimsFn);
-    props.documentssBucket.grantReadWrite(claimsFn);
+    props.documentsBucket.grantReadWrite(claimsFn);
 
     this.httpApi.addRoutes({
       path: '/claims',
@@ -125,8 +125,8 @@ export class ApiStack extends cdk.Stack {
       code: lambda.Code.fromAsset('../packages/functions/api'),
     });
 
-    props.documentssBucket.grantPut(presignFn);
-    props.documentssBucket.grantRead(presignFn);
+    props.documentsBucket.grantPut(presignFn);
+    props.documentsBucket.grantRead(presignFn);
 
     this.httpApi.addRoutes({
       path: '/documents/presign',

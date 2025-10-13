@@ -27,4 +27,8 @@ export default {
     resourceArn: process.env.DATABASE_CLUSTER_ARN,
     secretArn: process.env.DATABASE_SECRET_ARN,
   },
+  introspect: {
+    casing: 'preserve',
+  },
+  strict: false,
 } satisfies Config;
