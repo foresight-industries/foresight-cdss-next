@@ -23,7 +23,8 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
     pathname === "/confirm-email" ||
     pathname === "/error" ||
     pathname === '/onboard' ||
-    pathname === '/accept-invitation';
+    pathname === '/accept-invitation' ||
+    pathname === '/';
 
   if (!isLoaded) {
     return (
