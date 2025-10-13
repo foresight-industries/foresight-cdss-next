@@ -1,5 +1,5 @@
 exports.handler = async (event) => {
-    console.log('Submit claim event:', JSON.stringify(event, null, 2));
+    console.log('Submit claim workflow: patientId=%s serviceCode=%s', event.patientId, event.serviceCode);
     
     try {
         // Mock claim submission logic

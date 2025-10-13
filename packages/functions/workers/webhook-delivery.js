@@ -5,7 +5,7 @@ const http = require('http');
 const rdsDataClient = new AWS.RDSDataService();
 
 exports.handler = async (event) => {
-    console.log('Webhook delivery event:', JSON.stringify(event, null, 2));
+    console.log('Webhook delivery started: records=%d', event.Records?.length || 0);
     
     const results = [];
     const batchItemFailures = [];
@@ -13,7 +13,7 @@ exports.handler = async (event) => {
     for (const record of event.Records) {
         try {
             const message = JSON.parse(record.body);
-            console.log('Delivering webhook:', message);
+            console.log('Delivering webhook: url=%s event=%s', message.webhookUrl, message.eventType);
             
             const result = await deliverWebhook(message);
             results.push(result);
@@ -135,7 +135,7 @@ async function logWebhookDelivery(logData) {
             ]
         };
         
-        console.log('Logging webhook delivery:', JSON.stringify(params, null, 2));
+        console.log('Logging webhook delivery: url=%s status=%s attempt=%d', logData.url, logData.status, logData.attempt);
         // await rdsDataClient.executeStatement(params).promise();
         
     } catch (error) {

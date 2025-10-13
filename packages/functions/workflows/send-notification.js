@@ -1,5 +1,5 @@
 exports.handler = async (event) => {
-    console.log('Send notification event:', JSON.stringify(event, null, 2));
+    console.log('Send notification workflow: type=%s claimId=%s', event.type, event.claimId);
     
     try {
         // Mock notification sending logic

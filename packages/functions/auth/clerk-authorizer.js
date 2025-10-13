@@ -6,7 +6,11 @@ const clerk = Clerk({
 });
 
 exports.handler = async (event) => {
-    console.log('Authorizer event:', JSON.stringify(event, null, 2));
+    console.log(
+        'Authorizer request: methodArn=%s requestId=%s',
+        event.methodArn,
+        event.requestContext?.requestId || 'unknown'
+    );
     
     try {
         const { authorizationToken, methodArn } = event;

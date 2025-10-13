@@ -3,7 +3,12 @@ const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 
 exports.handler = async (event) => {
-    console.log('Presign API event:', JSON.stringify(event, null, 2));
+    console.log(
+        'Presign API request received: method=%s resource=%s requestId=%s',
+        event.httpMethod,
+        event.resource || event.rawPath,
+        event.requestContext?.requestId
+    );
     
     try {
         const { httpMethod, queryStringParameters, body } = event;

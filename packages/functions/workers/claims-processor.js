@@ -4,7 +4,7 @@ const rdsDataClient = new AWS.RDSDataService();
 const s3 = new AWS.S3();
 
 exports.handler = async (event) => {
-    console.log('Claims processor event:', JSON.stringify(event, null, 2));
+    console.log('Claims processor started: records=%d', event.Records?.length || 0);
     
     const results = [];
     const batchItemFailures = [];
@@ -12,7 +12,7 @@ exports.handler = async (event) => {
     for (const record of event.Records) {
         try {
             const message = JSON.parse(record.body);
-            console.log('Processing claim:', message);
+            console.log('Processing claim: claimId=%s organizationId=%s', message.claimId, message.organizationId);
             
             // Simulate claim processing
             const result = await processClaim(message);

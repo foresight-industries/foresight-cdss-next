@@ -1,5 +1,5 @@
 exports.handler = async (event) => {
-    console.log('Check eligibility event:', JSON.stringify(event, null, 2));
+    console.log('Check eligibility workflow: patientId=%s serviceCode=%s', event.patientId, event.serviceCode);
     
     try {
         // Mock eligibility check logic

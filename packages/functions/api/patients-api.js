@@ -3,7 +3,12 @@ const AWS = require('aws-sdk');
 const rdsDataClient = new AWS.RDSDataService();
 
 exports.handler = async (event) => {
-    console.log('Patients API event:', JSON.stringify(event, null, 2));
+    console.log(
+        'Patients API request received: method=%s resource=%s requestId=%s',
+        event.httpMethod,
+        event.resource || event.rawPath,
+        event.requestContext?.requestId
+    );
     
     try {
         const { httpMethod, pathParameters, queryStringParameters, body } = event;
@@ -96,7 +101,7 @@ async function listPatients(queryParams = {}, organizationId) {
         parameters
     };
     
-    console.log('Executing SQL:', JSON.stringify(params, null, 2));
+    console.log('Executing listPatients query: limit=%d offset=%d', parseInt(limit), parseInt(offset));
     // const result = await rdsDataClient.executeStatement(params).promise();
     
     // Mock result for now
@@ -135,7 +140,7 @@ async function getPatient(patientId, organizationId) {
         ]
     };
     
-    console.log('Getting patient:', JSON.stringify(params, null, 2));
+    console.log('Getting patient: patientId=%s', patientId);
     // const result = await rdsDataClient.executeStatement(params).promise();
     
     // Mock result
@@ -178,7 +183,7 @@ async function createPatient(patientData, organizationId, userId) {
         ]
     };
     
-    console.log('Creating patient:', JSON.stringify(params, null, 2));
+    console.log('Creating patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();
     
     return {
@@ -213,7 +218,7 @@ async function updatePatient(patientId, patientData, organizationId, userId) {
         ]
     };
     
-    console.log('Updating patient:', JSON.stringify(params, null, 2));
+    console.log('Updating patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();
     
     return {
@@ -240,7 +245,7 @@ async function deletePatient(patientId, organizationId, userId) {
         ]
     };
     
-    console.log('Deleting patient:', JSON.stringify(params, null, 2));
+    console.log('Deleting patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();
     
     return {

@@ -1,5 +1,5 @@
 exports.handler = async (event) => {
-    console.log('Process payment event:', JSON.stringify(event, null, 2));
+    console.log('Process payment workflow: claimId=%s paidAmount=%s', event.claimId, event.paidAmount);
     
     try {
         // Mock payment processing logic

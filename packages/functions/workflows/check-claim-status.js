@@ -1,5 +1,5 @@
 exports.handler = async (event) => {
-    console.log('Check claim status event:', JSON.stringify(event, null, 2));
+    console.log('Check claim status workflow: claimId=%s', event.claimId);
     
     try {
         // Mock claim status check logic
@@ -7,7 +7,7 @@ exports.handler = async (event) => {
         
         // Simulate different claim statuses
         const statuses = ['pending', 'paid', 'denied', 'under_review'];
-        const weights = [0.3, 0.5, 0.15, 0.05]; // 50% paid, 30% pending, 15% denied, 5% under review
+        const weights = [0.3, 0.5, 0.15, 0.05]; // 30% pending, 50% paid, 15% denied, 5% under review
         
         const random = Math.random();
         let status;
@@ -15,10 +15,15 @@ exports.handler = async (event) => {
         
         for (let i = 0; i < statuses.length; i++) {
             cumulative += weights[i];
-            if (random <= cumulative) {
+            if (random < cumulative) {
                 status = statuses[i];
                 break;
             }
+        }
+        
+        // Fallback to last status if none selected (should not happen with proper weights)
+        if (!status) {
+            status = statuses[statuses.length - 1];
         }
         
         const response = {

@@ -4,7 +4,12 @@ const rdsDataClient = new AWS.RDSDataService();
 const sqs = new AWS.SQS();
 
 exports.handler = async (event) => {
-    console.log('Claims API event:', JSON.stringify(event, null, 2));
+    console.log(
+        'Claims API request received: method=%s resource=%s requestId=%s',
+        event.httpMethod,
+        event.resource || event.rawPath,
+        event.requestContext?.requestId
+    );
     
     try {
         const { httpMethod, pathParameters, queryStringParameters, body } = event;
@@ -103,7 +108,7 @@ async function listClaims(queryParams = {}, organizationId) {
         parameters
     };
     
-    console.log('Executing SQL:', JSON.stringify(params, null, 2));
+    console.log('Executing listClaims query: limit=%d offset=%d', parseInt(limit), parseInt(offset));
     // const result = await rdsDataClient.executeStatement(params).promise();
     
     // Mock result for now
@@ -146,7 +151,7 @@ async function getClaim(claimId, organizationId) {
         ]
     };
     
-    console.log('Getting claim:', JSON.stringify(params, null, 2));
+    console.log('Getting claim: claimId=%s', claimId);
     // const result = await rdsDataClient.executeStatement(params).promise();
     
     // Mock result
@@ -192,7 +197,7 @@ async function createClaim(claimData, organizationId, userId) {
         ]
     };
     
-    console.log('Creating claim:', JSON.stringify(params, null, 2));
+    console.log('Creating claim: claimId=%s serviceCode=%s', claimId, claimData.serviceCode);
     // await rdsDataClient.executeStatement(params).promise();
     
     // Queue for processing if submitted
@@ -234,7 +239,7 @@ async function updateClaim(claimId, claimData, organizationId, userId) {
         ]
     };
     
-    console.log('Updating claim:', JSON.stringify(params, null, 2));
+    console.log('Updating claim: claimId=%s', claimId);
     // await rdsDataClient.executeStatement(params).promise();
     
     return {
@@ -261,7 +266,7 @@ async function deleteClaim(claimId, organizationId, userId) {
         ]
     };
     
-    console.log('Deleting claim:', JSON.stringify(params, null, 2));
+    console.log('Deleting claim: claimId=%s', claimId);
     // await rdsDataClient.executeStatement(params).promise();
     
     return {
@@ -286,7 +291,7 @@ async function queueClaimForProcessing(claimData) {
             MessageDeduplicationId: `${claimData.claimId}_${Date.now()}`
         };
         
-        console.log('Queuing claim for processing:', JSON.stringify(params, null, 2));
+        console.log('Queuing claim for processing: claimId=%s organizationId=%s', claimData.claimId, claimData.organizationId);
         // await sqs.sendMessage(params).promise();
         
     } catch (error) {
