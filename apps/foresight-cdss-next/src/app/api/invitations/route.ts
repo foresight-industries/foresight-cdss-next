@@ -57,7 +57,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       organizationId,
       emailAddress: email,
       role: clerkRole,
-      redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/accept-invitation`,
+      redirectUrl: `${process.env.VERCEL_URL}/accept-invitation`,
       publicMetadata: {
         inviterName: `${user.firstName} ${user.lastName}`.trim(),
         role, // Store our custom role

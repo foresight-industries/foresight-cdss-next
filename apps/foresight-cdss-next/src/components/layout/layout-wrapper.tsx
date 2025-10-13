@@ -17,6 +17,7 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
   // Don't show nav on auth pages or invitation page
   const isAuthPage =
     pathname === "/login" ||
+    pathname === "/logout" ||
     pathname === "/signup" ||
     pathname === "/forgot-password" ||
     pathname === "/reset-password" ||
@@ -25,7 +26,8 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
     pathname === '/onboard' ||
     pathname === '/accept-invitation' ||
     pathname === '/' ||
-    pathname === '/team-not-found';
+    pathname === '/team-not-found' ||
+    pathname === '/unauthorized';
 
   if (!isLoaded) {
     return (

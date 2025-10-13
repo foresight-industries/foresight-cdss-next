@@ -12,9 +12,11 @@ const isUnauthenticatedRoute = createRouteMatcher([
 const isOnboardingRoute = createRouteMatcher([
   "/onboard(.*)",
   "/accept-invitation(.*)",
+  "/logout(.*)",
   "/api/teams(.*)",
   "/api/upload(.*)",
-  "/api/invitations(.*)"
+  "/api/invitations(.*)",
+  "/api/auth/signout(.*)"
 ]);
 
 
