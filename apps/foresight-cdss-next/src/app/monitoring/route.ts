@@ -3,9 +3,19 @@ import { NextRequest } from 'next/server';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
-
-    // Forward the request to Sentry
-    const sentryUrl = `https://o4509918086955008.ingest.us.sentry.io/api/4509918121623552/envelope/`;
+    
+    // Extract Sentry parameters from query string
+    const { searchParams } = new URL(request.url);
+    const orgId = searchParams.get('o');
+    const projectId = searchParams.get('p');
+    const region = searchParams.get('r');
+    
+    if (!orgId || !projectId || !region) {
+      return new Response('Missing required parameters (o, p, r)', { status: 400 });
+    }
+    
+    // Construct Sentry URL from query parameters
+    const sentryUrl = `https://o${orgId}.ingest.${region}.sentry.io/api/${projectId}/envelope/`;
 
     const response = await fetch(sentryUrl, {
       method: 'POST',
