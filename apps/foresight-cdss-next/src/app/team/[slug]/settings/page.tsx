@@ -1,32 +1,39 @@
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { requireTeamMembership } from "@/lib/team";
+// import { createSupabaseServerClient } from "@/lib/supabase/server";
+// import { requireTeamMembership } from "@/lib/team";
 import SettingsClient from "@/components/settings/settings-client";
 
 async function loadTeamSettings() {
   try {
-    const membership = await requireTeamMembership();
-    const supabase = await createSupabaseServerClient();
+    // const membership = await requireTeamMembership();
+    // const supabase = await createSupabaseServerClient();
 
     // Get all settings for the team
-    const { data: settings, error } = await supabase
-      .from("team_settings")
-      .select("key, value")
-      .eq("team_id", membership.team_id);
-
-    if (error) {
-      console.error("Error fetching team settings:", error);
-      return { automation: {}, notifications: {}, validation: {} };
-    }
+    // const { data: settings, error } = await supabase
+    //   .from("team_settings")
+    //   .select("key, value")
+    //   .eq("team_id", membership.team_id);
+    //
+    // if (error) {
+    //   console.error("Error fetching team settings:", error);
+    //   return { automation: {}, notifications: {}, validation: {} };
+    // }
 
     // Convert array of settings to object
-    const settingsMap =
-      settings?.reduce((acc, setting) => {
-        acc[setting.key] = setting.value;
-        return acc;
-      }, {} as Record<string, any>) || {};
+    // const settingsMap =
+    //   settings?.reduce((acc, setting) => {
+    //     acc[setting.key] = setting.value;
+    //     return acc;
+    //   }, {} as Record<string, any>) || {};
+    const settingsMap = {} as Record<string, any>;
 
     return settingsMap;
   } catch (error) {
+    // Re-throw redirect errors so they can be handled by Next.js
+    if (error && typeof error === 'object' && 'digest' in error &&
+        typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+      throw error;
+    }
+
     console.error("Settings fetch error:", error);
     return { automation: {}, notifications: {}, validation: {} };
   }
