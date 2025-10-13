@@ -6,18 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogOut, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
-import { logoutAction } from './actions';
+import { useClerk } from '@clerk/nextjs';
 
 export function LogoutForm() {
+  const { signOut, redirectToSignIn } = useClerk();
+
+  const autoLogout = async () => {
+    // Small delay to show the UI briefly
+    setTimeout(() => {
+      signOut();
+      redirectToSignIn();
+    }, 500);
+  };
+
   // Auto-trigger logout on component mount for seamless experience
   useEffect(() => {
-    const autoLogout = async () => {
-      // Small delay to show the UI briefly
-      setTimeout(() => {
-        logoutAction();
-      }, 1000);
-    };
-    
     autoLogout();
   }, []);
 
@@ -62,14 +65,6 @@ export function LogoutForm() {
                 <div className="absolute top-0 left-0 w-8 h-8 border-4 border-primary rounded-full border-t-transparent animate-spin"></div>
               </div>
             </div>
-
-            {/* Manual logout button (fallback) */}
-            <form action={logoutAction} className="space-y-4">
-              <Button type="submit" className="w-full" variant="outline">
-                <LogOut className="w-4 h-4 mr-2" />
-                Sign Out Now
-              </Button>
-            </form>
 
             {/* Cancel button */}
             <Button asChild variant="ghost" className="w-full">
