@@ -5,13 +5,13 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
 
     // Forward the request to Sentry
-    const sentryUrl = `https://o4504259021979648.ingest.sentry.io/api/4504259021979649/envelope/`;
+    const sentryUrl = `https://o4509918086955008.ingest.us.sentry.io/api/4509918121623552/envelope/`;
 
     const response = await fetch(sentryUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-sentry-envelope',
-        'User-Agent': request.headers.get('user-agent') || '',
+        'User-Agent': request.headers.get('user-agent') ?? '',
       },
       body,
     });
