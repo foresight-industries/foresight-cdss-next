@@ -32,6 +32,11 @@ export class SecurityStack extends cdk.Stack {
     });
 
     wafLogsBucket.grantWrite(firehoseRole);
+    firehoseRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['s3:GetBucketLocation', 's3:ListBucket', 's3:ListBucketMultipartUploads'],
+      resources: [wafLogsBucket.bucketArn],
+    }));
 
     const wafLogsFirehose = new kinesisfirehose.CfnDeliveryStream(this, 'WAFLogsFirehose', {
       deliveryStreamName: `aws-waf-logs-rcm-${props.stageName}`,

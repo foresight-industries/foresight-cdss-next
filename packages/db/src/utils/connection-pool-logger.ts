@@ -84,8 +84,16 @@ export class ConnectionPoolLogger {
   }
 
   updateMetric(name: string, value: number) {
-    const current = this.metrics.get(name) || 0;
-    this.metrics.set(name, current + value);
+    // Gauge metrics should be set, not accumulated
+    const gaugeMetrics = new Set(['ConnectionsActive', 'ConnectionsTotal', 'ClientsWaiting', 'ConnectionWaitTime']);
+    
+    if (gaugeMetrics.has(name)) {
+      this.metrics.set(name, value);
+    } else {
+      // Counter metrics should be accumulated
+      const current = this.metrics.get(name) || 0;
+      this.metrics.set(name, current + value);
+    }
   }
 
   private async maybeFlushMetrics() {
