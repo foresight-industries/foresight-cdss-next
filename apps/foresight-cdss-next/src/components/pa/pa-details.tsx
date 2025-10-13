@@ -195,7 +195,8 @@ const getGenericName = (medication: string): string => {
 };
 
 const getMedicationStrength = (medication: string): string => {
-  const strengthMatch = medication.match(/(\d+(?:\.\d+)?(?:mg|mL|units?))/);
+  const strengthRegex = /(\d+(?:\.\d+)?(?:mg|mL|units?))/;
+  const strengthMatch = strengthRegex.exec(medication);
   return strengthMatch ? strengthMatch[0] : 'Standard strength';
 };
 

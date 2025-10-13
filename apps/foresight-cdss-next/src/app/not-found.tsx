@@ -30,7 +30,8 @@ export default function NotFound() {
           
           // Fallback: try to extract from current URL if we're on a team page
           const currentPath = window.location.pathname;
-          const teamMatch = currentPath.match(/^\/team\/([^/]+)/);
+          const teamRegex = /^\/team\/([^/]+)/;
+          const teamMatch = teamRegex.exec(currentPath);
           if (teamMatch) {
             setTeamBasePath(`/team/${teamMatch[1]}`);
             return;
