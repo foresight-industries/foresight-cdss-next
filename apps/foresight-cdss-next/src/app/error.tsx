@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useUser, useOrganization } from '@clerk/nextjs';
 import {
   AlertTriangle,
   RotateCcw,
@@ -20,6 +21,43 @@ interface ErrorPageProps {
 }
 
 export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
+  const { user, isLoaded } = useUser();
+  const { organization } = useOrganization();
+  const [teamBasePath, setTeamBasePath] = useState('');
+  
+  useEffect(() => {
+    async function getTeamBasePath() {
+      if (isLoaded && user) {
+        try {
+          // Try to get team slug from current organization first
+          if (organization?.slug) {
+            setTeamBasePath(`/team/${organization.slug}`);
+            return;
+          }
+          
+          // Fallback: try to extract from current URL if we're on a team page
+          const currentPath = window.location.pathname;
+          const teamMatch = currentPath.match(/^\/team\/([^/]+)/);
+          if (teamMatch) {
+            setTeamBasePath(`/team/${teamMatch[1]}`);
+            return;
+          }
+          
+          // No team context found
+          setTeamBasePath('');
+        } catch (error) {
+          console.error('Error getting team slug:', error);
+          setTeamBasePath('');
+        }
+      } else if (isLoaded && !user) {
+        // User not authenticated, use empty path
+        setTeamBasePath('');
+      }
+    }
+    
+    getTeamBasePath();
+  }, [user, organization, isLoaded]);
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-8">
@@ -130,7 +168,7 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <Link
-                      href="mailto:support@have-foresight.com?subject=Application Error Report"
+                      href="mailto:team@have-foresight.app?subject=Application Error Report"
                       className="flex items-center gap-2"
                     >
                       <Bug className="h-4 w-4" />
@@ -145,7 +183,7 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <Link
-                      href="/settings?section=help"
+                      href={`${teamBasePath}/settings?section=help`}
                       className="flex items-center gap-2"
                     >
                       <ExternalLink className="h-4 w-4" />
