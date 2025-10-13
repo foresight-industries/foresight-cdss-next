@@ -12,6 +12,10 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Foresight RCM Dashboard",
   description: "Automated RCM System",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({
