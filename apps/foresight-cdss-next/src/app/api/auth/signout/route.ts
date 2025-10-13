@@ -7,11 +7,16 @@ export async function GET() {
 
     // If user is not authenticated, redirect to login page
     if (!userId) {
-      return NextResponse.redirect(new URL('/login', process.env.VERCEL_URL || 'http://localhost:3000'));
+      return NextResponse.redirect(new URL('/login', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000'));
     }
 
     // Redirect to Clerk sign-out URL which will handle the logout and redirect
-    const signOutUrl = new URL('/logout', process.env.VERCEL_URL || 'http://localhost:3000');
+    const signOutUrl = new URL(
+      "/logout",
+      process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000"
+    );
 
     // Add post-logout redirect
     signOutUrl.searchParams.set('redirect_url', '/login?signed_out=true');
@@ -22,7 +27,7 @@ export async function GET() {
 
     // Fallback: redirect to login page with error
     return NextResponse.redirect(
-      new URL('/login?error=signout_failed', process.env.VERCEL_URL || 'http://localhost:3000')
+      new URL('/login?error=signout_failed', process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
     );
   }
 }
