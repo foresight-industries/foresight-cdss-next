@@ -9,7 +9,7 @@ async function checkUserTeamAndRedirect(): Promise<void> {
     const user = await currentUser();
 
     if (!user) {
-      // User not authenticated, redirect to login
+      // User not authenticated, redirect to login page
       redirect('/login');
     }
 

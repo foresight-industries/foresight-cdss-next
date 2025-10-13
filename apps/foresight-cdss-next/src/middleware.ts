@@ -5,7 +5,7 @@ import { shouldRedirectToTeam, createTeamPath } from "@/lib/team-routing";
 
 // Only match auth routes
 const isUnauthenticatedRoute = createRouteMatcher([
-  "/(login|logout|signup|forgot-password|reset-password|confirm-email|error|unauthorized|team-not-found)(.*)"
+  "/(login|signup|forgot-password|reset-password|confirm-email|error|unauthorized|team-not-found)(.*)"
 ]);
 
 // Routes that should be accessible to authenticated users even without team membership
@@ -13,17 +13,15 @@ const isOnboardingRoute = createRouteMatcher([
   "/onboard(.*)",
   "/accept-invitation(.*)",
   "/logout(.*)",
-  "/api/auth/signout(.*)",
   "/api/auth/handle-magic-link(.*)",
   "/api/teams(.*)",
   "/api/upload(.*)",
-  "/api/invitations(.*)",
-  "/api/auth/signout(.*)"
+  "/api/invitations(.*)"
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
   // Skip webhook routes and monitoring routes entirely
-  if (req.url.includes("/api/webhooks") || req.nextUrl.pathname === "/monitoring") {
+  if (req.url.includes("/api/webhooks") || req.nextUrl.pathname === "/monitoring" || req.url.includes("/logout")) {
     return NextResponse.next();
   }
 
