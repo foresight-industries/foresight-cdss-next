@@ -23,6 +23,7 @@ export class WorkflowStack extends cdk.Stack {
       environment: {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_NAME: 'rcm',
       },
     });
 
@@ -33,6 +34,7 @@ export class WorkflowStack extends cdk.Stack {
       environment: {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_NAME: 'rcm',
       },
     });
 
@@ -40,18 +42,33 @@ export class WorkflowStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'check-claim-status.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      environment: {
+        DATABASE_CLUSTER_ARN: props.database.clusterArn,
+        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_NAME: 'rcm',
+      },
     });
 
     const processPayment = new lambda.Function(this, 'ProcessPaymentFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'process-payment.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      environment: {
+        DATABASE_CLUSTER_ARN: props.database.clusterArn,
+        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_NAME: 'rcm',
+      },
     });
 
     const sendNotification = new lambda.Function(this, 'SendNotificationFn', {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'send-notification.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      environment: {
+        DATABASE_CLUSTER_ARN: props.database.clusterArn,
+        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_NAME: 'rcm',
+      },
     });
 
     // CloudWatch Log Groups for Step Functions

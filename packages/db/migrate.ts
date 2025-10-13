@@ -29,7 +29,7 @@ const db = drizzle(rdsClient, {
 
 async function main() {
   console.log('Running migrations...');
-  
+
   try {
     await migrate(db, { migrationsFolder: './src/migrations' });
     console.log('Migrations completed successfully!');

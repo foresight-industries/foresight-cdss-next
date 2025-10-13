@@ -16,7 +16,7 @@ export class StorageStack extends cdk.Stack {
 
     // Customer-managed KMS key for PHI encryption
     this.encryptionKey = new kms.Key(this, 'PHIEncryptionKey', {
-      alias: `rcm-phi-key-${props.stageName}`,
+      alias: `alias/rcm-phi-key-${props.stageName}`,
       description: 'KMS key for RCM PHI data encryption',
       enableKeyRotation: true,
       pendingWindow: cdk.Duration.days(props.stageName === 'prod' ? 30 : 7),

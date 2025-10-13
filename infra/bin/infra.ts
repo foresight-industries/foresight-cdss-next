@@ -34,11 +34,21 @@ const app = new cdk.App();
     stageName: envName,
   });
 
+  // Create a simple alert stack first (just SNS topic and database alarms)
+  const alerting = new MonitoringStack(app, `RCM-Alerting-${envName}`, {
+    env,
+    stageName: envName,
+    database: database.cluster,
+    stackType: 'alerting',
+    // No API provided - will skip API Gateway alarms and dashboard widgets
+  });
+
   const queues = new QueueStack(app, `RCM-Queues-${envName}`, {
     env,
     stageName: envName,
     database: database.cluster,
     documentsBucket: storage.documentsBucket,
+    alertTopicArn: alerting.alarmTopic.topicArn,
   });
 
   const api = new ApiStack(app, `RCM-API-${envName}`, {
@@ -66,6 +76,7 @@ const app = new cdk.App();
     stageName: envName,
     api: api.httpApi,
     database: database.cluster,
+    stackType: 'monitoring',
     queues: {
       claimsQueue: queues.claimsQueue,
       webhookQueue: queues.webhookQueue,
@@ -74,10 +85,12 @@ const app = new cdk.App();
   });
 
   // Add dependencies
-  api.addDependency(database);
-  api.addDependency(storage);
+  alerting.addDependency(database);
   queues.addDependency(database);
   queues.addDependency(storage);
+  queues.addDependency(alerting);
+  api.addDependency(database);
+  api.addDependency(storage);
   workflows.addDependency(queues);
   security.addDependency(api);
   monitoring.addDependency(api);

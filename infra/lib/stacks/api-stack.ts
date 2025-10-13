@@ -38,7 +38,6 @@ export class ApiStack extends cdk.Stack {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
-        CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY || '',
       },
       layers: [dependenciesLayer],
       tracing: lambda.Tracing.ACTIVE,
@@ -46,15 +45,20 @@ export class ApiStack extends cdk.Stack {
 
     const clerkSecret = secretsManager.Secret.fromSecretNameV2(this, 'ClerkSecret', `rcm-clerk-secret-${props.stageName}`);
 
-    // functionProps.environment.CLERK_SECRET_KEY = clerkSecret.secretValueFromJson('CLERK_SECRET_KEY').toString();
-
     // Clerk authorizer Lambda
     const authorizerFn = new lambda.Function(this, 'ClerkAuthorizer', {
       ...functionProps,
       functionName: `rcm-clerk-authorizer-${props.stageName}`,
       handler: 'clerk-authorizer.handler',
       code: lambda.Code.fromAsset('../packages/functions/auth'),
+      environment: {
+        ...functionProps.environment,
+        CLERK_SECRET_ARN: clerkSecret.secretArn,
+      },
     });
+
+    // Grant read access to Clerk secret
+    clerkSecret.grantRead(authorizerFn);
 
     // Create HTTP API with Clerk authorizer
     const authorizer = new apigatewayAuthorizers.HttpLambdaAuthorizer(

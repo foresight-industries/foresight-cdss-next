@@ -1,13 +1,16 @@
 import * as cdk from 'aws-cdk-lib';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 
 interface QueueStackProps extends cdk.StackProps {
   stageName: string;
   database: any;
   documentsBucket: any;
+  alertTopicArn: string;
 }
 
 export class QueueStack extends cdk.Stack {
@@ -156,43 +159,32 @@ export class QueueStack extends cdk.Stack {
     );
 
     // DLQ Processor (sends alerts and logs failed messages)
-    const dlqProcessor = new lambda.Function(this, 'DLQProcessor', {
+    const dlqProcessor = new lambdaNodejs.NodejsFunction(this, 'DLQProcessor', {
       functionName: `rcm-dlq-processor-${props.stageName}`,
+      entry: '../packages/functions/workers/dlq-processor.ts',
       runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'dlq-processor.handler',
       timeout: cdk.Duration.seconds(30),
-      code: lambda.Code.fromInline(`
-        const AWS = require('aws-sdk');
-        const sns = new AWS.SNS();
-        const cloudwatch = new AWS.CloudWatch();
-
-        exports.handler = async (event) => {
-          console.error('DLQ Messages:', JSON.stringify(event.Records, null, 2));
-
-          // Send SNS alert
-          await sns.publish({
-            TopicArn: process.env.ALERT_TOPIC_ARN,
-            Subject: 'RCM DLQ Alert',
-            Message: \`Failed messages in DLQ: \${event.Records.length}\`,
-          }).promise();
-
-          // Publish custom metric
-          await cloudwatch.putMetricData({
-            Namespace: 'RCM/DLQ',
-            MetricData: [{
-              MetricName: 'FailedMessages',
-              Value: event.Records.length,
-              Unit: 'Count',
-            }],
-          }).promise();
-
-          return { batchItemFailures: [] };
-        };
-      `),
+      memorySize: 256,
       environment: {
-        ALERT_TOPIC_ARN: process.env.ALERT_TOPIC_ARN || '',
+        NODE_ENV: props.stageName,
+        ALERT_TOPIC_ARN: props.alertTopicArn,
+      },
+      bundling: {
+        externalModules: ['@aws-sdk/client-sns', '@aws-sdk/client-cloudwatch'],
       },
     });
+
+    // Grant SNS and CloudWatch permissions to DLQ processor
+    dlqProcessor.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'sns:Publish',
+          'cloudwatch:PutMetricData',
+        ],
+        resources: ['*'],
+      })
+    );
 
     dlqProcessor.addEventSource(
       new lambdaEventSources.SqsEventSource(this.dlq, {

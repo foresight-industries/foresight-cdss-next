@@ -12,81 +12,88 @@ import { Construct } from 'constructs';
 interface MonitoringStackProps extends cdk.StackProps {
   stageName: string;
   database: rds.DatabaseCluster;
-  api: apigateway.HttpApi;
+  api?: apigateway.HttpApi;
   queues?: {
     claimsQueue: sqs.Queue;
     webhookQueue: sqs.Queue;
     dlq: sqs.Queue;
   };
+  stackType?: 'alerting' | 'monitoring';
 }
 
 export class MonitoringStack extends cdk.Stack {
+  public readonly alarmTopic: sns.ITopic;
+
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
-    // SNS Topic for alerts
-    const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
-      topicName: `rcm-alarms-${props.stageName}`,
-      displayName: `RCM ${props.stageName} Alarms`,
-    });
-
-    // Add email subscription
-    alarmTopic.addSubscription(
-      new snsSubscriptions.EmailSubscription(
-        process.env.ALARM_EMAIL || 'ops@have-foresight.com'
-      )
+    // SNS Topic for alerts - reference existing topics from previous monitoring deployments
+    this.alarmTopic = sns.Topic.fromTopicArn(
+      this,
+      'AlarmTopic',
+      `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
     );
 
-    // Add Slack webhook if configured
-    if (process.env.SLACK_WEBHOOK_URL) {
-      const slackFunction = new lambda.Function(this, 'SlackNotifier', {
-        runtime: lambda.Runtime.NODEJS_20_X,
-        handler: 'index.handler',
-        code: lambda.Code.fromInline(`
-          const https = require('https');
-          const util = require('util');
+    // Only add subscriptions in the alerting stack
+    if (props.stackType === 'alerting') {
+      // Add email subscription
+      this.alarmTopic.addSubscription(
+        new snsSubscriptions.EmailSubscription(
+          process.env.ALARM_EMAIL || 'ops@have-foresight.com'
+        )
+      );
 
-          exports.handler = async (event) => {
-            const message = JSON.parse(event.Records[0].Sns.Message);
-            const color = message.NewStateValue === 'ALARM' ? 'danger' : 'good';
+      // Add Slack webhook if configured
+      if (process.env.SLACK_WEBHOOK_URL) {
+        const slackFunction = new lambda.Function(this, 'SlackNotifier', {
+          runtime: lambda.Runtime.NODEJS_20_X,
+          handler: 'index.handler',
+          code: lambda.Code.fromInline(`
+            const https = require('https');
+            const util = require('util');
 
-            const payload = {
-              attachments: [{
-                color: color,
-                title: message.AlarmName,
-                text: message.AlarmDescription,
-                fields: [
-                  { title: 'State', value: message.NewStateValue, short: true },
-                  { title: 'Reason', value: message.NewStateReason, short: false },
-                  { title: 'Time', value: message.StateChangeTime, short: true },
-                ],
-              }],
-            };
+            exports.handler = async (event) => {
+              const message = JSON.parse(event.Records[0].Sns.Message);
+              const color = message.NewStateValue === 'ALARM' ? 'danger' : 'good';
 
-            return new Promise((resolve, reject) => {
-              const options = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+              const payload = {
+                attachments: [{
+                  color: color,
+                  title: message.AlarmName,
+                  text: message.AlarmDescription,
+                  fields: [
+                    { title: 'State', value: message.NewStateValue, short: true },
+                    { title: 'Reason', value: message.NewStateReason, short: false },
+                    { title: 'Time', value: message.StateChangeTime, short: true },
+                  ],
+                }],
               };
 
-              const req = https.request(process.env.SLACK_WEBHOOK_URL, options, (res) => {
-                resolve({ statusCode: res.statusCode });
+              return new Promise((resolve, reject) => {
+                const options = {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                };
+
+                const req = https.request(process.env.SLACK_WEBHOOK_URL, options, (res) => {
+                  resolve({ statusCode: res.statusCode });
+                });
+
+                req.on('error', reject);
+                req.write(JSON.stringify(payload));
+                req.end();
               });
+            };
+          `),
+          environment: {
+            SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+          },
+        });
 
-              req.on('error', reject);
-              req.write(JSON.stringify(payload));
-              req.end();
-            });
-          };
-        `),
-        environment: {
-          SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
-        },
-      });
-
-      alarmTopic.addSubscription(
-        new snsSubscriptions.LambdaSubscription(slackFunction)
-      );
+        this.alarmTopic.addSubscription(
+          new snsSubscriptions.LambdaSubscription(slackFunction)
+        );
+      }
     }
 
     // Database Alarms
@@ -104,7 +111,7 @@ export class MonitoringStack extends cdk.Stack {
       evaluationPeriods: 2,
       alarmDescription: 'Database capacity is high',
     });
-    dbCPUAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    dbCPUAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
     const dbConnectionsAlarm = new cloudwatch.Alarm(this, 'DatabaseConnectionsAlarm', {
       metric: new cloudwatch.Metric({
@@ -120,58 +127,63 @@ export class MonitoringStack extends cdk.Stack {
       evaluationPeriods: 2,
       alarmDescription: 'Database connections are high',
     });
-    dbConnectionsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    dbConnectionsAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
-    // API Gateway Alarms
-    const api4xxAlarm = new cloudwatch.Alarm(this, 'API4xxAlarm', {
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/ApiGateway',
-        metricName: '4XXError',
-        dimensionsMap: {
-          ApiName: props.api.httpApiName || 'rcm-api',
-        },
-        statistic: 'Sum',
-        period: cdk.Duration.minutes(5),
-      }),
-      threshold: 50,
-      evaluationPeriods: 1,
-      alarmDescription: 'High 4xx error rate',
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    });
-    api4xxAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    // API Gateway Alarms (only if API is provided)
+    if (props.api) {
+      const api4xxAlarm = new cloudwatch.Alarm(this, 'API4xxAlarm', {
+        metric: new cloudwatch.Metric({
+          namespace: 'AWS/ApiGatewayV2',
+          metricName: '4XXError',
+          dimensionsMap: {
+            ApiId: props.api.httpApiId,
+            Stage: '$default',
+          },
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 50,
+        evaluationPeriods: 1,
+        alarmDescription: 'High 4xx error rate',
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      api4xxAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
-    const api5xxAlarm = new cloudwatch.Alarm(this, 'API5xxAlarm', {
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/ApiGateway',
-        metricName: '5XXError',
-        dimensionsMap: {
-          ApiName: props.api.httpApiName || 'rcm-api',
-        },
-        statistic: 'Sum',
-        period: cdk.Duration.minutes(5),
-      }),
-      threshold: 10,
-      evaluationPeriods: 1,
-      alarmDescription: 'High 5xx error rate',
-      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    });
-    api5xxAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const api5xxAlarm = new cloudwatch.Alarm(this, 'API5xxAlarm', {
+        metric: new cloudwatch.Metric({
+          namespace: 'AWS/ApiGatewayV2',
+          metricName: '5XXError',
+          dimensionsMap: {
+            ApiId: props.api.httpApiId,
+            Stage: '$default',
+          },
+          statistic: 'Sum',
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 10,
+        evaluationPeriods: 1,
+        alarmDescription: 'High 5xx error rate',
+        treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+      });
+      api5xxAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
-    const apiLatencyAlarm = new cloudwatch.Alarm(this, 'APILatencyAlarm', {
-      metric: new cloudwatch.Metric({
-        namespace: 'AWS/ApiGateway',
-        metricName: 'Latency',
-        dimensionsMap: {
-          ApiName: props.api.httpApiName || 'rcm-api',
-        },
-        statistic: 'P99',
-        period: cdk.Duration.minutes(5),
-      }),
-      threshold: 1000, // 1 second
-      evaluationPeriods: 2,
-      alarmDescription: 'API latency is high',
-    });
-    apiLatencyAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      const apiLatencyAlarm = new cloudwatch.Alarm(this, 'APILatencyAlarm', {
+        metric: new cloudwatch.Metric({
+          namespace: 'AWS/ApiGatewayV2',
+          metricName: 'IntegrationLatency',
+          dimensionsMap: {
+            ApiId: props.api.httpApiId,
+            Stage: '$default',
+          },
+          statistic: 'P99',
+          period: cdk.Duration.minutes(5),
+        }),
+        threshold: 1000, // 1 second
+        evaluationPeriods: 2,
+        alarmDescription: 'API latency is high',
+      });
+      apiLatencyAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
+    }
 
     // SQS Queue Alarms (if queues are provided)
     if (props.queues) {
@@ -181,7 +193,7 @@ export class MonitoringStack extends cdk.Stack {
         evaluationPeriods: 1,
         alarmDescription: 'Messages in dead letter queue',
       });
-      dlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      dlqAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
       const queueAgeAlarm = new cloudwatch.Alarm(this, 'QueueAgeAlarm', {
         metric: props.queues.claimsQueue.metricApproximateAgeOfOldestMessage(),
@@ -190,71 +202,90 @@ export class MonitoringStack extends cdk.Stack {
         alarmDescription: 'Messages are aging in queue',
         treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
       });
-      queueAgeAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+      queueAgeAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
     }
 
-    // Main Dashboard
-    const dashboard = new cloudwatch.Dashboard(this, 'MainDashboard', {
-      dashboardName: `rcm-dashboard-${props.stageName}`,
-      defaultInterval: cdk.Duration.hours(3),
-    });
+    // Only create dashboards for full monitoring stack, not alerting stack
+    if (props.stackType !== 'alerting') {
+      // Main Dashboard
+      const dashboard = new cloudwatch.Dashboard(this, 'MainDashboard', {
+        dashboardName: `rcm-dashboard-${props.stageName}`,
+        defaultInterval: cdk.Duration.hours(3),
+      });
 
-    // API Metrics Row
-    dashboard.addWidgets(
-      new cloudwatch.GraphWidget({
-        title: 'API Requests',
-        left: [
-          new cloudwatch.Metric({
-            namespace: 'AWS/ApiGateway',
-            metricName: 'Count',
-            dimensionsMap: { ApiName: props.api.httpApiName || 'rcm-api' },
-            statistic: 'Sum',
-            period: cdk.Duration.minutes(5),
-          }),
-        ],
-        right: [
-          new cloudwatch.Metric({
-            namespace: 'AWS/ApiGateway',
-            metricName: '4XXError',
-            dimensionsMap: { ApiName: props.api.httpApiName || 'rcm-api' },
-            statistic: 'Sum',
-            period: cdk.Duration.minutes(5),
-            color: cloudwatch.Color.ORANGE,
-          }),
-          new cloudwatch.Metric({
-            namespace: 'AWS/ApiGateway',
-            metricName: '5XXError',
-            dimensionsMap: { ApiName: props.api.httpApiName || 'rcm-api' },
-            statistic: 'Sum',
-            period: cdk.Duration.minutes(5),
-            color: cloudwatch.Color.RED,
-          }),
-        ],
-        width: 12,
-        height: 6,
-      }),
-      new cloudwatch.GraphWidget({
-        title: 'API Latency',
-        left: [
-          new cloudwatch.Metric({
-            namespace: 'AWS/ApiGateway',
-            metricName: 'Latency',
-            dimensionsMap: { ApiName: props.api.httpApiName || 'rcm-api' },
-            statistic: 'P50',
-            period: cdk.Duration.minutes(5),
-          }),
-          new cloudwatch.Metric({
-            namespace: 'AWS/ApiGateway',
-            metricName: 'Latency',
-            dimensionsMap: { ApiName: props.api.httpApiName || 'rcm-api' },
-            statistic: 'P99',
-            period: cdk.Duration.minutes(5),
-          }),
-        ],
-        width: 12,
-        height: 6,
-      }),
-    );
+    // API Metrics Row (only if API is provided)
+    if (props.api) {
+      dashboard.addWidgets(
+        new cloudwatch.GraphWidget({
+          title: 'API Requests',
+          left: [
+            new cloudwatch.Metric({
+              namespace: 'AWS/ApiGatewayV2',
+              metricName: 'Count',
+              dimensionsMap: { 
+                ApiId: props.api.httpApiId,
+                Stage: '$default'
+              },
+              statistic: 'Sum',
+              period: cdk.Duration.minutes(5),
+            }),
+          ],
+          right: [
+            new cloudwatch.Metric({
+              namespace: 'AWS/ApiGatewayV2',
+              metricName: '4XXError',
+              dimensionsMap: { 
+                ApiId: props.api.httpApiId,
+                Stage: '$default'
+              },
+              statistic: 'Sum',
+              period: cdk.Duration.minutes(5),
+              color: cloudwatch.Color.ORANGE,
+            }),
+            new cloudwatch.Metric({
+              namespace: 'AWS/ApiGatewayV2',
+              metricName: '5XXError',
+              dimensionsMap: { 
+                ApiId: props.api.httpApiId,
+                Stage: '$default'
+              },
+              statistic: 'Sum',
+              period: cdk.Duration.minutes(5),
+              color: cloudwatch.Color.RED,
+            }),
+          ],
+          width: 12,
+          height: 6,
+        }),
+        new cloudwatch.GraphWidget({
+          title: 'API Latency',
+          left: [
+            new cloudwatch.Metric({
+              namespace: 'AWS/ApiGatewayV2',
+              metricName: 'IntegrationLatency',
+              dimensionsMap: { 
+                ApiId: props.api.httpApiId,
+                Stage: '$default'
+              },
+              statistic: 'P50',
+              period: cdk.Duration.minutes(5),
+            }),
+            new cloudwatch.Metric({
+              namespace: 'AWS/ApiGatewayV2',
+              metricName: 'IntegrationLatency',
+              dimensionsMap: { 
+                ApiId: props.api.httpApiId,
+                Stage: '$default'
+              },
+              statistic: 'P99',
+              period: cdk.Duration.minutes(5),
+            }),
+          ],
+          width: 12,
+          height: 6,
+        }),
+      );
+    }
 
     // Database Metrics Row
     dashboard.addWidgets(
@@ -447,7 +478,7 @@ export class MonitoringStack extends cdk.Stack {
       alarmDescription: 'High number of slow queries detected',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    slowQueryAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    slowQueryAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
     const dbErrorAlarm = new cloudwatch.Alarm(this, 'DatabaseErrorAlarm', {
       metric: new cloudwatch.Metric({
@@ -461,7 +492,7 @@ export class MonitoringStack extends cdk.Stack {
       alarmDescription: 'Database errors detected',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    dbErrorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    dbErrorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
     const authFailureAlarm = new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
       metric: new cloudwatch.Metric({
@@ -475,7 +506,7 @@ export class MonitoringStack extends cdk.Stack {
       alarmDescription: 'High number of database authentication failures',
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
-    authFailureAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+    authFailureAlarm.addAlarmAction(new cloudwatchActions.SnsAction(this.alarmTopic));
 
     // Queue Metrics Row (if queues are provided)
     if (props.queues) {
@@ -567,5 +598,6 @@ export class MonitoringStack extends cdk.Stack {
         height: 4,
       }),
     );
+    }
   }
 }
