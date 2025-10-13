@@ -4,6 +4,7 @@
   "license": "MIT",
   "private": true,
   "dependencies": {
+    "esbuild": "^0.25.10",
     "next": "~15.5.4",
     "react": "19.0.0",
     "react-dom": "19.0.0",

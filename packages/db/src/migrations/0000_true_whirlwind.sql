@@ -1317,6 +1317,31 @@ CREATE TABLE "formulary" (
 	"deleted_at" timestamp
 );
 --> statement-breakpoint
+CREATE TABLE "icd10_code_master" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"organization_id" uuid NOT NULL,
+	"icd10_code" varchar(10) NOT NULL,
+	"short_description" varchar(100) NOT NULL,
+	"long_description" text NOT NULL,
+	"chapter" varchar(100),
+	"chapter_range" varchar(20),
+	"section" varchar(100),
+	"category" varchar(50),
+	"code_type" varchar(20),
+	"laterality" varchar(20),
+	"encounter" varchar(20),
+	"age_group" varchar(50),
+	"gender" varchar(20),
+	"reporting_required" boolean DEFAULT false,
+	"public_health_reporting" boolean DEFAULT false,
+	"manifestation_code" boolean DEFAULT false,
+	"is_active" boolean DEFAULT true,
+	"effective_date" date NOT NULL,
+	"termination_date" date,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "imaging_order" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"organization_id" uuid NOT NULL,
@@ -3357,6 +3382,7 @@ ALTER TABLE "field_mapping_template" ADD CONSTRAINT "field_mapping_template_orga
 ALTER TABLE "field_mapping_template" ADD CONSTRAINT "field_mapping_template_created_by_team_member_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."team_member"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "formulary" ADD CONSTRAINT "formulary_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "formulary" ADD CONSTRAINT "formulary_payer_id_payer_id_fk" FOREIGN KEY ("payer_id") REFERENCES "public"."payer"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "icd10_code_master" ADD CONSTRAINT "icd10_code_master_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "imaging_order" ADD CONSTRAINT "imaging_order_organization_id_organization_id_fk" FOREIGN KEY ("organization_id") REFERENCES "public"."organization"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "imaging_order" ADD CONSTRAINT "imaging_order_patient_id_patient_id_fk" FOREIGN KEY ("patient_id") REFERENCES "public"."patient"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "imaging_order" ADD CONSTRAINT "imaging_order_provider_id_provider_id_fk" FOREIGN KEY ("provider_id") REFERENCES "public"."provider"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
@@ -3868,6 +3894,12 @@ CREATE INDEX "formulary_status_idx" ON "formulary" USING btree ("status");--> st
 CREATE INDEX "formulary_tier_idx" ON "formulary" USING btree ("tier");--> statement-breakpoint
 CREATE INDEX "formulary_effective_date_idx" ON "formulary" USING btree ("effective_date");--> statement-breakpoint
 CREATE INDEX "formulary_prior_auth_idx" ON "formulary" USING btree ("requires_prior_auth");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_org_idx" ON "icd10_code_master" USING btree ("organization_id");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_icd10_code_idx" ON "icd10_code_master" USING btree ("icd10_code");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_chapter_idx" ON "icd10_code_master" USING btree ("chapter");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_category_idx" ON "icd10_code_master" USING btree ("category");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_code_type_idx" ON "icd10_code_master" USING btree ("code_type");--> statement-breakpoint
+CREATE INDEX "icd10_code_master_active_idx" ON "icd10_code_master" USING btree ("is_active");--> statement-breakpoint
 CREATE INDEX "imaging_order_org_idx" ON "imaging_order" USING btree ("organization_id");--> statement-breakpoint
 CREATE INDEX "imaging_order_patient_idx" ON "imaging_order" USING btree ("patient_id");--> statement-breakpoint
 CREATE INDEX "imaging_order_provider_idx" ON "imaging_order" USING btree ("provider_id");--> statement-breakpoint

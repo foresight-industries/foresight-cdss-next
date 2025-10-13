@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as wafv2 from 'aws-cdk-lib/aws-wafv2';
-import * as apigateway from '@aws-cdk/aws-apigatewayv2-alpha';
+import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as kinesisfirehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';

@@ -4975,6 +4975,53 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
   activeIdx: index('cpt_code_master_active_idx').on(table.isActive),
 }));
 
+// ICD-10 Code Master - Essential for diagnosis coding
+export const icd10CodeMaster = pgTable('icd10_code_master', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Code details
+  icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
+  shortDescription: varchar('short_description', { length: 100 }).notNull(),
+  longDescription: text('long_description').notNull(),
+
+  // Classification
+  chapter: varchar('chapter', { length: 100 }), // Chapter name (e.g., "Diseases of the circulatory system")
+  chapterRange: varchar('chapter_range', { length: 20 }), // Chapter code range (e.g., "I00-I99")
+  section: varchar('section', { length: 100 }), // Section within chapter
+  category: varchar('category', { length: 50 }), // 3-character category code
+  
+  // Code characteristics
+  codeType: varchar('code_type', { length: 20 }), // diagnosis, procedure, external_cause, etc.
+  laterality: varchar('laterality', { length: 20 }), // left, right, bilateral, unspecified
+  encounter: varchar('encounter', { length: 20 }), // initial, subsequent, sequela
+  
+  // Clinical information
+  ageGroup: varchar('age_group', { length: 50 }), // adult, pediatric, newborn, etc.
+  gender: varchar('gender', { length: 20 }), // male, female, unspecified
+  
+  // Code usage
+  reportingRequired: boolean('reporting_required').default(false),
+  publicHealthReporting: boolean('public_health_reporting').default(false),
+  manifestationCode: boolean('manifestation_code').default(false), // Cannot be primary diagnosis
+  
+  // Status and dates
+  isActive: boolean('is_active').default(true),
+  effectiveDate: date('effective_date').notNull(),
+  terminationDate: date('termination_date'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('icd10_code_master_org_idx').on(table.organizationId),
+  icd10CodeIdx: index('icd10_code_master_icd10_code_idx').on(table.icd10Code),
+  chapterIdx: index('icd10_code_master_chapter_idx').on(table.chapter),
+  categoryIdx: index('icd10_code_master_category_idx').on(table.category),
+  codeTypeIdx: index('icd10_code_master_code_type_idx').on(table.codeType),
+  activeIdx: index('icd10_code_master_active_idx').on(table.isActive),
+}));
+
 // Place of Service - Service location codes
 export const placeOfService = pgTable('place_of_service', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -6397,3 +6444,207 @@ export type NewSyncJob = InferInsertModel<typeof syncJobs>;
 
 export type TradingPartner = InferSelectModel<typeof tradingPartners>;
 export type NewTradingPartner = InferInsertModel<typeof tradingPartners>;
+
+// ===================================
+// DATABASE LOGGING AND MONITORING
+// ===================================
+
+// Database connection logs
+export const databaseConnectionLogs = pgTable('database_connection_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  
+  // Connection details
+  connectionId: varchar('connection_id', { length: 255 }),
+  userId: varchar('user_id', { length: 255 }),
+  databaseName: varchar('database_name', { length: 100 }),
+  applicationName: varchar('application_name', { length: 255 }),
+  
+  // Connection event
+  eventType: varchar('event_type', { length: 50 }).notNull(), // connect, disconnect, authenticate, error
+  connectionState: varchar('connection_state', { length: 50 }), // active, idle, failed, terminated
+  
+  // Authentication details
+  authenticationMethod: varchar('authentication_method', { length: 50 }), // password, certificate, iam
+  authenticationSuccess: boolean('authentication_success'),
+  authenticationError: text('authentication_error'),
+  
+  // Network details
+  clientIpAddress: varchar('client_ip_address', { length: 45 }), // IPv6 support
+  clientPort: integer('client_port'),
+  serverPort: integer('server_port'),
+  protocol: varchar('protocol', { length: 20 }).default('tcp'),
+  
+  // Session details
+  sessionId: varchar('session_id', { length: 255 }),
+  sessionStartTime: timestamp('session_start_time'),
+  sessionEndTime: timestamp('session_end_time'),
+  sessionDuration: integer('session_duration'), // milliseconds
+  
+  // Performance metrics
+  connectionTime: integer('connection_time'), // milliseconds to establish connection
+  queryCount: integer('query_count').default(0),
+  transactionCount: integer('transaction_count').default(0),
+  bytesTransferred: bigint('bytes_transferred', { mode: 'number' }).default(0),
+  
+  // Connection pool metrics
+  poolName: varchar('pool_name', { length: 100 }),
+  activeConnections: integer('active_connections'),
+  waitingClients: integer('waiting_clients'),
+  poolUtilization: decimal('pool_utilization', { precision: 5, scale: 2 }),
+  
+  // Error tracking
+  errorCode: varchar('error_code', { length: 50 }),
+  errorMessage: text('error_message'),
+  errorStack: text('error_stack'),
+  
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('db_connection_log_org_idx').on(table.organizationId),
+  userIdx: index('db_connection_log_user_idx').on(table.userId),
+  eventTypeIdx: index('db_connection_log_event_type_idx').on(table.eventType),
+  clientIpIdx: index('db_connection_log_client_ip_idx').on(table.clientIpAddress),
+  sessionIdx: index('db_connection_log_session_idx').on(table.sessionId),
+  createdAtIdx: index('db_connection_log_created_at_idx').on(table.createdAt),
+  authSuccessIdx: index('db_connection_log_auth_success_idx').on(table.authenticationSuccess),
+  connectionStateIdx: index('db_connection_log_connection_state_idx').on(table.connectionState),
+}));
+
+// Database query performance logs
+export const databaseQueryLogs = pgTable('database_query_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  
+  // Query identification
+  queryId: varchar('query_id', { length: 255 }),
+  sessionId: varchar('session_id', { length: 255 }),
+  transactionId: varchar('transaction_id', { length: 255 }),
+  
+  // Query details
+  queryText: text('query_text'),
+  queryHash: varchar('query_hash', { length: 64 }), // SHA256 hash for query similarity
+  queryType: varchar('query_type', { length: 50 }), // SELECT, INSERT, UPDATE, DELETE, etc.
+  queryParameters: jsonb('query_parameters'),
+  
+  // Performance metrics
+  startTime: timestamp('start_time').notNull(),
+  endTime: timestamp('end_time'),
+  duration: integer('duration').notNull(), // milliseconds
+  planningTime: integer('planning_time'), // milliseconds
+  executionTime: integer('execution_time'), // milliseconds
+  
+  // Resource usage
+  rowsReturned: bigint('rows_returned', { mode: 'number' }),
+  rowsAffected: bigint('rows_affected', { mode: 'number' }),
+  blocksRead: bigint('blocks_read', { mode: 'number' }),
+  blocksWritten: bigint('blocks_written', { mode: 'number' }),
+  memoryUsed: bigint('memory_used', { mode: 'number' }), // bytes
+  tempFilesUsed: integer('temp_files_used'),
+  
+  // Query classification
+  isSlowQuery: boolean('is_slow_query').default(false),
+  complexityScore: decimal('complexity_score', { precision: 10, scale: 2 }),
+  
+  // Lock information
+  locksAcquired: integer('locks_acquired'),
+  lockWaitTime: integer('lock_wait_time'), // milliseconds
+  deadlockDetected: boolean('deadlock_detected').default(false),
+  
+  // Connection context
+  userId: varchar('user_id', { length: 255 }),
+  databaseName: varchar('database_name', { length: 100 }),
+  applicationName: varchar('application_name', { length: 255 }),
+  clientIpAddress: varchar('client_ip_address', { length: 45 }),
+  
+  // Error tracking
+  errorOccurred: boolean('error_occurred').default(false),
+  errorCode: varchar('error_code', { length: 50 }),
+  errorMessage: text('error_message'),
+  
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('db_query_log_org_idx').on(table.organizationId),
+  sessionIdx: index('db_query_log_session_idx').on(table.sessionId),
+  queryTypeIdx: index('db_query_log_query_type_idx').on(table.queryType),
+  durationIdx: index('db_query_log_duration_idx').on(table.duration),
+  startTimeIdx: index('db_query_log_start_time_idx').on(table.startTime),
+  slowQueryIdx: index('db_query_log_slow_query_idx').on(table.isSlowQuery),
+  errorIdx: index('db_query_log_error_idx').on(table.errorOccurred),
+  userIdx: index('db_query_log_user_idx').on(table.userId),
+  clientIpIdx: index('db_query_log_client_ip_idx').on(table.clientIpAddress),
+  queryHashIdx: index('db_query_log_query_hash_idx').on(table.queryHash),
+}));
+
+// Database authentication events
+export const databaseAuthenticationLogs = pgTable('database_authentication_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id),
+  
+  // Authentication attempt details
+  attemptId: varchar('attempt_id', { length: 255 }),
+  username: varchar('username', { length: 255 }),
+  databaseName: varchar('database_name', { length: 100 }),
+  
+  // Authentication method and result
+  authenticationMethod: varchar('authentication_method', { length: 50 }).notNull(),
+  authenticationResult: varchar('authentication_result', { length: 50 }).notNull(), // success, failed, denied
+  failureReason: varchar('failure_reason', { length: 255 }),
+  
+  // Network context
+  clientIpAddress: varchar('client_ip_address', { length: 45 }).notNull(),
+  clientPort: integer('client_port'),
+  userAgent: text('user_agent'),
+  connectionProtocol: varchar('connection_protocol', { length: 20 }),
+  
+  // Security context
+  sslUsed: boolean('ssl_used'),
+  sslCipher: varchar('ssl_cipher', { length: 100 }),
+  certificateUsed: boolean('certificate_used'),
+  certificateSubject: text('certificate_subject'),
+  
+  // Session context
+  sessionId: varchar('session_id', { length: 255 }),
+  applicationName: varchar('application_name', { length: 255 }),
+  
+  // Risk assessment
+  riskScore: decimal('risk_score', { precision: 5, scale: 2 }),
+  riskFactors: jsonb('risk_factors'),
+  isAnomalous: boolean('is_anomalous').default(false),
+  
+  // Geographic context
+  geoLocation: jsonb('geo_location'), // IP geolocation data
+  timeZone: varchar('time_zone', { length: 50 }),
+  
+  // Rate limiting
+  attemptsInWindow: integer('attempts_in_window'),
+  isBlocked: boolean('is_blocked').default(false),
+  blockReason: varchar('block_reason', { length: 255 }),
+  
+  // Metadata
+  eventTime: timestamp('event_time').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('db_auth_log_org_idx').on(table.organizationId),
+  usernameIdx: index('db_auth_log_username_idx').on(table.username),
+  clientIpIdx: index('db_auth_log_client_ip_idx').on(table.clientIpAddress),
+  resultIdx: index('db_auth_log_result_idx').on(table.authenticationResult),
+  eventTimeIdx: index('db_auth_log_event_time_idx').on(table.eventTime),
+  riskScoreIdx: index('db_auth_log_risk_score_idx').on(table.riskScore),
+  anomalousIdx: index('db_auth_log_anomalous_idx').on(table.isAnomalous),
+  blockedIdx: index('db_auth_log_blocked_idx').on(table.isBlocked),
+  sessionIdx: index('db_auth_log_session_idx').on(table.sessionId),
+  methodIdx: index('db_auth_log_method_idx').on(table.authenticationMethod),
+}));
+
+// Export types for the new logging tables
+export type DatabaseConnectionLog = InferSelectModel<typeof databaseConnectionLogs>;
+export type NewDatabaseConnectionLog = InferInsertModel<typeof databaseConnectionLogs>;
+
+export type DatabaseQueryLog = InferSelectModel<typeof databaseQueryLogs>;
+export type NewDatabaseQueryLog = InferInsertModel<typeof databaseQueryLogs>;
+
+export type DatabaseAuthenticationLog = InferSelectModel<typeof databaseAuthenticationLogs>;
+export type NewDatabaseAuthenticationLog = InferInsertModel<typeof databaseAuthenticationLogs>;

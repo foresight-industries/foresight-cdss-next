@@ -1,10 +1,11 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as apigateway from '@aws-cdk/aws-apigatewayv2-alpha';
-import * as apigatewayIntegrations from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
-import * as apigatewayAuthorizers from '@aws-cdk/aws-apigatewayv2-authorizers-alpha';
+import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
+import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 interface ApiStackProps extends cdk.StackProps {
@@ -42,6 +43,10 @@ export class ApiStack extends cdk.Stack {
       layers: [dependenciesLayer],
       tracing: lambda.Tracing.ACTIVE,
     };
+
+    const clerkSecret = secretsManager.Secret.fromSecretNameV2(this, 'ClerkSecret', `rcm-clerk-secret-${props.stageName}`);
+
+    // functionProps.environment.CLERK_SECRET_KEY = clerkSecret.secretValueFromJson('CLERK_SECRET_KEY').toString();
 
     // Clerk authorizer Lambda
     const authorizerFn = new lambda.Function(this, 'ClerkAuthorizer', {

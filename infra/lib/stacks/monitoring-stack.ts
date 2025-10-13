@@ -4,7 +4,7 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as snsSubscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as rds from 'aws-cdk-lib/aws-rds';
-import * as apigateway from '@aws-cdk/aws-apigatewayv2-alpha';
+import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
@@ -287,6 +287,195 @@ export class MonitoringStack extends cdk.Stack {
         height: 6,
       }),
     );
+
+    // Enhanced Database Performance Dashboard
+    const dbPerformanceDashboard = new cloudwatch.Dashboard(this, 'DatabasePerformanceDashboard', {
+      dashboardName: `rcm-db-performance-${props.stageName}`,
+    });
+
+    // Query Performance Metrics
+    dbPerformanceDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Database Query Performance',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'ReadLatency',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Average',
+            period: cdk.Duration.minutes(5),
+          }),
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'WriteLatency',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Average',
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        right: [
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'ReadThroughput',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Average',
+            period: cdk.Duration.minutes(5),
+          }),
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'WriteThroughput',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Average',
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        width: 24,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Connection Pool Metrics',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'DatabaseConnections',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Maximum',
+            period: cdk.Duration.minutes(1),
+            label: 'Active Connections',
+          }),
+        ],
+        right: [
+          new cloudwatch.Metric({
+            namespace: 'AWS/RDS',
+            metricName: 'LoginFailures',
+            dimensionsMap: { DBClusterIdentifier: props.database.clusterIdentifier },
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.RED,
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Slow Query Detection',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'SlowQueryCount',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.ORANGE,
+          }),
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'AverageQueryDuration',
+            statistic: 'Average',
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
+    );
+
+    // Error and Lock Metrics
+    dbPerformanceDashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: 'Database Errors and Locks',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'ErrorCount',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.RED,
+          }),
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'LockWaitCount',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.ORANGE,
+          }),
+        ],
+        right: [
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'DeadlockCount',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.RED,
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
+      new cloudwatch.GraphWidget({
+        title: 'Authentication Events',
+        left: [
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'SuccessfulLogins',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.GREEN,
+          }),
+          new cloudwatch.Metric({
+            namespace: 'RCM/Database',
+            metricName: 'FailedLogins',
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+            color: cloudwatch.Color.RED,
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
+    );
+
+    // Database Alarms for new metrics
+    const slowQueryAlarm = new cloudwatch.Alarm(this, 'SlowQueryAlarm', {
+      metric: new cloudwatch.Metric({
+        namespace: 'RCM/Database',
+        metricName: 'SlowQueryCount',
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      alarmDescription: 'High number of slow queries detected',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    slowQueryAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const dbErrorAlarm = new cloudwatch.Alarm(this, 'DatabaseErrorAlarm', {
+      metric: new cloudwatch.Metric({
+        namespace: 'RCM/Database',
+        metricName: 'ErrorCount',
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 5,
+      evaluationPeriods: 1,
+      alarmDescription: 'Database errors detected',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    dbErrorAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
+
+    const authFailureAlarm = new cloudwatch.Alarm(this, 'AuthFailureAlarm', {
+      metric: new cloudwatch.Metric({
+        namespace: 'RCM/Database',
+        metricName: 'FailedLogins',
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 10,
+      evaluationPeriods: 1,
+      alarmDescription: 'High number of database authentication failures',
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    authFailureAlarm.addAlarmAction(new cloudwatchActions.SnsAction(alarmTopic));
 
     // Queue Metrics Row (if queues are provided)
     if (props.queues) {
