@@ -9,9 +9,9 @@ interface GlobalErrorProps {
   reset: () => void;
 }
 
-export default function GlobalError({ error, reset }: GlobalErrorProps) {
+export default function GlobalError({ error, reset }: Readonly<GlobalErrorProps>) {
   return (
-    <html>
+    <html lang="en">
       <body>
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
           <div className="max-w-lg w-full text-center space-y-8">
@@ -49,24 +49,31 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               </h1>
 
               <p className="text-lg text-muted-foreground max-w-md mx-auto">
-                We&apos;re experiencing a critical system error. Please try refreshing the page.
+                We&apos;re experiencing a critical system error. Please try
+                refreshing the page.
               </p>
 
               {/* Error Details in Development */}
-              {process.env.NODE_ENV === 'development' && (
+              {process.env.NODE_ENV === "development" && (
                 <details className="mt-6 text-left">
                   <summary className="cursor-pointer text-sm font-medium text-red-900 dark:text-red-100 hover:text-red-700 dark:hover:text-red-200 mb-2">
                     Technical Details (Development Mode)
                   </summary>
                   <div className="p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm font-mono text-red-800 dark:text-red-200 overflow-auto">
-                    <p className="mb-2"><strong>Error:</strong> {error.message}</p>
+                    <p className="mb-2">
+                      <strong>Error:</strong> {error.message}
+                    </p>
                     {error.digest && (
-                      <p className="mb-2"><strong>Error ID:</strong> {error.digest}</p>
+                      <p className="mb-2">
+                        <strong>Error ID:</strong> {error.digest}
+                      </p>
                     )}
                     {error.stack && (
                       <div>
                         <strong>Stack Trace:</strong>
-                        <pre className="mt-1 whitespace-pre-wrap text-xs">{error.stack}</pre>
+                        <pre className="mt-1 whitespace-pre-wrap text-xs">
+                          {error.stack}
+                        </pre>
                       </div>
                     )}
                   </div>

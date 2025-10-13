@@ -19,7 +19,10 @@ interface InvitationBannerProps {
   className?: string;
 }
 
-export function InvitationBanner({ variant = 'banner', className = '' }: InvitationBannerProps) {
+export function InvitationBanner({
+  variant = "banner",
+  className = "",
+}: Readonly<InvitationBannerProps>) {
   const {
     status,
     invitationInfo,
@@ -28,13 +31,13 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
     isReady,
     acceptInvitation,
     dismissInvitation,
-    redirectToAcceptPage
+    redirectToAcceptPage,
   } = useInvitation();
 
   const [isAccepting, setIsAccepting] = useState(false);
 
   // Don't render if no invitation
-  if (!hasInvitation || status === 'none') {
+  if (!hasInvitation || status === "none") {
     return null;
   }
 
@@ -45,7 +48,7 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
 
     if (success) {
       // Optionally show success message or redirect
-      window.location.href = '/dashboard';
+      window.location.href = "/dashboard";
     }
   };
 
@@ -54,7 +57,7 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
   };
 
   const renderContent = () => {
-    if (status === 'loading') {
+    if (status === "loading") {
       return (
         <div className="flex items-center space-x-3">
           <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
@@ -67,17 +70,19 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
       );
     }
 
-    if (status === 'error' || status === 'expired') {
+    if (status === "error" || status === "expired") {
       return (
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <AlertCircle className="h-5 w-5 text-red-600" />
             <div>
               <p className="font-medium text-red-900 dark:text-red-100">
-                {status === 'expired' ? 'Invitation Expired' : 'Invitation Error'}
+                {status === "expired"
+                  ? "Invitation Expired"
+                  : "Invitation Error"}
               </p>
               <p className="text-sm text-red-700 dark:text-red-300">
-                {error || 'There was a problem with your invitation.'}
+                {error || "There was a problem with your invitation."}
               </p>
             </div>
           </div>
@@ -116,7 +121,7 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            {variant === 'banner' ? (
+            {variant === "banner" ? (
               <>
                 <Button
                   variant="outline"
@@ -167,17 +172,15 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
     return null;
   };
 
-  if (variant === 'card') {
-    return (
-      <Card className={`p-4 ${className}`}>
-        {renderContent()}
-      </Card>
-    );
+  if (variant === "card") {
+    return <Card className={`p-4 ${className}`}>{renderContent()}</Card>;
   }
 
-  if (variant === 'banner') {
+  if (variant === "banner") {
     return (
-      <div className={`bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-400 p-4 ${className}`}>
+      <div
+        className={`bg-blue-50 dark:bg-blue-950 border-l-4 border-blue-400 p-4 ${className}`}
+      >
         {renderContent()}
       </div>
     );
@@ -185,7 +188,9 @@ export function InvitationBanner({ variant = 'banner', className = '' }: Invitat
 
   // Default banner style
   return (
-    <div className={`bg-white dark:bg-gray-800 shadow-xs border-b p-4 ${className}`}>
+    <div
+      className={`bg-white dark:bg-gray-800 shadow-xs border-b p-4 ${className}`}
+    >
       {renderContent()}
     </div>
   );

@@ -24,7 +24,8 @@ export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode
     pathname === "/error" ||
     pathname === '/onboard' ||
     pathname === '/accept-invitation' ||
-    pathname === '/';
+    pathname === '/' ||
+    pathname === '/team-not-found';
 
   if (!isLoaded) {
     return (

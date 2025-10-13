@@ -19,8 +19,8 @@ const isOnboardingRoute = createRouteMatcher([
 
 
 export default clerkMiddleware(async (auth, req) => {
-  // Skip webhook routes entirely
-  if (req.url.includes("/api/webhooks")) {
+  // Skip webhook routes and monitoring routes entirely
+  if (req.url.includes("/api/webhooks") || req.nextUrl.pathname === "/monitoring") {
     return NextResponse.next();
   }
 

@@ -1,16 +1,56 @@
-import React from 'react';
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useUser, useOrganization } from '@clerk/nextjs';
+import { BackButton } from '@/components/ui/back-button';
 import {
   Search,
   Home,
-  ArrowLeft,
   HelpCircle
 } from 'lucide-react';
 
 export default function NotFound() {
+  const { user, isLoaded } = useUser();
+  const { organization } = useOrganization();
+  const [teamBasePath, setTeamBasePath] = useState('');
+  
+  useEffect(() => {
+    async function getTeamBasePath() {
+      if (isLoaded && user) {
+        try {
+          // Try to get team slug from current organization first
+          if (organization?.slug) {
+            setTeamBasePath(`/team/${organization.slug}`);
+            return;
+          }
+          
+          // Fallback: try to extract from current URL if we're on a team page
+          const currentPath = window.location.pathname;
+          const teamMatch = currentPath.match(/^\/team\/([^/]+)/);
+          if (teamMatch) {
+            setTeamBasePath(`/team/${teamMatch[1]}`);
+            return;
+          }
+          
+          // No team context found
+          setTeamBasePath('');
+        } catch (error) {
+          console.error('Error getting team slug:', error);
+          setTeamBasePath('');
+        }
+      } else if (isLoaded && !user) {
+        // User not authenticated, use empty path
+        setTeamBasePath('');
+      }
+    }
+    
+    getTeamBasePath();
+  }, [user, organization, isLoaded]);
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-8">
@@ -61,37 +101,43 @@ export default function NotFound() {
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     <Link
-                      href="/queue"
+                      href={`${teamBasePath}/queue`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Prior Auth
                     </Link>
                     <Link
-                      href="/claims"
+                      href={`${teamBasePath}/queue`}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      • Pre-encounters
+                    </Link>
+                    <Link
+                      href={`${teamBasePath}/claims`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Claims
                     </Link>
                     <Link
-                      href="/analytics"
-                      className="text-blue-700 hover:text-blue-900 hover:underline"
-                    >
-                      • Analytics Dashboard
-                    </Link>
-                    <Link
-                      href="/settings"
-                      className="text-blue-700 hover:text-blue-900 hover:underline"
-                    >
-                      • Settings
-                    </Link>
-                    <Link
-                      href="/credentialing"
+                      href={`${teamBasePath}/credentialing`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Credentialing
                     </Link>
                     <Link
-                      href="/billing"
+                      href={`${teamBasePath}/analytics`}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      • Analytics Dashboard
+                    </Link>
+                    <Link
+                      href={`${teamBasePath}/settings`}
+                      className="text-blue-700 hover:text-blue-900 hover:underline"
+                    >
+                      • Settings
+                    </Link>
+                    <Link
+                      href={`${teamBasePath}/billing`}
                       className="text-blue-700 hover:text-blue-900 hover:underline"
                     >
                       • Billing
@@ -109,21 +155,13 @@ export default function NotFound() {
               size="lg"
               className="flex items-center gap-2"
             >
-              <Link href="/">
+              <Link href={teamBasePath ?? '/'}>
                 <Home className="h-4 w-4" />
                 Go to Dashboard
               </Link>
             </Button>
 
-            <Button
-              variant="outline"
-              onClick={() => window.history.back()}
-              size="lg"
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Go Back
-            </Button>
+            <BackButton />
           </div>
 
           {/* Help Section */}
@@ -147,7 +185,7 @@ export default function NotFound() {
                     className="border-gray-300 text-gray-700 hover:bg-gray-50"
                   >
                     <a
-                      href="mailto:support@have-foresight.com?subject=Navigation Help Request"
+                      href="mailto:team@have-foresight.app?subject=Navigation Help Request"
                       className="flex items-center gap-2"
                     >
                       Contact Support
