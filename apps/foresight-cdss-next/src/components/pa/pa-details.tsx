@@ -26,7 +26,7 @@ interface PADetailsProps {
 const getPAData = (id: string) => {
   // Find the queue item by ID
   const queueItem: EpaQueueItem | undefined = epaQueueItems.find(item => item.id === id);
-  
+
   if (!queueItem) {
     // Fallback to default data if PA not found
     return {
@@ -126,8 +126,8 @@ const getPAData = (id: string) => {
     attempt: {
       current: getAttemptNumber(queueItem.attempt),
       total: getAttemptNumber(queueItem.attempt),
-      previousDenials: queueItem.attempt.includes('Resubmission') || queueItem.attempt.includes('Appeal') 
-        ? ['Previous submission denied due to incomplete documentation'] 
+      previousDenials: queueItem.attempt.includes('Resubmission') || queueItem.attempt.includes('Appeal')
+        ? ['Previous submission denied due to incomplete documentation']
         : []
     },
     timeline: generateTimeline(queueItem),
@@ -189,13 +189,14 @@ const getGenericName = (medication: string): string => {
     'Dupixent': 'Dupilumab',
     'Stelara': 'Ustekinumab'
   };
-  
+
   const brandName = medication.split(' ')[0];
   return genericMap[brandName] || 'Unknown Generic';
 };
 
 const getMedicationStrength = (medication: string): string => {
-  const strengthMatch = medication.match(/(\d+(?:\.\d+)?(?:mg|mL|units?))/);
+  const strengthRegex = /(\d+(?:\.\d+)?(?:mg|mL|units?))/;
+  const strengthMatch = strengthRegex.exec(medication);
   return strengthMatch ? strengthMatch[0] : 'Standard strength';
 };
 
@@ -212,7 +213,7 @@ const getMedicationDosage = (medication: string): string => {
     'Dupixent': 'Subcutaneous injection every 2 weeks',
     'Stelara': 'Subcutaneous injection every 12 weeks'
   };
-  
+
   const brandName = medication.split(' ')[0];
   return dosageMap[brandName] || 'As directed by physician';
 };
@@ -230,7 +231,7 @@ const getMedicationQuantity = (medication: string): string => {
     'Dupixent': '2 syringes (28-day supply)',
     'Stelara': '1 syringe (84-day supply)'
   };
-  
+
   const brandName = medication.split(' ')[0];
   return quantityMap[brandName] || '30-day supply';
 };
@@ -248,7 +249,7 @@ const generateNDC = (medication: string): string => {
     'Dupixent': '0024-5756-10',
     'Stelara': '57894-030-01'
   };
-  
+
   const brandName = medication.split(' ')[0];
   return ndcMap[brandName] || '0000-0000-00';
 };
@@ -403,14 +404,26 @@ const statusConfig = {
   'denied': { color: 'bg-red-50 text-red-900 border-red-200', icon: XCircle, label: 'Denied' }
 } as const;
 
-export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableNext, initialAction }: PADetailsProps) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'clinical' | 'timeline' | 'documents'>('overview');
+export function PADetails({
+  paId,
+  onClose,
+  onPrev,
+  onNext,
+  disablePrev,
+  disableNext,
+  initialAction,
+}: Readonly<PADetailsProps>) {
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "clinical" | "timeline" | "documents"
+  >("overview");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [paData, setPaData] = useState(() => getPAData(paId));
   const [editData, setEditData] = useState(paData);
-  const [newNote, setNewNote] = useState('');
-  const [notes, setNotes] = useState<Array<{id: string; text: string; timestamp: string; user: string}>>([]);
+  const [newNote, setNewNote] = useState("");
+  const [notes, setNotes] = useState<
+    Array<{ id: string; text: string; timestamp: string; user: string }>
+  >([]);
 
   const StatusIcon = statusConfig[paData.status].icon;
 
@@ -425,13 +438,13 @@ export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableN
   useEffect(() => {
     if (initialAction) {
       switch (initialAction) {
-        case 'edit':
+        case "edit":
           setShowEditModal(true);
           break;
-        case 'documents':
-          setActiveTab('documents');
+        case "documents":
+          setActiveTab("documents");
           break;
-        case 'notes':
+        case "notes":
           setShowNoteModal(true);
           break;
       }
@@ -439,12 +452,12 @@ export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableN
   }, [initialAction]);
 
   const formatDate = (dateString: string) => {
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+    return new Intl.DateTimeFormat("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     }).format(new Date(dateString));
   };
 
@@ -480,14 +493,19 @@ export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableN
 
             <div className="space-y-1 flex-1">
               <h1 className="text-2xl font-bold">{paData.id}</h1>
-              <p className="text-muted-foreground">{paData.patient.name} • {paData.medication.name}</p>
+              <p className="text-muted-foreground">
+                {paData.patient.name} • {paData.medication.name}
+              </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
             <div className="flex items-center space-x-2">
               <StatusIcon className="w-5 h-5" />
-              <Badge variant="outline" className={statusConfig[paData.status].color}>
+              <Badge
+                variant="outline"
+                className={statusConfig[paData.status].color}
+              >
                 {statusConfig[paData.status].label}
               </Badge>
             </div>
@@ -500,11 +518,19 @@ export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableN
             <Download className="w-4 h-4 mr-2" />
             Export PDF
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowEditModal(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowEditModal(true)}
+          >
             <Edit className="w-4 h-4 mr-2" />
             Edit Details
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowNoteModal(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowNoteModal(true)}
+          >
             <MessageSquare className="w-4 h-4 mr-2" />
             Add Note
           </Button>
@@ -514,382 +540,492 @@ export function PADetails({ paId, onClose, onPrev, onNext, disablePrev, disableN
       {/* Scrollable Content */}
       <div className="flex-1 h-full overflow-y-auto px-8">
         <div className="p-8">
+          {/* Tab Navigation */}
+          <Tabs
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as any)}
+          >
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="clinical">Clinical</TabsTrigger>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+            </TabsList>
 
-        {/* Tab Navigation */}
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="clinical">Clinical</TabsTrigger>
-            <TabsTrigger value="timeline">Timeline</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-          </TabsList>
-
-          {/* Tab Content */}
-          <TabsContent value="overview" className="mt-6">
-          <div className="grid grid-cols-1 gap-6">
-            {/* Patient Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="w-5 h-5 text-muted-foreground mr-2" />
-                  Patient Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Name</p>
-                  <p className="font-medium">{paData.patient.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Patient ID</p>
-                  <p className="font-medium">{paData.patient.id}</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Age</p>
-                    <p className="font-medium">{paData.patient.age}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Gender</p>
-                    <p className="font-medium">{paData.patient.gender}</p>
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Conditions</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {paData.patient.conditions.map((condition, index) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {condition}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Contact</p>
-                  <p className="text-sm">{paData.patient.phone}</p>
-                  <p className="text-sm text-muted-foreground">{paData.patient.address}</p>
-                </div>
-              </div>
-              </CardContent>
-            </Card>
-
-            {/* Medication Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Pill className="w-5 h-5 text-muted-foreground mr-2" />
-                  Medication Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">Brand Name</p>
-                  <p className="font-medium">{paData.medication.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Generic Name</p>
-                  <p className="font-medium">{paData.medication.genericName}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Strength</p>
-                  <p className="font-medium">{paData.medication.strength}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Dosage</p>
-                  <p className="text-sm">{paData.medication.dosage}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Quantity</p>
-                  <p className="font-medium">{paData.medication.quantity}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">NDC</p>
-                  <p className="font-medium">{paData.medication.ndc}</p>
-                </div>
-                <div>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    {paData.medication.priority}
-                  </Badge>
-                </div>
-              </div>
-              </CardContent>
-            </Card>
-
-            {/* Provider Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Building2 className="w-5 h-5 text-muted-foreground mr-2" />
-                  Provider
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Name</p>
-                    <p className="font-medium">{paData.provider.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">NPI</p>
-                    <p className="font-medium">{paData.provider.npi}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Clinic</p>
-                    <p className="text-sm">{paData.provider.clinic}</p>
-                    <p className="text-sm text-muted-foreground">{paData.provider.address}</p>
-                    <p className="text-sm text-muted-foreground">{paData.provider.phone}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Payer Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="w-5 h-5 text-muted-foreground mr-2" />
-                  Insurance
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm text-muted-foreground">Payer</p>
-                    <p className="font-medium">{paData.payer.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Plan</p>
-                    <p className="font-medium">{paData.payer.planName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Member ID</p>
-                    <p className="font-medium">{paData.payer.memberId}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Group #</p>
-                    <p className="text-sm font-medium">{paData.payer.groupNumber}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          </TabsContent>
-
-          <TabsContent value="clinical" className="mt-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Clinical Questions & AI Responses</h3>
-            <div className="space-y-4">
-              {paData.clinicalQuestions.map((item, index) => (
-                <Card key={index}>
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-3">
-                      <h4 className="font-medium">{item.question}</h4>
-                      <Badge variant="outline" className={
-                        item.confidence >= 95 ? 'bg-green-50 text-green-700 border-green-200' :
-                        item.confidence >= 85 ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                        'bg-red-50 text-red-700 border-red-200'
-                      }>
-                        {item.confidence}%
-                      </Badge>
+            {/* Tab Content */}
+            <TabsContent value="overview" className="mt-6">
+              <div className="grid grid-cols-1 gap-6">
+                {/* Patient Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <User className="w-5 h-5 text-muted-foreground mr-2" />
+                      Patient Information
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium">{paData.patient.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Patient ID
+                        </p>
+                        <p className="font-medium">{paData.patient.id}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-sm text-muted-foreground">Age</p>
+                          <p className="font-medium">{paData.patient.age}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">
+                            Gender
+                          </p>
+                          <p className="font-medium">{paData.patient.gender}</p>
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Conditions
+                        </p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {paData.patient.conditions.map((condition, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="text-xs"
+                            >
+                              {condition}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Contact</p>
+                        <p className="text-sm">{paData.patient.phone}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {paData.patient.address}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-foreground">{item.answer}</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-          </TabsContent>
 
-          <TabsContent value="timeline" className="mt-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Processing Timeline</h3>
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-6">
-                  {paData.timeline.map((item, index) => (
-                    <div key={index} className="flex items-start space-x-4">
-                      <div className={`w-3 h-3 rounded-full mt-1 ${
-                        item.status === 'completed' ? 'bg-green-500' :
-                        item.status === 'in-progress' ? 'bg-blue-500' :
-                        'bg-muted'
-                      }`}></div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{item.event}</p>
-                          <p className="text-sm text-muted-foreground">{formatDate(item.timestamp)}</p>
-                        </div>
-                        <p className="text-sm text-muted-foreground">by {item.user}</p>
+                {/* Medication Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Pill className="w-5 h-5 text-muted-foreground mr-2" />
+                      Medication Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Brand Name
+                        </p>
+                        <p className="font-medium">{paData.medication.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Generic Name
+                        </p>
+                        <p className="font-medium">
+                          {paData.medication.genericName}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Strength
+                        </p>
+                        <p className="font-medium">
+                          {paData.medication.strength}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Dosage</p>
+                        <p className="text-sm">{paData.medication.dosage}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Quantity
+                        </p>
+                        <p className="font-medium">
+                          {paData.medication.quantity}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">NDC</p>
+                        <p className="font-medium">{paData.medication.ndc}</p>
+                      </div>
+                      <div>
+                        <Badge
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200"
+                        >
+                          {paData.medication.priority}
+                        </Badge>
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+
+                {/* Provider Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <Building2 className="w-5 h-5 text-muted-foreground mr-2" />
+                      Provider
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Name</p>
+                        <p className="font-medium">{paData.provider.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">NPI</p>
+                        <p className="font-medium">{paData.provider.npi}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Clinic</p>
+                        <p className="text-sm">{paData.provider.clinic}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {paData.provider.address}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {paData.provider.phone}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Payer Information */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center">
+                      <FileText className="w-5 h-5 text-muted-foreground mr-2" />
+                      Insurance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm text-muted-foreground">Payer</p>
+                        <p className="font-medium">{paData.payer.name}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Plan</p>
+                        <p className="font-medium">{paData.payer.planName}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Member ID
+                        </p>
+                        <p className="font-medium">{paData.payer.memberId}</p>
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Group #</p>
+                        <p className="text-sm font-medium">
+                          {paData.payer.groupNumber}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="clinical" className="mt-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">
+                  Clinical Questions & AI Responses
+                </h3>
+                <div className="space-y-4">
+                  {paData.clinicalQuestions.map((item, index) => (
+                    <Card key={index}>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start mb-3">
+                          <h4 className="font-medium">{item.question}</h4>
+                          <Badge
+                            variant="outline"
+                            className={
+                              item.confidence >= 95
+                                ? "bg-green-50 text-green-700 border-green-200"
+                                : item.confidence >= 85
+                                ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                : "bg-red-50 text-red-700 border-red-200"
+                            }
+                          >
+                            {item.confidence}%
+                          </Badge>
+                        </div>
+                        <p className="text-foreground">{item.answer}</p>
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
-          </TabsContent>
+              </div>
+            </TabsContent>
 
-          <TabsContent value="documents" className="mt-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Supporting Documents</h3>
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center py-8">
-                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No documents uploaded yet</p>
-                  <Button variant="ghost" className="mt-4">
-                    <Download className="w-4 h-4 mr-2" />
-                    Upload Document
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Edit Details Modal */}
-        <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit PA Details</DialogTitle>
-              <DialogDescription>
-                Update the prior authorization information below.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 py-4">
-              {/* Patient Information */}
+            <TabsContent value="timeline" className="mt-6">
               <div className="space-y-4">
-                <h4 className="font-medium text-sm text-muted-foreground">Patient Information</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-name">Patient Name</Label>
-                    <Input
-                      id="patient-name"
-                      value={editData.patient.name}
-                      onChange={(e) => setEditData({...editData, patient: {...editData.patient, name: e.target.value}})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="patient-id">Patient ID</Label>
-                    <Input
-                      id="patient-id"
-                      value={editData.patient.id}
-                      onChange={(e) => setEditData({...editData, patient: {...editData.patient, id: e.target.value}})}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Medication Information */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-sm text-muted-foreground">Medication Information</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="med-name">Brand Name</Label>
-                    <Input
-                      id="med-name"
-                      value={editData.medication.name}
-                      onChange={(e) => setEditData({...editData, medication: {...editData.medication, name: e.target.value}})}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="med-generic">Generic Name</Label>
-                    <Input
-                      id="med-generic"
-                      value={editData.medication.genericName}
-                      onChange={(e) => setEditData({...editData, medication: {...editData.medication, genericName: e.target.value}})}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowEditModal(false)}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                setPaData(editData);
-                setShowEditModal(false);
-                alert('Changes saved successfully!');
-              }}>
-                <Save className="w-4 h-4 mr-2" />
-                Save Changes
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Add Note Modal */}
-        <Dialog open={showNoteModal} onOpenChange={setShowNoteModal}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Note</DialogTitle>
-              <DialogDescription>
-                Add a note to this prior authorization request.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="note-text">Note</Label>
-                <Textarea
-                  id="note-text"
-                  placeholder="Enter your note here..."
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  rows={4}
-                />
-              </div>
-
-              {/* Previous Notes */}
-              {notes.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Previous Notes</Label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
-                    {notes.map((note) => (
-                      <div key={note.id} className="border-b last:border-0 pb-2 last:pb-0">
-                        <div className="flex justify-between items-start text-sm">
-                          <span className="font-medium">{note.user}</span>
-                          <span className="text-muted-foreground">{new Date(note.timestamp).toLocaleString()}</span>
+                <h3 className="text-lg font-semibold">Processing Timeline</h3>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="space-y-6">
+                      {paData.timeline.map((item, index) => (
+                        <div key={index} className="flex items-start space-x-4">
+                          <div
+                            className={`w-3 h-3 rounded-full mt-1 ${
+                              item.status === "completed"
+                                ? "bg-green-500"
+                                : item.status === "in-progress"
+                                ? "bg-blue-500"
+                                : "bg-muted"
+                            }`}
+                          ></div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between">
+                              <p className="font-medium">{item.event}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatDate(item.timestamp)}
+                              </p>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                              by {item.user}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm mt-1">{note.text}</p>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="documents" className="mt-6">
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Supporting Documents</h3>
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="text-center py-8">
+                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                      <p className="text-muted-foreground">
+                        No documents uploaded yet
+                      </p>
+                      <Button variant="ghost" className="mt-4">
+                        <Download className="w-4 h-4 mr-2" />
+                        Upload Document
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          {/* Edit Details Modal */}
+          <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit PA Details</DialogTitle>
+                <DialogDescription>
+                  Update the prior authorization information below.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-6 py-4">
+                {/* Patient Information */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm text-muted-foreground">
+                    Patient Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="patient-name">Patient Name</Label>
+                      <Input
+                        id="patient-name"
+                        value={editData.patient.name}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            patient: {
+                              ...editData.patient,
+                              name: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="patient-id">Patient ID</Label>
+                      <Input
+                        id="patient-id"
+                        value={editData.patient.id}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            patient: {
+                              ...editData.patient,
+                              id: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setShowNoteModal(false);
-                setNewNote('');
-              }}>
-                Cancel
-              </Button>
-              <Button onClick={() => {
-                if (newNote.trim()) {
-                  setNotes([...notes, {
-                    id: Date.now().toString(),
-                    text: newNote,
-                    timestamp: new Date().toISOString(),
-                    user: 'PA Coordinator'
-                  }]);
-                  setNewNote('');
-                  setShowNoteModal(false);
-                  alert('Note added successfully!');
-                }
-              }}>
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Add Note
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+                {/* Medication Information */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-sm text-muted-foreground">
+                    Medication Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="med-name">Brand Name</Label>
+                      <Input
+                        id="med-name"
+                        value={editData.medication.name}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            medication: {
+                              ...editData.medication,
+                              name: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="med-generic">Generic Name</Label>
+                      <Input
+                        id="med-generic"
+                        value={editData.medication.genericName}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            medication: {
+                              ...editData.medication,
+                              genericName: e.target.value,
+                            },
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    setPaData(editData);
+                    setShowEditModal(false);
+                    alert("Changes saved successfully!");
+                  }}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Add Note Modal */}
+          <Dialog open={showNoteModal} onOpenChange={setShowNoteModal}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Note</DialogTitle>
+                <DialogDescription>
+                  Add a note to this prior authorization request.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="note-text">Note</Label>
+                  <Textarea
+                    id="note-text"
+                    placeholder="Enter your note here..."
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    rows={4}
+                  />
+                </div>
+
+                {/* Previous Notes */}
+                {notes.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Previous Notes</Label>
+                    <div className="space-y-2 max-h-48 overflow-y-auto border rounded-md p-3">
+                      {notes.map((note) => (
+                        <div
+                          key={note.id}
+                          className="border-b last:border-0 pb-2 last:pb-0"
+                        >
+                          <div className="flex justify-between items-start text-sm">
+                            <span className="font-medium">{note.user}</span>
+                            <span className="text-muted-foreground">
+                              {new Date(note.timestamp).toLocaleString()}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-1">{note.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowNoteModal(false);
+                    setNewNote("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (newNote.trim()) {
+                      setNotes([
+                        ...notes,
+                        {
+                          id: Date.now().toString(),
+                          text: newNote,
+                          timestamp: new Date().toISOString(),
+                          user: "PA Coordinator",
+                        },
+                      ]);
+                      setNewNote("");
+                      setShowNoteModal(false);
+                      alert("Note added successfully!");
+                    }
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4 mr-2" />
+                  Add Note
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </div>

@@ -8,26 +8,14 @@ import React, {
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
-  AlertCircle,
-  AlertTriangle,
   ArrowUpRight,
-  CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  History,
-  ListChecks,
   MoreHorizontal,
-  Paperclip,
   ShieldCheck,
-  Sparkles,
   X,
   Filter,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  DollarSign,
-  Plus,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,17 +30,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { toast } from "sonner";
-import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -64,6 +43,15 @@ import {
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 // import { supabase } from "@/lib/supabase/client";
 import {
@@ -88,11 +76,9 @@ import {
   findMatchingDenialRule,
   createDenialPlaybookHistoryEntry,
   appendHistory,
-  calculateClaimBalance,
-  addPaymentToClaim,
 } from "@/data/claims";
 import { ClaimsFilters, type ClaimFilters } from "@/components/filters";
-import { AddPaymentForm } from "@/components/claims/add-payment-form";
+import { ClaimDetailSheet } from "@/components/claims/claim-details";
 
 const sortClaims = (claims: Claim[]) =>
   [...claims].sort((a, b) => {
@@ -104,812 +90,81 @@ const sortClaims = (claims: Claim[]) =>
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 
-const ClaimDetailSheet: React.FC<{
-  claim: Claim | null;
-  open: boolean;
-  onClose: () => void;
-  threshold: number;
-  onApplyAllFixes: (id: string) => void;
-  onSubmit: (id: string) => void;
-  onResubmit: (id: string) => void;
-  onApplySuggestion: (id: string, field: string) => void;
-  submittingClaims: Set<string>;
-  onPrev?: () => void;
-  onNext?: () => void;
-  disablePrev?: boolean;
-  disableNext?: boolean;
-  onUpdateClaim: (claimId: string, updater: (claim: Claim) => Claim) => void;
-}> = ({
-  claim,
-  open,
-  onClose,
-  threshold,
-  onApplyAllFixes,
-  onSubmit,
-  onResubmit,
-  onApplySuggestion,
-  submittingClaims,
-  onPrev,
-  onNext,
-  disablePrev,
-  disableNext,
-  onUpdateClaim,
-}) => {
-  const [showSources, setShowSources] = useState(true);
-  const [showAddPayment, setShowAddPayment] = useState(false);
+const getDescriptiveFieldName = (field: string): string => {
+  const fieldMappings: Record<string, string> = {
+    // Patient Information
+    member_id: "Insurance Member ID",
+    patient_id: "Patient ID",
+    patient_name: "Patient Full Name",
+    patient_dob: "Patient Date of Birth",
+    patient_ssn: "Patient Social Security Number",
+    patient_gender: "Patient Gender",
+    patient_address: "Patient Address",
+    patient_phone: "Patient Phone Number",
 
-  useEffect(() => {
-    setShowSources(true);
-  }, [claim?.id]);
+    // Provider Information
+    provider_npi: "Provider NPI Number",
+    provider_name: "Provider Name",
+    provider_taxonomy: "Provider Taxonomy Code",
+    billing_provider_npi: "Billing Provider NPI Number",
+    rendering_provider_npi: "Rendering Provider NPI Number",
+    referring_provider_npi: "Referring Provider NPI Number",
+    npi: "Provider NPI Number",
 
-  useEffect(() => {
-    const handler = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onClose]);
+    // Payer Information
+    payer_id: "Insurance Payer ID",
+    payer_name: "Insurance Company Name",
+    group_number: "Insurance Group Number",
+    subscriber_id: "Primary Subscriber ID",
 
-  if (!claim) {
-    return null;
-  }
+    // Service Information
+    diagnosis_code: "Primary Diagnosis Code (ICD-10)",
+    diagnosis: "Primary Diagnosis Code (ICD-10)",
+    icd10: "ICD-10 Diagnosis Code",
+    icd_10: "ICD-10 Diagnosis Code",
+    procedure_code: "Procedure Code (CPT/HCPCS)",
+    place_of_service: "Place of Service Code",
+    service_date: "Date of Service",
+    admission_date: "Hospital Admission Date",
+    discharge_date: "Hospital Discharge Date",
 
-  const blockingIssues = getBlockingIssueCount(claim);
-  const suggestionsToShow = claim.suggested_fixes.filter((fix) => {
-    if (fix.applied) {
-      return false;
-    }
-    const fieldConfidence = claim.field_confidences[fix.field] ?? 1;
-    return (
-      fieldConfidence < threshold ||
-      claim.status === "rejected_277ca" ||
-      claim.status === "denied"
-    );
-  });
+    // Authorization and Prior Auth
+    authorization_number: "Prior Authorization Number",
+    authorization: "Prior Authorization Number",
+    referral_number: "Referral Authorization Number",
+    referral: "Referral Authorization Number",
+    precertification_number: "Precertification Number",
+    order: "Provider Order Number",
+    order_number: "Provider Order Number",
 
-  return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0" side="right">
-        <SheetHeader className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
-          <div className="flex items-start justify-between gap-8">
-            {/* Navigation Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPrev}
-                disabled={disablePrev}
-                className="h-8 w-8 p-0"
-                aria-label="Previous claim"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onNext}
-                disabled={disableNext}
-                className="h-8 w-8 p-0"
-                aria-label="Next claim"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
+    // Financial Information
+    total_amount: "Total Claim Amount",
+    copay_amount: "Patient Copay Amount",
+    deductible_amount: "Patient Deductible Amount",
+    coinsurance_amount: "Patient Coinsurance Amount",
+    allowed_amount: "Insurance Allowed Amount",
 
-            <div className="space-y-3 flex-1">
-              <div className="flex items-center justify-center gap-3">
-                <SheetTitle className="text-2xl font-semibold text-foreground">
-                  {claim.id}
-                </SheetTitle>
-                <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
-                  {STATUS_LABELS[claim.status]}
-                </Badge>
-                {claim.auto_submitted && claim.status === "accepted_277ca" && (
-                  <span className="flex items-center gap-1 text-sm text-emerald-600">
-                    <CheckCircle2 className="h-4 w-4" /> Auto-submitted
-                  </span>
-                )}
-                {claim.status === "denied" && claim.state_history.some(entry => entry.note?.includes("playbook")) && (
-                  <span className="flex items-center gap-1 text-sm text-blue-600">
-                    <Sparkles className="h-4 w-4" /> Denial Playbook Active
-                  </span>
-                )}
-              </div>
-              <SheetDescription className="flex flex-wrap items-center justify-center gap-3 text-sm">
-                <span>Charge {formatCurrency(claim.total_amount)}</span>
-                <span>Attempt #{claim.attempt_count}</span>
-              </SheetDescription>
-            </div>
+    // Claim Details
+    claim_frequency: "Claim Frequency Type Code",
+    accident_indicator: "Accident Related Indicator",
+    emergency_indicator: "Emergency Service Indicator",
+    units_of_service: "Units of Service Provided",
+    modifier: "Procedure Modifier Code",
 
-            {/* Spacer to balance the layout */}
-            <div className="w-20"></div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => onApplyAllFixes(claim.id)}
-              disabled={claim.suggested_fixes.every((fix) => fix.applied)}
-            >
-              Apply All Fixes
-            </Button>
-            <Button
-              onClick={() => onSubmit(claim.id)}
-              disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || claim.status === "awaiting_277ca" || submittingClaims.has(claim.id)}
-            >
-              {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onResubmit(claim.id)}
-              disabled={!(claim.status === "rejected_277ca" || claim.status === "denied") || submittingClaims.has(claim.id)}
-            >
-              {submittingClaims.has(claim.id) ? "Submitting..." : "Resubmit corrected"}
-            </Button>
-            </div>
-          </div>
-        </SheetHeader>
-        <ScrollArea className="flex-1 h-full overflow-y-auto px-8">
-          <div className="space-y-10 p-8">
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <FileText className="h-4 w-4" /> Patient & Encounter
-                </h3>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Patient</span>
-                    <span className="font-medium text-right">{claim.patient.name}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Encounter</span>
-                    <span className="font-medium text-right">{claim.encounter_id}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">State</span>
-                    <span className="font-medium text-right">{claim.state}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Provider</span>
-                    <span className="font-medium text-right">{claim.provider}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Date of service</span>
-                    <span className="font-medium text-right">
-                      {new Date(claim.dos).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Visit type</span>
-                    <span className="font-medium text-right">{claim.visit_type}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <ListChecks className="h-4 w-4" /> Payer & Coverage
-                </h3>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Payer</span>
-                    <span className="font-medium">{claim.payer.name}</span>
-                  </div>
-                  {claim.member_id && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Member ID</span>
-                      <span className="font-medium">{claim.member_id}</span>
-                    </div>
-                  )}
-                  {claim.eligibility_note && (
-                    <div className="rounded border border-dashed border-muted-foreground/30 bg-muted/40 p-3 text-xs text-muted-foreground">
-                      {claim.eligibility_note}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
+    // Contact Information
+    subscriber_name: "Primary Subscriber Name",
+    subscriber_dob: "Primary Subscriber Date of Birth",
+    subscriber_gender: "Primary Subscriber Gender",
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Codes
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    ICD-10
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {claim.codes.icd10.map((code) => (
-                      <Badge key={code} variant="secondary">
-                        {code}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    CPT/HCPCS
-                  </h4>
-                  <div className="space-y-2">
-                    {claim.codes.cpt.map((line) => (
-                      <div
-                        key={line.code}
-                        className="flex items-center justify-between rounded border border-border/60 bg-background p-3 text-sm"
-                      >
-                        <div>
-                          <div className="font-medium">{line.code}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {line.description}
-                          </div>
-                          {line.modifiers && line.modifiers.length > 0 && (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Modifiers: {line.modifiers.join(", ")}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right text-sm font-medium">
-                          {formatCurrency(line.amount)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    Place of Service
-                  </h4>
-                  <Badge variant="outline" className="px-3 py-1 text-sm">
-                    {claim.codes.pos}
-                  </Badge>
-                </div>
-                {claim.codes.hcpcs && claim.codes.hcpcs.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold text-muted-foreground">
-                      HCPCS
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {claim.codes.hcpcs.map((code) => (
-                        <Badge key={code} variant="secondary">
-                          {code}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
+    // Miscellaneous
+    policy_number: "Insurance Policy Number",
+    plan_name: "Insurance Plan Name",
+    network_status: "Provider Network Status",
+  };
 
-            {(Object.entries(claim.field_confidences || {}).some(([, confidence]) => confidence < threshold) ||
-              claim.suggested_fixes.some(fix => !fix.applied && !claim.field_confidences?.[fix.field])) && (
-              <section className="space-y-4">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" /> Needs Action
-                </h3>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-4">
-                  <div className="space-y-3">
-                    <p className="text-sm text-amber-800 font-medium">
-                      The following fields require attention before this claim can be submitted:
-                    </p>
-                    <div className="space-y-3">
-                      {/* Show fields that are below confidence threshold */}
-                      {Object.entries(claim.field_confidences || {})
-                        .filter(([field, confidence]) => confidence < threshold)
-                        .map(([field, confidence]) => {
-                          const suggestedFix = claim.suggested_fixes.find(fix => fix.field === field);
-                          const fieldLabel = field === "member_id" ? "Member ID" :
-                                           field === "patient_dob" ? "Date of Birth" :
-                                           field === "provider_npi" ? "Provider NPI" :
-                                           field === "patient_name" ? "Patient Name" :
-                                           field === "diagnosis_code" ? "Diagnosis Code" :
-                                           field === "procedure_code" ? "Procedure Code" :
-                                           field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-                          return (
-                            <div key={field} className="flex items-start gap-3 p-3 bg-white rounded border border-amber-200">
-                              <div className="flex-shrink-0 w-2 h-2 bg-amber-500 rounded-full mt-2"></div>
-                              <div className="flex-1 space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {fieldLabel}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {suggestedFix && (
-                                      <Badge variant="outline" className="text-xs border-blue-300 text-blue-700">
-                                        AI: {(confidence * 100).toFixed(0)}% confidence
-                                      </Badge>
-                                    )}
-                                    <Badge variant="outline" className="text-xs border-amber-300 text-amber-700">
-                                      Below {(threshold * 100).toFixed(0)}% threshold
-                                    </Badge>
-                                  </div>
-                                </div>
-                                {suggestedFix && (
-                                  <div className="text-xs text-gray-600 mb-2">
-                                    AI suggests: &quot;{suggestedFix.value}&quot; - {suggestedFix.reason}
-                                  </div>
-                                )}
-                                <div className="space-y-2">
-                                  <label htmlFor={`field-${field}`} className="block text-xs font-medium text-gray-700">
-                                    {suggestedFix ? "Correct or confirm value:" : "Enter correct value:"}
-                                  </label>
-                                  <input
-                                    id={`field-${field}`}
-                                    type={field === "patient_dob" ? "date" : field === "total_amount" ? "number" : "text"}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder={suggestedFix ? suggestedFix.value : `Enter ${fieldLabel.toLowerCase()}...`}
-                                    defaultValue={suggestedFix ? suggestedFix.value : ""}
-                                  />
-                                  {suggestedFix && (
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="text-xs h-7"
-                                        onClick={() => onApplySuggestion(claim.id, field)}
-                                      >
-                                        Apply AI Suggestion
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                      {/* Show fields that are completely missing (no confidence data) */}
-                      {claim.suggested_fixes
-                        .filter(fix => !fix.applied && !claim.field_confidences?.[fix.field])
-                        .map((fix, index) => (
-                          <div key={`missing-${index}`} className="flex items-start gap-3 p-3 bg-white rounded border border-red-200">
-                            <div className="flex-shrink-0 w-2 h-2 bg-red-500 rounded-full mt-2"></div>
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center justify-between">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {fix.field === "member_id" ? "Member ID" :
-                                   fix.field === "patient_dob" ? "Date of Birth" :
-                                   fix.field === "provider_npi" ? "Provider NPI" :
-                                   fix.field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                                </div>
-                                <Badge variant="destructive" className="text-xs">
-                                  Missing from EHR
-                                </Badge>
-                              </div>
-                              <div className="text-xs text-gray-600 mb-2">
-                                {fix.reason}
-                              </div>
-                              <div className="space-y-2">
-                                <label htmlFor={`missing-${index}`} className="block text-xs font-medium text-gray-700">
-                                  Enter required value:
-                                </label>
-                                <input
-                                  id={`missing-${index}`}
-                                  type={fix.field === "patient_dob" ? "date" : fix.field === "total_amount" ? "number" : "text"}
-                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                  placeholder={fix.value || `Enter ${fix.field.replace(/_/g, ' ')}...`}
-                                  defaultValue={fix.value || ""}
-                                />
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-
-                      {/* If no fields need attention, show validation issues */}
-                      {Object.entries(claim.field_confidences || {}).filter(([, confidence]) => confidence < threshold).length === 0 &&
-                       claim.suggested_fixes.filter(fix => !fix.applied && !claim.field_confidences?.[fix.field]).length === 0 && (
-                        <div className="text-center py-4 text-sm text-gray-600">
-                          <div className="flex items-center justify-center gap-2 mb-2">
-                            <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            <span>Manual review required</span>
-                          </div>
-                          <p>This claim requires manual verification before submission. Please review all details and confirm accuracy.</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                      Save & Continue
-                    </Button>
-                    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
-                      Add Note
-                    </Button>
-                  </div>
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Validation Results
-              </h3>
-              <div className="space-y-2">
-                {claim.validation_results.map((result) => {
-                  const Icon =
-                    result.severity === "pass"
-                      ? ShieldCheck
-                      : result.severity === "warn"
-                      ? AlertTriangle
-                      : X;
-                  const color =
-                    result.severity === "pass"
-                      ? "text-emerald-600"
-                      : result.severity === "warn"
-                      ? "text-amber-600"
-                      : "text-red-600";
-                  return (
-                    <div
-                      key={`${result.rule}-${result.field ?? "general"}`}
-                      className="flex items-start gap-3 rounded border border-border/60 bg-muted/20 p-3 text-sm"
-                    >
-                      <Icon className={cn("h-4 w-4 mt-0.5", color)} />
-                      <div>
-                        <div className="font-medium">{result.rule}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {result.message}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-
-            {suggestionsToShow.length > 0 && (
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Sparkles className="h-4 w-4" /> AI Suggestions
-                </h3>
-                <div className="space-y-3">
-                  {suggestionsToShow.map((fix) => (
-                    <div
-                      key={`${claim.id}-${fix.field}`}
-                      className="flex flex-col gap-3 rounded border border-dashed border-primary/40 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {fix.label}
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {(fix.confidence * 100).toFixed(0)}% confidence • {fix.provenance === "rule" ? "Rule" : "LLM"}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          {fix.reason}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 self-start sm:self-auto">
-                        <Badge variant="outline" className="px-2 py-1 text-xs">
-                          {fix.value}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          onClick={() => onApplySuggestion(claim.id, fix.field)}
-                        >
-                          Apply
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <FileText className="h-4 w-4" /> Chart Note
-                </h3>
-                {(() => {
-                  // Check if there are any highlighted segments in the chart note
-                  const hasHighlightedSources = claim.chart_note.paragraphs.some(paragraph =>
-                    paragraph.some(segment => segment.highlight)
-                  );
-
-                  return hasHighlightedSources ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Show sources</span>
-                      <Switch
-                        checked={showSources}
-                        onCheckedChange={(checked) =>
-                          setShowSources(checked === true)
-                        }
-                      />
-                    </div>
-                  ) : null;
-                })()}
-              </div>
-              <div className="space-y-3 rounded border border-border/60 bg-muted/10 p-4 text-sm leading-relaxed">
-                {claim.chart_note.paragraphs.map((paragraph, index) => (
-                  <p key={index} className="space-x-1">
-                    {paragraph.map((segment, idx) =>
-                      segment.highlight && showSources ? (
-                        <mark
-                          key={idx}
-                          className="rounded bg-amber-100 px-1 py-0.5"
-                        >
-                          {segment.text}
-                        </mark>
-                      ) : (
-                        <span key={idx}>{segment.text}</span>
-                      )
-                    )}
-                  </p>
-                ))}
-                <p className="text-xs text-muted-foreground">
-                  Attending: {claim.chart_note.provider}
-                </p>
-              </div>
-            </section>
-
-            {/* Clearinghouse Errors Section */}
-            {claim.status === "rejected_277ca" && (
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4" /> Clearinghouse Errors
-                </h3>
-                <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
-                  <div className="space-y-3">
-                    {(() => {
-                      const clearinghouseErrors = ((claim as Claim).scrubbing_result ?? []).filter(result => result.severity === 'error');
-
-                      if (clearinghouseErrors.length > 0) {
-                        // Display real clearinghouse errors from scrubbing_result
-                        return clearinghouseErrors.map((error, index) => (
-                          <div key={index} className="flex items-start gap-3">
-                            <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                            <div className="flex-1">
-                              <div className="font-medium text-destructive">{error.message}</div>
-                              <p className="text-xs text-muted-foreground mt-1 mb-2">
-                                {error.field_path && `Field: ${error.field_path}`}
-                                {error.error_code && ` | Error Code: ${error.error_code}`}
-                              </p>
-                            </div>
-                          </div>
-                        ));
-                      } else {
-                        // Fallback to demo errors if no real errors found
-                        return (
-                          <div className="flex items-start gap-3">
-                            <AlertTriangle className="h-4 w-4 mt-0.5 text-destructive" />
-                            <div className="flex-1">
-                              <div className="font-medium text-destructive">Missing Provider NPI</div>
-                              <p className="text-xs text-muted-foreground mt-1 mb-2">
-                                Field: billing_provider.npi | Error Code: AAE-44
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                The billing provider NPI is required but missing from the claim. Please verify the provider information and resubmit.
-                              </p>
-                            </div>
-                          </div>
-                        );
-                      }
-                    })()}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {/* Clearinghouse Warnings Section */}
-            {(claim.status === "accepted_277ca" || claim.status === "rejected_277ca") && ((claim as Claim).scrubbing_result ?? []).filter(result => result.severity === 'warning').length > 0 && (
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4" /> Clearinghouse Warnings
-                </h3>
-                <div className="rounded border border-amber-300/40 bg-amber-50/50 p-4 text-sm">
-                  <div className="space-y-3">
-                    {(claim as Claim).scrubbing_result?.filter(result => result.severity === 'warning').map((warning, index) => (
-                      <div key={index} className="flex items-start gap-3">
-                        <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-600" />
-                        <div className="flex-1">
-                          <div className="font-medium text-amber-800">{warning.message}</div>
-                          <p className="text-xs text-amber-600 mt-1">
-                            {warning.field_path && `Field: ${warning.field_path}`}
-                            {warning.error_code && ` | Code: ${warning.error_code}`}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
-
-            {claim.payer_response && (
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertTriangle className="h-4 w-4" /> Payer Response
-                </h3>
-                <div className="rounded border border-destructive/40 bg-destructive/5 p-4 text-sm">
-                  {(claim.payer_response.carc || claim.payer_response.rarc) && (
-                    <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-wide text-destructive mb-2">
-                      {claim.payer_response.carc && (
-                        <Badge variant="destructive">CARC {claim.payer_response.carc}</Badge>
-                      )}
-                      {claim.payer_response.rarc && (
-                        <Badge variant="outline" className="border-destructive/40 text-destructive">
-                          RARC {claim.payer_response.rarc}
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                  <p className="text-sm text-destructive">
-                    {claim.payer_response.message}
-                  </p>
-                </div>
-              </section>
-            )}
-
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <History className="h-4 w-4" /> Timeline & Audit
-              </h3>
-              <div className="space-y-3">
-                {claim.state_history
-                  .slice()
-                  .sort(
-                    (a, b) =>
-                      new Date(b.at).getTime() - new Date(a.at).getTime()
-                  )
-                  .map((entry, index) => (
-                    <div
-                      key={`${entry.state}-${index}`}
-                      className="flex items-start justify-between rounded border border-border/60 bg-background p-3 text-sm"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {STATUS_LABELS[entry.state]}
-                        </div>
-                        {entry.note && (
-                          <div className="text-xs text-muted-foreground">
-                            {entry.note}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(entry.at).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </section>
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <DollarSign className="h-4 w-4" /> Payments
-                </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddPayment(true)}
-                  disabled={claim.status !== 'accepted_277ca' && claim.status !== 'paid'}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Payment
-                </Button>
-              </div>
-
-              {/* Current Payment Status */}
-              <div className="p-3 bg-muted/20 rounded-lg">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Claim Total:</span>
-                  <span className="font-medium">{formatCurrency(claim.total_amount)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Total Paid:</span>
-                  <span className="font-medium">
-                    {claim.payments && claim.payments.length > 0
-                      ? formatCurrency(claim.payments.reduce((sum, payment) => sum + payment.amount, 0))
-                      : formatCurrency(0)
-                    }
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm pt-1 border-t mt-1">
-                  <span className="text-muted-foreground">Balance:</span>
-                  <span className={`font-semibold ${calculateClaimBalance(claim) === 0 ? 'text-green-600' : 'text-foreground'}`}>
-                    {formatCurrency(calculateClaimBalance(claim))}
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment Records */}
-              {claim.payments && claim.payments.length > 0 ? (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Payment History</h4>
-                  <div className="space-y-3">
-                    {claim.payments
-                      .slice()
-                      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                      .map((payment) => (
-                        <div
-                          key={payment.id}
-                          className="flex items-start justify-between rounded border border-border/60 bg-background p-3 text-sm"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-green-600">
-                                {formatCurrency(payment.amount)}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                from {payment.payer}
-                              </div>
-                            </div>
-                            {payment.reference && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Ref: {payment.reference}
-                              </div>
-                            )}
-                            {payment.note && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {payment.note}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {new Date(payment.date).toLocaleDateString()}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-sm text-muted-foreground border border-dashed border-border/60 rounded-lg">
-                  No payments recorded yet
-                </div>
-              )}
-
-              {/* Add Payment Form Modal */}
-              {showAddPayment && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                  <div className="bg-background rounded-lg shadow-lg max-w-md w-full mx-4">
-                    <AddPaymentForm
-                      claim={claim}
-                      onPaymentAdded={async (paymentData) => {
-                        const updatedClaim = addPaymentToClaim(
-                          claim,
-                          paymentData.amount,
-                          paymentData.payer,
-                          paymentData.reference,
-                          paymentData.note
-                        );
-
-                        onUpdateClaim(claim.id, () => updatedClaim);
-                        setShowAddPayment(false);
-                      }}
-                      onCancel={() => setShowAddPayment(false)}
-                    />
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {claim.attachments && claim.attachments.length > 0 && (
-              <section className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <Paperclip className="h-4 w-4" /> Attachments
-                </h3>
-                <div className="space-y-2">
-                  {claim.attachments.map((attachment) => (
-                    <div
-                      key={attachment.id}
-                      className="flex items-center justify-between rounded border border-border/60 bg-muted/10 p-3 text-sm"
-                    >
-                      <span>{attachment.name}</span>
-                      <span className="text-xs uppercase text-muted-foreground">
-                        {attachment.type}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </div>
-        </ScrollArea>
-      </SheetContent>
-    </Sheet>
-  );
+  return fieldMappings[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
+
 
 export default function ClaimsPage() {
   const searchParams = useSearchParams();
@@ -944,6 +199,158 @@ export default function ClaimsPage() {
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [needsActionFieldValues, setNeedsActionFieldValues] = useState<Record<string, string>>({});
+  const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
+  const [noteClaimId, setNoteClaimId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+
+  const handleSaveAndContinue = (claimId: string) => {
+    const claim = claims.find(c => c.id === claimId);
+    if (!claim) return;
+
+    // Get all fields that need action
+    const fieldsNeedingAction = [
+      // Fields below confidence threshold
+      ...Object.entries(claim.field_confidences || {})
+        .filter(([, confidence]) => confidence < threshold)
+        .map(([field]) => field),
+      // Missing fields (no confidence data)
+      ...claim.suggested_fixes
+        .filter(fix => !fix.applied && !claim.field_confidences?.[fix.field])
+        .map(fix => fix.field)
+    ];
+
+    // Check if all required fields have values and proper format
+    const missingFields: string[] = [];
+    const invalidFields: string[] = [];
+    
+    fieldsNeedingAction.forEach(field => {
+      const confidenceKey = `${claimId}-${field}`;
+      const missingKey = `${claimId}-missing-${field}`;
+      const value = needsActionFieldValues[confidenceKey] || needsActionFieldValues[missingKey];
+
+      if (!value || value.trim() === '') {
+        missingFields.push(field);
+        return;
+      }
+
+      // Validate field format for submission (stricter than editing validation)
+      const trimmedValue = value.trim();
+      
+      if (field.includes("icd") && !/^[A-Z]\d{2,3}(\.\d{1,4})?$/i.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("npi") && !/^\d{10}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("cpt") && !/^\d{5}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("pos") && !/^\d{2}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("ssn") && !/^\d{3}-\d{2}-\d{4}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      const fieldNames = missingFields.map(field => getDescriptiveFieldName(field)).join(', ');
+      toast.error(`Please fill in all required fields: ${fieldNames}`);
+      return;
+    }
+
+    if (invalidFields.length > 0) {
+      const fieldNames = invalidFields.map(field => getDescriptiveFieldName(field)).join(', ');
+      toast.error(`Please enter valid format for: ${fieldNames}. ICD-10 codes must be complete (e.g., Z79.899).`);
+      return;
+    }
+
+    // Get all field values for this claim
+    const claimFieldValues = Object.entries(needsActionFieldValues)
+      .filter(([key]) => key.startsWith(`${claimId}-`))
+      .reduce((acc, [key, value]) => {
+        const fieldKey = key.replace(`${claimId}-`, '').replace('missing-', '');
+        acc[fieldKey] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+    // Update the claim with the new field values
+    setClaims(prevClaims =>
+      prevClaims.map(claim => {
+        if (claim.id === claimId) {
+          const updatedClaim = {
+            ...claim,
+            state_history: [
+              ...claim.state_history,
+              {
+                state: claim.status,
+                at: new Date().toISOString(),
+                by: 'Current User',
+                note: `Updated fields: ${Object.keys(claimFieldValues).join(', ')}`
+              }
+            ]
+          };
+          return updatedClaim;
+        }
+        return claim;
+      })
+    );
+
+    // Clear the field values for this claim
+    setNeedsActionFieldValues(prev => {
+      const updated = { ...prev };
+      Object.keys(prev).forEach(key => {
+        if (key.startsWith(`${claimId}-`)) {
+          delete updated[key];
+        }
+      });
+      return updated;
+    });
+
+    // Trigger the actual submission process
+    toast.success('Fields updated! Submitting claim...');
+    triggerSubmit(claimId, false);
+  };
+
+  const handleAddNote = (claimId: string) => {
+    setNoteClaimId(claimId);
+    setShowAddNoteDialog(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!noteText.trim() || !noteClaimId) return;
+
+    // Add note to claim history
+    setClaims(prevClaims =>
+      prevClaims.map(claim => {
+        if (claim.id === noteClaimId) {
+          return {
+            ...claim,
+            state_history: [
+              ...claim.state_history,
+              {
+                state: claim.status,
+                at: new Date().toISOString(),
+                by: 'Current User',
+                note: noteText.trim()
+              }
+            ]
+          };
+        }
+        return claim;
+      })
+    );
+
+    // Close dialog and reset state
+    setShowAddNoteDialog(false);
+    setNoteClaimId(null);
+    setNoteText('');
+
+    toast.success('Note added successfully!');
+  };
+
+  const handleCancelNote = () => {
+    setShowAddNoteDialog(false);
+    setNoteClaimId(null);
+    setNoteText('');
+  };
 
   // Function to close claim and remove query parameter
   const handleCloseClaim = useCallback(() => {
@@ -1037,14 +444,40 @@ export default function ClaimsPage() {
   }, []);
 
   const applySuggestion = useCallback((id: string, field: string) => {
-    updateClaim(id, (claim) => {
-      const fix = claim.suggested_fixes.find((candidate) => candidate.field === field);
-      if (!fix) {
-        return claim;
+    // First, find the fix to get the suggested value
+    const claim = claims.find(c => c.id === id);
+    if (!claim) return;
+
+    const fix = claim.suggested_fixes.find((candidate) => candidate.field === field);
+    if (!fix) return;
+
+    // Update the needs action field values with the suggested value
+    setNeedsActionFieldValues(prev => {
+      const updates: Record<string, string> = {};
+
+      // Handle both confidence-based fields and missing fields
+      const confidenceKey = `${id}-${field}`;
+      const missingKey = `${id}-missing-${field}`;
+
+      // Check if this field has confidence data (low confidence) or is missing
+      if (claim.field_confidences?.[field] !== undefined) {
+        // This is a confidence-based field
+        updates[confidenceKey] = fix.value;
+      } else {
+        // This is a missing field
+        updates[missingKey] = fix.value;
       }
+
+      return { ...prev, ...updates };
+    });
+
+    // Then apply the fix to the claim
+    updateClaim(id, (claim) => {
       return applyFixToClaim(claim, fix, "Suggestion applied");
     });
-  }, [updateClaim]);
+
+    toast.success(`Applied AI suggestion for ${getDescriptiveFieldName(field)}`);
+  }, [updateClaim, claims, setNeedsActionFieldValues]);
 
   const triggerSubmit = useCallback(
     async (claimId: string, auto = false, options?: { resubmitting?: boolean }) => {
@@ -2255,6 +1688,10 @@ export default function ClaimsPage() {
         onApplySuggestion={applySuggestion}
         onUpdateClaim={updateClaim}
         submittingClaims={submittingClaims}
+        needsActionFieldValues={needsActionFieldValues}
+        setNeedsActionFieldValues={setNeedsActionFieldValues}
+        onSaveAndContinue={handleSaveAndContinue}
+        onAddNote={handleAddNote}
         onPrev={() => {
           const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
           if (currentIndex > 0) {
@@ -2282,6 +1719,42 @@ export default function ClaimsPage() {
           return currentIndex >= filteredClaims.length - 1;
         })()}
       />
+
+      {/* Add Note Dialog */}
+      <Dialog open={showAddNoteDialog} onOpenChange={setShowAddNoteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Note to Claim {noteClaimId}</DialogTitle>
+            <DialogDescription>
+              Add a note that will be recorded in the claim&apos;s audit timeline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="note-text">Note</Label>
+              <Textarea
+                id="note-text"
+                placeholder="Enter your note here..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="min-h-[100px] resize-none"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelNote}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveNote}
+              disabled={!noteText.trim()}
+            >
+              Add Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </TooltipProvider>
   );

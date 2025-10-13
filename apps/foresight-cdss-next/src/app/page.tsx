@@ -1,74 +1,37 @@
-import { Tables } from '@/lib/supabase';
-import { createSupabaseServerClient } from '@/lib/supabase/server'
-import DashboardClient from '@/components/dashboard/dashboard-client';
-import { epaQueueItems } from '@/data/epa-queue';
-import { initialClaims } from '@/data/claims';
-import { demoAuditEntries } from '@/data/audit-trail';
-import { combineStatusDistribution } from '@/utils/dashboard';
+import { getUserTeamSlug } from '@/lib/team-routing';
+import { currentUser } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import NoTeamHome from '@/components/no-team-home';
 
-const formatAuditMessage = (operation: string, tableName: string, recordId: string | null) => {
-  const friendlyOperation = operation.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-  const base = `${friendlyOperation} · ${tableName}`;
-  return recordId ? `${base} (${recordId})` : base;
-};
-
-const formatAuditTimestamp = (value: string | null) => {
-  if (!value) return '--';
-  return new Date(value).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
-async function loadDashboardData() {
+async function checkUserTeamAndRedirect(): Promise<void> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data: auditLogData, error: auditError } = await supabase
-      .from(Tables.AUDIT_LOG)
-      .select('id, table_name, operation, record_id, created_at, auth_uid')
-      .order('created_at', { ascending: false })
-      .limit(10);
+    // Get the current user from Clerk
+    const user = await currentUser();
 
-    if (auditError) {
-      console.error('Error fetching audit log:', auditError);
+    if (!user) {
+      // User not authenticated, redirect to login
+      redirect('/login');
     }
 
-    const auditEntries = auditLogData && auditLogData.length > 0 
-      ? auditLogData.map((entry) => ({
-          id: entry.id,
-          message: formatAuditMessage(entry.operation, entry.table_name, entry.record_id),
-          actor: entry.auth_uid,
-          timestamp: formatAuditTimestamp(entry.created_at),
-        }))
-      : demoAuditEntries;
+    // Check if user has a team
+    const teamSlug = await getUserTeamSlug(user.id);
 
-    return {
-      epaItems: epaQueueItems,
-      claimItems: initialClaims,
-      statusDistribution: combineStatusDistribution(epaQueueItems, initialClaims),
-      auditEntries,
-    };
+    if (teamSlug) {
+      // User has a team, redirect to their team dashboard
+      redirect(`/team/${teamSlug}`);
+    }
+
+    // User doesn't have a team, continue to show no-team UI
+
   } catch (error) {
-    console.error('Dashboard data fetch error:', error);
-    return {
-      epaItems: epaQueueItems,
-      claimItems: initialClaims,
-      statusDistribution: combineStatusDistribution(epaQueueItems, initialClaims),
-      auditEntries: demoAuditEntries,
-    };
+    console.error('Error checking user team:', error);
+    // On error, allow the page to continue (will show no-team UI)
   }
 }
-export default async function DashboardPage() {
-  const dashboardData = await loadDashboardData();
+export default async function HomePage() {
+  // Check if user should be redirected to their team page
+  await checkUserTeamAndRedirect();
 
-  return (
-    <DashboardClient
-      epaItems={dashboardData.epaItems}
-      claimItems={dashboardData.claimItems}
-      statusDistribution={dashboardData.statusDistribution}
-      auditEntries={dashboardData.auditEntries}
-    />
-  );
+  // If we reach here, user doesn't have a team - show no-team UI
+  return <NoTeamHome />;
 }

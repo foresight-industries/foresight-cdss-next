@@ -132,7 +132,7 @@ export function useInvitation() {
       const url = new URL(window.location.href);
       url.searchParams.delete('__clerk_invitation_token');
       url.searchParams.delete('__clerk_invitation_id');
-      window.history.replaceState({}, '', url.toString());
+      router.replace(url.pathname + url.search);
 
       setStatus('none');
       setInvitationInfo({});
@@ -149,7 +149,7 @@ export function useInvitation() {
     const url = new URL(window.location.href);
     url.searchParams.delete('__clerk_invitation_token');
     url.searchParams.delete('__clerk_invitation_id');
-    window.history.replaceState({}, '', url.toString());
+    router.replace(url.pathname + url.search);
 
     setStatus('none');
     setInvitationInfo({});

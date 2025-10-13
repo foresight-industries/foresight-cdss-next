@@ -5,6 +5,7 @@ import { epaQueueItems } from '@/data/epa-queue';
 import { initialClaims } from '@/data/claims';
 import { demoAuditEntries } from '@/data/audit-trail';
 import { combineStatusDistribution } from '@/utils/dashboard';
+import { headers } from 'next/headers';
 
 const formatAuditMessage = (operation: string, tableName: string, recordId: string | null) => {
   const friendlyOperation = operation.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
@@ -22,12 +23,21 @@ const formatAuditTimestamp = (value: string | null) => {
   });
 };
 
-async function loadDashboardData() {
+async function loadDashboardData(teamId: string) {
   try {
     const supabase = await createSupabaseServerClient();
+    // Get audit logs for the team (temporarily removing auth_uid to avoid UUID casting error)
     const { data: auditLogData, error: auditError } = await supabase
       .from(Tables.AUDIT_LOG)
-      .select('id, table_name, operation, record_id, created_at, auth_uid')
+      .select(`
+        id, 
+        table_name, 
+        operation, 
+        record_id, 
+        created_at, 
+        team_id
+      `)
+      .eq('team_id', teamId)
       .order('created_at', { ascending: false })
       .limit(10);
 
@@ -35,11 +45,11 @@ async function loadDashboardData() {
       console.error('Error fetching audit log:', auditError);
     }
 
-    const auditEntries = auditLogData && auditLogData.length > 0 
+    const auditEntries = auditLogData && auditLogData.length > 0
       ? auditLogData.map((entry) => ({
           id: entry.id,
           message: formatAuditMessage(entry.operation, entry.table_name, entry.record_id),
-          actor: entry.auth_uid,
+          actor: 'Team Member', // Temporary placeholder since auth_uid has UUID casting issues
           timestamp: formatAuditTimestamp(entry.created_at),
         }))
       : demoAuditEntries;
@@ -62,7 +72,31 @@ async function loadDashboardData() {
 }
 
 export default async function DashboardPage() {
-  const dashboardData = await loadDashboardData();
+  // Get team ID from middleware headers
+  const headersList = await headers();
+  const teamId = headersList.get('x-team-id');
+
+  if (!teamId) {
+    console.error('Team ID not found in headers');
+    // Fallback to demo data if no team ID
+    const dashboardData = {
+      epaItems: epaQueueItems,
+      claimItems: initialClaims,
+      statusDistribution: combineStatusDistribution(epaQueueItems, initialClaims),
+      auditEntries: demoAuditEntries,
+    };
+
+    return (
+      <DashboardClient
+        epaItems={dashboardData.epaItems}
+        claimItems={dashboardData.claimItems}
+        statusDistribution={dashboardData.statusDistribution}
+        auditEntries={dashboardData.auditEntries}
+      />
+    );
+  }
+
+  const dashboardData = await loadDashboardData(teamId);
 
   return (
     <DashboardClient

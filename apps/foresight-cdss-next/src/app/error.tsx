@@ -1,10 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useUser, useOrganization } from '@clerk/nextjs';
 import {
   AlertTriangle,
   RotateCcw,
@@ -19,7 +20,45 @@ interface ErrorPageProps {
   reset: () => void;
 }
 
-export default function ErrorPage({ error, reset }: ErrorPageProps) {
+export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
+  const { user, isLoaded } = useUser();
+  const { organization } = useOrganization();
+  const [teamBasePath, setTeamBasePath] = useState('');
+  
+  useEffect(() => {
+    async function getTeamBasePath() {
+      if (isLoaded && user) {
+        try {
+          // Try to get team slug from current organization first
+          if (organization?.slug) {
+            setTeamBasePath(`/team/${organization.slug}`);
+            return;
+          }
+          
+          // Fallback: try to extract from current URL if we're on a team page
+          const currentPath = window.location.pathname;
+          const teamRegex = /^\/team\/([^/]+)/;
+          const teamMatch = teamRegex.exec(currentPath);
+          if (teamMatch) {
+            setTeamBasePath(`/team/${teamMatch[1]}`);
+            return;
+          }
+          
+          // No team context found
+          setTeamBasePath('');
+        } catch (error) {
+          console.error('Error getting team slug:', error);
+          setTeamBasePath('');
+        }
+      } else if (isLoaded && !user) {
+        // User not authenticated, use empty path
+        setTeamBasePath('');
+      }
+    }
+    
+    getTeamBasePath();
+  }, [user, organization, isLoaded]);
+
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="max-w-2xl w-full space-y-8">
@@ -54,25 +93,32 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
                   Application Error
                 </h2>
                 <p className="text-red-800 mb-4">
-                  We encountered an unexpected error while processing your request.
-                  Our team has been automatically notified and is working to resolve the issue.
+                  We encountered an unexpected error while processing your
+                  request. Our team has been automatically notified and is
+                  working to resolve the issue.
                 </p>
 
                 {/* Error Details (Development Mode) */}
-                {process.env.NODE_ENV === 'development' && (
+                {process.env.NODE_ENV === "development" && (
                   <details className="mt-4">
                     <summary className="cursor-pointer text-sm font-medium text-red-900 hover:text-red-700">
                       Technical Details (Development Mode)
                     </summary>
                     <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 rounded border text-sm font-mono text-red-800 dark:text-red-200 overflow-auto">
-                      <p className="mb-2"><strong>Error:</strong> {error.message}</p>
+                      <p className="mb-2">
+                        <strong>Error:</strong> {error.message}
+                      </p>
                       {error.digest && (
-                        <p className="mb-2"><strong>Error ID:</strong> {error.digest}</p>
+                        <p className="mb-2">
+                          <strong>Error ID:</strong> {error.digest}
+                        </p>
                       )}
                       {error.stack && (
                         <div>
                           <strong>Stack Trace:</strong>
-                          <pre className="mt-1 whitespace-pre-wrap">{error.stack}</pre>
+                          <pre className="mt-1 whitespace-pre-wrap">
+                            {error.stack}
+                          </pre>
                         </div>
                       )}
                     </div>
@@ -94,11 +140,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
             Try Again
           </Button>
 
-          <Button
-            variant="outline"
-            asChild
-            size="lg"
-          >
+          <Button variant="outline" asChild size="lg">
             <Link href="/" className="flex items-center gap-2">
               <Home className="h-4 w-4" />
               Go to Dashboard
@@ -114,11 +156,10 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
                 <HelpCircle className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-blue-900 mb-2">
-                  Need Help?
-                </h3>
+                <h3 className="font-semibold text-blue-900 mb-2">Need Help?</h3>
                 <p className="text-blue-800 text-sm mb-4">
-                  If this error persists, please contact our support team with the error details.
+                  If this error persists, please contact our support team with
+                  the error details.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   <Button
@@ -128,7 +169,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <Link
-                      href="mailto:support@have-foresight.com?subject=Application Error Report"
+                      href="mailto:team@have-foresight.app?subject=Application Error Report"
                       className="flex items-center gap-2"
                     >
                       <Bug className="h-4 w-4" />
@@ -143,7 +184,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
                     className="border-blue-300 text-blue-700 hover:bg-blue-100"
                   >
                     <Link
-                      href="/settings?section=help"
+                      href={`${teamBasePath}/settings?section=help`}
                       className="flex items-center gap-2"
                     >
                       <ExternalLink className="h-4 w-4" />
@@ -158,12 +199,13 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
 
         {/* Footer */}
         <div className="text-center text-sm text-muted-foreground">
-          <p>
-            Error occurred at {new Date().toLocaleString()}
-          </p>
+          <p>Error occurred at {new Date().toLocaleString()}</p>
           {error.digest && (
             <p className="mt-1">
-              Reference ID: <code className="font-mono bg-muted px-1 rounded">{error.digest}</code>
+              Reference ID:{" "}
+              <code className="font-mono bg-muted px-1 rounded">
+                {error.digest}
+              </code>
             </p>
           )}
         </div>

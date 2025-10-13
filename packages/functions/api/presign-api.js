@@ -9,25 +9,29 @@ exports.handler = async (event) => {
         event.resource || event.rawPath,
         event.requestContext?.requestId
     );
-    
+
     try {
         const { httpMethod, queryStringParameters, body } = event;
-        
+
         // Extract user context from authorizer
         const { userId, organizationId } = event.requestContext.authorizer;
-        
+
         let response;
-        
+
         switch (httpMethod) {
-            case 'POST':
-                const requestData = JSON.parse(body);
-                response = await generatePresignedUrl(requestData, organizationId, userId);
-                break;
-                
-            default:
-                throw new Error(`Unsupported method: ${httpMethod}`);
+          case "POST": {
+            const requestData = JSON.parse(body);
+            response = await generatePresignedUrl(
+              requestData,
+              organizationId,
+              userId
+            );
+            break;
+          }
+          default:
+            throw new Error(`Unsupported method: ${httpMethod}`);
         }
-        
+
         return {
             statusCode: 200,
             headers: {
@@ -38,7 +42,7 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify(response),
         };
-        
+
     } catch (error) {
         console.error('Presign API error:', error);
         return {
@@ -56,24 +60,24 @@ exports.handler = async (event) => {
 
 async function generatePresignedUrl(requestData, organizationId, userId) {
     const { fileName, fileType, operation = 'putObject', expiresIn = 3600 } = requestData;
-    
+
     if (!fileName || !fileType) {
         throw new Error('fileName and fileType are required');
     }
-    
+
     // Generate secure file key
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2);
     const fileKey = `${organizationId}/${userId}/${timestamp}-${randomString}-${fileName}`;
-    
+
     const bucketName = process.env.DOCUMENTS_BUCKET;
     if (!bucketName) {
         throw new Error('Documents bucket not configured');
     }
-    
+
     let presignedUrl;
     let method;
-    
+
     try {
         switch (operation) {
             case 'putObject':
@@ -91,7 +95,7 @@ async function generatePresignedUrl(requestData, organizationId, userId) {
                 });
                 method = 'PUT';
                 break;
-                
+
             case 'getObject':
                 // Generate URL for downloading
                 presignedUrl = await s3.getSignedUrlPromise('getObject', {
@@ -101,11 +105,11 @@ async function generatePresignedUrl(requestData, organizationId, userId) {
                 });
                 method = 'GET';
                 break;
-                
+
             default:
                 throw new Error(`Unsupported operation: ${operation}`);
         }
-        
+
         return {
             presignedUrl,
             fileKey,
@@ -118,7 +122,7 @@ async function generatePresignedUrl(requestData, organizationId, userId) {
                 'x-amz-meta-original-filename': fileName
             } : undefined
         };
-        
+
     } catch (error) {
         console.error('S3 presigning error:', error);
         throw new Error(`Failed to generate presigned URL: ${error.message}`);
@@ -138,7 +142,7 @@ function isValidFileType(fileType, allowedTypes = []) {
         'application/vnd.ms-excel',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     ];
-    
+
     const types = allowedTypes.length > 0 ? allowedTypes : defaultAllowedTypes;
     return types.includes(fileType);
 }
@@ -148,10 +152,10 @@ function getMaxFileSize(fileType) {
     // Return max file size in bytes
     const imageSizeLimit = 10 * 1024 * 1024; // 10MB for images
     const documentSizeLimit = 50 * 1024 * 1024; // 50MB for documents
-    
+
     if (fileType.startsWith('image/')) {
         return imageSizeLimit;
     }
-    
+
     return documentSizeLimit;
 }

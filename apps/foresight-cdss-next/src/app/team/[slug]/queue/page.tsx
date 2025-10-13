@@ -785,7 +785,7 @@ export default function QueuePage() {
 
       {/* PA Details Sheet */}
       <Sheet
-        open={Boolean(selectedPaId)}
+        open={!!selectedPaId}
         onOpenChange={(open) => {
           if (!open) {
             handleClosePA();
@@ -799,7 +799,6 @@ export default function QueuePage() {
           {selectedPaId && (
             <PADetails
               paId={selectedPaId}
-              onClose={handleClosePA}
               onPrev={() => {
                 const currentIndex = filteredData.findIndex(item => item.id === selectedPaId);
                 if (currentIndex > 0) {

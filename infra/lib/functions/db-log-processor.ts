@@ -158,12 +158,12 @@ function parsePostgreSQLLog(message: string): ParsedLogEvent | null {
     // Example: 2024-01-01 12:00:00.000 UTC:192.168.1.1(12345):user@database:[12345]: LOG: statement: SELECT ...
     
     const logPattern = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} UTC):([^:]*):([^@]*)@([^:]*):(\[[^\]]*\]):\s*(\w+):\s*(.*)$/;
-    const match = message.match(logPattern);
+    const match = logPattern.exec(message);
     
     if (!match) {
       // Try simpler pattern for basic logs
       const simplePattern = /^.*?\s+(\w+):\s*(.*)$/;
-      const simpleMatch = message.match(simplePattern);
+      const simpleMatch = simplePattern.exec(message);
       if (simpleMatch) {
         return {
           timestamp: new Date().toISOString(),
@@ -180,13 +180,15 @@ function parsePostgreSQLLog(message: string): ParsedLogEvent | null {
     let statement: string | undefined;
 
     // Extract duration from log message
-    const durationMatch = logMessage.match(/duration: ([\d.]+) ms/);
+    const durationRegex = /duration: ([\d.]+) ms/;
+    const durationMatch = durationRegex.exec(logMessage);
     if (durationMatch) {
       duration = parseFloat(durationMatch[1]);
     }
 
     // Extract SQL statement
-    const statementMatch = logMessage.match(/statement: (.*)/);
+    const statementRegex = /statement: (.*)/;
+    const statementMatch = statementRegex.exec(logMessage);
     if (statementMatch) {
       statement = statementMatch[1];
     }
