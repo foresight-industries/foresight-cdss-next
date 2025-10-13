@@ -64,6 +64,15 @@ import {
 import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 // import { supabase } from "@/lib/supabase/client";
 import {
@@ -115,59 +124,67 @@ const getDescriptiveFieldName = (field: string): string => {
     patient_gender: "Patient Gender",
     patient_address: "Patient Address",
     patient_phone: "Patient Phone Number",
-    
+
     // Provider Information
     provider_npi: "Provider NPI Number",
     provider_name: "Provider Name",
     provider_taxonomy: "Provider Taxonomy Code",
-    billing_provider_npi: "Billing Provider NPI",
-    rendering_provider_npi: "Rendering Provider NPI",
-    referring_provider_npi: "Referring Provider NPI",
-    
+    billing_provider_npi: "Billing Provider NPI Number",
+    rendering_provider_npi: "Rendering Provider NPI Number",
+    referring_provider_npi: "Referring Provider NPI Number",
+    npi: "Provider NPI Number",
+
     // Payer Information
     payer_id: "Insurance Payer ID",
     payer_name: "Insurance Company Name",
     group_number: "Insurance Group Number",
     subscriber_id: "Primary Subscriber ID",
-    
+
     // Service Information
     diagnosis_code: "Primary Diagnosis Code (ICD-10)",
+    diagnosis: "Primary Diagnosis Code (ICD-10)",
+    icd10: "ICD-10 Diagnosis Code",
+    icd_10: "ICD-10 Diagnosis Code",
     procedure_code: "Procedure Code (CPT/HCPCS)",
     place_of_service: "Place of Service Code",
     service_date: "Date of Service",
     admission_date: "Hospital Admission Date",
     discharge_date: "Hospital Discharge Date",
-    
+
     // Authorization and Prior Auth
     authorization_number: "Prior Authorization Number",
+    authorization: "Prior Authorization Number",
     referral_number: "Referral Authorization Number",
+    referral: "Referral Authorization Number",
     precertification_number: "Precertification Number",
-    
+    order: "Provider Order Number",
+    order_number: "Provider Order Number",
+
     // Financial Information
     total_amount: "Total Claim Amount",
     copay_amount: "Patient Copay Amount",
     deductible_amount: "Patient Deductible Amount",
     coinsurance_amount: "Patient Coinsurance Amount",
     allowed_amount: "Insurance Allowed Amount",
-    
+
     // Claim Details
     claim_frequency: "Claim Frequency Type Code",
     accident_indicator: "Accident Related Indicator",
     emergency_indicator: "Emergency Service Indicator",
     units_of_service: "Units of Service Provided",
     modifier: "Procedure Modifier Code",
-    
+
     // Contact Information
     subscriber_name: "Primary Subscriber Name",
     subscriber_dob: "Primary Subscriber Date of Birth",
     subscriber_gender: "Primary Subscriber Gender",
-    
+
     // Miscellaneous
     policy_number: "Insurance Policy Number",
     plan_name: "Insurance Plan Name",
     network_status: "Provider Network Status",
   };
-  
+
   return fieldMappings[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 };
 
@@ -186,6 +203,10 @@ const ClaimDetailSheet: React.FC<{
   disablePrev?: boolean;
   disableNext?: boolean;
   onUpdateClaim: (claimId: string, updater: (claim: Claim) => Claim) => void;
+  needsActionFieldValues: Record<string, string>;
+  setNeedsActionFieldValues: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  onSaveAndContinue: (claimId: string) => void;
+  onAddNote: (claimId: string) => void;
 }> = ({
   claim,
   open,
@@ -201,6 +222,10 @@ const ClaimDetailSheet: React.FC<{
   disablePrev,
   disableNext,
   onUpdateClaim,
+  needsActionFieldValues,
+  setNeedsActionFieldValues,
+  onSaveAndContinue,
+  onAddNote,
 }) => {
   const [showSources, setShowSources] = useState(true);
   const [showAddPayment, setShowAddPayment] = useState(false);
@@ -495,10 +520,66 @@ const ClaimDetailSheet: React.FC<{
                                   </label>
                                   <input
                                     id={`field-${field}`}
-                                    type={field === "patient_dob" ? "date" : field === "total_amount" ? "number" : "text"}
-                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    type={(() => {
+                                      if (field === "patient_dob") return "date";
+                                      if (field.includes("amount") || field.includes("copay") || field.includes("deductible") || field.includes("coinsurance")) return "number";
+                                      if (field.includes("phone")) return "tel";
+                                      if (field.includes("email")) return "email";
+                                      return "text";
+                                    })()}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                                     placeholder={suggestedFix ? suggestedFix.value : `Enter ${fieldLabel.toLowerCase()}...`}
-                                    defaultValue={suggestedFix ? suggestedFix.value : ""}
+                                    value={needsActionFieldValues[`${claim.id}-${field}`] || suggestedFix?.value || ""}
+                                    disabled={submittingClaims.has(claim.id)}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+
+                                      // Validate based on field type
+                                      if (field.includes("npi") && value && !/^\d{0,10}$/.test(value)) {
+                                        return; // NPI should be max 10 digits
+                                      }
+
+                                      if (field.includes("ssn") && value && !/^\d{0,3}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+                                        return; // SSN format
+                                      }
+
+                                      if (field.includes("member_id") && value && value.length > 20) {
+                                        return; // Member ID reasonable length limit
+                                      }
+
+                                      if (field.includes("icd") && value.length > 0 && !/^[A-Z]?(\d{0,3}(\.\d{0,4})?)?$/i.test(value)) {
+                                        return; // ICD-10 format: Optional letter + optional digits + optional decimal with digits (allows complete clearing)
+                                      }
+
+                                      if (field.includes("cpt") && value && !/^\d{0,5}$/.test(value)) {
+                                        return; // CPT codes are 5 digits
+                                      }
+
+                                      if (field.includes("pos") && value && !/^\d{0,2}$/.test(value)) {
+                                        return; // Place of Service is 2 digits
+                                      }
+
+                                      if (field.includes("phone") && value && !/^[\d\-()+\s]{0,20}$/.test(value)) {
+                                        return; // Phone number format
+                                      }
+
+                                      setNeedsActionFieldValues(prev => ({
+                                        ...prev,
+                                        [`${claim.id}-${field}`]: value
+                                      }));
+                                    }}
+                                    {...(field.includes("amount") || field.includes("copay") || field.includes("deductible") || field.includes("coinsurance") ? {
+                                      min: "0",
+                                      step: "0.01"
+                                    } : {})}
+                                    {...(field.includes("npi") ? {
+                                      maxLength: 10,
+                                      pattern: "[0-9]{10}"
+                                    } : {})}
+                                    {...(field.includes("ssn") ? {
+                                      maxLength: 11,
+                                      pattern: "[0-9]{3}-[0-9]{2}-[0-9]{4}"
+                                    } : {})}
                                   />
                                   {suggestedFix && (
                                     <div className="flex gap-2">
@@ -542,11 +623,80 @@ const ClaimDetailSheet: React.FC<{
                                 </label>
                                 <input
                                   id={`missing-${index}`}
-                                  type={fix.field === "patient_dob" ? "date" : fix.field === "total_amount" ? "number" : "text"}
-                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                  type={(() => {
+                                    if (fix.field === "patient_dob") return "date";
+                                    if (fix.field.includes("amount") || fix.field.includes("copay") || fix.field.includes("deductible") || fix.field.includes("coinsurance")) return "number";
+                                    if (fix.field.includes("phone")) return "tel";
+                                    if (fix.field.includes("email")) return "email";
+                                    return "text";
+                                  })()}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                                   placeholder={fix.value || `Enter ${fix.field.replace(/_/g, ' ')}...`}
-                                  defaultValue={fix.value || ""}
+                                  value={needsActionFieldValues[`${claim.id}-missing-${fix.field}`] || fix.value || ""}
+                                  disabled={submittingClaims.has(claim.id)}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    const field = fix.field;
+
+                                    // Apply the same validation rules
+                                    if (field.includes("npi") && value && !/^\d{0,10}$/.test(value)) {
+                                      return;
+                                    }
+
+                                    if (field.includes("ssn") && value && !/^\d{0,3}-?\d{0,2}-?\d{0,4}$/.test(value)) {
+                                      return;
+                                    }
+
+                                    if (field.includes("member_id") && value && value.length > 20) {
+                                      return;
+                                    }
+
+                                    if (field.includes("icd") && value.length > 0 && !/^[A-Z]?(\d{0,3}(\.\d{0,4})?)?$/i.test(value)) {
+                                      return; // ICD-10 format: Optional letter + optional digits + optional decimal with digits (allows complete clearing)
+                                    }
+
+                                    if (field.includes("cpt") && value && !/^\d{0,5}$/.test(value)) {
+                                      return;
+                                    }
+
+                                    if (field.includes("pos") && value && !/^\d{0,2}$/.test(value)) {
+                                      return;
+                                    }
+
+                                    if (field.includes("phone") && value && !/^[\d\-()+\s]{0,20}$/.test(value)) {
+                                      return;
+                                    }
+
+                                    setNeedsActionFieldValues(prev => ({
+                                      ...prev,
+                                      [`${claim.id}-missing-${fix.field}`]: value
+                                    }));
+                                  }}
+                                  {...(fix.field.includes("amount") || fix.field.includes("copay") || fix.field.includes("deductible") || fix.field.includes("coinsurance") ? {
+                                    min: "0",
+                                    step: "0.01"
+                                  } : {})}
+                                  {...(fix.field.includes("npi") ? {
+                                    maxLength: 10,
+                                    pattern: "[0-9]{10}"
+                                  } : {})}
+                                  {...(fix.field.includes("ssn") ? {
+                                    maxLength: 11,
+                                    pattern: "[0-9]{3}-[0-9]{2}-[0-9]{4}"
+                                  } : {})}
                                 />
+                                {fix.value && (
+                                  <div className="flex gap-2 mt-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="text-xs h-7"
+                                      onClick={() => onApplySuggestion(claim.id, fix.field)}
+                                    >
+                                      Apply AI Suggestion
+                                    </Button>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -566,10 +716,21 @@ const ClaimDetailSheet: React.FC<{
                     </div>
                   </div>
                   <div className="flex gap-2 pt-2">
-                    <Button size="sm" className="bg-blue-600 hover:bg-blue-700 text-white">
-                      Save & Continue
+                    <Button
+                      size="sm"
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      onClick={() => onSaveAndContinue(claim.id)}
+                      disabled={submittingClaims.has(claim.id)}
+                    >
+                      {submittingClaims.has(claim.id) ? "Submitting..." : "Save & Continue"}
                     </Button>
-                    <Button size="sm" variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                      onClick={() => onAddNote(claim.id)}
+                      disabled={submittingClaims.has(claim.id)}
+                    >
                       Add Note
                     </Button>
                   </div>
@@ -1002,6 +1163,158 @@ export default function ClaimsPage() {
   const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
   const [dollarFirst, setDollarFirst] = useState(true);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [needsActionFieldValues, setNeedsActionFieldValues] = useState<Record<string, string>>({});
+  const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
+  const [noteClaimId, setNoteClaimId] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState("");
+
+  const handleSaveAndContinue = (claimId: string) => {
+    const claim = claims.find(c => c.id === claimId);
+    if (!claim) return;
+
+    // Get all fields that need action
+    const fieldsNeedingAction = [
+      // Fields below confidence threshold
+      ...Object.entries(claim.field_confidences || {})
+        .filter(([, confidence]) => confidence < threshold)
+        .map(([field]) => field),
+      // Missing fields (no confidence data)
+      ...claim.suggested_fixes
+        .filter(fix => !fix.applied && !claim.field_confidences?.[fix.field])
+        .map(fix => fix.field)
+    ];
+
+    // Check if all required fields have values and proper format
+    const missingFields: string[] = [];
+    const invalidFields: string[] = [];
+    
+    fieldsNeedingAction.forEach(field => {
+      const confidenceKey = `${claimId}-${field}`;
+      const missingKey = `${claimId}-missing-${field}`;
+      const value = needsActionFieldValues[confidenceKey] || needsActionFieldValues[missingKey];
+
+      if (!value || value.trim() === '') {
+        missingFields.push(field);
+        return;
+      }
+
+      // Validate field format for submission (stricter than editing validation)
+      const trimmedValue = value.trim();
+      
+      if (field.includes("icd") && !/^[A-Z]\d{2,3}(\.\d{1,4})?$/i.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("npi") && !/^\d{10}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("cpt") && !/^\d{5}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("pos") && !/^\d{2}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      } else if (field.includes("ssn") && !/^\d{3}-\d{2}-\d{4}$/.test(trimmedValue)) {
+        invalidFields.push(field);
+      }
+    });
+
+    if (missingFields.length > 0) {
+      const fieldNames = missingFields.map(field => getDescriptiveFieldName(field)).join(', ');
+      toast.error(`Please fill in all required fields: ${fieldNames}`);
+      return;
+    }
+
+    if (invalidFields.length > 0) {
+      const fieldNames = invalidFields.map(field => getDescriptiveFieldName(field)).join(', ');
+      toast.error(`Please enter valid format for: ${fieldNames}. ICD-10 codes must be complete (e.g., Z79.899).`);
+      return;
+    }
+
+    // Get all field values for this claim
+    const claimFieldValues = Object.entries(needsActionFieldValues)
+      .filter(([key]) => key.startsWith(`${claimId}-`))
+      .reduce((acc, [key, value]) => {
+        const fieldKey = key.replace(`${claimId}-`, '').replace('missing-', '');
+        acc[fieldKey] = value;
+        return acc;
+      }, {} as Record<string, string>);
+
+    // Update the claim with the new field values
+    setClaims(prevClaims =>
+      prevClaims.map(claim => {
+        if (claim.id === claimId) {
+          const updatedClaim = {
+            ...claim,
+            state_history: [
+              ...claim.state_history,
+              {
+                state: claim.status,
+                at: new Date().toISOString(),
+                by: 'Current User',
+                note: `Updated fields: ${Object.keys(claimFieldValues).join(', ')}`
+              }
+            ]
+          };
+          return updatedClaim;
+        }
+        return claim;
+      })
+    );
+
+    // Clear the field values for this claim
+    setNeedsActionFieldValues(prev => {
+      const updated = { ...prev };
+      Object.keys(prev).forEach(key => {
+        if (key.startsWith(`${claimId}-`)) {
+          delete updated[key];
+        }
+      });
+      return updated;
+    });
+
+    // Trigger the actual submission process
+    toast.success('Fields updated! Submitting claim...');
+    triggerSubmit(claimId, false);
+  };
+
+  const handleAddNote = (claimId: string) => {
+    setNoteClaimId(claimId);
+    setShowAddNoteDialog(true);
+  };
+
+  const handleSaveNote = () => {
+    if (!noteText.trim() || !noteClaimId) return;
+
+    // Add note to claim history
+    setClaims(prevClaims =>
+      prevClaims.map(claim => {
+        if (claim.id === noteClaimId) {
+          return {
+            ...claim,
+            state_history: [
+              ...claim.state_history,
+              {
+                state: claim.status,
+                at: new Date().toISOString(),
+                by: 'Current User',
+                note: noteText.trim()
+              }
+            ]
+          };
+        }
+        return claim;
+      })
+    );
+
+    // Close dialog and reset state
+    setShowAddNoteDialog(false);
+    setNoteClaimId(null);
+    setNoteText('');
+
+    toast.success('Note added successfully!');
+  };
+
+  const handleCancelNote = () => {
+    setShowAddNoteDialog(false);
+    setNoteClaimId(null);
+    setNoteText('');
+  };
 
   // Function to close claim and remove query parameter
   const handleCloseClaim = useCallback(() => {
@@ -1095,14 +1408,40 @@ export default function ClaimsPage() {
   }, []);
 
   const applySuggestion = useCallback((id: string, field: string) => {
-    updateClaim(id, (claim) => {
-      const fix = claim.suggested_fixes.find((candidate) => candidate.field === field);
-      if (!fix) {
-        return claim;
+    // First, find the fix to get the suggested value
+    const claim = claims.find(c => c.id === id);
+    if (!claim) return;
+
+    const fix = claim.suggested_fixes.find((candidate) => candidate.field === field);
+    if (!fix) return;
+
+    // Update the needs action field values with the suggested value
+    setNeedsActionFieldValues(prev => {
+      const updates: Record<string, string> = {};
+
+      // Handle both confidence-based fields and missing fields
+      const confidenceKey = `${id}-${field}`;
+      const missingKey = `${id}-missing-${field}`;
+
+      // Check if this field has confidence data (low confidence) or is missing
+      if (claim.field_confidences?.[field] !== undefined) {
+        // This is a confidence-based field
+        updates[confidenceKey] = fix.value;
+      } else {
+        // This is a missing field
+        updates[missingKey] = fix.value;
       }
+
+      return { ...prev, ...updates };
+    });
+
+    // Then apply the fix to the claim
+    updateClaim(id, (claim) => {
       return applyFixToClaim(claim, fix, "Suggestion applied");
     });
-  }, [updateClaim]);
+
+    toast.success(`Applied AI suggestion for ${getDescriptiveFieldName(field)}`);
+  }, [updateClaim, claims, setNeedsActionFieldValues]);
 
   const triggerSubmit = useCallback(
     async (claimId: string, auto = false, options?: { resubmitting?: boolean }) => {
@@ -2313,6 +2652,10 @@ export default function ClaimsPage() {
         onApplySuggestion={applySuggestion}
         onUpdateClaim={updateClaim}
         submittingClaims={submittingClaims}
+        needsActionFieldValues={needsActionFieldValues}
+        setNeedsActionFieldValues={setNeedsActionFieldValues}
+        onSaveAndContinue={handleSaveAndContinue}
+        onAddNote={handleAddNote}
         onPrev={() => {
           const currentIndex = activeClaim ? filteredClaims.findIndex(c => c.id === activeClaim.id) : -1;
           if (currentIndex > 0) {
@@ -2340,6 +2683,42 @@ export default function ClaimsPage() {
           return currentIndex >= filteredClaims.length - 1;
         })()}
       />
+
+      {/* Add Note Dialog */}
+      <Dialog open={showAddNoteDialog} onOpenChange={setShowAddNoteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Note to Claim {noteClaimId}</DialogTitle>
+            <DialogDescription>
+              Add a note that will be recorded in the claim&apos;s audit timeline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="note-text">Note</Label>
+              <Textarea
+                id="note-text"
+                placeholder="Enter your note here..."
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                className="min-h-[100px] resize-none"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={handleCancelNote}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveNote}
+              disabled={!noteText.trim()}
+            >
+              Add Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
     </TooltipProvider>
   );
