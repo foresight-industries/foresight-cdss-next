@@ -5,7 +5,7 @@ import { shouldRedirectToTeam, createTeamPath } from "@/lib/team-routing";
 
 // Only match auth routes
 const isUnauthenticatedRoute = createRouteMatcher([
-  "/(login|signup|forgot-password|reset-password)(.*)"
+  "/(login|logout|signup|forgot-password|reset-password|confirm-email|error|unauthorized|team-not-found)(.*)"
 ]);
 
 // Routes that should be accessible to authenticated users even without team membership
@@ -13,12 +13,13 @@ const isOnboardingRoute = createRouteMatcher([
   "/onboard(.*)",
   "/accept-invitation(.*)",
   "/logout(.*)",
+  "/api/auth/signout(.*)",
+  "/api/auth/handle-magic-link(.*)",
   "/api/teams(.*)",
   "/api/upload(.*)",
   "/api/invitations(.*)",
   "/api/auth/signout(.*)"
 ]);
-
 
 export default clerkMiddleware(async (auth, req) => {
   // Skip webhook routes and monitoring routes entirely
@@ -141,10 +142,10 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { t
   if (teamContext && isAuthenticated) {
     try {
       const { userId } = await auth();
-      
+
       if (userId) {
         const supabase = await createSupabaseMiddlewareClient();
-        
+
         // Verify user has active membership to this specific team
         const { data: membership } = await supabase
           .from('team_member')
@@ -166,7 +167,7 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { t
         response.headers.set('x-team-id', teamContext.team.id);
         response.headers.set('x-team-name', teamContext.team.name);
         response.headers.set('x-user-role', membership.role);
-        
+
         return response;
       }
     } catch (error) {
