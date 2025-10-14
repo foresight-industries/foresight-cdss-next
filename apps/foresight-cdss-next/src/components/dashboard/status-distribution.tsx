@@ -45,13 +45,21 @@ const StatusDistributionContent = ({ distribution }: { distribution: StatusDistr
   );
 };
 
-export function StatusDistribution({ distribution, variant = 'card', className = '' }: StatusDistributionProps) {
-  if (variant === 'inline') {
+export function StatusDistribution({
+  distribution,
+  variant = "card",
+  className = "",
+}: Readonly<StatusDistributionProps>) {
+  if (variant === "inline") {
     return (
       <section className={`space-y-4 ${className}`}>
         <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold text-foreground">Current PA status distribution</h3>
-          <p className="text-xs text-muted-foreground">Combined view across ePAs and claims</p>
+          <h3 className="text-sm font-semibold text-foreground">
+            Current PA status distribution
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Combined view across ePAs and claims
+          </p>
         </div>
         <StatusDistributionContent distribution={distribution} />
       </section>
@@ -62,7 +70,9 @@ export function StatusDistribution({ distribution, variant = 'card', className =
     <Card className={className}>
       <CardHeader>
         <CardTitle>Current PA status distribution</CardTitle>
-        <span className="text-sm text-muted-foreground">Last updated: Real-time via webhooks</span>
+        <span className="text-sm text-muted-foreground">
+          Last updated: Real-time via webhooks
+        </span>
       </CardHeader>
       <CardContent>
         <StatusDistributionContent distribution={distribution} />

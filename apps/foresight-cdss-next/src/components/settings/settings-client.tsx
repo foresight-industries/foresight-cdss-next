@@ -271,7 +271,7 @@ function SettingsPageContent({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
-}: SettingsProps) {
+}: Readonly<SettingsProps>) {
   const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState("automation");
   const [hasChanges, setHasChanges] = useState(false);
@@ -288,7 +288,10 @@ function SettingsPageContent({
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [showRemoveUserModal, setShowRemoveUserModal] = useState(false);
-  const [userToRemove, setUserToRemove] = useState<{ index: number; name: string } | null>(null);
+  const [userToRemove, setUserToRemove] = useState<{
+    index: number;
+    name: string;
+  } | null>(null);
   const [editingUser, setEditingUser] = useState<{
     index: number;
     name: string;
@@ -635,10 +638,10 @@ function SettingsPageContent({
     setInviteError(null);
 
     try {
-      const response = await fetch('/api/invitations', {
-        method: 'POST',
+      const response = await fetch("/api/invitations", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           email: inviteForm.email,
@@ -650,7 +653,7 @@ function SettingsPageContent({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send invitation');
+        throw new Error(errorData.error || "Failed to send invitation");
       }
 
       // Reset form and close modal on success
@@ -665,10 +668,11 @@ function SettingsPageContent({
 
       // Show success message
       alert(`Invitation sent successfully to ${inviteForm.email}!`);
-
     } catch (error) {
-      console.error('Error sending invitation:', error);
-      setInviteError(error instanceof Error ? error.message : 'Failed to send invitation');
+      console.error("Error sending invitation:", error);
+      setInviteError(
+        error instanceof Error ? error.message : "Failed to send invitation"
+      );
     } finally {
       setInviteLoading(false);
     }
@@ -738,7 +742,9 @@ function SettingsPageContent({
 
   const confirmRemoveUser = () => {
     if (userToRemove !== null) {
-      const updatedMembers = teamMembers.filter((_, i) => i !== userToRemove.index);
+      const updatedMembers = teamMembers.filter(
+        (_, i) => i !== userToRemove.index
+      );
       setTeamMembers(updatedMembers);
       alert(`User ${userToRemove.name} has been removed from the team.`);
     }
@@ -1144,7 +1150,6 @@ function SettingsPageContent({
     setSpecialHandlingRules((prev) => ({ ...prev, [rule]: enabled }));
   };
 
-
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
@@ -1210,70 +1215,87 @@ function SettingsPageContent({
     </div>
   );
 
-
   const renderSectionContent = () => {
     switch (activeSection) {
       case "automation":
         return (
           <AutomationTab
             automationSettings={automationSettings}
-            onSettingChange={(key, value) => handleSettingChange("automation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("automation", key, value)
+            }
           />
         );
       case "visit-types":
         return (
           <VisitTypesTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "notifications":
         return (
           <NotificationsTab
             notificationSettings={notificationSettings}
-            onSettingChange={(key, value) => handleSettingChange("notifications", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("notifications", key, value)
+            }
           />
         );
       case "modifiers":
         return (
           <ModifiersTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "required-fields":
         return (
           <RequiredFieldsTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "time-based":
         return (
           <TimeBasedTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "credentialing":
         return (
           <CredentialingTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "denial-playbook":
         return (
           <DenialPlaybookTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "diagnosis-validation":
         return (
           <DiagnosisValidationTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "payers":
@@ -1326,7 +1348,9 @@ function SettingsPageContent({
         return (
           <SecurityTab
             validationSettings={validationSettings}
-            onSettingChange={(key, value) => handleSettingChange("validation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("validation", key, value)
+            }
           />
         );
       case "users":
@@ -1342,7 +1366,9 @@ function SettingsPageContent({
         return (
           <AutomationTab
             automationSettings={automationSettings}
-            onSettingChange={(key, value) => handleSettingChange("automation", key, value)}
+            onSettingChange={(key, value) =>
+              handleSettingChange("automation", key, value)
+            }
           />
         );
     }
@@ -1383,10 +1409,12 @@ function SettingsPageContent({
                     onClick={() => {
                       setActiveSection(section.id);
                       // Smooth scroll to top of content
-                      document.getElementById('settings-content')?.scrollIntoView({ 
-                        behavior: 'smooth',
-                        block: 'start'
-                      });
+                      document
+                        .getElementById("settings-content")
+                        ?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
                     }}
                     className={`w-full flex items-center px-3 py-2 text-left text-sm font-medium rounded-lg transition-all duration-200 ${
                       activeSection === section.id
@@ -1394,11 +1422,13 @@ function SettingsPageContent({
                         : "text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-gray-100"
                     }`}
                   >
-                    <Icon className={`w-5 h-5 mr-4 flex-shrink-0 transition-colors ${
-                      activeSection === section.id
-                        ? "text-blue-600 dark:text-blue-400"
-                        : "text-gray-400 dark:text-gray-500"
-                    }`} />
+                    <Icon
+                      className={`w-5 h-5 mr-4 flex-shrink-0 transition-colors ${
+                        activeSection === section.id
+                          ? "text-blue-600 dark:text-blue-400"
+                          : "text-gray-400 dark:text-gray-500"
+                      }`}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="font-medium">{section.title}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">
@@ -1411,12 +1441,10 @@ function SettingsPageContent({
             </nav>
           </Card>
         </div>
-        
+
         {/* Content Area */}
         <div id="settings-content" className="flex-1">
-          <Card className="p-6">
-            {renderSectionContent()}
-          </Card>
+          <Card className="p-6">{renderSectionContent()}</Card>
         </div>
       </div>
 
@@ -1508,7 +1536,10 @@ function SettingsPageContent({
                 }
                 className="mt-0.5"
               />
-              <Label htmlFor="invite-welcomeEmail" className="text-sm leading-tight">
+              <Label
+                htmlFor="invite-welcomeEmail"
+                className="text-sm leading-tight"
+              >
                 Send welcome email with setup instructions
               </Label>
             </div>
@@ -1616,7 +1647,8 @@ function SettingsPageContent({
                 className="bg-gray-100 dark:bg-gray-800"
               />
               <p className="text-xs text-muted-foreground">
-                Email cannot be changed. To use a different email, create a new user.
+                Email cannot be changed. To use a different email, create a new
+                user.
               </p>
             </div>
 
@@ -2903,12 +2935,16 @@ function SettingsPageContent({
               Remove Team Member
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove {userToRemove?.name} from the team? This action cannot be undone.
+              Are you sure you want to remove {userToRemove?.name} from the
+              team? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowRemoveUserModal(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setShowRemoveUserModal(false)}
+            >
               Cancel
             </Button>
             <Button variant="destructive" onClick={confirmRemoveUser}>

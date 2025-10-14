@@ -18,17 +18,21 @@ interface ActionableQueuesProps {
   queueData: QueueData[];
 }
 
-export function ActionableQueues({ queueData }: ActionableQueuesProps) {
+export function ActionableQueues({ queueData }: Readonly<ActionableQueuesProps>) {
   return (
     <Card className="bg-card p-6 border shadow-xs">
-      <h3 className="text-lg font-semibold mb-2 text-foreground">Actionable Queues</h3>
+      <h3 className="text-lg font-semibold mb-2 text-foreground">
+        Actionable Queues
+      </h3>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {queueData.map((queue, index) => (
           <div
             key={index}
             className={`p-4 ${queue.bgColor} ${queue.borderColor} border rounded-lg text-center`}
           >
-            <h4 className="font-semibold text-sm mb-2 text-foreground">{queue.title}</h4>
+            <h4 className="font-semibold text-sm mb-2 text-foreground">
+              {queue.title}
+            </h4>
             <p className={`text-3xl font-bold ${queue.textColor} my-2`}>
               {queue.count}
             </p>

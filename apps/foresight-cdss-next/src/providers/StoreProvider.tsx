@@ -1,14 +1,13 @@
-// providers/StoreProvider.tsx
 "use client";
 
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useRealtimeStore } from "@/stores/realtimeStore";
 import { createClient } from "@/lib/supabase/client";
 
 export function StoreProvider({
   children,
-}: Readonly<{ children: React.ReactNode }>) {
+}: Readonly<{ children: ReactNode }>) {
   const clearChannels = useRealtimeStore((s) => s.clearChannels);
 
   useEffect(() => {

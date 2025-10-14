@@ -8,8 +8,8 @@ import { cn } from "@/lib/utils"
 
 function Dialog({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Root>) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+}: Readonly<React.ComponentProps<typeof DialogPrimitive.Root>>) {
+  return <DialogPrimitive.Root data-slot="dialog" {...props} />;
 }
 
 function DialogTrigger({
@@ -20,8 +20,8 @@ function DialogTrigger({
 
 function DialogPortal({
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Portal>) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+}: Readonly<React.ComponentProps<typeof DialogPrimitive.Portal>>) {
+  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />;
 }
 
 function DialogClose({

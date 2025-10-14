@@ -9,7 +9,7 @@ interface MetricCardProps {
   metric: DashboardMetric;
 }
 
-export function MetricCard({ metric }: MetricCardProps) {
+export function MetricCard({ metric }: Readonly<MetricCardProps>) {
   const cardContent = (
     <Card className="p-6 h-full flex flex-col justify-between transition-all duration-200 ease-in-out hover:translate-y-[-2px] hover:shadow-lg hover:border-primary/20 bg-card border border-border/60 shadow-xs">
       <div>
@@ -24,11 +24,11 @@ export function MetricCard({ metric }: MetricCardProps) {
         {metric.change && (
           <div
             className={cn(
-              'flex items-center gap-1 text-xs',
-              metric.change.positive ? 'text-green-600' : 'text-red-600'
+              "flex items-center gap-1 text-xs",
+              metric.change.positive ? "text-green-600" : "text-red-600"
             )}
           >
-            {metric.change.trend === 'up' ? (
+            {metric.change.trend === "up" ? (
               <ArrowUp className="w-3 h-3" />
             ) : (
               <ArrowDown className="w-3 h-3" />
@@ -37,7 +37,9 @@ export function MetricCard({ metric }: MetricCardProps) {
           </div>
         )}
         {metric.target && (
-          <p className="text-xs text-muted-foreground">Target: {metric.target}</p>
+          <p className="text-xs text-muted-foreground">
+            Target: {metric.target}
+          </p>
         )}
       </div>
     </Card>
@@ -47,9 +49,7 @@ export function MetricCard({ metric }: MetricCardProps) {
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            {cardContent}
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{cardContent}</TooltipTrigger>
           <TooltipContent>
             <p>{metric.tooltip}</p>
           </TooltipContent>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { Sidebar } from './sidebar';
 import { useUser } from '@clerk/nextjs';
@@ -9,7 +9,7 @@ import { InvitationBanner } from '@/components/invitation/invitation-banner';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { Toaster } from '@/components/ui/sonner';
 
-export function LayoutWrapper({ children }: Readonly<{ children: React.ReactNode }>) {
+export function LayoutWrapper({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const { isLoaded } = useUser();
   const [sidebarOpen, setSidebarOpen] = useState(true);

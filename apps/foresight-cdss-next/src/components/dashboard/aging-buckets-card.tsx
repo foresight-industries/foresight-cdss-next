@@ -24,60 +24,66 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-export function AgingBucketsCard({ buckets, counts, totalOutstandingAR, tooltip }: AgingBucketsCardProps) {
+export function AgingBucketsCard({
+  buckets,
+  counts,
+  totalOutstandingAR,
+  tooltip,
+}: Readonly<AgingBucketsCardProps>) {
   const params = useParams();
   const teamSlug = params?.slug as string;
 
   // Aging bucket colors for visual hierarchy
   const bucketColors = {
-    '0-30': '#22c55e',   // Green - good
-    '31-60': '#facc15',  // Amber - caution
-    '61-90': '#f97316',  // Orange - warning
-    '90+': '#ef4444'     // Red - critical
+    "0-30": "#22c55e", // Green - good
+    "31-60": "#facc15", // Amber - caution
+    "61-90": "#f97316", // Orange - warning
+    "90+": "#ef4444", // Red - critical
   };
 
   // Transform buckets data for chart with individual colors
   const chartData = [
-    { 
-      range: '0-30', 
-      amount: buckets['0-30'], 
-      count: counts['0-30'],
-      label: '0-30 days',
-      fill: bucketColors['0-30']
+    {
+      range: "0-30",
+      amount: buckets["0-30"],
+      count: counts["0-30"],
+      label: "0-30 days",
+      fill: bucketColors["0-30"],
     },
-    { 
-      range: '31-60', 
-      amount: buckets['31-60'], 
-      count: counts['31-60'],
-      label: '31-60 days',
-      fill: bucketColors['31-60']
+    {
+      range: "31-60",
+      amount: buckets["31-60"],
+      count: counts["31-60"],
+      label: "31-60 days",
+      fill: bucketColors["31-60"],
     },
-    { 
-      range: '61-90', 
-      amount: buckets['61-90'], 
-      count: counts['61-90'],
-      label: '61-90 days',
-      fill: bucketColors['61-90']
+    {
+      range: "61-90",
+      amount: buckets["61-90"],
+      count: counts["61-90"],
+      label: "61-90 days",
+      fill: bucketColors["61-90"],
     },
-    { 
-      range: '90+', 
-      amount: buckets['90+'], 
-      count: counts['90+'],
-      label: '90+ days',
-      fill: bucketColors['90+']
+    {
+      range: "90+",
+      amount: buckets["90+"],
+      count: counts["90+"],
+      label: "90+ days",
+      fill: bucketColors["90+"],
     },
   ];
 
   // Calculate percentages and determine if warning conditions exist
-  const criticalPercentage = totalOutstandingAR > 0 ? (buckets['90+'] / totalOutstandingAR) * 100 : 0;
-  const isHighRisk = criticalPercentage > 20 || buckets['90+'] > 0;
+  const criticalPercentage =
+    totalOutstandingAR > 0 ? (buckets["90+"] / totalOutstandingAR) * 100 : 0;
+  const isHighRisk = criticalPercentage > 20 || buckets["90+"] > 0;
 
   // Chart configuration for multi-colored bars
   const chartConfig = {
-    '0-30': { label: "0-30 days", color: bucketColors['0-30'] },
-    '31-60': { label: "31-60 days", color: bucketColors['31-60'] },
-    '61-90': { label: "61-90 days", color: bucketColors['61-90'] },
-    '90+': { label: "90+ days", color: bucketColors['90+'] },
+    "0-30": { label: "0-30 days", color: bucketColors["0-30"] },
+    "31-60": { label: "31-60 days", color: bucketColors["31-60"] },
+    "61-90": { label: "61-90 days", color: bucketColors["61-90"] },
+    "90+": { label: "90+ days", color: bucketColors["90+"] },
   };
 
   const cardContent = (
@@ -89,11 +95,15 @@ export function AgingBucketsCard({ buckets, counts, totalOutstandingAR, tooltip 
           </h3>
           <ArrowRight className="w-3 h-3 text-muted-foreground opacity-60" />
         </div>
-        <span className={`text-xs font-medium ${isHighRisk ? 'text-red-600' : 'text-muted-foreground'}`}>
+        <span
+          className={`text-xs font-medium ${
+            isHighRisk ? "text-red-600" : "text-muted-foreground"
+          }`}
+        >
           Total: {formatCurrency(totalOutstandingAR)}
         </span>
       </div>
-      
+
       {totalOutstandingAR === 0 ? (
         <div className="text-center py-4">
           <p className="text-sm text-muted-foreground">No outstanding A/R</p>
@@ -124,57 +134,65 @@ export function AgingBucketsCard({ buckets, counts, totalOutstandingAR, tooltip 
                   <ChartTooltipContent
                     className="w-[200px]"
                     formatter={(value, name, props) => [
-                      `${formatCurrency(value as number)} (${props.payload?.count} claims)`,
-                      `${props.payload?.label}`
+                      `${formatCurrency(value as number)} (${
+                        props.payload?.count
+                      } claims)`,
+                      `${props.payload?.label}`,
                     ]}
                   />
                 }
               />
-              <Bar
-                dataKey="amount"
-                radius={[2, 2, 0, 0]}
-              >
+              <Bar dataKey="amount" radius={[2, 2, 0, 0]}>
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
               </Bar>
             </BarChart>
           </ChartContainer>
-          
+
           {/* Enhanced legend with amounts, counts, and percentages */}
           <div className="space-y-1.5">
-            {chartData.filter(item => item.amount > 0).map(({ range, amount, count, label, fill }) => {
-              const percentage = totalOutstandingAR > 0 ? (amount / totalOutstandingAR) * 100 : 0;
-              return (
-                <div key={range} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded" 
-                      style={{ backgroundColor: fill }}
-                    />
-                    <span className="text-muted-foreground">{label}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-medium">
-                      {formatCurrency(amount)} ({count} claims)
+            {chartData
+              .filter((item) => item.amount > 0)
+              .map(({ range, amount, count, label, fill }) => {
+                const percentage =
+                  totalOutstandingAR > 0
+                    ? (amount / totalOutstandingAR) * 100
+                    : 0;
+                return (
+                  <div
+                    key={range}
+                    className="flex items-center justify-between text-xs"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-3 h-3 rounded"
+                        style={{ backgroundColor: fill }}
+                      />
+                      <span className="text-muted-foreground">{label}</span>
                     </div>
-                    <div className="text-muted-foreground">
-                      {percentage.toFixed(1)}%
+                    <div className="text-right">
+                      <div className="font-medium">
+                        {formatCurrency(amount)} ({count} claims)
+                      </div>
+                      <div className="text-muted-foreground">
+                        {percentage.toFixed(1)}%
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
 
           {/* Risk indicator for 90+ days */}
-          {buckets['90+'] > 0 && (
+          {buckets["90+"] > 0 && (
             <div className="mt-3 p-2 rounded-md bg-red-50 border border-red-200">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-red-500 rounded-full" />
                 <span className="text-xs font-medium text-red-700">
-                  Critical: {formatCurrency(buckets['90+'])} in 90+ days
-                  {criticalPercentage > 20 && ` (${criticalPercentage.toFixed(1)}% of total)`}
+                  Critical: {formatCurrency(buckets["90+"])} in 90+ days
+                  {criticalPercentage > 20 &&
+                    ` (${criticalPercentage.toFixed(1)}% of total)`}
                 </span>
               </div>
             </div>
@@ -185,7 +203,7 @@ export function AgingBucketsCard({ buckets, counts, totalOutstandingAR, tooltip 
   );
 
   // Wrap in navigation link
-  const navigationUrl = teamSlug 
+  const navigationUrl = teamSlug
     ? `/team/${teamSlug}/analytics#ar-details`
     : `/analytics#ar-details`;
 
@@ -199,9 +217,7 @@ export function AgingBucketsCard({ buckets, counts, totalOutstandingAR, tooltip 
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
-            {wrappedContent}
-          </TooltipTrigger>
+          <TooltipTrigger asChild>{wrappedContent}</TooltipTrigger>
           <TooltipContent>
             <p>{tooltip}</p>
           </TooltipContent>

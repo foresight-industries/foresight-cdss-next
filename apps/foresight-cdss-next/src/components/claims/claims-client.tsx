@@ -843,11 +843,11 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
       }
 
       if (filters.onlyNeedsReview) {
-        const shouldHide =
-          !REVIEW_STATUSES.has(claim.status) &&
-          claim.confidence >= threshold &&
-          getBlockingIssueCount(claim) === 0;
-        if (shouldHide) {
+        const needsReview =
+          REVIEW_STATUSES.has(claim.status) ||
+          claim.confidence < threshold ||
+          getBlockingIssueCount(claim) > 0;
+        if (!needsReview) {
           return false;
         }
       }

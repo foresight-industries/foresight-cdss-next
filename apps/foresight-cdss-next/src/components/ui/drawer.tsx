@@ -19,8 +19,8 @@ function DrawerTrigger({
 
 function DrawerPortal({
   ...props
-}: React.ComponentProps<typeof DrawerPrimitive.Portal>) {
-  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />
+}: Readonly<React.ComponentProps<typeof DrawerPrimitive.Portal>>) {
+  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />;
 }
 
 function DrawerClose({

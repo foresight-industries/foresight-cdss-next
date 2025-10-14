@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
 import { type QueueFiltersType, QueueFilters } from '@/components/filters';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -19,25 +19,14 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { PADetails } from "@/components/pa/pa-details";
 import type { QueueData } from '@/lib/queue-data';
-
-// Lazy load heavy components
-const PADetails = lazy(() => import('@/components/pa/pa-details').then(module => ({ default: module.PADetails })));
-
-// Loading fallback
-function ComponentSkeleton() {
-  return (
-    <div className="animate-pulse">
-      <div className="h-64 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
-    </div>
-  );
-}
 
 type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'updatedAt';
 type SortDirection = 'asc' | 'desc' | null;
 
 interface SortConfig {
-  field: SortField;
+  field: SortField | null;
   direction: SortDirection;
 }
 
@@ -45,404 +34,958 @@ interface QueueClientProps {
   data: QueueData;
 }
 
-export function QueueClient({ data }: QueueClientProps) {
+const statusConfig = {
+  'needs-review': { color: 'bg-yellow-50 text-yellow-900 border-yellow-200', icon: AlertCircle },
+  'auto-processing': { color: 'bg-blue-50 text-blue-900 border-blue-200', icon: Clock },
+  'auto-approved': { color: 'bg-green-50 text-green-900 border-green-200', icon: CheckCircle },
+  'denied': { color: 'bg-red-50 text-red-900 border-red-200', icon: XCircle }
+} as const;
+
+const formatRelativeTime = (value: string) => {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  const diffMs = Date.now() - parsed.getTime();
+  const minutes = Math.round(diffMs / (1000 * 60));
+  if (minutes < 1) {
+    return 'just now';
+  }
+  if (minutes < 60) {
+    return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  }
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) {
+    return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  }
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
+export default function QueueClient({ data }: Readonly<QueueClientProps>) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [items, setItems] = useState(data.items);
-  const [selectedItems, setSelectedItems] = useState<number[]>([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [showPASheet, setShowPASheet] = useState(false);
-  const [selectedPA, setSelectedPA] = useState<any>(null);
-  const [sortConfig, setSortConfig] = useState<SortConfig>({
-    field: 'updatedAt',
-    direction: 'desc'
-  });
-
-  // Filters state
   const [filters, setFilters] = useState<QueueFiltersType>({
-    search: '',
-    status: [],
-    payer: [],
-    medication: [],
-    dateRange: undefined,
-    priority: []
+    search: "",
+    status: "all",
+    priority: "all",
+    payer: "all",
+    dateFrom: "",
+    dateTo: "",
+    patientName: "",
+    paId: "",
+    medication: "",
+    conditions: "",
+    attempt: "",
   });
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    field: null,
+    direction: null,
+  });
+  const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
+  const [initialAction, setInitialAction] = useState<
+    "edit" | "documents" | "notes" | undefined
+  >(undefined);
 
-  // Get unique filter values from server-computed data
-  const filterOptions = useMemo(() => ({
-    status: Object.keys(data.statusCounts),
-    payer: Object.keys(data.payerCounts), 
-    medication: Object.keys(data.medicationCounts)
-  }), [data]);
+  // Use server-computed data
+  const queueData = data.items;
+  const isLoading = false;
+  const error = null;
 
-  // Initialize filters from URL params
-  useEffect(() => {
-    const urlStatus = searchParams.get('status');
-    const urlPayer = searchParams.get('payer');
-    const urlSearch = searchParams.get('search');
-    
-    if (urlStatus || urlPayer || urlSearch) {
-      setFilters(prev => ({
-        ...prev,
-        status: urlStatus ? [urlStatus] : [],
-        payer: urlPayer ? [urlPayer] : [],
-        search: urlSearch || ''
-      }));
-    }
-  }, [searchParams]);
+  const filteredData = useMemo(() => {
+    const filtered = queueData.filter((item) => {
+      const matchesSearch =
+        item.patientName.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.id.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.medication.toLowerCase().includes(filters.search.toLowerCase()) ||
+        item.payer.toLowerCase().includes(filters.search.toLowerCase());
 
-  // Filter and sort items
-  const filteredAndSortedItems = useMemo(() => {
-    let filtered = [...items];
+      const matchesStatus =
+        filters.status === "all" || item.status === filters.status;
+      const matchesPayer =
+        filters.payer === "all" || item.payer === filters.payer;
 
-    // Apply filters
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(item =>
-        item.patientName.toLowerCase().includes(searchLower) ||
-        item.medication.toLowerCase().includes(searchLower) ||
-        item.payer.toLowerCase().includes(searchLower) ||
-        item.id.toString().includes(searchLower)
+      // Date filtering
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom);
+        if (new Date(item.updatedAt) < from) {
+          return false;
+        }
+      }
+
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo);
+        if (new Date(item.updatedAt) > to) {
+          return false;
+        }
+      }
+
+      // Column-specific filters
+      const matchesPatientName =
+        !filters.patientName ||
+        item.patientName
+          .toLowerCase()
+          .includes(filters.patientName.toLowerCase());
+      const matchesPaId =
+        !filters.paId ||
+        item.id.toLowerCase().includes(filters.paId.toLowerCase());
+      const matchesMedication =
+        !filters.medication ||
+        item.medication
+          .toLowerCase()
+          .includes(filters.medication.toLowerCase());
+      const matchesConditions =
+        !filters.conditions ||
+        item.conditions
+          .toLowerCase()
+          .includes(filters.conditions.toLowerCase());
+      const matchesAttempt =
+        !filters.attempt ||
+        item.attempt.toLowerCase().includes(filters.attempt.toLowerCase());
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPayer &&
+        matchesPatientName &&
+        matchesPaId &&
+        matchesMedication &&
+        matchesConditions &&
+        matchesAttempt
       );
-    }
-
-    if (filters.status.length > 0) {
-      filtered = filtered.filter(item => filters.status.includes(item.status));
-    }
-
-    if (filters.payer.length > 0) {
-      filtered = filtered.filter(item => filters.payer.includes(item.payer));
-    }
-
-    if (filters.medication.length > 0) {
-      filtered = filtered.filter(item => filters.medication.includes(item.medication));
-    }
+    });
 
     // Apply sorting
-    if (sortConfig.direction) {
+    if (sortConfig.field && sortConfig.direction) {
       filtered.sort((a, b) => {
-        let aVal = a[sortConfig.field];
-        let bVal = b[sortConfig.field];
+        let aValue: any = a[sortConfig.field!];
+        let bValue: any = b[sortConfig.field!];
 
-        // Handle dates
-        if (sortConfig.field === 'updatedAt') {
-          aVal = new Date(aVal as string).getTime();
-          bVal = new Date(bVal as string).getTime();
+        // Handle special cases
+        if (sortConfig.field === "updatedAt") {
+          const parseTime = (value: string) => new Date(value).getTime();
+          aValue = parseTime(a.updatedAt);
+          bValue = parseTime(b.updatedAt);
+        } else {
+          aValue = String(aValue).toLowerCase();
+          bValue = String(bValue).toLowerCase();
         }
 
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
+      });
+    } else {
+      // Default sorting: prioritize "needs-review" status first, then by updated date descending
+      filtered.sort((a, b) => {
+        // First priority: needs-review status should come first
+        if (a.status === "needs-review" && b.status !== "needs-review")
+          return -1;
+        if (b.status === "needs-review" && a.status !== "needs-review")
+          return 1;
+
+        // Second priority: sort by updated date (newest first)
+        const aTime = new Date(a.updatedAt).getTime();
+        const bTime = new Date(b.updatedAt).getTime();
+        return bTime - aTime;
       });
     }
 
     return filtered;
-  }, [items, filters, sortConfig]);
+  }, [queueData, filters, sortConfig]);
+
+  const handleAction = (action: string, paId: string) => {
+    // All actions now open the PA details sheet with specific actions
+    switch (action) {
+      case "view":
+        setInitialAction(undefined);
+        handleOpenPA(paId);
+        break;
+      case "edit":
+        // Open PA details and show edit modal
+        setInitialAction("edit");
+        handleOpenPA(paId);
+        break;
+      case "documents":
+        // Open PA details with documents tab
+        setInitialAction("documents");
+        handleOpenPA(paId);
+        break;
+      case "notes":
+        // Open PA details and show add note modal
+        setInitialAction("notes");
+        handleOpenPA(paId);
+        break;
+      case "archive":
+        alert(`Archive PA ${paId} - This would archive the PA request`);
+        break;
+      default:
+        break;
+    }
+  };
 
   const handleSort = (field: SortField) => {
-    setSortConfig(prev => ({
-      field,
-      direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc'
-    }));
-  };
-
-  const handleSelectAll = useCallback(() => {
-    if (selectedItems.length === filteredAndSortedItems.length) {
-      setSelectedItems([]);
-    } else {
-      setSelectedItems(filteredAndSortedItems.map(item => item.id));
-    }
-  }, [selectedItems, filteredAndSortedItems]);
-
-  const handleSelectItem = useCallback((id: number) => {
-    setSelectedItems(prev => 
-      prev.includes(id) 
-        ? prev.filter(itemId => itemId !== id)
-        : [...prev, id]
-    );
-  }, []);
-
-  const handleViewPA = (item: any) => {
-    setSelectedPA(item);
-    setShowPASheet(true);
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'needs-review':
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      case 'auto-processing':
-        return <Clock className="w-4 h-4 text-blue-500" />;
-      case 'auto-approved':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'auto-denied':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-500" />;
-    }
-  };
-
-  const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-      case 'needs-review':
-        return 'secondary';
-      case 'auto-processing':
-        return 'default';
-      case 'auto-approved':
-        return 'default';
-      case 'auto-denied':
-        return 'destructive';
-      default:
-        return 'outline';
-    }
+    setSortConfig((prevConfig) => {
+      if (prevConfig.field === field) {
+        // Cycle through: asc -> desc -> null
+        if (prevConfig.direction === "asc") {
+          return { field, direction: "desc" };
+        } else if (prevConfig.direction === "desc") {
+          return { field: null, direction: null };
+        }
+      }
+      return { field, direction: "asc" };
+    });
   };
 
   const getSortIcon = (field: SortField) => {
-    if (sortConfig.field !== field) return <ArrowUpDown className="w-4 h-4" />;
-    return sortConfig.direction === 'asc' ? 
-      <ChevronUp className="w-4 h-4" /> : 
-      <ChevronDown className="w-4 h-4" />;
+    if (sortConfig.field !== field) {
+      return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    if (sortConfig.direction === "asc") {
+      return <ChevronUp className="w-4 h-4 text-primary" />;
+    }
+    if (sortConfig.direction === "desc") {
+      return <ChevronDown className="w-4 h-4 text-primary" />;
+    }
+    return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
   };
 
-  const activeFiltersCount = [
-    ...filters.status,
-    ...filters.payer,
-    ...filters.medication,
-    ...(filters.search ? [filters.search] : [])
-  ].length;
+  // Function to close PA and remove query parameter
+  const handleClosePA = useCallback(() => {
+    setSelectedPaId(null);
+    setInitialAction(undefined); // Clear any pending actions
+    // Remove the pa query parameter from URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("pa");
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [router]);
+
+  // Function to open PA and set query parameter
+  const handleOpenPA = useCallback(
+    (paId: string) => {
+      setSelectedPaId(paId);
+      // Add the pa query parameter to URL
+      const url = new URL(window.location.href);
+      url.searchParams.set("pa", paId);
+      router.replace(url.pathname + url.search, { scroll: false });
+    },
+    [router]
+  );
+
+  // Handle PA query parameter to auto-open PA details
+  useEffect(() => {
+    const paParam = searchParams.get("pa");
+    if (paParam) {
+      // Find the PA by ID
+      const pa = queueData.find((item) => item.id === paParam);
+      if (pa && !selectedPaId) {
+        setSelectedPaId(paParam);
+      }
+    }
+  }, [searchParams, queueData, selectedPaId]);
+
+  // Keyboard navigation event handler
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      // Don't handle keyboard navigation if user is typing in an input field
+      if (
+        ["INPUT", "TEXTAREA", "SELECT"].includes(
+          (document.activeElement as HTMLElement)?.tagName
+        )
+      ) {
+        return;
+      }
+
+      if (event.key === "Escape" && selectedPaId) {
+        event.preventDefault();
+        handleClosePA();
+        // Restore focus to the previously opened PA in the list
+        const currentIndex = filteredData.findIndex(
+          (item) => item.id === selectedPaId
+        );
+        if (currentIndex !== -1) {
+          setFocusedIndex(currentIndex);
+        }
+        return;
+      }
+
+      // Navigation only works when no PA is open
+      if (selectedPaId) return;
+
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          const newIndex =
+            prev === null ? 0 : Math.min(prev + 1, filteredData.length - 1);
+          return newIndex;
+        });
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        setFocusedIndex((prev) => {
+          const newIndex =
+            prev === null ? filteredData.length - 1 : Math.max(prev - 1, 0);
+          return newIndex;
+        });
+      } else if (event.key === "Enter" && focusedIndex !== null) {
+        event.preventDefault();
+        const pa = filteredData[focusedIndex];
+        if (pa) {
+          handleOpenPA(pa.id);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedPaId, filteredData, focusedIndex, handleClosePA, handleOpenPA]);
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="text-center">
+          <p className="text-red-600">Error loading queue data</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Prior Authorization Queue</h1>
+      <div className="flex justify-between items-center">
+        <header className="mb-6">
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
+            PA Queue
+          </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Manage and process prior authorization requests
+            Manage and review prior authorization requests
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+        </header>
+        <div className="flex gap-2">
+          <Button size="sm">
             <Download className="w-4 h-4 mr-2" />
             Export
           </Button>
-          <Button 
-            variant={showFilters ? "default" : "outline"} 
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-            {activeFiltersCount > 0 && (
-              <Badge variant="secondary" className="ml-2 h-5 w-5 p-0 text-xs">
-                {activeFiltersCount}
-              </Badge>
-            )}
-          </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      {showFilters && (
-        <Card className="p-4">
-          <QueueFilters
-            filters={filters}
-            onFiltersChange={setFilters}
-            statusOptions={filterOptions.status}
-            payerOptions={filterOptions.payer}
-            medicationOptions={filterOptions.medication}
-          />
-        </Card>
-      )}
+      {/* Search and Filters */}
+      <QueueFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        statusOptions={[
+          { value: "needs-review", label: "Needs Review" },
+          { value: "auto-processing", label: "Auto Processing" },
+          { value: "auto-approved", label: "Auto Approved" },
+          { value: "denied", label: "Denied" },
+        ]}
+        priorityOptions={[
+          { value: "high", label: "High" },
+          { value: "medium", label: "Medium" },
+          { value: "low", label: "Low" },
+        ]}
+        payerOptions={[
+          { value: "Aetna", label: "Aetna" },
+          { value: "UnitedHealth", label: "UnitedHealth" },
+          { value: "Cigna", label: "Cigna" },
+          { value: "Anthem", label: "Anthem" },
+        ]}
+      />
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="p-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Items</p>
-            <p className="text-2xl font-bold">{data.totalItems}</p>
-            <p className="text-xs text-gray-500">All PA requests</p>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Needs Review</p>
-            <p className="text-2xl font-bold">{data.statusCounts['needs-review'] || 0}</p>
-            <p className="text-xs text-gray-500">Manual review required</p>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Auto Processing</p>
-            <p className="text-2xl font-bold">{data.statusCounts['auto-processing'] || 0}</p>
-            <p className="text-xs text-gray-500">Being processed</p>
-          </div>
-        </Card>
-        <Card className="p-4">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Auto Approved</p>
-            <p className="text-2xl font-bold">{data.statusCounts['auto-approved'] || 0}</p>
-            <p className="text-xs text-gray-500">Automatically approved</p>
-          </div>
-        </Card>
-      </div>
-
-      {/* Table */}
+      {/* Queue Table */}
       <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-4">
-              <Input
-                placeholder="Search by patient, medication, or payer..."
-                value={filters.search}
-                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                className="w-64"
-              />
+        <CardContent className="p-0">
+          {isLoading ? (
+            <div className="p-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-muted-foreground">Loading queue...</p>
             </div>
-            <div className="text-sm text-gray-500">
-              {filteredAndSortedItems.length} of {data.totalItems} items
-            </div>
-          </div>
-
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <input
-                    type="checkbox"
-                    checked={selectedItems.length === filteredAndSortedItems.length && filteredAndSortedItems.length > 0}
-                    onChange={handleSelectAll}
-                    className="rounded"
-                  />
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('id')}
-                >
-                  <div className="flex items-center gap-2">
-                    ID
-                    {getSortIcon('id')}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('patientName')}
-                >
-                  <div className="flex items-center gap-2">
-                    Patient
-                    {getSortIcon('patientName')}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('medication')}
-                >
-                  <div className="flex items-center gap-2">
-                    Medication
-                    {getSortIcon('medication')}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('payer')}
-                >
-                  <div className="flex items-center gap-2">
-                    Payer
-                    {getSortIcon('payer')}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center gap-2">
-                    Status
-                    {getSortIcon('status')}
-                  </div>
-                </TableHead>
-                <TableHead 
-                  className="cursor-pointer select-none"
-                  onClick={() => handleSort('updatedAt')}
-                >
-                  <div className="flex items-center gap-2">
-                    Updated
-                    {getSortIcon('updatedAt')}
-                  </div>
-                </TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAndSortedItems.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell>
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.includes(item.id)}
-                      onChange={() => handleSelectItem(item.id)}
-                      className="rounded"
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">PA-{item.id}</TableCell>
-                  <TableCell>{item.patientName}</TableCell>
-                  <TableCell>{item.medication}</TableCell>
-                  <TableCell>{item.payer}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(item.status)}
-                      <Badge variant={getStatusBadgeVariant(item.status)}>
-                        {item.status.replace('-', ' ')}
-                      </Badge>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(item.updatedAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="w-4 h-4" />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <span>PA Details</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleSort("id")}
+                        >
+                          {getSortIcon("id")}
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewPA(item)}>
-                          <Eye className="w-4 h-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="w-4 h-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <FileText className="w-4 h-4 mr-2" />
-                          Export
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>
-                          <Archive className="w-4 h-4 mr-2" />
-                          Archive
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Filter className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label htmlFor="pa-filter">Filter by PA ID</Label>
+                              <Input
+                                id="pa-filter"
+                                placeholder="Enter PA ID..."
+                                value={filters.paId}
+                                onChange={(e) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    paId: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="attempt-filter">
+                                Filter by Attempt Type
+                              </Label>
+                              <Input
+                                id="attempt-filter"
+                                placeholder="Enter attempt type..."
+                                value={filters.attempt}
+                                onChange={(e) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    attempt: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            {(filters.paId || filters.attempt) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    paId: "",
+                                    attempt: "",
+                                  }))
+                                }
+                                className="w-full"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Clear PA Filters
+                              </Button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <span>Patient</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleSort("patientName")}
+                        >
+                          {getSortIcon("patientName")}
+                        </Button>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Filter className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label htmlFor="patient-filter">
+                                Filter by Patient Name
+                              </Label>
+                              <Input
+                                id="patient-filter"
+                                placeholder="Enter patient name..."
+                                value={filters.patientName}
+                                onChange={(e) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    patientName: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="conditions-filter">
+                                Filter by Conditions
+                              </Label>
+                              <Input
+                                id="conditions-filter"
+                                placeholder="Enter condition..."
+                                value={filters.conditions}
+                                onChange={(e) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    conditions: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            {(filters.patientName || filters.conditions) && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    patientName: "",
+                                    conditions: "",
+                                  }))
+                                }
+                                className="w-full"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Clear Patient Filters
+                              </Button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <span>Medication</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleSort("medication")}
+                        >
+                          {getSortIcon("medication")}
+                        </Button>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Filter className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label htmlFor="medication-filter">
+                                Filter by Medication
+                              </Label>
+                              <Input
+                                id="medication-filter"
+                                placeholder="Enter medication..."
+                                value={filters.medication}
+                                onChange={(e) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    medication: e.target.value,
+                                  }))
+                                }
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="payer-select-column">
+                                Filter by Payer
+                              </Label>
+                              <Select
+                                value={filters.payer}
+                                onValueChange={(value) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    payer: value as any,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger id="payer-select-column">
+                                  <SelectValue placeholder="All Payers" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">
+                                    All Payers
+                                  </SelectItem>
+                                  <SelectItem value="Aetna">Aetna</SelectItem>
+                                  <SelectItem value="UnitedHealth">
+                                    UnitedHealth
+                                  </SelectItem>
+                                  <SelectItem value="Cigna">Cigna</SelectItem>
+                                  <SelectItem value="Anthem">Anthem</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {(filters.medication ||
+                              filters.payer !== "all") && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    medication: "",
+                                    payer: "all",
+                                  }))
+                                }
+                                className="w-full"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Clear Medication Filters
+                              </Button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <span>Status</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleSort("status")}
+                        >
+                          {getSortIcon("status")}
+                        </Button>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Filter className="w-4 h-4" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-60" align="start">
+                          <div className="space-y-3">
+                            <div className="space-y-2">
+                              <Label htmlFor="status-select-column">
+                                Filter by Status
+                              </Label>
+                              <Select
+                                value={filters.status}
+                                onValueChange={(value) =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    status: value as any,
+                                  }))
+                                }
+                              >
+                                <SelectTrigger id="status-select-column">
+                                  <SelectValue placeholder="All Statuses" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="all">
+                                    All Statuses
+                                  </SelectItem>
+                                  <SelectItem value="needs-review">
+                                    Needs Review
+                                  </SelectItem>
+                                  <SelectItem value="auto-processing">
+                                    Auto Processing
+                                  </SelectItem>
+                                  <SelectItem value="auto-approved">
+                                    Auto Approved
+                                  </SelectItem>
+                                  <SelectItem value="denied">Denied</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {filters.status !== "all" && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                  setFilters((prev) => ({
+                                    ...prev,
+                                    status: "all",
+                                  }))
+                                }
+                                className="w-full"
+                              >
+                                <X className="w-4 h-4 mr-2" />
+                                Clear Status Filter
+                              </Button>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center justify-between group">
+                      <div className="flex items-center gap-2">
+                        <span>Payer</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => handleSort("payer")}
+                        >
+                          {getSortIcon("payer")}
+                        </Button>
+                      </div>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <div className="flex items-center gap-2">
+                      <span>Updated</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0"
+                        onClick={() => handleSort("updatedAt")}
+                      >
+                        {getSortIcon("updatedAt")}
+                      </Button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="px-6 py-3">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredData.map((item, index) => {
+                  const StatusIcon = statusConfig[item.status].icon;
+                  const isFocused = focusedIndex === index;
+                  return (
+                    <TableRow
+                      key={item.id}
+                      className={`cursor-pointer transition-colors ${
+                        isFocused ? "bg-muted/50 ring-2 ring-primary/20" : ""
+                      }`}
+                      onClick={() => handleOpenPA(item.id)}
+                    >
+                      <TableCell className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100 hover:text-primary">
+                            {item.id}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {item.attempt}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {item.patientName}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {item.patientId}
+                          </div>
+                          {item.conditions && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              {item.conditions}
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {item.medication}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center">
+                          <StatusIcon className="w-4 h-4 mr-2" />
+                          <Badge
+                            variant="outline"
+                            className={statusConfig[item.status].color}
+                          >
+                            {item.status.replace("-", " ")}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                          {item.payer}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-sm text-muted-foreground">
+                        {formatRelativeTime(item.updatedAt)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4" />
+                              <span className="sr-only">Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("view", item.id);
+                              }}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("edit", item.id);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit PA
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("documents", item.id);
+                              }}
+                            >
+                              <FileText className="w-4 h-4 mr-2" />
+                              View Documents
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("notes", item.id);
+                              }}
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Add Note
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAction("archive", item.id);
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Archive className="w-4 h-4 mr-2" />
+                              Archive
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+
+          {filteredData.length === 0 && !isLoading && (
+            <div className="p-8 text-center">
+              <p className="text-muted-foreground">
+                No prior authorization requests match your filters.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="mt-2"
+                onClick={() => {
+                  setFilters({
+                    search: "",
+                    status: "all",
+                    priority: "all",
+                    payer: "all",
+                    dateFrom: "",
+                    dateTo: "",
+                    patientName: "",
+                    paId: "",
+                    medication: "",
+                    conditions: "",
+                    attempt: "",
+                  });
+                  setSortConfig({ field: null, direction: null });
+                }}
+              >
+                Clear all filters
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* PA Details Sheet - Lazy loaded */}
-      <Sheet open={showPASheet} onOpenChange={setShowPASheet}>
-        <SheetContent className="w-full sm:max-w-2xl overflow-y-auto">
-          <SheetHeader>
+      {/* PA Details Sheet */}
+      <Sheet
+        open={!!selectedPaId}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleClosePA();
+          }
+        }}
+      >
+        <SheetContent
+          side="right"
+          className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0"
+        >
+          <SheetHeader className="sr-only">
             <SheetTitle>Prior Authorization Details</SheetTitle>
           </SheetHeader>
-          {selectedPA && (
-            <Suspense fallback={<ComponentSkeleton />}>
-              <PADetails pa={selectedPA} />
-            </Suspense>
+          {selectedPaId && (
+            <PADetails
+              paId={selectedPaId}
+              onPrev={() => {
+                const currentIndex = filteredData.findIndex(
+                  (item) => item.id === selectedPaId
+                );
+                if (currentIndex > 0) {
+                  const prevPA = filteredData[currentIndex - 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(prevPA.id);
+                  setFocusedIndex(currentIndex - 1);
+                }
+              }}
+              onNext={() => {
+                const currentIndex = filteredData.findIndex(
+                  (item) => item.id === selectedPaId
+                );
+                if (currentIndex < filteredData.length - 1) {
+                  const nextPA = filteredData[currentIndex + 1];
+                  setInitialAction(undefined); // Clear action when navigating
+                  handleOpenPA(nextPA.id);
+                  setFocusedIndex(currentIndex + 1);
+                }
+              }}
+              disablePrev={(() => {
+                const currentIndex = filteredData.findIndex(
+                  (item) => item.id === selectedPaId
+                );
+                return currentIndex <= 0;
+              })()}
+              disableNext={(() => {
+                const currentIndex = filteredData.findIndex(
+                  (item) => item.id === selectedPaId
+                );
+                return currentIndex >= filteredData.length - 1;
+              })()}
+              initialAction={initialAction}
+            />
           )}
         </SheetContent>
       </Sheet>
