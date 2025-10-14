@@ -9,6 +9,7 @@ import { QueueStack } from '../lib/stacks/queue-stack';
 import { WorkflowStack } from '../lib/stacks/workflow-stack';
 import { MonitoringStack } from '../lib/stacks/monitoring-stack';
 import { SecurityStack } from '../lib/stacks/security-stack';
+import { MedicalInfrastructure } from '../lib/medical-infrastructure';
 
 const app = new cdk.App();
 
@@ -38,6 +39,14 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
   });
 
+  // Create medical infrastructure (cache + medical data)
+  const medicalInfra = new MedicalInfrastructure(app, `RCM-Medical-${envName}`, {
+    env,
+    environment: envName as 'staging' | 'prod',
+    database: database.cluster,
+    documentsBucket: storage.documentsBucket,
+  });
+
   // Create a simple alert stack first (just SNS topic and database alarms)
   const alerting = new MonitoringStack(app, `RCM-Alerting-${envName}`, {
     env,
@@ -60,6 +69,8 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
     database: database.cluster,
     documentsBucket: storage.documentsBucket,
+    cacheStack: medicalInfra.cacheStack,
+    medicalDataStack: medicalInfra.medicalDataStack,
   });
 
   const workflows = new WorkflowStack(app, `RCM-Workflows-${envName}`, {
@@ -90,11 +101,14 @@ for (const envName of ['staging', 'prod']) {
 
   // Add dependencies
   alerting.addDependency(database);
+  medicalInfra.addDependency(database);
+  medicalInfra.addDependency(storage);
   queues.addDependency(database);
   queues.addDependency(storage);
   queues.addDependency(alerting);
   api.addDependency(database);
   api.addDependency(storage);
+  api.addDependency(medicalInfra);
   workflows.addDependency(queues);
   security.addDependency(api);
   monitoring.addDependency(api);

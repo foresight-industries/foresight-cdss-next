@@ -80,7 +80,7 @@ export class DatabaseStack extends cdk.Stack {
     // Aurora Serverless v2 cluster
     this.cluster = new rds.DatabaseCluster(this, 'AuroraCluster', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_15_4,
+        version: rds.AuroraPostgresEngineVersion.VER_17_4,
       }),
       credentials: rds.Credentials.fromSecret(credentials),
       clusterIdentifier: `rcm-cluster-${props.stageName}`,
