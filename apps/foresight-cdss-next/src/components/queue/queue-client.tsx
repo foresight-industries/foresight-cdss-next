@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
 import { type QueueFiltersType, QueueFilters } from '@/components/filters';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +64,6 @@ const formatRelativeTime = (value: string) => {
 
 export default function QueueClient({ data }: Readonly<QueueClientProps>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [filters, setFilters] = useState<QueueFiltersType>({
     search: "",
     status: "all",
@@ -90,7 +89,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
   const [initialAction, setInitialAction] = useState<
     "edit" | "documents" | "notes" | undefined
   >(undefined);
-
+console.log(isClosing)
   // Use server-computed data
   const queueData = data.items;
   const isLoading = false;
@@ -266,7 +265,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     if (closingTimeoutRef.current) {
       clearTimeout(closingTimeoutRef.current);
     }
-    
+
     setIsClosing(true);
     setSelectedPaId(null);
     setInitialAction(undefined); // Clear any pending actions
@@ -274,7 +273,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     // const url = new URL(globalThis.location.href);
     // url.searchParams.delete("pa");
     // router.replace(url.pathname + url.search, { scroll: false });
-    
+
     // Reset closing state after URL update completes
     closingTimeoutRef.current = setTimeout(() => {
       setIsClosing(false);
@@ -298,7 +297,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
   // useEffect(() => {
   //   // Don't update state if we're in the middle of closing
   //   if (isClosing) return;
-  //   
+  //
   //   const paParam = searchParams.get("pa");
   //   if (paParam) {
   //     // Find the PA by ID

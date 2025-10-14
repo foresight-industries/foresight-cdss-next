@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
   MoreHorizontal,
@@ -164,7 +164,6 @@ interface ClaimsClientProps {
 
 export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
@@ -205,7 +204,7 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
   const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
   const [noteClaimId, setNoteClaimId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
-
+console.log(isClosing);
   const payers = useMemo(
     () =>
       Array.from(
@@ -394,14 +393,14 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
     if (closingTimeoutRef.current) {
       clearTimeout(closingTimeoutRef.current);
     }
-    
+
     setIsClosing(true);
     setActiveClaimId(null);
     // Remove the claim query parameter from URL
     // const url = new URL(globalThis.location.href);
     // url.searchParams.delete("claim");
     // router.replace(url.pathname + url.search, { scroll: false });
-    
+
     // Reset closing state after URL update completes
     closingTimeoutRef.current = setTimeout(() => {
       setIsClosing(false);
