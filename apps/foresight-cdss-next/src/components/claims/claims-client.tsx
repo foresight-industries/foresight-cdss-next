@@ -843,11 +843,7 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
       }
 
       if (filters.onlyNeedsReview) {
-        const needsReview =
-          REVIEW_STATUSES.has(claim.status) ||
-          claim.confidence < threshold ||
-          getBlockingIssueCount(claim) > 0;
-        if (!needsReview) {
+        if (claim.status !== "needs_review") {
           return false;
         }
       }
