@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq } from 'drizzle-orm';
+import { teamMembers } from '@foresight-cdss-next/db';
 import type {
   CustomFieldMapping,
   MappingValidationResult,
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body = await request.json();
     const { mappings, sample_data } = body;
 
@@ -27,14 +29,19 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify user has team access
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member) {
+    if (!member || member.length === 0) {
       return NextResponse.json({ error: 'Team access required' }, { status: 403 });
     }
 

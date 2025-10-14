@@ -10,9 +10,6 @@
       "path": "./apps/foresight-cdss-next"
     },
     {
-      "path": "./supabase"
-    },
-    {
       "path": "./infra"
     }
   ],

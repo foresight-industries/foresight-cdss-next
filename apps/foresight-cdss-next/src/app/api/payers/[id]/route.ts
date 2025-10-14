@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeUpdate, safeDelete } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq, inArray } from 'drizzle-orm';
+import { teamMembers, payers, payerContracts, payerPortalCredentials, claims, priorAuths } from '@foresight-cdss-next/db';
 
 // GET - Get specific payer with all configurations
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -13,79 +15,116 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const payerId = params.id;
 
-    // Get payer with team verification
-    const { data: payer, error } = await supabase
-      .from('payer')
-      .select(`
-        *,
-        payer_config (*),
-        payer_portal_credential (
-          id,
-          portal_url,
-          username,
-          mfa_enabled,
-          automation_enabled,
-          last_successful_login,
-          created_at,
-          updated_at
-        ),
-        payer_submission_config (*),
-        team!inner(id, name, slug)
-      `)
-      .eq('id', Number(payerId))
-      .eq('team.team_member.user_id', userId)
-      .eq('team.team_member.status', 'active')
-      .single();
+    // Verify user has access to this payer through organization
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (error || !payer) {
+    if (!member || member.length === 0) {
+      return NextResponse.json({ error: 'Team access required' }, { status: 403 });
+    }
+
+    const memberData = member[0] as any;
+
+    // Get payer through contract verification
+    const { data: payerData, error: payerError } = await safeSingle(async () =>
+      db.select({
+        id: payers.id,
+        name: payers.name,
+        createdAt: payers.createdAt,
+        updatedAt: payers.updatedAt
+      })
+      .from(payers)
+      .innerJoin(payerContracts, eq(payers.id, payerContracts.payerId))
+      .where(and(
+        eq(payers.id, payerId),
+        eq(payerContracts.organizationId, memberData.organizationId)
+      ))
+    );
+
+    if (payerError || !payerData) {
       return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
     }
 
-    // Get performance stats
-    const { data: claimStats } = await supabase
-      .from('claim')
-      .select('id, status, created_at')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', payer.team_id ?? '');
+    // Get portal credentials
+    const { data: portalCredential } = await safeSingle(async () =>
+      db.select({
+        id: payerPortalCredentials.id,
+        portalName: payerPortalCredentials.portalName,
+        portalUrl: payerPortalCredentials.portalUrl,
+        portalType: payerPortalCredentials.portalType,
+        username: payerPortalCredentials.username,
+        lastLoginAt: payerPortalCredentials.lastLoginAt,
+        isActive: payerPortalCredentials.isActive,
+        createdAt: payerPortalCredentials.createdAt,
+        updatedAt: payerPortalCredentials.updatedAt
+      })
+      .from(payerPortalCredentials)
+      .where(and(
+        eq(payerPortalCredentials.payerId, payerId),
+        eq(payerPortalCredentials.organizationId, memberData.organizationId)
+      ))
+    );
 
-    const { data: paStats } = await supabase
-      .from('prior_auth')
-      .select('id, status, created_at, approved_at, denied_at')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', payer.team_id ?? '');
+    // Get performance stats - claims
+    const { data: claimStats } = await safeSelect(async () =>
+      db.select({
+        id: claims.id,
+        status: claims.status,
+        createdAt: claims.createdAt
+      })
+      .from(claims)
+      .where(and(
+        eq(claims.payerId, payerId),
+        eq(claims.organizationId, memberData.organizationId)
+      ))
+    );
+
+    // Get performance stats - prior auths (simplified for now due to schema)
+    const { data: paStats } = await safeSelect(async () =>
+      db.select({
+        id: priorAuths.id,
+        status: priorAuths.status,
+        createdAt: priorAuths.createdAt
+      })
+      .from(priorAuths)
+      .where(and(
+        eq(priorAuths.payerId, payerId),
+        eq(priorAuths.organizationId, memberData.organizationId)
+      ))
+    );
 
     const totalClaims = claimStats?.length || 0;
-    const approvedPAs = paStats?.filter(pa => pa.status === 'approved').length || 0;
+    const approvedPAs = paStats?.filter((pa: any) => pa.status === 'approved').length || 0;
     const totalPAs = paStats?.length || 0;
     const approvalRate = totalPAs > 0 ? Math.round((approvedPAs / totalPAs) * 100) : 0;
 
-    // Calculate average response time
-    const responseTimes = paStats
-      ?.filter(pa => (pa.approved_at || pa.denied_at) && pa.created_at)
-      .map(pa => {
-        const created = new Date(pa.created_at!);
-        const decided = new Date(pa.approved_at || pa.denied_at!);
-        return Math.ceil((decided.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
-      }) || [];
+    // Calculate average response time (simplified since we don't have approved/denied dates)
+    const avgResponseTime = 0; // Would need additional schema fields to calculate properly
 
-    const avgResponseTime = responseTimes.length > 0
-      ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
-      : 0;
-
-    const lastSubmission = [...(claimStats || []), ...(paStats || [])]
-      .filter(item => item.created_at) // Filter out items with null created_at
-      .sort((a, b) => new Date(b.created_at!).getTime() - new Date(a.created_at!).getTime())
-      [0]?.created_at || payer.created_at;
+    const allItems = [...(claimStats || []), ...(paStats || [])]
+      .filter((item: any) => item.createdAt)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    const lastSubmission = allItems.length > 0 ? (allItems[0] as any).createdAt : (payerData as any)?.createdAt;
 
     return NextResponse.json({
       payer: {
-        ...payer,
-        payer_config: payer.payer_config || [],
-        portal_credential: payer.payer_portal_credential?.[0] || null,
-        submission_config: payer.payer_submission_config?.[0] || null
+        ...payerData,
+        payer_config: [],
+        portal_credential: portalCredential || null,
+        submission_config: null // This would need to be implemented based on the actual schema
       },
       performance_stats: {
         total_claims: totalClaims,
@@ -112,41 +151,58 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const payerId = params.id;
     const body = await request.json();
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0) {
+      return NextResponse.json({ error: 'Team access required' }, { status: 403 });
+    }
+
+    const memberData = member[0] as any;
+    if (!['super_admin', 'admin'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify payer belongs to user's team
-    const { data: existingPayer } = await supabase
-      .from('payer')
-      .select('team_id')
-      .eq('id', Number(payerId))
-      .single();
+    // Verify payer belongs to user's organization through contract
+    const { data: existingPayer } = await safeSingle(async () =>
+      db.select({
+        id: payers.id
+      })
+      .from(payers)
+      .innerJoin(payerContracts, eq(payers.id, payerContracts.payerId))
+      .where(and(
+        eq(payers.id, payerId),
+        eq(payerContracts.organizationId, memberData.organizationId)
+      ))
+    );
 
-    if (!existingPayer || existingPayer.team_id !== member.team_id) {
+    if (!existingPayer) {
       return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
     }
 
-    // Validate update fields
-    const allowedFields = ['name', 'external_payer_id', 'payer_type'];
+    // Validate update fields and map to schema
+    const allowedFields = new Set(['name']);
     const updates: Record<string, any> = {};
 
     for (const [key, value] of Object.entries(body)) {
-      if (allowedFields.includes(key) && value !== undefined) {
+      if (allowedFields.has(key) && value !== undefined) {
         updates[key] = value;
       }
     }
@@ -155,24 +211,29 @@ export async function PUT(
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    // Add updated_at timestamp
-    updates.updated_at = new Date().toISOString();
+    // Add updated timestamp
+    updates.updatedAt = new Date();
 
     // Update payer
-    const { data: payer, error } = await supabase
-      .from('payer')
-      .update(updates)
-      .eq('id', Number(payerId))
-      .select()
-      .single();
+    const { data: payer, error } = await safeUpdate(async () =>
+      db.update(payers)
+        .set(updates)
+        .where(eq(payers.id, payerId))
+        .returning({
+          id: payers.id,
+          name: payers.name,
+          createdAt: payers.createdAt,
+          updatedAt: payers.updatedAt
+        })
+    );
 
-    if (error) {
+    if (error || !payer || payer.length === 0) {
       console.error('Error updating payer:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     return NextResponse.json({
-      payer
+      payer: payer[0]
     });
 
   } catch (error) {
@@ -183,7 +244,7 @@ export async function PUT(
 
 // DELETE - Delete payer
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -192,31 +253,45 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const payerId = params.id;
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0) {
+      return NextResponse.json({ error: 'Team access required' }, { status: 403 });
+    }
+
+    const memberData = member[0] as any;
+    if (!['super_admin', 'admin'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
     // Check if payer has any active claims or prior auths
-    const { data: activeClaims } = await supabase
-      .from('claim')
-      .select('id')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', member.team_id ?? '')
-      .in('status', ['submitted', 'in_review', 'awaiting_277ca'])
-      .limit(1);
+    const { data: activeClaims } = await safeSelect(async () =>
+      db.select({ id: claims.id })
+        .from(claims)
+        .where(and(
+          eq(claims.payerId, payerId),
+          eq(claims.organizationId, memberData.organizationId),
+          inArray(claims.status, ['submitted', 'needs_review'] as const)
+        ))
+        .limit(1)
+    );
 
     if (activeClaims && activeClaims.length > 0) {
       return NextResponse.json({
@@ -224,13 +299,16 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    const { data: activePAs } = await supabase
-      .from('prior_auth')
-      .select('id')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', member.team_id ?? '')
-      .in('status', ['draft', 'submitted', 'in_review', 'peer_to_peer_required'])
-      .limit(1);
+    const { data: activePAs } = await safeSelect(async () =>
+      db.select({ id: priorAuths.id })
+        .from(priorAuths)
+        .where(and(
+          eq(priorAuths.payerId, payerId),
+          eq(priorAuths.organizationId, memberData.organizationId),
+          inArray(priorAuths.status, ['pending'] as const)
+        ))
+        .limit(1)
+    );
 
     if (activePAs && activePAs.length > 0) {
       return NextResponse.json({
@@ -238,16 +316,31 @@ export async function DELETE(
       }, { status: 400 });
     }
 
-    // Verify payer belongs to user's team and delete
-    const { data: payer, error } = await supabase
-      .from('payer')
-      .delete()
-      .eq('id', Number(payerId))
-      .eq('team_id', member.team_id ?? '')
-      .select()
-      .single();
+    // First verify payer belongs to user's organization through contract
+    const { data: contractCheck } = await safeSingle(async () =>
+      db.select({ id: payerContracts.id })
+        .from(payerContracts)
+        .where(and(
+          eq(payerContracts.payerId, payerId),
+          eq(payerContracts.organizationId, memberData.organizationId)
+        ))
+    );
 
-    if (error || !payer) {
+    if (!contractCheck) {
+      return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
+    }
+
+    // Delete the payer
+    const { data: payer, error } = await safeDelete(async () =>
+      db.delete(payers)
+        .where(eq(payers.id, payerId))
+        .returning({
+          id: payers.id,
+          name: payers.name
+        })
+    );
+
+    if (error || !payer || payer.length === 0) {
       return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
     }
 

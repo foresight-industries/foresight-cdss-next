@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { eq, and } from 'drizzle-orm';
+import { teamMembers, organizations } from '@foresight-cdss-next/db';
 
 // PUT - Update user profile
 export async function PUT(request: NextRequest) {
@@ -10,50 +12,69 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body = await request.json();
-    const { profile, security } = body;
+    const { profile } = body;
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile data required' }, { status: 400 });
     }
 
-    // Prepare user profile update data
-    const profileUpdate = {
-      user_id: userId,
-      first_name: profile.firstName,
-      last_name: profile.lastName,
-      email: profile.email,
-      phone: profile.phone,
-      role: profile.title,
-      department: profile.department,
-      location: profile.location,
-      timezone: profile.timezone,
-      bio: profile.bio,
-      two_factor_enabled: security?.twoFactorEnabled ?? true,
-      email_notifications: security?.emailNotifications ?? true,
-      sms_notifications: security?.smsNotifications ?? false,
-      session_timeout: security?.sessionTimeout ?? '1 hour',
-      updated_at: new Date().toISOString()
+    // Find the user's team member record
+    const { data: existingMember } = await safeSingle(async () =>
+      db.select({
+        id: teamMembers.id,
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
+
+    if (!existingMember) {
+      return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
+    }
+
+    // Prepare profile update data (only fields available in teamMembers)
+    const profileUpdate: any = {
+      updatedAt: new Date()
     };
 
-    // Upsert user profile (insert or update)
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profile')
-      .upsert(profileUpdate, {
-        onConflict: 'user_id'
-      })
-      .select()
-      .single();
+    if (profile.firstName !== undefined) {
+      profileUpdate.firstName = profile.firstName;
+    }
+    if (profile.lastName !== undefined) {
+      profileUpdate.lastName = profile.lastName;
+    }
+    if (profile.email !== undefined) {
+      profileUpdate.email = profile.email;
+    }
 
-    if (profileError) {
+    // Update team member profile
+    const { data: updatedProfile, error: profileError } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set(profileUpdate)
+        .where(eq(teamMembers.id, (existingMember as any).id))
+        .returning({
+          id: teamMembers.id,
+          email: teamMembers.email,
+          firstName: teamMembers.firstName,
+          lastName: teamMembers.lastName,
+          role: teamMembers.role,
+          updatedAt: teamMembers.updatedAt
+        })
+    );
+
+    if (profileError || !updatedProfile || updatedProfile.length === 0) {
       console.error('Error updating user profile:', profileError);
       return NextResponse.json({ error: 'Failed to update profile' }, { status: 500 });
     }
 
     return NextResponse.json({
       message: 'Profile updated successfully',
-      profile: userProfile
+      profile: updatedProfile[0]
     });
 
   } catch (error) {
@@ -70,44 +91,71 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    // Get user profile
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profile')
-      .select('*')
-      .eq('clerk_id', userId)
-      .single();
+    // Get user team membership with organization details
+    const { data: teamMember, error: memberError } = await safeSingle(async () =>
+      db.select({
+        id: teamMembers.id,
+        email: teamMembers.email,
+        firstName: teamMembers.firstName,
+        lastName: teamMembers.lastName,
+        role: teamMembers.role,
+        isActive: teamMembers.isActive,
+        lastSeenAt: teamMembers.lastSeenAt,
+        createdAt: teamMembers.createdAt,
+        updatedAt: teamMembers.updatedAt,
+        organizationId: teamMembers.organizationId,
+        organizationName: organizations.name,
+        organizationSlug: organizations.slug
+      })
+      .from(teamMembers)
+      .leftJoin(organizations, eq(teamMembers.organizationId, organizations.id))
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
-      console.error('Error fetching user profile:', profileError);
+    if (memberError) {
+      console.error('Error fetching user profile:', memberError);
       return NextResponse.json({ error: 'Failed to fetch profile' }, { status: 500 });
     }
 
-    // Get team membership if exists
-    const { data: teamMember, error: memberError } = await supabase
-      .from('team_member')
-      .select(`
-        role,
-        status,
-        created_at,
-        team:team_id (
-          id,
-          name,
-          slug
-        )
-      `)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
-
-    if (memberError && memberError.code !== 'PGRST116') {
-      console.error('Error fetching team membership:', memberError);
+    if (!teamMember) {
+      return NextResponse.json({
+        profile: null,
+        teamMember: null
+      });
     }
 
+    const memberData = teamMember as any;
+    
+    // Format response to match expected structure
+    const profile = {
+      user_id: userId,
+      first_name: memberData.firstName,
+      last_name: memberData.lastName,
+      email: memberData.email,
+      role: memberData.role,
+      updated_at: memberData.updatedAt,
+      created_at: memberData.createdAt
+    };
+
+    const teamInfo = {
+      role: memberData.role,
+      status: memberData.isActive ? 'active' : 'inactive',
+      created_at: memberData.createdAt,
+      team: {
+        id: memberData.organizationId,
+        name: memberData.organizationName,
+        slug: memberData.organizationSlug
+      }
+    };
+
     return NextResponse.json({
-      profile: userProfile,
-      teamMember: teamMember
+      profile: profile,
+      teamMember: teamInfo
     });
 
   } catch (error) {

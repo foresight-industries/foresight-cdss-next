@@ -1,29 +1,14 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
 import { clerkClient, WebhookEvent } from "@clerk/nextjs/server";
 import { UserResource } from "@clerk/types";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from "@/lib/aws/database";
+import { eq, and } from "drizzle-orm";
+import { teamMembers, organizations } from "@foresight-cdss-next/db";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
 }
-
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-// Use service role client to bypass RLS
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 export async function POST(req: Request) {
   try {
@@ -75,9 +60,9 @@ export async function POST(req: Request) {
         result = await handleUserDeleted(evt.data);
         break;
 
-      // case "organization.created":
-      //   result = await handleOrganizationCreated(evt.data);
-      //   break;
+      case "organization.created":
+        result = await handleOrganizationCreated(evt.data);
+        break;
 
       case "organization.updated":
         result = await handleOrganizationUpdated(evt.data);
@@ -99,20 +84,13 @@ export async function POST(req: Request) {
         console.log(`Unhandled webhook type: ${evt.type}`);
     }
 
-    // Log webhook event
-    const { error: logError } = await supabase
-      .from("clerk_webhook_log")
-      .insert({
-        event_type: `clerk.${evt.type}`,
-        clerk_id:
-          evt.data.id ?? evt.data.id ?? JSON.parse(evt.data.object)?.user_id,
-        payload: evt.data,
-        processed_at: new Date().toISOString(),
-      });
-
-    if (logError) {
-      console.error("Failed to log webhook:", logError);
-    }
+    // Note: Webhook logging would need to be implemented with AWS schema
+    // For now, we'll just log to console
+    console.log(`Processed webhook: ${evt.type}`, {
+      clerkId: evt.data.id,
+      success: result.success,
+      message: result.message
+    });
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 500,
@@ -129,64 +107,17 @@ export async function POST(req: Request) {
 // User Management Functions
 async function handleUserCreated(data: any, clerk: any) {
   try {
-    const { data: authUser, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: data.email_addresses?.[0]?.email_address,
-        user_metadata: {
-          clerk_id: data.id,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          phone_number: data.phone_numbers?.[0]?.phone_number,
-          role: "viewer",
-        },
-        email_confirm: true,
-      });
-
-    if (authError) {
-      console.error(
-        "Error creating Supabase user in Clerk webhook:",
-        authError
-      );
-      throw authError;
-    }
-
-    if (!authUser) {
-      console.error("No user created in Clerk webhook");
-      throw new Error("No user created in Clerk webhook");
-    }
-
-    const { user } = authUser;
-
-    await clerk.users.updateUser(data.id, {
-      external_id: user.id,
+    // Note: Since we don't have a separate user_profile table in AWS schema,
+    // user data will be managed through team membership when they join an organization
+    console.log(`User created in Clerk: ${data.id}`, {
+      email: data.email_addresses?.[0]?.email_address,
+      firstName: data.first_name,
+      lastName: data.last_name
     });
 
-    // Create user profile
-    const { error } = await supabase
-      .from("user_profile")
-      .insert({
-        id: user?.id,
-        email: user?.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone: user?.phone,
-        clerk_id: data.id,
-        created_at: data.createdAt
-          ? new Date(data.created_at).toISOString()
-          : new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (error && error.code !== "23505") {
-      // Ignore duplicate key errors
-      throw error;
-    }
-
-    return { success: true, message: `User ${data.id} created` };
+    return { success: true, message: `User ${data.id} noted for future organization membership` };
   } catch (error) {
-    console.error("Error creating user:", error);
+    console.error("Error handling user creation:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",
@@ -196,20 +127,23 @@ async function handleUserCreated(data: any, clerk: any) {
 
 async function handleUserUpdated(data: any) {
   try {
-    const { error } = await supabase
-      .from("user_profile")
-      .update({
-        email: data.email_addresses?.[0]?.email_address,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone_number: data.phone_numbers?.[0]?.phone_number,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_id", data.id);
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Update user info in team members table where this user exists
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          email: data.email_addresses?.[0]?.email_address,
+          firstName: data.first_name,
+          lastName: data.last_name,
+          updatedAt: new Date()
+        })
+        .where(eq(teamMembers.clerkUserId, data.id))
+    );
 
     if (error) throw error;
 
-    return { success: true, message: `User ${data.id} updated` };
+    return { success: true, message: `User ${data.id} updated in team memberships` };
   } catch (error) {
     console.error("Error updating user:", error);
     return {
@@ -221,14 +155,17 @@ async function handleUserUpdated(data: any) {
 
 async function handleUserDeleted(data: any) {
   try {
+    const { db } = await createAuthenticatedDatabaseClient();
+
     // Soft delete - set status to inactive
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_user_id", data.id);
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(eq(teamMembers.clerkUserId, data.id))
+    );
 
     if (error) throw error;
 
@@ -243,55 +180,62 @@ async function handleUserDeleted(data: any) {
 }
 
 // Organization Management Functions
-// async function handleOrganizationCreated(data: any) {
-//   try {
-//     // Create team from organization
-//     const { error } = await supabase
-//       .from("team")
-//       .insert({
-//         // id: data.id, // Use Clerk org ID
-//         name: data.name,
-//         slug: data.slug,
-//         clerk_org_id: data.id,
-//         status: "trialing",
-//         created_at: data.created_at
-//           ? new Date(data.created_at).toISOString()
-//           : new Date().toISOString(),
-//         updated_at: new Date().toISOString(),
-//       })
-//       .select()
-//       .single();
-//
-//     if (error?.code !== "23505") {
-//       throw error;
-//     }
-//
-//     return { success: true, message: `Team ${data.id} created` };
-//   } catch (error) {
-//     console.error("Error creating team:", error);
-//     return {
-//       success: false,
-//       message: error instanceof Error ? error.message : "Unknown error",
-//     };
-//   }
-// }
-
-async function handleOrganizationUpdated(data: any) {
+async function handleOrganizationCreated(data: any) {
   try {
-    const { error } = await supabase
-      .from("team")
-      .update({
-        name: data.name,
-        slug: data.slug,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.id);
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Check if organization already exists
+    const { data: existingOrg } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.id))
+    );
+
+    if (existingOrg) {
+      return { success: true, message: `Organization ${data.id} already exists` };
+    }
+
+    // Create organization from Clerk organization
+    const { error } = await safeInsert(async () =>
+      db.insert(organizations)
+        .values({
+          name: data.name,
+          slug: data.slug,
+          clerkOrgId: data.id
+        })
+    );
 
     if (error) throw error;
 
-    return { success: true, message: `Team ${data.id} updated` };
+    return { success: true, message: `Organization ${data.id} created` };
   } catch (error) {
-    console.error("Error updating team:", error);
+    console.error("Error creating organization:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function handleOrganizationUpdated(data: any) {
+  try {
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    const { error } = await safeUpdate(async () =>
+      db.update(organizations)
+        .set({
+          name: data.name,
+          slug: data.slug,
+          updatedAt: new Date()
+        })
+        .where(eq(organizations.clerkOrgId, data.id))
+    );
+
+    if (error) throw error;
+
+    return { success: true, message: `Organization ${data.id} updated` };
+  } catch (error) {
+    console.error("Error updating organization:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",
@@ -302,45 +246,95 @@ async function handleOrganizationUpdated(data: any) {
 // Membership Management Functions
 async function handleMembershipCreated(data: any) {
   try {
-    // Map Clerk role to your role system - must match user_role enum in database
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Map Clerk role to AWS access level enum
     const roleMapping = {
-      "org:admin": "org_admin",
-      "org:member": "biller",
-      "org:viewer": "viewer",
+      "org:admin": "admin",
+      "org:member": "write", 
+      "org:viewer": "read",
     };
 
-    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
-    // Add user to team
-    const { error } = await supabase.from("team_member").insert({
-      // id: `${data.organization_id}_${data.public_user_data.user_id}`,
-      clerk_org_id: data.organization_id,
-      clerk_user_id: data.public_user_data.user_id,
-      role: role,
-      permissions: getPermissionsForRole(role),
-      status: "active",
-      created_at: data.created_at
-        ? new Date(data.created_at).toISOString()
-        : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    // Get organization by Clerk org ID
+    const { data: organization } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
 
-    if (error && error.code !== "23505") {
-      throw error;
-    }
+    if (!organization) {
+      // Create organization if it doesn't exist
+      const { data: newOrg, error: orgError } = await safeInsert(async () =>
+        db.insert(organizations)
+          .values({
+            name: data.organization.name,
+            slug: data.organization.slug,
+            clerkOrgId: data.organization.id
+          })
+          .returning({ id: organizations.id })
+      );
 
-    // Update user's current team if this is their first team
-    const { data: userProfile } = await supabase
-      .from("user_profile")
-      .select("current_team_id")
-      .eq("clerk_id", data.public_user_data.user_id)
-      .single();
+      if (orgError || !newOrg || newOrg.length === 0) {
+        throw new Error("Failed to create organization");
+      }
 
-    if (userProfile && !userProfile.current_team_id) {
-      await supabase
-        .from("user_profile")
-        .update({ current_team_id: data.organization_id })
-        .eq("clerk_id", data.public_user_data.user_id);
+      // Check if membership already exists
+      const { data: existingMember } = await safeSingle(async () =>
+        db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+            eq(teamMembers.organizationId, (newOrg[0] as any).id)
+          ))
+      );
+
+      if (!existingMember) {
+        // Add user to organization
+        const { error: memberError } = await safeInsert(async () =>
+          db.insert(teamMembers)
+            .values({
+              organizationId: (newOrg[0] as any).id,
+              clerkUserId: data.public_user_data.user_id,
+              email: data.public_user_data.email_address,
+              firstName: data.public_user_data.first_name,
+              lastName: data.public_user_data.last_name,
+              role: role,
+              isActive: true
+            })
+        );
+
+        if (memberError) throw memberError;
+      }
+    } else {
+      // Check if membership already exists
+      const { data: existingMember } = await safeSingle(async () =>
+        db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+            eq(teamMembers.organizationId, (organization as any).id)
+          ))
+      );
+
+      if (!existingMember) {
+        // Add user to organization
+        const { error: memberError } = await safeInsert(async () =>
+          db.insert(teamMembers)
+            .values({
+              organizationId: (organization as any).id,
+              clerkUserId: data.public_user_data.user_id,
+              email: data.public_user_data.email_address,
+              firstName: data.public_user_data.first_name,
+              lastName: data.public_user_data.last_name,
+              role: role,
+              isActive: true
+            })
+        );
+
+        if (memberError) throw memberError;
+      }
     }
 
     return {
@@ -358,28 +352,41 @@ async function handleMembershipCreated(data: any) {
 
 async function handleMembershipUpdated(data: any) {
   try {
-    // Map Clerk role to your role system - must match user_role enum in database
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Map Clerk role to AWS access level enum
     const roleMapping = {
-      "org:admin": "org_admin",
-      "org:member": "coder",
-      "org:viewer": "viewer",
+      "org:admin": "admin",
+      "org:member": "write",
+      "org:viewer": "read",
     };
 
-    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        role: role,
-        permissions: getPermissionsForRole(role),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.organization_id)
-      .eq("clerk_id", data.public_user_data.user_id);
+    // Get organization by Clerk org ID
+    const { data: organization } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
 
-    if (error) {
-      throw error;
+    if (!organization) {
+      throw new Error("Organization not found");
     }
+
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          role: role,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+          eq(teamMembers.organizationId, (organization as any).id)
+        ))
+    );
+
+    if (error) throw error;
 
     return {
       success: true,
@@ -396,24 +403,33 @@ async function handleMembershipUpdated(data: any) {
 
 async function handleMembershipDeleted(data: any) {
   try {
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Get organization by Clerk org ID
+    const { data: organization } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
+
+    if (!organization) {
+      throw new Error("Organization not found");
+    }
+
     // Soft delete membership
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.organization_id)
-      .eq("clerk_id", data.public_user_data.user_id);
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+          eq(teamMembers.organizationId, (organization as any).id)
+        ))
+    );
 
     if (error) throw error;
-
-    // If this was user's current team, clear it
-    await supabase
-      .from("user_profile")
-      .update({ current_team_id: null })
-      .eq("clerk_id", data.public_user_data.user_id)
-      .eq("clerk_org_id", data.organization_id);
 
     return {
       success: true,
@@ -426,62 +442,4 @@ async function handleMembershipDeleted(data: any) {
       message: error instanceof Error ? error.message : "Unknown error",
     };
   }
-}
-
-// Helper function to map role to permissions
-function getPermissionsForRole(role: string): string[] {
-  const permissionMap = {
-    super_admin: ["*"],
-    org_admin: [
-      "claims.create",
-      "claims.read",
-      "claims.update",
-      "claims.delete",
-      "prior_auth.create",
-      "prior_auth.read",
-      "prior_auth.update",
-      "prior_auth.delete",
-      "patients.create",
-      "patients.read",
-      "patients.update",
-      "patients.delete",
-      "payments.create",
-      "payments.read",
-      "payments.update",
-      "reports.view",
-      "reports.export",
-      "team.manage",
-    ],
-    biller: [
-      "claims.create",
-      "claims.read",
-      "claims.update",
-      "prior_auth.create",
-      "prior_auth.read",
-      "prior_auth.update",
-      "patients.read",
-      "payments.create",
-      "payments.read",
-      "reports.view",
-    ],
-    team_user: [
-      "claims.create",
-      "claims.read",
-      "prior_auth.create",
-      "prior_auth.read",
-      "patients.read",
-      "reports.view",
-    ],
-    read_only: [
-      "claims.read",
-      "prior_auth.read",
-      "patients.read",
-      "reports.view",
-    ],
-  };
-
-  return (
-    permissionMap[role as keyof typeof permissionMap] ??
-    permissionMap["read_only"]
-  );
 }

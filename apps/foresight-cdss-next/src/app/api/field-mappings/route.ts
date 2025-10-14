@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
-import type {
-  CreateFieldMappingRequest,
-  EntityType
-} from '@/types/field-mapping.types';
+import { and, eq, asc } from 'drizzle-orm';
+import { teamMembers, customFieldMappings } from '@foresight-cdss-next/db';
+import type { CreateFieldMappingRequest } from '@/types/field-mapping.types';
 
 // GET - List field mappings for current team
 export async function GET(request: NextRequest): Promise<NextResponse> {
@@ -14,52 +13,48 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
-    const entityType = searchParams.get('entity_type') as EntityType;
-    const ehrConnectionId = searchParams.get('ehr_connection_id');
     const activeOnly = searchParams.get('active_only') === 'true';
 
     // Get user's current team
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member) {
+    if (!member || member.length === 0) {
       return NextResponse.json({ error: 'Team access required' }, { status: 403 });
     }
 
-    // Build query
-    let query = supabase
-      .from('custom_field_mapping')
-      .select(`
-        *,
-        ehr_connection:ehr_connection_id (
-          id,
-          name,
-          system_type
-        )
-      `)
-      .eq('team_id', member?.team_id ?? '')
-      .order('entity_type, source_path');
-
-    // Apply filters
-    if (entityType) {
-      query = query.eq('entity_type', entityType);
-    }
-
-    if (ehrConnectionId) {
-      query = query.eq('ehr_connection_id', ehrConnectionId);
-    }
-
+    // Build where conditions
+    const whereConditions: any[] = [];
     if (activeOnly) {
-      query = query.eq('is_active', true);
+      whereConditions.push(eq(customFieldMappings.isActive, true));
     }
 
-    const { data: mappings, error } = await query;
+    const { data: mappings, error } = await safeSelect(async () =>
+      db.select({
+        id: customFieldMappings.id,
+        customFieldId: customFieldMappings.customFieldId,
+        ehrSystem: customFieldMappings.ehrSystem,
+        ehrFieldPath: customFieldMappings.ehrFieldPath,
+        transformationRules: customFieldMappings.transformationRules,
+        isActive: customFieldMappings.isActive,
+        createdAt: customFieldMappings.createdAt,
+        updatedAt: customFieldMappings.updatedAt
+      })
+      .from(customFieldMappings)
+      .where(whereConditions.length > 0 ? and(...whereConditions) : undefined)
+      .orderBy(asc(customFieldMappings.ehrSystem), asc(customFieldMappings.ehrFieldPath))
+    );
 
     if (error) {
       console.error('Error fetching field mappings:', error);
@@ -67,21 +62,20 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     }
 
     // Get mapping statistics
-    const { data: stats } = await supabase
-      .from('custom_field_mapping')
-      .select('entity_type, is_active, ehr_connection_id')
-      .eq('team_id', member?.team_id ?? '');
+    const { data: stats } = await safeSelect(async () =>
+      db.select({
+        ehrSystem: customFieldMappings.ehrSystem,
+        isActive: customFieldMappings.isActive
+      })
+      .from(customFieldMappings)
+    );
 
     const mappingStats = {
       total_mappings: stats?.length || 0,
-      active_mappings: stats?.filter(s => s.is_active).length || 0,
-      by_entity_type: stats?.reduce((acc, s) => {
-        acc[s.entity_type] = (acc[s.entity_type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>) || {},
-      by_ehr_system: stats?.reduce((acc, s) => {
-        if (s.ehr_connection_id) {
-          acc[s.ehr_connection_id] = (acc[s.ehr_connection_id] || 0) + 1;
+      active_mappings: stats?.filter((s: any) => s.isActive).length || 0,
+      by_ehr_system: stats?.reduce((acc: any, s: any) => {
+        if (s.ehrSystem) {
+          acc[s.ehrSystem] = (acc[s.ehrSystem] || 0) + 1;
         }
         return acc;
       }, {} as Record<string, number>) || {},
@@ -107,105 +101,90 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body: CreateFieldMappingRequest = await request.json();
 
     // Validate request body
+    const bodyAny = body as any;
     const {
-      entity_type,
-      source_path,
-      target_table,
-      target_column,
+      ehr_system,
+      ehr_field_path,
       transformation_rules,
-      validation_rules,
-      ehr_connection_id
-    } = body;
+      custom_field_id
+    } = bodyAny;
 
-    if (!entity_type || !source_path) {
+    if (!ehr_system || !ehr_field_path) {
       return NextResponse.json({
-        error: 'Missing required fields: entity_type, source_path'
+        error: 'Missing required fields: ehr_system, ehr_field_path'
       }, { status: 400 });
     }
 
-    // Get user's current team and verify admin permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Get user's team and verify admin permissions
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
     // Check if mapping already exists
-    const { data: existingMapping } = await supabase
-      .from('custom_field_mapping')
-      .select('id')
-      .eq('team_id', member?.team_id ?? '')
-      .eq('entity_type', entity_type)
-      .eq('source_path', source_path)
-      .eq('ehr_connection_id', ehr_connection_id || '')
-      .single();
+    const { data: existingMapping } = await safeSelect(async () =>
+      db.select({ id: customFieldMappings.id })
+        .from(customFieldMappings)
+        .where(and(
+          eq(customFieldMappings.ehrSystem, ehr_system),
+          eq(customFieldMappings.ehrFieldPath, ehr_field_path)
+        ))
+        .limit(1)
+    );
 
-    if (existingMapping) {
+    if (existingMapping && existingMapping.length > 0) {
       return NextResponse.json({
-        error: 'Field mapping already exists for this source path'
+        error: 'Field mapping already exists for this EHR field path'
       }, { status: 409 });
     }
 
-    // Validate EHR connection if specified
-    if (ehr_connection_id) {
-      const { data: ehrConnection } = await supabase
-        .from('ehr_connection')
-        .select('id, team_id')
-        .eq('id', ehr_connection_id)
-        .eq('team_id', member?.team_id ?? '')
-        .single();
-
-      if (!ehrConnection) {
-        return NextResponse.json({
-          error: 'EHR connection not found or access denied'
-        }, { status: 404 });
-      }
-    }
-
     // Create field mapping
-    const insertData = {
-      team_id: member.team_id!,
-      entity_type,
-      source_path,
-      target_table: target_table || null,
-      target_column: target_column || null,
-      transformation_rules: (transformation_rules || null) as any,
-      validation_rules: (validation_rules || null) as any,
-      ehr_connection_id: ehr_connection_id || null,
-      is_active: true
-    };
+    const { data: mapping, error } = await safeInsert(async () =>
+      db.insert(customFieldMappings)
+        .values({
+          customFieldId: custom_field_id || null,
+          ehrSystem: ehr_system,
+          ehrFieldPath: ehr_field_path,
+          transformationRules: transformation_rules || null,
+          isActive: true
+        })
+        .returning({
+          id: customFieldMappings.id,
+          customFieldId: customFieldMappings.customFieldId,
+          ehrSystem: customFieldMappings.ehrSystem,
+          ehrFieldPath: customFieldMappings.ehrFieldPath,
+          transformationRules: customFieldMappings.transformationRules,
+          isActive: customFieldMappings.isActive,
+          createdAt: customFieldMappings.createdAt,
+          updatedAt: customFieldMappings.updatedAt
+        })
+    );
 
-    const { data: mapping, error } = await supabase
-      .from('custom_field_mapping')
-      .insert(insertData)
-      .select(`
-        *,
-        ehr_connection:ehr_connection_id (
-          id,
-          name,
-          system_type
-        )
-      `)
-      .single();
-
-    if (error) {
+    if (error || !mapping || mapping.length === 0) {
       console.error('Error creating field mapping:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     return NextResponse.json({
-      mapping
+      mapping: mapping[0]
     }, { status: 201 });
 
   } catch (error) {

@@ -1,6 +1,8 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { and, eq } from 'drizzle-orm';
+import { teamMembers, organizations } from '@foresight-cdss-next/db';
 
 export interface TeamMembership {
   team_id: string;
@@ -25,30 +27,42 @@ export async function requireTeamMembership(): Promise<TeamMembership> {
     redirect('/login');
   }
 
-  const supabase = await createSupabaseServerClient();
+  const { db } = await createAuthenticatedDatabaseClient();
 
-  const { data: membership, error } = await supabase
-    .from('team_member')
-    .select(`
-      team_id,
-      role,
-      status,
-      team:team_id (
-        id,
-        name,
-        slug,
-        logo_url
-      )
-    `)
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .single();
+  const { data: membership, error } = await safeSelect(async () =>
+    db.select({
+      team_id: teamMembers.organizationId,
+      role: teamMembers.role,
+      status: teamMembers.isActive,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug
+    })
+    .from(teamMembers)
+    .leftJoin(organizations, eq(teamMembers.organizationId, organizations.id))
+    .where(and(
+      eq(teamMembers.clerkUserId, userId),
+      eq(teamMembers.isActive, true)
+    ))
+    .limit(1)
+  );
 
-  if (error || !membership) {
+  if (error || !membership || membership.length === 0) {
     redirect('/onboard');
   }
 
-  return membership as TeamMembership;
+  const result = membership[0] as any;
+  return {
+    team_id: result.team_id,
+    role: result.role,
+    status: result.status ? 'active' : 'inactive',
+    team: {
+      id: result.organizationId || '',
+      name: result.organizationName || '',
+      slug: result.organizationSlug || '',
+      logo_url: undefined
+    }
+  } as TeamMembership;
 }
 
 /**
@@ -62,30 +76,42 @@ export async function getTeamMembership(): Promise<TeamMembership | null> {
     return null;
   }
 
-  const supabase = await createSupabaseServerClient();
+  const { db } = await createAuthenticatedDatabaseClient();
 
-  const { data: membership, error } = await supabase
-    .from('team_member')
-    .select(`
-      team_id,
-      role,
-      status,
-      team:team_id (
-        id,
-        name,
-        slug,
-        logo_url
-      )
-    `)
-    .eq('user_id', userId)
-    .eq('status', 'active')
-    .single();
+  const { data: membership, error } = await safeSelect(async () =>
+    db.select({
+      team_id: teamMembers.organizationId,
+      role: teamMembers.role,
+      status: teamMembers.isActive,
+      organizationId: organizations.id,
+      organizationName: organizations.name,
+      organizationSlug: organizations.slug
+    })
+    .from(teamMembers)
+    .leftJoin(organizations, eq(teamMembers.organizationId, organizations.id))
+    .where(and(
+      eq(teamMembers.clerkUserId, userId),
+      eq(teamMembers.isActive, true)
+    ))
+    .limit(1)
+  );
 
-  if (error || !membership) {
+  if (error || !membership || membership.length === 0) {
     return null;
   }
 
-  return membership as TeamMembership;
+  const result = membership[0] as any;
+  return {
+    team_id: result.team_id,
+    role: result.role,
+    status: result.status ? 'active' : 'inactive',
+    team: {
+      id: result.organizationId || '',
+      name: result.organizationName || '',
+      slug: result.organizationSlug || '',
+      logo_url: undefined
+    }
+  } as TeamMembership;
 }
 
 /**
