@@ -1,12 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
 import { ActionsNeededCard } from '@/components/dashboard/actions-needed';
 import { AnalyticsOverview } from '@/components/dashboard/dashboard-charts';
 import { AuditTrail, type AuditEntry } from '@/components/dashboard/audit-trail';
-import { MetricCard } from '@/components/dashboard/metric-card';
-import { AgingBucketsCard } from '@/components/dashboard/aging-buckets-card';
 import { calculateRCMMetrics, calculateSubmissionPipelineMetrics } from '@/utils/dashboard';
 import type { StatusDistribution as StatusDistributionType, DashboardMetric } from '@/types/pa.types';
 import type { EpaQueueItem } from '@/data/epa-queue';
@@ -26,9 +22,6 @@ export default function DashboardClient({
   statusDistribution,
   auditEntries,
 }: Readonly<DashboardClientProps>) {
-  const params = useParams();
-  const teamSlug = params?.slug as string;
-
   // Calculate RCM metrics from claims data
   const rcmMetrics = calculateRCMMetrics(claimItems);
 
@@ -41,8 +34,8 @@ export default function DashboardClient({
 
   const daysInARMetric: DashboardMetric = {
     label: "Days in A/R",
-    value: avgDays !== null ? `${avgDays} days` : "N/A",
-    change: avgDays !== null ? {
+    value: avgDays ? `${avgDays} days` : "N/A",
+    change: avgDays ? {
       value: "2.1",
       trend: "down",
       positive: true // Downtrend is positive for Days in AR
@@ -101,36 +94,18 @@ export default function DashboardClient({
         {/* Actions needed - full width row */}
         <ActionsNeededCard epaItems={epaItems} claimItems={claimItems} preEncounterIssues={mockPreEncounterIssues} />
 
-        {/* AR KPI tiles row */}
-        <div className="grid w-full gap-4 md:grid-cols-2">
-          <Link href={teamSlug ? `/team/${teamSlug}/analytics#ar-details` : "/analytics#ar-details"} className="block h-full group">
-            <div className={`h-full ${avgDays !== null && avgDays > 40 ? 'text-red-600' : ''}`}>
-              <MetricCard metric={daysInARMetric} />
-            </div>
-          </Link>
-          <AgingBucketsCard
-            buckets={rcmMetrics.agingBuckets}
-            counts={rcmMetrics.agingCounts}
-            totalOutstandingAR={rcmMetrics.totalOutstandingAR}
-            tooltip="Breakdown of outstanding receivables by age groups to track collection efficiency"
-          />
-        </div>
-
-        {/* Submission Pipeline Metrics row */}
-        <div className="grid w-full gap-4 md:grid-cols-3">
-          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review` : "/claims?filter=needs_review"} className="block group">
-            <MetricCard metric={claimsMissingInfoMetric} />
-          </Link>
-          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=rejected_277ca` : "/claims?filter=rejected_277ca"} className="block group">
-            <MetricCard metric={scrubberRejectsMetric} />
-          </Link>
-          <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review&sort=high_dollar` : "/claims?filter=needs_review&sort=high_dollar"} className="block group">
-            <MetricCard metric={totalAwaitingReviewMetric} />
-          </Link>
-        </div>
-
         {/* Analytics and Audit sections below */}
-        <AnalyticsOverview statusDistribution={statusDistribution} claimItems={claimItems} />
+        <AnalyticsOverview
+          statusDistribution={statusDistribution}
+          claimItems={claimItems}
+          daysInARMetric={daysInARMetric}
+          agingBuckets={rcmMetrics.agingBuckets}
+          agingCounts={rcmMetrics.agingCounts}
+          totalOutstandingAR={rcmMetrics.totalOutstandingAR}
+          claimsMissingInfoMetric={claimsMissingInfoMetric}
+          scrubberRejectsMetric={scrubberRejectsMetric}
+          totalAwaitingReviewMetric={totalAwaitingReviewMetric}
+        />
         <AuditTrail entries={auditEntries} />
       </div>
     </div>

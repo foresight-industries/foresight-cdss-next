@@ -4,12 +4,16 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
-import type { StatusDistribution as StatusDistributionType } from '@/types/pa.types';
+import type { StatusDistribution as StatusDistributionType, DashboardMetric } from '@/types/pa.types';
 import type { Claim, ClaimStatus } from '@/data/claims';
-import { calculateSubmissionPipelineMetrics } from '@/utils/dashboard';
+import { calculateSubmissionPipelineMetrics, type AgingBuckets } from '@/utils/dashboard';
 import { getTopDenialReasons, analyzeDenialReasons, extractDenialReason, type DenialReasonAnalysis } from '@/data/denial-reasons';
 import { DenialReasonDetail } from '@/components/analytics/denial-reason-detail';
+import { MetricCard } from '@/components/dashboard/metric-card';
+import { AgingBucketsCard } from '@/components/dashboard/aging-buckets-card';
 import { toast } from 'sonner';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import {
   ResponsiveContainer,
   BarChart,
@@ -28,6 +32,13 @@ interface AnalyticsOverviewProps {
   claimItems?: Claim[];
   className?: string;
   activeTab?: 'all' | 'claims' | 'pas';
+  daysInARMetric?: DashboardMetric;
+  agingBuckets?: AgingBuckets;
+  agingCounts?: AgingBuckets;
+  totalOutstandingAR?: number;
+  claimsMissingInfoMetric?: DashboardMetric;
+  scrubberRejectsMetric?: DashboardMetric;
+  totalAwaitingReviewMetric?: DashboardMetric;
 }
 
 const volumeTrendData = [
@@ -60,9 +71,18 @@ export function AnalyticsOverview({
   claimItems = [],
   className = "",
   activeTab = "all",
+  daysInARMetric,
+  agingBuckets,
+  agingCounts,
+  totalOutstandingAR,
+  claimsMissingInfoMetric,
+  scrubberRejectsMetric,
+  totalAwaitingReviewMetric,
 }: Readonly<AnalyticsOverviewProps>) {
   const [selectedDenialReason, setSelectedDenialReason] =
     useState<DenialReasonAnalysis | null>(null);
+  const params = useParams();
+  const teamSlug = params?.slug as string;
 
   // Calculate submission pipeline metrics if claim data is available
   const submissionMetrics =
@@ -735,6 +755,38 @@ export function AnalyticsOverview({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-8">
+        {/* AR KPI tiles row - moved from dashboard */}
+        {daysInARMetric && agingBuckets && agingCounts && totalOutstandingAR !== undefined && (
+          <div className="grid w-full gap-4 md:grid-cols-2">
+            <Link href={teamSlug ? `/team/${teamSlug}/analytics#ar-details` : "/analytics#ar-details"} className="block h-full group">
+              <div className={`h-full ${typeof daysInARMetric.value === 'string' && daysInARMetric.value.includes('N/A') ? '' : typeof daysInARMetric.value === 'string' && Number.parseInt(daysInARMetric.value) > 40 ? 'text-red-600' : ''}`}>
+                <MetricCard metric={daysInARMetric} />
+              </div>
+            </Link>
+            <AgingBucketsCard
+              buckets={agingBuckets}
+              counts={agingCounts}
+              totalOutstandingAR={totalOutstandingAR}
+              tooltip="Breakdown of outstanding receivables by age groups to track collection efficiency"
+            />
+          </div>
+        )}
+        
+        {/* Submission Pipeline Metrics row - moved from dashboard */}
+        {claimsMissingInfoMetric && scrubberRejectsMetric && totalAwaitingReviewMetric && (
+          <div className="grid w-full gap-4 md:grid-cols-3">
+            <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review` : "/claims?filter=needs_review"} className="block group">
+              <MetricCard metric={claimsMissingInfoMetric} />
+            </Link>
+            <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=rejected_277ca` : "/claims?filter=rejected_277ca"} className="block group">
+              <MetricCard metric={scrubberRejectsMetric} />
+            </Link>
+            <Link href={teamSlug ? `/team/${teamSlug}/claims?filter=needs_review&sort=high_dollar` : "/claims?filter=needs_review&sort=high_dollar"} className="block group">
+              <MetricCard metric={totalAwaitingReviewMetric} />
+            </Link>
+          </div>
+        )}
+        
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
             <h4 className="text-sm font-semibold text-foreground mb-2">
