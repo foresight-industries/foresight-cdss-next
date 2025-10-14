@@ -280,8 +280,13 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     if (paParam) {
       // Find the PA by ID
       const pa = queueData.find((item) => item.id === paParam);
-      if (pa && !selectedPaId) {
+      if (pa && selectedPaId !== paParam) {
         setSelectedPaId(paParam);
+      }
+    } else {
+      // If there's no pa parameter but we have an active PA, close it
+      if (selectedPaId) {
+        setSelectedPaId(null);
       }
     }
   }, [searchParams, queueData, selectedPaId]);

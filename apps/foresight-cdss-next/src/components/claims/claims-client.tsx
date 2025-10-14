@@ -773,8 +773,13 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
     if (claimParam) {
       // Find the claim by ID
       const claim = claims.find(c => c.id === claimParam);
-      if (claim && !activeClaimId) {
+      if (claim && activeClaimId !== claimParam) {
         setActiveClaimId(claimParam);
+      }
+    } else {
+      // If there's no claim parameter but we have an active claim, close it
+      if (activeClaimId) {
+        setActiveClaimId(null);
       }
     }
   }, [searchParams, claims, activeClaimId]);
