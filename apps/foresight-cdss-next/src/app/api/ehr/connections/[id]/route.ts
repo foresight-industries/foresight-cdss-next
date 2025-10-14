@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeUpdate, safeDelete } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq, inArray } from 'drizzle-orm';
+import { teamMembers, ehrConnections, syncJobs } from '@foresight-cdss-next/db';
 import type {
   UpdateEHRConnectionRequest,
   EHRAuthConfig,
-  EHRConnection,
 } from "@/types/ehr.types";
 
 // GET - Get specific EHR connection
@@ -18,56 +19,76 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const connectionId = params.id;
 
+    // First verify user has access to a team
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
+
+    if (!member || member.length === 0) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
     // Get connection with team verification
-    const { data: connection, error } = await supabase
-      .from('ehr_connection')
-      .select(`
-        *,
-        ehr_system (
-          id,
-          name,
-          display_name,
-          api_type,
-          auth_method,
-          fhir_version,
-          documentation_url,
-          capabilities
-        ),
-        team!inner(id, name, slug)
-      `)
-      .eq('id', connectionId)
-      .eq('team.team_member.user_id', userId)
-      .eq('team.team_member.status', 'active')
-      .single();
+    const { data: connection, error } = await safeSingle(async () =>
+      db.select({
+        id: ehrConnections.id,
+        organizationId: ehrConnections.organizationId,
+        ehrSystemName: ehrConnections.ehrSystemName,
+        version: ehrConnections.version,
+        apiType: ehrConnections.apiType,
+        authMethod: ehrConnections.authMethod,
+        baseUrl: ehrConnections.baseUrl,
+        clientId: ehrConnections.clientId,
+        clientSecret: ehrConnections.clientSecret,
+        apiKey: ehrConnections.apiKey,
+        tokenUrl: ehrConnections.tokenUrl,
+        authorizeUrl: ehrConnections.authorizeUrl,
+        scopes: ehrConnections.scopes,
+        isActive: ehrConnections.isActive,
+        lastSyncAt: ehrConnections.lastSyncAt,
+        lastTestAt: ehrConnections.lastTestAt,
+        testStatus: ehrConnections.testStatus,
+        syncPatients: ehrConnections.syncPatients,
+        createdAt: ehrConnections.createdAt,
+        updatedAt: ehrConnections.updatedAt
+      })
+      .from(ehrConnections)
+      .where(and(
+        eq(ehrConnections.id, connectionId),
+        eq(ehrConnections.organizationId, (member[0] as any).organizationId)
+      ))
+    );
 
     if (error || !connection) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
-    // Cast auth_config to proper type and remove sensitive auth data
-    const authConfig = connection.auth_config as unknown as EHRAuthConfig;
+    // Build auth config from connection fields and remove sensitive data
+    const conn = connection as any;
+    const authConfig: EHRAuthConfig = {
+      type: conn.authMethod,
+      client_id: conn.clientId ? '••••••••' : undefined,
+      api_key: conn.apiKey ? '••••••••' : undefined,
+      token_url: conn.tokenUrl,
+      authorization_url: conn.authorizeUrl,
+      scope: conn.scopes
+    };
+
     const safeConnection = {
-      ...connection,
-      auth_config: {
-        type: authConfig?.type,
-        // Include field names but not values for form population
-        client_id: authConfig?.client_id ? '••••••••' : undefined,
-        api_key: authConfig?.api_key ? '••••••••' : undefined,
-        username: authConfig?.username || undefined,
-        authorization_url: authConfig?.authorization_url,
-        token_url: authConfig?.token_url,
-        scope: authConfig?.scope,
-        api_key_header: authConfig?.api_key_header,
-        expires_at: authConfig?.expires_at,
-        has_credentials: !!(
-          authConfig?.client_id ||
-          authConfig?.api_key ||
-          authConfig?.username
-        )
-      }
+      ...conn,
+      auth_config: authConfig
     };
 
     return NextResponse.json({
@@ -91,74 +112,94 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const connectionId = params.id;
     const body: UpdateEHRConnectionRequest = await request.json();
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
     // Verify connection belongs to user's team
-    const { data: existingConnection } = await supabase
-      .from('ehr_connection')
-      .select('team_id, auth_config, ehr_system_id')
-      .eq('id', connectionId)
-      .single();
+    const { data: existingConnection } = await safeSingle(async () =>
+      db.select({
+        organizationId: ehrConnections.organizationId,
+        clientId: ehrConnections.clientId,
+        clientSecret: ehrConnections.clientSecret,
+        apiKey: ehrConnections.apiKey,
+        tokenUrl: ehrConnections.tokenUrl,
+        authorizeUrl: ehrConnections.authorizeUrl,
+        scopes: ehrConnections.scopes,
+        authMethod: ehrConnections.authMethod
+      })
+      .from(ehrConnections)
+      .where(eq(ehrConnections.id, connectionId))
+    );
 
-    if (!existingConnection || existingConnection.team_id !== member.team_id) {
+    if (!existingConnection) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
-    // Validate update fields
-    const allowedFields = [
-      'connection_name', 'base_url', 'environment', 'status',
-      'auth_config', 'custom_headers', 'sync_config', 'metadata'
-    ];
-    const updates: Record<string, any> = {};
+    // Map request fields to database columns
+    const updates: Partial<typeof ehrConnections.$inferInsert> = {};
 
-    for (const [key, value] of Object.entries(body)) {
-      if (allowedFields.includes(key) && value !== undefined) {
-        updates[key] = value;
+    // Handle direct field mappings
+    if (body.base_url !== undefined) updates.baseUrl = body.base_url;
+    if (body.status !== undefined) updates.isActive = body.status === 'active';
+
+    // Handle auth_config updates by mapping to individual columns
+    if (body.auth_config) {
+      const authConfig = body.auth_config;
+      
+      // Only update auth fields that are provided and not masked
+      if (authConfig.client_id !== undefined && authConfig.client_id !== '••••••••') {
+        updates.clientId = authConfig.client_id;
+      }
+      if (authConfig.client_secret !== undefined && authConfig.client_secret !== '••••••••') {
+        updates.clientSecret = authConfig.client_secret;
+      }
+      if (authConfig.api_key !== undefined && authConfig.api_key !== '••••••••') {
+        updates.apiKey = authConfig.api_key;
+      }
+      if (authConfig.token_url !== undefined) {
+        updates.tokenUrl = authConfig.token_url;
+      }
+      if (authConfig.authorization_url !== undefined) {
+        updates.authorizeUrl = authConfig.authorization_url;
+      }
+      if (authConfig.scope !== undefined) {
+        updates.scopes = authConfig.scope;
+      }
+      if (authConfig.type !== undefined) {
+        updates.authMethod = authConfig.type;
       }
     }
 
-    // Handle auth_config updates carefully
-    if (updates.auth_config) {
-      const currentAuthConfig = (existingConnection.auth_config || {}) as unknown as EHRAuthConfig;
-      const newAuthConfig = { ...currentAuthConfig } as Record<string, any>;
-
-      // Only update fields that are provided and not masked
-      for (const [key, value] of Object.entries(updates.auth_config)) {
-        if (value !== undefined && value !== '••••••••') {
-          newAuthConfig[key] = value;
-        }
-      }
-
-      updates.auth_config = newAuthConfig as EHRAuthConfig;
+    // Handle sync config mappings
+    if (body.sync_config && (body.sync_config as any).sync_patients !== undefined) {
+      updates.syncPatients = (body.sync_config as any).sync_patients;
     }
 
-    // Validate environment if provided
-    if (updates.environment && !['development', 'staging', 'production'].includes(updates.environment)) {
+    // Validate auth method if provided
+    if (updates.authMethod && !['oauth2', 'api_key', 'basic'].includes(updates.authMethod)) {
       return NextResponse.json({
-        error: 'Invalid environment. Must be development, staging, or production'
-      }, { status: 400 });
-    }
-
-    // Validate status if provided
-    if (updates.status && !['active', 'inactive', 'testing', 'error'].includes(updates.status)) {
-      return NextResponse.json({
-        error: 'Invalid status. Must be active, inactive, testing, or error'
+        error: 'Invalid auth method. Must be oauth2, api_key, or basic'
       }, { status: 400 });
     }
 
@@ -167,49 +208,55 @@ export async function PUT(
     }
 
     // Add updated_at timestamp
-    updates.updated_at = new Date().toISOString();
+    updates.updatedAt = new Date();
 
     // Update connection
-    const { data, error } = await supabase
-      .from('ehr_connection')
-      .update(updates)
-      .eq('id', connectionId)
-      .select(`
-        *,
-        ehr_system (
-          id,
-          name,
-          display_name,
-          api_type,
-          auth_method,
-          fhir_version
-        )
-      `)
-      .single();
+    const { data, error } = await safeUpdate(async () =>
+      db.update(ehrConnections)
+        .set(updates)
+        .where(eq(ehrConnections.id, connectionId))
+        .returning({
+          id: ehrConnections.id,
+          organizationId: ehrConnections.organizationId,
+          ehrSystemName: ehrConnections.ehrSystemName,
+          version: ehrConnections.version,
+          apiType: ehrConnections.apiType,
+          authMethod: ehrConnections.authMethod,
+          baseUrl: ehrConnections.baseUrl,
+          clientId: ehrConnections.clientId,
+          clientSecret: ehrConnections.clientSecret,
+          apiKey: ehrConnections.apiKey,
+          tokenUrl: ehrConnections.tokenUrl,
+          authorizeUrl: ehrConnections.authorizeUrl,
+          scopes: ehrConnections.scopes,
+          isActive: ehrConnections.isActive,
+          lastSyncAt: ehrConnections.lastSyncAt,
+          lastTestAt: ehrConnections.lastTestAt,
+          testStatus: ehrConnections.testStatus,
+          syncPatients: ehrConnections.syncPatients,
+          createdAt: ehrConnections.createdAt,
+          updatedAt: ehrConnections.updatedAt
+        })
+    );
 
-    const connection = data as unknown as EHRConnection;
+    const connection = data?.[0];
 
-    if (error) {
+    if (error || !connection) {
       console.error('Error updating EHR connection:', error);
-      if (error.code === '23505') {
-        return NextResponse.json({
-          error: 'Connection name already exists for this team'
-        }, { status: 409 });
-      }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     // Remove sensitive auth data from response
+    const conn = connection as any;
     const safeConnection = {
-      ...connection,
+      ...conn,
       auth_config: {
-        type: connection.auth_config?.type,
+        type: conn.authMethod,
         has_credentials: !!(
-          connection.auth_config?.client_id ||
-          connection.auth_config?.api_key ||
-          connection.auth_config?.username
+          conn.clientId ||
+          conn.apiKey
         ),
-        scope: connection.auth_config?.scope
+        scope: conn.scopes
       }
     };
 
@@ -234,30 +281,39 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const connectionId = params.id;
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
     // Check if connection has any active sync jobs
-    const { data: activeSyncJobs } = await supabase
-      .from('sync_job')
-      .select('id')
-      .eq('ehr_connection_id', connectionId)
-      .in('status', ['pending', 'running'])
-      .limit(1);
+    const { data: activeSyncJobs } = await safeSelect(async () =>
+      db.select({ id: syncJobs.id })
+        .from(syncJobs)
+        .where(and(
+          eq(syncJobs.ehrSystemId, connectionId),
+          inArray(syncJobs.status, ['pending', 'in_progress'])
+        ))
+        .limit(1)
+    );
 
     if (activeSyncJobs && activeSyncJobs.length > 0) {
       return NextResponse.json({
@@ -266,15 +322,16 @@ export async function DELETE(
     }
 
     // Verify connection belongs to user's team and delete
-    const { data: connection, error } = await supabase
-      .from('ehr_connection')
-      .delete()
-      .eq('id', connectionId)
-      .eq('team_id', member?.team_id ?? '')
-      .select()
-      .single();
+    const { data: connection, error } = await safeDelete(async () =>
+      db.delete(ehrConnections)
+        .where(and(
+          eq(ehrConnections.id, connectionId),
+          eq(ehrConnections.organizationId, (member[0] as any).organizationId)
+        ))
+        .returning({ id: ehrConnections.id })
+    );
 
-    if (error || !connection) {
+    if (error || !connection || connection.length === 0) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
