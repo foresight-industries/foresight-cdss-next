@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TableErrorBoundary } from '@/components/error-boundaries';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1336,7 +1337,37 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
             )}
           </CardHeader>
           <CardContent className="p-0">
-            <Table>
+            <TableErrorBoundary 
+              tableName="claims work queue" 
+              onRetry={() => window.location.reload()}
+              showExport={true}
+              onExport={() => {
+                // Create CSV export
+                const csv = filteredClaims.map(claim => ({
+                  id: claim.id,
+                  patient: claim.patient.name,
+                  payer: claim.payer.name,
+                  amount: claim.total_amount,
+                  status: claim.status,
+                  dos: claim.dos,
+                  updated: claim.updatedAt
+                }));
+                
+                const csvContent = [
+                  Object.keys(csv[0]).join(','),
+                  ...csv.map(row => Object.values(row).join(','))
+                ].join('\n');
+                
+                const blob = new Blob([csvContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'claims-export.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-12">
@@ -1933,7 +1964,8 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
                   );
                 })}
               </TableBody>
-            </Table>
+              </Table>
+            </TableErrorBoundary>
           </CardContent>
         </Card>
 

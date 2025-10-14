@@ -36,7 +36,7 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
           }
 
           // Fallback: try to extract from current URL if we're on a team page
-          const currentPath = globalThis.location.pathname;
+          const currentPath = globalThis.location?.pathname ?? '';
           const teamRegex = /^\/team\/([^/]+)/;
           const teamMatch = teamRegex.exec(currentPath);
           if (teamMatch) {

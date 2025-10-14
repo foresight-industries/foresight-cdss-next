@@ -1,3 +1,5 @@
+import "@/polyfills";
+
 import { auth } from '@clerk/nextjs/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { teamMembers, db } from '@foresight-cdss-next/db';
@@ -215,21 +217,21 @@ export async function safeSingle<T>(
 ): Promise<{ data: T | null; error: Error | null }> {
   try {
     const results = await queryFn();
-    
+
     if (results.length === 0) {
-      return { 
-        data: null, 
-        error: new Error('No rows found') 
+      return {
+        data: null,
+        error: new Error('No rows found')
       };
     }
-    
+
     if (results.length > 1) {
       return {
         data: null,
         error: new Error('Multiple rows returned when single row expected')
       };
     }
-    
+
     return { data: results[0], error: null };
   } catch (error) {
     console.error('Database single record error:', error);
@@ -251,7 +253,7 @@ export async function safeInsert<T>(
     return { data, error: null };
   } catch (error) {
     console.error('Database insert error:', error);
-    
+
     // Handle common database errors
     let errorMessage = 'Insert failed';
     if (error instanceof Error) {
@@ -265,7 +267,7 @@ export async function safeInsert<T>(
         errorMessage = error.message;
       }
     }
-    
+
     return {
       data: null,
       error: new Error(errorMessage)

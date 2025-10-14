@@ -225,6 +225,9 @@ export default function AuditTrailClient({ auditEntries }: Readonly<AuditTrailCl
   useEffect(() => {
     const handleScroll = () => {
       if (
+        typeof globalThis !== "undefined" &&
+        globalThis.document &&
+        globalThis.innerHeight &&
         globalThis.innerHeight +
           globalThis.document.documentElement.scrollTop >=
           globalThis.document.documentElement.offsetHeight - 1000 &&
@@ -233,10 +236,14 @@ export default function AuditTrailClient({ auditEntries }: Readonly<AuditTrailCl
       ) {
         loadMore();
       }
-    };
+    }
 
-    globalThis.addEventListener("scroll", handleScroll);
-    return () => globalThis.removeEventListener("scroll", handleScroll);
+    if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
+      globalThis.addEventListener("scroll", handleScroll);
+      return () => globalThis.removeEventListener("scroll", handleScroll);
+    } else {
+      return () => undefined;
+    }
   }, [loadMore, isLoading, visibleCount, filteredEntries.length]);
 
   const clearAllFilters = () => {

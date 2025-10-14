@@ -229,6 +229,58 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@aws-sdk/client-lambda@npm:^3.908.0":
+  version: 3.908.0
+  resolution: "@aws-sdk/client-lambda@npm:3.908.0"
+  dependencies:
+    "@aws-crypto/sha256-browser": "npm:5.2.0"
+    "@aws-crypto/sha256-js": "npm:5.2.0"
+    "@aws-sdk/core": "npm:3.908.0"
+    "@aws-sdk/credential-provider-node": "npm:3.908.0"
+    "@aws-sdk/middleware-host-header": "npm:3.901.0"
+    "@aws-sdk/middleware-logger": "npm:3.901.0"
+    "@aws-sdk/middleware-recursion-detection": "npm:3.901.0"
+    "@aws-sdk/middleware-user-agent": "npm:3.908.0"
+    "@aws-sdk/region-config-resolver": "npm:3.901.0"
+    "@aws-sdk/types": "npm:3.901.0"
+    "@aws-sdk/util-endpoints": "npm:3.901.0"
+    "@aws-sdk/util-user-agent-browser": "npm:3.907.0"
+    "@aws-sdk/util-user-agent-node": "npm:3.908.0"
+    "@smithy/config-resolver": "npm:^4.3.0"
+    "@smithy/core": "npm:^3.15.0"
+    "@smithy/eventstream-serde-browser": "npm:^4.2.0"
+    "@smithy/eventstream-serde-config-resolver": "npm:^4.3.0"
+    "@smithy/eventstream-serde-node": "npm:^4.2.0"
+    "@smithy/fetch-http-handler": "npm:^5.3.1"
+    "@smithy/hash-node": "npm:^4.2.0"
+    "@smithy/invalid-dependency": "npm:^4.2.0"
+    "@smithy/middleware-content-length": "npm:^4.2.0"
+    "@smithy/middleware-endpoint": "npm:^4.3.1"
+    "@smithy/middleware-retry": "npm:^4.4.1"
+    "@smithy/middleware-serde": "npm:^4.2.0"
+    "@smithy/middleware-stack": "npm:^4.2.0"
+    "@smithy/node-config-provider": "npm:^4.3.0"
+    "@smithy/node-http-handler": "npm:^4.3.0"
+    "@smithy/protocol-http": "npm:^5.3.0"
+    "@smithy/smithy-client": "npm:^4.7.1"
+    "@smithy/types": "npm:^4.6.0"
+    "@smithy/url-parser": "npm:^4.2.0"
+    "@smithy/util-base64": "npm:^4.3.0"
+    "@smithy/util-body-length-browser": "npm:^4.2.0"
+    "@smithy/util-body-length-node": "npm:^4.2.1"
+    "@smithy/util-defaults-mode-browser": "npm:^4.3.0"
+    "@smithy/util-defaults-mode-node": "npm:^4.2.1"
+    "@smithy/util-endpoints": "npm:^3.2.0"
+    "@smithy/util-middleware": "npm:^4.2.0"
+    "@smithy/util-retry": "npm:^4.2.0"
+    "@smithy/util-stream": "npm:^4.5.0"
+    "@smithy/util-utf8": "npm:^4.2.0"
+    "@smithy/util-waiter": "npm:^4.2.0"
+    tslib: "npm:^2.6.2"
+  checksum: 10c0/be90738561b95d6892ae5fea208e82f6654416fee8b75b89a950c6cd43b67a0bb003dafbdcb5ae4a02526b73c56a435e70de15ddabb0cde9256ab776a5cb5d85
+  languageName: node
+  linkType: hard
+
 "@aws-sdk/client-rds-data@npm:^3.908.0":
   version: 3.908.0
   resolution: "@aws-sdk/client-rds-data@npm:3.908.0"
@@ -3623,6 +3675,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/web@workspace:apps/foresight-cdss-next"
   dependencies:
+    "@aws-sdk/client-lambda": "npm:^3.908.0"
     "@aws-sdk/client-s3": "npm:^3.908.0"
     "@aws-sdk/s3-request-presigner": "npm:^3.908.0"
     "@clerk/elements": "npm:^0.23.68"
@@ -3669,6 +3722,7 @@ __metadata:
     "@types/jsonwebtoken": "npm:^9"
     "@vercel/analytics": "npm:^1.5.0"
     "@vercel/speed-insights": "npm:^1.2.0"
+    "@xmldom/xmldom": "npm:^0.8.11"
     class-variance-authority: "npm:^0.7.1"
     clsx: "npm:^2.1.1"
     cmdk: "npm:^1.1.1"
@@ -11619,6 +11673,13 @@ __metadata:
   dependencies:
     arch: "npm:^3.0.0"
   checksum: 10c0/e4f774ef8d36144b53749f02b602494653442379582756546415c05a5094f79931521cc0c430ab9f824a83a500ca64b8dd560e9f9b31e967bb608d2418050592
+  languageName: node
+  linkType: hard
+
+"@xmldom/xmldom@npm:^0.8.11":
+  version: 0.8.11
+  resolution: "@xmldom/xmldom@npm:0.8.11"
+  checksum: 10c0/e768623de72c95d3dae6b5da8e33dda0d81665047811b5498d23a328d45b13feb5536fe921d0308b96a4a8dd8addf80b1f6ef466508051c0b581e63e0dc74ed5
   languageName: node
   linkType: hard
 

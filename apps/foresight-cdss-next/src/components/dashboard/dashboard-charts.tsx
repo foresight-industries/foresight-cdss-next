@@ -11,6 +11,7 @@ import { getTopDenialReasons, analyzeDenialReasons, extractDenialReason, type De
 import { DenialReasonDetail } from '@/components/analytics/denial-reason-detail';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { AgingBucketsCard } from '@/components/dashboard/aging-buckets-card';
+import { ChartErrorBoundary } from '@/components/error-boundaries';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
@@ -795,27 +796,29 @@ export function AnalyticsOverview({
             <p className="text-xs text-muted-foreground mb-4">
               {chartDescription}
             </p>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volumeTrend}>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    vertical={false}
-                    stroke="#e5e7eb"
-                  />
-                  <XAxis
-                    dataKey="month"
-                    axisLine={false}
-                    tickLine={false}
-                    stroke="#6b7280"
-                  />
-                  <YAxis axisLine={false} tickLine={false} stroke="#6b7280" />
-                  <Tooltip formatter={(value: number) => `${value} items`} />
-                  <Legend />
-                  {barElements}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <ChartErrorBoundary chartName="volume trends" height={256}>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={volumeTrend}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      stroke="#e5e7eb"
+                    />
+                    <XAxis
+                      dataKey="month"
+                      axisLine={false}
+                      tickLine={false}
+                      stroke="#6b7280"
+                    />
+                    <YAxis axisLine={false} tickLine={false} stroke="#6b7280" />
+                    <Tooltip formatter={(value: number) => `${value} items`} />
+                    <Legend />
+                    {barElements}
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartErrorBoundary>
           </div>
 
           <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -973,29 +976,31 @@ export function AnalyticsOverview({
             <p className="text-xs text-muted-foreground mb-4">
               {submissionChartDescription}
             </p>
-            <ChartContainer config={submissionChartConfig}>
-              <BarChart
-                accessibilityLayer
-                data={submissionOutcomes}
-                layout="vertical"
-                margin={{ left: 20 }}
-                barCategoryGap="20%"
-              >
-                <YAxis
-                  dataKey="category"
-                  type="category"
-                  tickLine={false}
-                  tickMargin={10}
-                  axisLine={true}
-                />
-                <XAxis type="number" axisLine={true} tickLine={false} />
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                <Bar dataKey="value" fill="#22c55e" />
-              </BarChart>
-            </ChartContainer>
+            <ChartErrorBoundary chartName="submission outcomes" height={200}>
+              <ChartContainer config={submissionChartConfig}>
+                <BarChart
+                  accessibilityLayer
+                  data={submissionOutcomes}
+                  layout="vertical"
+                  margin={{ left: 20 }}
+                  barCategoryGap="20%"
+                >
+                  <YAxis
+                    dataKey="category"
+                    type="category"
+                    tickLine={false}
+                    tickMargin={10}
+                    axisLine={true}
+                  />
+                  <XAxis type="number" axisLine={true} tickLine={false} />
+                  <ChartTooltip
+                    cursor={false}
+                    content={<ChartTooltipContent hideLabel />}
+                  />
+                  <Bar dataKey="value" fill="#22c55e" />
+                </BarChart>
+              </ChartContainer>
+            </ChartErrorBoundary>
             <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
               {submissionOutcomes.map((outcome, index) => (
                 <div key={index} className="text-center">
@@ -1034,47 +1039,49 @@ export function AnalyticsOverview({
           <p className="text-xs text-muted-foreground mb-4">
             Rolling averages for automation rate and documentation quality
           </p>
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={automationQuality}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="#e5e7eb"
-                  vertical={false}
-                />
-                <XAxis
-                  dataKey="month"
-                  stroke="#6b7280"
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  tickLine={false}
-                  axisLine={false}
-                  domain={[70, 100]}
-                />
-                <Tooltip formatter={(value: number) => `${value}%`} />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="automation"
-                  name="Automation rate"
-                  stroke="#4f46e5"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="quality"
-                  name="Quality score"
-                  stroke="#14b8a6"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
+          <ChartErrorBoundary chartName="automation & quality trends" height={256}>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={automationQuality}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    stroke="#e5e7eb"
+                    vertical={false}
+                  />
+                  <XAxis
+                    dataKey="month"
+                    stroke="#6b7280"
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#6b7280"
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[70, 100]}
+                  />
+                  <Tooltip formatter={(value: number) => `${value}%`} />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="automation"
+                    name="Automation rate"
+                    stroke="#4f46e5"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="quality"
+                    name="Quality score"
+                    stroke="#14b8a6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </ChartErrorBoundary>
         </div>
       </CardContent>
     </Card>

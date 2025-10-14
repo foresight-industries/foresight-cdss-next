@@ -22,7 +22,7 @@ export class ApiStack extends cdk.Stack {
 
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
-      code: lambda.Code.fromAsset('../layers/dependencies'),
+      code: lambda.Code.fromAsset('./layers/dependencies'),
       compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
       description: 'Common dependencies for Lambda functions',
     });

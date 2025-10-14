@@ -22,9 +22,9 @@ export default function NotFound() {
   // Check if this 404 is from trying to access reset-password without proper params
   // Do this synchronously during initial render to prevent flash
   const isResetPasswordAccess = (() => {
-    if (typeof globalThis !== 'undefined' && globalThis.location) {
+    if (typeof globalThis !== 'undefined' && globalThis.location && globalThis.document) {
       const currentPath = globalThis.location.pathname;
-      const referer = globalThis.document?.referrer || '';
+      const referer = globalThis.document.referrer || '';
       return currentPath === '/reset-password' || referer.includes('/reset-password');
     }
     return false;
