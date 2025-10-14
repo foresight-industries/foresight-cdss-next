@@ -72,6 +72,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     payer: "all",
     dateFrom: "",
     dateTo: "",
+    onlyNeedsReview: false,
     patientName: "",
     paId: "",
     medication: "",
@@ -146,6 +147,10 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
         !filters.attempt ||
         item.attempt.toLowerCase().includes(filters.attempt.toLowerCase());
 
+      // Only needs review filter
+      const matchesOnlyNeedsReview =
+        !filters.onlyNeedsReview || item.status === "needs-review";
+
       return (
         matchesSearch &&
         matchesStatus &&
@@ -154,7 +159,8 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
         matchesPaId &&
         matchesMedication &&
         matchesConditions &&
-        matchesAttempt
+        matchesAttempt &&
+        matchesOnlyNeedsReview
       );
     });
 
@@ -937,6 +943,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
                     payer: "all",
                     dateFrom: "",
                     dateTo: "",
+                    onlyNeedsReview: false,
                     patientName: "",
                     paId: "",
                     medication: "",
