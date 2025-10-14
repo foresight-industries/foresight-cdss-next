@@ -67,6 +67,7 @@
   "workspaces": [
     "apps/*",
     "infra",
+    "!infra/layers/dependencies",
     "packages/*"
   ],
   "packageManager": "yarn@4.10.3"

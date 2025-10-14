@@ -1,11 +1,16 @@
 {
-  "name": "rcm-dependencies-layer",
+  "name": "@foresight-cdss-next/infra-rcm-shared-layer",
   "version": "1.0.0",
   "description": "Shared dependencies layer for RCM Lambda functions",
   "dependencies": {
-    "aws-sdk": "^2.1400.0",
     "@clerk/clerk-sdk-node": "^4.12.0",
+    "aws-sdk": "^2.1400.0",
     "jsonwebtoken": "^9.0.0",
     "node-fetch": "^2.6.7"
+  },
+  "workspaces": {
+    "nohoist": [
+      "**"
+    ]
   }
 }
