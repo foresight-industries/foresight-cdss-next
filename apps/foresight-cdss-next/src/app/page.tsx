@@ -3,6 +3,9 @@ import { currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import NoTeamHome from '@/components/no-team-home';
 
+// Force dynamic rendering for this page since it uses currentUser() which depends on headers
+export const dynamic = 'force-dynamic';
+
 async function checkUserTeamAndRedirect(): Promise<void> {
   try {
     // Get the current user from Clerk

@@ -4,7 +4,7 @@ export class SecurityMonitor {
   private static instance: SecurityMonitor;
 
   private constructor() {
-    if (typeof window !== "undefined") {
+    if (globalThis.window) {
       this.detectDevTools();
       this.preventDataLeaks();
     }
