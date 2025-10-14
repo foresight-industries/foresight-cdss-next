@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
 import { type QueueFiltersType, QueueFilters } from '@/components/filters';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -83,6 +83,8 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     direction: null,
   });
   const [selectedPaId, setSelectedPaId] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
+  const closingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
   const [focusedIndex, setFocusedIndex] = useState<number | null>(null);
   const [initialAction, setInitialAction] = useState<
     "edit" | "documents" | "notes" | undefined
@@ -254,12 +256,24 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
 
   // Function to close PA and remove query parameter
   const handleClosePA = useCallback(() => {
+    // Clear any existing timeout
+    if (closingTimeoutRef.current) {
+      clearTimeout(closingTimeoutRef.current);
+    }
+    
+    setIsClosing(true);
     setSelectedPaId(null);
     setInitialAction(undefined); // Clear any pending actions
     // Remove the pa query parameter from URL
     const url = new URL(globalThis.location.href);
     url.searchParams.delete("pa");
     router.replace(url.pathname + url.search, { scroll: false });
+    
+    // Reset closing state after URL update completes
+    closingTimeoutRef.current = setTimeout(() => {
+      setIsClosing(false);
+      closingTimeoutRef.current = null;
+    }, 500);
   }, [router]);
 
   // Function to open PA and set query parameter
@@ -267,15 +281,18 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     (paId: string) => {
       setSelectedPaId(paId);
       // Add the pa query parameter to URL
-      const url = new URL(globalThis.location.href);
-      url.searchParams.set("pa", paId);
-      router.replace(url.pathname + url.search, { scroll: false });
+      const currentParams = new URLSearchParams(globalThis.location.search);
+      currentParams.set("pa", paId);
+      router.replace(`${globalThis.location.pathname}?${currentParams.toString()}`, { scroll: false });
     },
     [router]
   );
 
   // Handle PA query parameter to auto-open PA details
   useEffect(() => {
+    // Don't update state if we're in the middle of closing
+    if (isClosing) return;
+    
     const paParam = searchParams.get("pa");
     if (paParam) {
       // Find the PA by ID
@@ -289,7 +306,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
         setSelectedPaId(null);
       }
     }
-  }, [searchParams, queueData, selectedPaId]);
+  }, [searchParams, queueData, selectedPaId, isClosing]);
 
   // Keyboard navigation event handler
   useEffect(() => {
