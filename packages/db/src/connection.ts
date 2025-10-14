@@ -5,7 +5,7 @@ import * as schema from './schema';
 
 // Enhanced RDS Data Client with logging
 class LoggedRDSDataClient extends RDSDataClient {
-  private connectionCount = 0;
+  // private connectionCount = 0;
   private activeConnections = 0;
   private readonly poolName: string;
 
@@ -14,7 +14,7 @@ class LoggedRDSDataClient extends RDSDataClient {
     this.poolName = poolName;
   }
 
-  async send(command: any): Promise<any> {
+  override async send(command: any): Promise<any> {
     const startTime = Date.now();
     const commandName = command.constructor.name;
 
@@ -75,27 +75,40 @@ class LoggedRDSDataClient extends RDSDataClient {
       }
     }
   }
+
+  // Public getters for monitoring (optional)
+  public getActiveConnections(): number {
+    return this.activeConnections;
+  }
+
+  public getPoolName(): string {
+    return this.poolName;
+  }
 }
 
-// Database configuration
-const dbConfig = {
-  database: process.env.DATABASE_NAME,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN,
-  secretArn: process.env.DATABASE_SECRET_ARN,
-};
+// Validate and extract required environment variables
+const databaseName = process.env.DATABASE_NAME;
+const clusterArn = process.env.DATABASE_CLUSTER_ARN;
+const secretArn = process.env.DATABASE_SECRET_ARN;
 
-// Validate required environment variables
-if (!dbConfig.database) {
+if (!databaseName) {
   throw new Error('DATABASE_NAME is not defined');
 }
 
-if (!dbConfig.resourceArn) {
+if (!clusterArn) {
   throw new Error('DATABASE_CLUSTER_ARN is not defined');
 }
 
-if (!dbConfig.secretArn) {
+if (!secretArn) {
   throw new Error('DATABASE_SECRET_ARN is not defined');
 }
+
+// Database configuration with validated environment variables
+const dbConfig = {
+  database: databaseName,
+  resourceArn: clusterArn,
+  secretArn: secretArn,
+};
 
 // Create logged RDS client
 const rdsClient = new LoggedRDSDataClient({

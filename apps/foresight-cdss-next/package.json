@@ -14,6 +14,8 @@
     "vercel:env:pull-dev": "yarn vercel env pull --environment preview .env.local"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.908.0",
+    "@aws-sdk/s3-request-presigner": "^3.908.0",
     "@clerk/elements": "^0.23.68",
     "@clerk/nextjs": "^6.33.2",
     "@google/genai": "^1.16.0",

@@ -14,7 +14,8 @@ import {
   json,
   jsonb,
   serial,
-  bigint
+  bigint,
+  type PgTableWithColumns
 } from 'drizzle-orm/pg-core';
 import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
@@ -2482,7 +2483,12 @@ export const automationRules = pgTable('automation_rule', {
 }));
 
 // Business rule action executions (track when automation rules fire)
-export const businessRuleActions = pgTable('business_rule_action', {
+export const businessRuleActions: PgTableWithColumns<{
+  name: 'business_rule_action';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('business_rule_action', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   automationRuleId: uuid('automation_rule_id').references(() => automationRules.id).notNull(),
@@ -2642,7 +2648,12 @@ export const contractedRates = pgTable('contracted_rate', {
 }));
 
 // Master fee schedules
-export const feeSchedules = pgTable('fee_schedule', {
+export const feeSchedules: PgTableWithColumns<{
+  name: 'fee_schedule';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('fee_schedule', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
@@ -2816,7 +2827,12 @@ export const collections = pgTable('collection', {
 }));
 
 // Charge capture
-export const chargeCapture = pgTable('charge_capture', {
+export const chargeCapture: PgTableWithColumns<{
+  name: 'charge_capture';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('charge_capture', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   patientId: uuid('patient_id').references(() => patients.id).notNull(),
