@@ -24,7 +24,7 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
   const { user, isLoaded } = useUser();
   const { organization } = useOrganization();
   const [teamBasePath, setTeamBasePath] = useState('');
-  
+
   useEffect(() => {
     async function getTeamBasePath() {
       if (isLoaded && user) {
@@ -34,16 +34,16 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
             setTeamBasePath(`/team/${organization.slug}`);
             return;
           }
-          
+
           // Fallback: try to extract from current URL if we're on a team page
-          const currentPath = window.location.pathname;
+          const currentPath = globalThis.location.pathname;
           const teamRegex = /^\/team\/([^/]+)/;
           const teamMatch = teamRegex.exec(currentPath);
           if (teamMatch) {
             setTeamBasePath(`/team/${teamMatch[1]}`);
             return;
           }
-          
+
           // No team context found
           setTeamBasePath('');
         } catch (error) {
@@ -55,7 +55,7 @@ export default function ErrorPage({ error, reset }: Readonly<ErrorPageProps>) {
         setTeamBasePath('');
       }
     }
-    
+
     getTeamBasePath();
   }, [user, organization, isLoaded]);
 

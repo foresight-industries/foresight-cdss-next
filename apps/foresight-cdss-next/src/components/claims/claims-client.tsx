@@ -51,7 +51,6 @@ import { cn } from "@/lib/utils";
 import {
   type Claim,
   STATUS_LABELS,
-  REVIEW_STATUSES,
   STATUS_FILTER_OPTIONS,
   PA_STATUS_FILTER_OPTIONS,
   type StatusFilterValue,
@@ -166,7 +165,7 @@ interface ClaimsClientProps {
 export function ClaimsClient({ data }: ClaimsClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
     search: "",

@@ -79,6 +79,9 @@ export function ClaimsFilters({
 
   // Handle filter changes with dollar-first logic
   const handleFiltersChange = (newFilters: ClaimFilters) => {
+    console.log('ClaimsFilters - handleFiltersChange called with:', newFilters);
+    console.log('ClaimsFilters - current filters:', filters);
+    
     // Check if any filter that should disable dollar-first is being set
     const shouldDisableDollarFirst =
       (newFilters.search.trim() !== "" &&

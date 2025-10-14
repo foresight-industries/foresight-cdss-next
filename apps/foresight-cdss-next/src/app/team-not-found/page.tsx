@@ -43,8 +43,8 @@ export default function TeamNotFound({ searchParams }: Readonly<TeamNotFoundProp
                 </h2>
                 {attemptedSlug ? (
                   <p className="text-orange-800 mb-4">
-                    We couldn&apos;t find a team with the identifier &quot;
-                    <strong>{attemptedSlug}</strong>&quot;. This team may not
+                    We couldn&apos;t find a team with the identifier
+                    &quot;<strong>{attemptedSlug}</strong>&quot;. This team may not
                     exist, may be inactive, or you may not have access to it.
                   </p>
                 ) : (

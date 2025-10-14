@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
@@ -14,10 +14,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Alert } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useSignIn } from "@clerk/nextjs";
 
-export default function LoginClient() {
+interface LoginClientProps {
+  error?: string;
+}
+
+export default function LoginClient({ error: initialError }: Readonly<LoginClientProps>) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,6 +30,27 @@ export default function LoginClient() {
   const [step, setStep] = useState<"email" | "password">("email");
 
   const { isLoaded, signIn, setActive } = useSignIn();
+
+  // Handle initial error from URL parameters
+  useEffect(() => {
+    if (initialError) {
+      const errorMessages: Record<string, string> = {
+        invalid_reset_link:
+          "Invalid or expired password reset link. Please request a new password reset.",
+      };
+
+      setError(
+        errorMessages[initialError] || "An error occurred. Please try again."
+      );
+
+      // Clear the error parameter from URL to prevent it from persisting on reload
+      const url = new URL(globalThis.location.href);
+      if (url.searchParams.has('error')) {
+        url.searchParams.delete('error');
+        globalThis.history.replaceState({}, '', url.pathname + url.search);
+      }
+    }
+  }, [initialError]);
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,14 +146,15 @@ export default function LoginClient() {
             <CardDescription>
               {step === "email"
                 ? "Enter your email address to continue"
-                : `Enter the password for ${email}`
-              }
+                : `Enter the password for ${email}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {error && (
               <Alert variant="destructive" className="mb-4">
-                <strong>{error}</strong>
+                <AlertDescription>
+                  <strong>{error}</strong>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -244,7 +270,11 @@ export default function LoginClient() {
                       </Link>
                     </div>
 
-                    <Button type="submit" className="w-full" disabled={isLoading}>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isLoading}
+                    >
                       {isLoading ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

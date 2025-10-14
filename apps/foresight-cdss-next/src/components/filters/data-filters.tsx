@@ -128,7 +128,7 @@ export function DataFilters<T extends BaseFilters>({
       } else if (typeof filters[key as keyof T] === "boolean") {
         acc[key as keyof T] = false as T[keyof T];
       } else if (key.includes("Id") || key.includes("Name") || key.includes("State") || key.includes("provider") ||
-                 key === "medication" || key === "conditions" || key === "attempt") {
+                 key === "medication" || key === "conditions" || key === "attempt" || key === "visitType") {
         // Column-specific filters should be cleared to empty string
         acc[key as keyof T] = "" as T[keyof T];
       } else {
@@ -152,7 +152,7 @@ export function DataFilters<T extends BaseFilters>({
     } else if (typeof filters[key] === "boolean") {
       updateFilter(key, false as T[keyof T]);
     } else if (String(key).includes("Id") || String(key).includes("Name") || String(key).includes("State") || String(key).includes("provider") ||
-               key === "medication" || key === "conditions" || key === "attempt") {
+               key === "medication" || key === "conditions" || key === "attempt" || key === "visitType") {
       // Column-specific filters should be cleared to empty string
       updateFilter(key, "" as T[keyof T]);
     } else {

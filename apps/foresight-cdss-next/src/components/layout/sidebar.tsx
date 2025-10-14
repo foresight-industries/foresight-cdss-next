@@ -64,7 +64,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
   const params = useParams();
   const { state: sidebarState } = useSidebar();
 
-  const { signOut, redirectToSignIn } = useClerk();
+  const { signOut } = useClerk();
   const { user } = useUser();
   const userEmail = user?.emailAddresses?.[0].emailAddress ?? "";
 
@@ -273,8 +273,7 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
             <DropdownMenuItem
               className="text-red-600 cursor-pointer"
               onClick={async () => {
-                await signOut();
-                await redirectToSignIn();
+                await signOut({ redirectUrl: '/login' });
               }}
             >
               <LogOut className="mr-2 h-4 w-4" />

@@ -9,13 +9,12 @@ import Link from 'next/link';
 import { useClerk } from '@clerk/nextjs';
 
 export function LogoutForm() {
-  const { signOut, redirectToSignIn } = useClerk();
+  const { signOut } = useClerk();
 
   const autoLogout = async () => {
     // Small delay to show the UI briefly
-    setTimeout(() => {
-      signOut();
-      redirectToSignIn();
+    setTimeout(async () => {
+      await signOut({ redirectUrl: '/login' });
     }, 500);
   };
 
