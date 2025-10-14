@@ -370,7 +370,7 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
   const handleCloseClaim = useCallback(() => {
     setActiveClaimId(null);
     // Remove the claim query parameter from URL
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.delete('claim');
     router.replace(url.pathname + url.search, { scroll: false });
   }, [router]);
@@ -379,7 +379,7 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
   const handleOpenClaim = useCallback((claimId: string) => {
     setActiveClaimId(claimId);
     // Add the claim query parameter to URL
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.set('claim', claimId);
     router.replace(url.pathname + url.search, { scroll: false });
   }, [router]);
@@ -1071,8 +1071,8 @@ export function ClaimsClient({ data }: ClaimsClientProps) {
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    globalThis.addEventListener("keydown", handler);
+    return () => globalThis.removeEventListener("keydown", handler);
   }, [activeClaimId, filteredClaims, focusedIndex, handleOpenClaim]);
 
   return (

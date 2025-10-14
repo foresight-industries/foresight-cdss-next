@@ -22,7 +22,7 @@ export default function ConfirmEmailClient() {
     const handleEmailConfirmation = async () => {
       try {
         // Get the hash fragment from the URL which contains the auth tokens
-        const hashFragment = window.location.hash.substring(1);
+        const hashFragment = globalThis.location.hash.substring(1);
         const params = new URLSearchParams(hashFragment);
 
         const accessToken = params.get('access_token');

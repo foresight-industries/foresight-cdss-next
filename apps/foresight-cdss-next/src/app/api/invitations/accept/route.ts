@@ -91,9 +91,15 @@ export async function POST(request: NextRequest) {
       // The Clerk invitation was still accepted successfully
     }
 
+    // Get organization details to include slug
+    const organization = await clerkClient.organizations.getOrganization({
+      organizationId: organizationId
+    });
+
     return NextResponse.json({
       success: true,
       organizationId,
+      organizationSlug: organization.slug,
       message: 'Invitation accepted successfully'
     });
 

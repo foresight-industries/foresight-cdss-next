@@ -153,7 +153,7 @@ export default function OnboardingClient() {
         : 'foresight.local:3000';
 
       const teamUrl = `${protocol}://${team.slug}.${domain}`;
-      window.location.href = teamUrl;
+      globalThis.location.href = teamUrl;
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create team');

@@ -13,6 +13,7 @@ import {
   AlertCircle,
   ExternalLink
 } from 'lucide-react';
+import { useRouter } from "next/navigation";
 
 interface InvitationBannerProps {
   variant?: 'banner' | 'card' | 'modal';
@@ -36,6 +37,8 @@ export function InvitationBanner({
 
   const [isAccepting, setIsAccepting] = useState(false);
 
+  const router = useRouter();
+
   // Don't render if no invitation
   if (!hasInvitation || status === "none") {
     return null;
@@ -43,12 +46,15 @@ export function InvitationBanner({
 
   const handleAccept = async () => {
     setIsAccepting(true);
-    const success = await acceptInvitation();
+    const result = await acceptInvitation();
     setIsAccepting(false);
 
-    if (success) {
-      // Optionally show success message or redirect
-      window.location.href = "/dashboard";
+    if (result.success) {
+      // Redirect to the team dashboard using the organization slug
+      const redirectUrl = result.organizationSlug
+        ? `/team/${result.organizationSlug}`
+        : "/"; // Fallback to generic dashboard
+      router.replace(redirectUrl);
     }
   };
 

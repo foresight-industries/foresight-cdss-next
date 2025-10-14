@@ -85,8 +85,8 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
         await setActive({ session: result.createdSessionId });
         console.log("Session set, redirecting to /");
 
-        // Try window.location instead of router
-        window.location.href = "/";
+        // Try globalThis.location instead of router
+        globalThis.location.href = "/";
       } else {
         console.log("Sign in not complete, status:", result.status);
         setError(`Sign in status: ${result.status}. Please try again.`);

@@ -257,7 +257,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     setSelectedPaId(null);
     setInitialAction(undefined); // Clear any pending actions
     // Remove the pa query parameter from URL
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.delete("pa");
     router.replace(url.pathname + url.search, { scroll: false });
   }, [router]);
@@ -267,7 +267,7 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     (paId: string) => {
       setSelectedPaId(paId);
       // Add the pa query parameter to URL
-      const url = new URL(window.location.href);
+      const url = new URL(globalThis.location.href);
       url.searchParams.set("pa", paId);
       router.replace(url.pathname + url.search, { scroll: false });
     },
@@ -342,8 +342,8 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    globalThis.addEventListener("keydown", handler);
+    return () => globalThis.removeEventListener("keydown", handler);
   }, [selectedPaId, filteredData, focusedIndex, handleClosePA, handleOpenPA]);
 
   if (error) {

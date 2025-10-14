@@ -43,7 +43,7 @@ export default function AcceptInvitationClient() {
     } else if (!user) {
       // User needs to sign in first
       setStatus('pending');
-      router.push(`/sign-in?redirect_url=${encodeURIComponent(window.location.href)}`);
+      router.push(`/sign-in?redirect_url=${encodeURIComponent(globalThis.location.href)}`);
     }
   }, [isLoaded, membershipsLoaded, user, invitationToken]);
 
@@ -273,10 +273,10 @@ export default function AcceptInvitationClient() {
               {errorMessage}
             </p>
             <div className="space-y-2">
-              <Button onClick={() => router.push('/dashboard')} variant="outline" className="w-full">
+              <Button onClick={() => router.push('/')} variant="outline" className="w-full">
                 Go to Dashboard
               </Button>
-              <Button onClick={() => window.location.reload()} className="w-full">
+              <Button onClick={() => globalThis.location.reload()} className="w-full">
                 Try Again
               </Button>
             </div>

@@ -90,8 +90,8 @@ export function AnalyticsClient({ data }: Readonly<AnalyticsClientProps>) {
   // Handle anchor navigation for A/R details
   useEffect(() => {
     if (
-      typeof window !== "undefined" &&
-      window.location.hash === "#ar-details"
+      typeof globalThis !== "undefined" &&
+      globalThis.location.hash === "#ar-details"
     ) {
       const element = document.getElementById("ar-details");
       if (element) {

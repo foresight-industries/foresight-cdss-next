@@ -176,8 +176,8 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
         onClose();
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    globalThis.addEventListener("keydown", handler);
+    return () => globalThis.removeEventListener("keydown", handler);
   }, [onClose]);
 
   if (!claim) {

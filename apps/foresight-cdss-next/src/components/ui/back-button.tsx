@@ -21,7 +21,7 @@ export function BackButton({
     <Button
       variant={variant}
       onClick={() => {
-        const hasHistory = window.history.length > 1;
+        const hasHistory = globalThis.history.length > 1;
         router.back();
         if (!hasHistory) {
           setTimeout(() => router.push('/'), 100);

@@ -8,6 +8,7 @@ export interface InvitationInfo {
   token?: string;
   invitationId?: string;
   organizationName?: string;
+  organizationSlug?: string;
   inviterName?: string;
   role?: string;
   email?: string;
@@ -52,9 +53,9 @@ export function useInvitation() {
 
       setStatus('detected');
 
-      // If user is not signed in, redirect to sign-in with the current URL
+      // If user is not signed in, redirect to login page with the current URL
       if (!user) {
-        const currentUrl = window.location.href;
+        const currentUrl = globalThis.location.href;
         router.push(`/sign-in?redirect_url=${encodeURIComponent(currentUrl)}`);
         return;
       }
@@ -108,7 +109,7 @@ export function useInvitation() {
     }
   };
 
-  const acceptInvitation = async (): Promise<boolean> => {
+  const acceptInvitation = async (): Promise<{ success: boolean; organizationSlug?: string }> => {
     try {
       setError(null);
 
@@ -128,8 +129,10 @@ export function useInvitation() {
         throw new Error(errorData.error || 'Failed to accept invitation');
       }
 
+      const data = await response.json();
+
       // Clear invitation parameters from URL
-      const url = new URL(window.location.href);
+      const url = new URL(globalThis.location.href);
       url.searchParams.delete('__clerk_invitation_token');
       url.searchParams.delete('__clerk_invitation_id');
       router.replace(url.pathname + url.search);
@@ -137,16 +140,16 @@ export function useInvitation() {
       setStatus('none');
       setInvitationInfo({});
 
-      return true;
+      return { success: true, organizationSlug: data.organizationSlug };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to accept invitation');
-      return false;
+      return { success: false };
     }
   };
 
   const dismissInvitation = () => {
     // Clear invitation parameters from URL
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.delete('__clerk_invitation_token');
     url.searchParams.delete('__clerk_invitation_id');
     router.replace(url.pathname + url.search);
@@ -157,7 +160,7 @@ export function useInvitation() {
   };
 
   const redirectToAcceptPage = () => {
-    const currentUrl = window.location.href;
+    const currentUrl = globalThis.location.href;
     router.push(`/accept-invitation?${new URL(currentUrl).search}`);
   };
 
@@ -171,7 +174,7 @@ export function useInvitation() {
     isLoading: status === 'loading',
 
     // Actions
-    acceptInvitation,
+    acceptInvitation: acceptInvitation as () => Promise<{ success: boolean; organizationSlug?: string }>,
     dismissInvitation,
     redirectToAcceptPage,
     refreshDetails: () => loadInvitationDetails(invitationInfo.token, invitationInfo.invitationId),
