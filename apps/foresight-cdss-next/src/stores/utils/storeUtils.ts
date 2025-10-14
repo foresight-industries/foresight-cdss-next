@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Tables } from "@/types/database.types";
 import { useAppStore } from "../mainStore";
 
 // Generic pagination utility
@@ -307,9 +306,6 @@ export const useStoreSync = (
         case "payers":
           await useAppStore.getState().fetchPayers();
           break;
-        case "teams":
-          await useAppStore.getState().fetchTeams();
-          break;
         default:
           throw new Error(`Unsupported entity type: ${entityType}`);
       }
@@ -335,23 +331,17 @@ export const useEntityRelationships = () => {
   const priorAuths = useAppStore((state) => state.priorAuths);
   const clinicians = useAppStore((state) => state.clinicians);
   const payers = useAppStore((state) => state.payers);
-  const encounters = useAppStore((state) => state.encounters);
-  const patientProfiles = useAppStore((state) => state.patientProfiles);
 
   const getPatientClaims = useCallback(
-    (patientId: number) => {
-      return claims.filter((claim) => {
-        // Get the encounter for this claim
-        const encounter = encounters.find((e) => e.id === claim.encounter_id);
-        return encounter?.patient_id === patientId;
-      });
+    (patientId: string) => {
+      return claims.filter((claim) => claim.patientId === patientId);
     },
-    [claims, encounters]
+    [claims]
   );
 
   const getPatientPriorAuths = useCallback(
-    (patientId: number) => {
-      return priorAuths.filter((pa) => pa.patient_id === patientId);
+    (patientId: string) => {
+      return priorAuths.filter((pa) => pa.patientId === patientId);
     },
     [priorAuths]
   );
@@ -361,24 +351,20 @@ export const useEntityRelationships = () => {
       const claim = claims.find((c) => c.id === claimId);
       if (!claim) return null;
 
-      // Get the encounter for this claim
-      const encounter = encounters.find((e) => e.id === claim.encounter_id);
-      if (!encounter) return null;
-
-      // Get the rendering clinician from the encounter
+      // Get the billing provider from the claim
       return (
-        clinicians.find((p) => p.id === encounter.rendering_clinician_id) ||
+        clinicians.find((p) => p.id === claim.billingProviderId) ||
         null
       );
     },
-    [claims, encounters, clinicians]
+    [claims, clinicians]
   );
 
   const getClaimPayer = useCallback(
     (claimId: string) => {
       const claim = claims.find((c) => c.id === claimId);
       if (!claim) return null;
-      return payers.find((p) => p.id === claim.payer_id) || null;
+      return payers.find((p) => p.id === claim.payerId) || null;
     },
     [claims, payers]
   );
@@ -386,37 +372,27 @@ export const useEntityRelationships = () => {
   const getPatientByName = useCallback(
     (firstName: string, lastName: string) => {
       return patients.find((patient) => {
-        // Get the patient profile for this patient
-        const profile = patient.profile_id
-          ? patientProfiles[patient.profile_id]
-          : null;
-        if (!profile) return false;
-
         return (
-          profile.first_name?.toLowerCase() === firstName.toLowerCase() &&
-          profile.last_name?.toLowerCase() === lastName.toLowerCase()
+          patient.firstName?.toLowerCase() === firstName.toLowerCase() &&
+          patient.lastName?.toLowerCase() === lastName.toLowerCase()
         );
       });
     },
-    [patients, patientProfiles]
+    [patients]
   );
 
   const getPayerClaims = useCallback(
-    (payerId: number) => {
-      return claims.filter((claim) => claim.payer_id === payerId);
+    (payerId: string) => {
+      return claims.filter((claim) => claim.payerId === payerId);
     },
     [claims]
   );
 
   const getProviderClaims = useCallback(
-    (providerId: number) => {
-      return claims.filter((claim) => {
-        // Get the encounter for this claim
-        const encounter = encounters.find((e) => e.id === claim.encounter_id);
-        return encounter?.rendering_clinician_id === providerId;
-      });
+    (providerId: string) => {
+      return claims.filter((claim) => claim.billingProviderId === providerId);
     },
-    [claims, encounters]
+    [claims]
   );
 
   return {
@@ -433,19 +409,24 @@ export const useEntityRelationships = () => {
 // Validation utility
 export const useValidation = () => {
   const validatePatientProfile = useCallback(
-    (patientProfile: Partial<Tables<"patient_profile">>) => {
+    (patientProfile: Partial<{
+      firstName?: string;
+      lastName?: string;
+      dateOfBirth?: Date;
+      email?: string;
+    }>) => {
       const errors: Record<string, string> = {};
 
-      if (!patientProfile.first_name?.trim()) {
-        errors.first_name = "First name is required";
+      if (!patientProfile.firstName?.trim()) {
+        errors.firstName = "First name is required";
       }
 
-      if (!patientProfile.last_name?.trim()) {
-        errors.last_name = "Last name is required";
+      if (!patientProfile.lastName?.trim()) {
+        errors.lastName = "Last name is required";
       }
 
-      if (!patientProfile.birth_date) {
-        errors.birth_date = "Date of birth is required";
+      if (!patientProfile.dateOfBirth) {
+        errors.dateOfBirth = "Date of birth is required";
       }
 
       if (
@@ -463,19 +444,23 @@ export const useValidation = () => {
     []
   );
 
-  const validateClaim = useCallback((claim: Partial<Tables<"claim">>) => {
+  const validateClaim = useCallback((claim: Partial<{
+    encounterId?: string;
+    payerId?: string;
+    totalAmount?: number;
+  }>) => {
     const errors: Record<string, string> = {};
 
-    if (!claim.encounter_id) {
-      errors.encounter_id = "Encounter is required";
+    if (!claim.encounterId) {
+      errors.encounterId = "Encounter is required";
     }
 
-    if (!claim.payer_id) {
-      errors.payer_id = "Payer is required";
+    if (!claim.payerId) {
+      errors.payerId = "Payer is required";
     }
 
-    if (!claim.total_amount || claim.total_amount <= 0) {
-      errors.total_amount = "Valid total amount is required";
+    if (!claim.totalAmount || claim.totalAmount <= 0) {
+      errors.totalAmount = "Valid total amount is required";
     }
 
     return {

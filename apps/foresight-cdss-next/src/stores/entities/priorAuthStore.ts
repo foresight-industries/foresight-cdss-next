@@ -1,14 +1,80 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible types
+type PriorAuth = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  payerId: string;
+  status: 'pending' | 'approved' | 'denied' | 'expired' | 'cancelled';
+  requestType: string;
+  urgency: 'routine' | 'urgent' | 'stat';
+  medicationName?: string;
+  dosage?: string;
+  quantity?: number;
+  daysSupply?: number;
+  diagnosisCode?: string;
+  diagnosisDescription?: string;
+  authNumber?: string;
+  durationDays?: number;
+  submittedAt?: Date;
+  approvedAt?: Date;
+  deniedAt?: Date;
+  expiresAt?: Date;
+  issues?: string[];
+  assignedTo?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PAClinicalCriteria = {
+  id: string;
+  priorAuthId: string;
+  criteriaType: string;
+  description: string;
+  isMet: boolean;
+  value?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PARequirementRule = {
+  id: string;
+  priorAuthId: string;
+  ruleType: string;
+  description: string;
+  isRequired: boolean;
+  isMet: boolean;
+  value?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Document = {
+  id: string;
+  organizationId: string;
+  patientId?: string;
+  priorAuthId?: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  fileUrl: string;
+  documentType: string;
+  description?: string;
+  isEncrypted: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface PriorAuthSlice {
   // State
-  priorAuths: Tables<"prior_auth">[];
-  selectedPriorAuth: Tables<"prior_auth"> | null;
-  paClinicalCriteria: Record<string, Tables<"pa_clinical_criteria">[]>;
-  paRequirementRules: Record<string, Tables<"pa_requirement_rule">[]>;
-  paSupportingDocuments: Record<string, Tables<"document">[]>;
+  priorAuths: PriorAuth[];
+  selectedPriorAuth: PriorAuth | null;
+  paClinicalCriteria: Record<string, PAClinicalCriteria[]>;
+  paRequirementRules: Record<string, PARequirementRule[]>;
+  paSupportingDocuments: Record<string, Document[]>;
 
   // Loading states
   priorAuthsLoading: boolean;
@@ -23,9 +89,9 @@ export interface PriorAuthSlice {
 
   // Filter state
   paFilters: {
-    status?: Tables<"prior_auth">["status"][];
-    payerId?: number;
-    patientId?: number;
+    status?: PriorAuth["status"][];
+    payerId?: string;
+    patientId?: string;
     medication?: string;
     urgency?: "routine" | "urgent" | "stat";
     expiringWithin?: number; // days
@@ -33,45 +99,45 @@ export interface PriorAuthSlice {
   };
 
   // Actions
-  setPriorAuths: (priorAuths: Tables<"prior_auth">[]) => void;
-  setSelectedPriorAuth: (priorAuth: Tables<"prior_auth"> | null) => void;
-  addPriorAuth: (priorAuth: Tables<"prior_auth">) => void;
-  updatePriorAuth: (id: string, updates: Partial<Tables<"prior_auth">>) => void;
+  setPriorAuths: (priorAuths: PriorAuth[]) => void;
+  setSelectedPriorAuth: (priorAuth: PriorAuth | null) => void;
+  addPriorAuth: (priorAuth: PriorAuth) => void;
+  updatePriorAuth: (id: string, updates: Partial<PriorAuth>) => void;
   removePriorAuth: (id: string) => void;
 
   // PA clinical criteria actions
   setPAClinicalCriteria: (
     paId: string,
-    criteria: Tables<"pa_clinical_criteria">[]
+    criteria: PAClinicalCriteria[]
   ) => void;
-  addPAClinicalCriteria: (criteria: Tables<"pa_clinical_criteria">) => void;
+  addPAClinicalCriteria: (criteria: PAClinicalCriteria) => void;
   updatePAClinicalCriteria: (
     id: string,
-    updates: Partial<Tables<"pa_clinical_criteria">>
+    updates: Partial<PAClinicalCriteria>
   ) => void;
   removePAClinicalCriteria: (id: string) => void;
 
   // PA requirement rules actions
   setPARequirementRules: (
     paId: string,
-    rules: Tables<"pa_requirement_rule">[]
+    rules: PARequirementRule[]
   ) => void;
-  addPARequirementRule: (rule: Tables<"pa_requirement_rule">) => void;
+  addPARequirementRule: (rule: PARequirementRule) => void;
   updatePARequirementRule: (
     id: string,
-    updates: Partial<Tables<"pa_requirement_rule">>
+    updates: Partial<PARequirementRule>
   ) => void;
   removePARequirementRule: (id: string) => void;
 
   // PA supporting documents actions
   setPASupportingDocuments: (
     paId: string,
-    documents: Tables<"document">[]
+    documents: Document[]
   ) => void;
-  addPASupportingDocument: (document: Tables<"document">) => void;
+  addPASupportingDocument: (document: Document) => void;
   updatePASupportingDocument: (
     id: string,
-    updates: Partial<Tables<"document">>
+    updates: Partial<Document>
   ) => void;
   removePASupportingDocument: (id: string) => void;
 
@@ -116,7 +182,7 @@ export const createPriorAuthSlice: StateCreator<
 
   // Filter state
   paFilters: {
-    status: ["pending_info", "ready_to_submit"],
+    status: ["pending"],
     urgency: "routine",
   },
 
@@ -155,7 +221,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPAClinicalCriteria: (criteria) =>
     set((state) => {
-      const paId = criteria.id;
+      const paId = criteria.priorAuthId;
       const currentCriteria = state.paClinicalCriteria[paId] || [];
       return {
         paClinicalCriteria: {
@@ -193,7 +259,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPARequirementRule: (rule) =>
     set((state) => {
-      const paId = rule.id;
+      const paId = rule.priorAuthId;
       const currentRules = state.paRequirementRules[paId] || [];
       return {
         paRequirementRules: {
@@ -234,7 +300,7 @@ export const createPriorAuthSlice: StateCreator<
 
   addPASupportingDocument: (document) =>
     set((state) => {
-      const paId = document.prior_auth_id ?? "";
+      const paId = document.priorAuthId ?? "";
       const currentDocuments = state.paSupportingDocuments[paId] || [];
       return {
         paSupportingDocuments: {
@@ -273,7 +339,7 @@ export const createPriorAuthSlice: StateCreator<
   clearPAFilters: () =>
     set({
       paFilters: {
-        status: ["pending_info", "ready_to_submit"],
+        status: ["pending"],
         urgency: "routine",
       },
     }),
@@ -282,13 +348,11 @@ export const createPriorAuthSlice: StateCreator<
   fetchPriorAuths: async () => {
     set({ priorAuthsLoading: true, priorAuthsError: null });
     try {
-      const { data, error } = await supabase
-        .from("prior_auth")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ priorAuths: data || [], priorAuthsLoading: false });
+      const response = await fetch('/api/prior-auths');
+      if (!response.ok) throw new Error('Failed to fetch prior auths');
+      
+      const data = await response.json();
+      set({ priorAuths: data.priorAuths || [], priorAuthsLoading: false });
     } catch (error) {
       set({
         priorAuthsError:
@@ -302,22 +366,19 @@ export const createPriorAuthSlice: StateCreator<
 
   fetchPriorAuthById: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from("prior_auth")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        get().setSelectedPriorAuth(data);
+      const response = await fetch(`/api/prior-auths/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch prior auth');
+      
+      const data = await response.json();
+      if (data.priorAuth) {
+        get().setSelectedPriorAuth(data.priorAuth);
         // Also update in priorAuths array if it exists
         const priorAuths = get().priorAuths;
         const existingIndex = priorAuths.findIndex((pa) => pa.id === id);
         if (existingIndex >= 0) {
-          get().updatePriorAuth(id, data);
+          get().updatePriorAuth(id, data.priorAuth);
         } else {
-          get().addPriorAuth(data);
+          get().addPriorAuth(data.priorAuth);
         }
       }
     } catch (error) {
@@ -328,13 +389,11 @@ export const createPriorAuthSlice: StateCreator<
   fetchPAClinicalCriteria: async (paId) => {
     set({ paClinicalCriteriaLoading: true, paClinicalCriteriaError: null });
     try {
-      const { data, error } = await supabase
-        .from("pa_clinical_criteria")
-        .select("*")
-        .eq("prior_auth_id", paId);
-
-      if (error) throw error;
-      get().setPAClinicalCriteria(paId, data || []);
+      const response = await fetch(`/api/prior-auths/${paId}/clinical-criteria`);
+      if (!response.ok) throw new Error('Failed to fetch PA clinical criteria');
+      
+      const data = await response.json();
+      get().setPAClinicalCriteria(paId, data.clinicalCriteria || []);
       set({ paClinicalCriteriaLoading: false });
     } catch (error) {
       set({
@@ -350,13 +409,11 @@ export const createPriorAuthSlice: StateCreator<
   fetchPARequirementRules: async (paId) => {
     set({ paRequirementRulesLoading: true, paRequirementRulesError: null });
     try {
-      const { data, error } = await supabase
-        .from("pa_requirement_rule")
-        .select("*")
-        .eq("prior_auth_id", paId);
-
-      if (error) throw error;
-      get().setPARequirementRules(paId, data || []);
+      const response = await fetch(`/api/prior-auths/${paId}/requirement-rules`);
+      if (!response.ok) throw new Error('Failed to fetch PA requirement rules');
+      
+      const data = await response.json();
+      get().setPARequirementRules(paId, data.requirementRules || []);
       set({ paRequirementRulesLoading: false });
     } catch (error) {
       set({
@@ -372,35 +429,30 @@ export const createPriorAuthSlice: StateCreator<
   fetchPASupportingDocuments: async (paId) => {
     set({ paSupportingDocumentsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("document")
-        .select("*")
-        .eq("prior_auth_id", paId);
-
-      if (error) throw error;
-      get().setPASupportingDocuments(paId, data || []);
+      const response = await fetch(`/api/prior-auths/${paId}/documents`);
+      if (!response.ok) throw new Error('Failed to fetch PA supporting documents');
+      
+      const data = await response.json();
+      get().setPASupportingDocuments(paId, data.documents || []);
       set({ paSupportingDocumentsLoading: false });
     } catch (error) {
       set({ paSupportingDocumentsLoading: false });
+      console.error("Failed to fetch PA supporting documents:", error);
     }
   },
 
   submitPriorAuth: async (paId) => {
     try {
-      const { error } = await supabase
-        .from("prior_auth")
-        .update({
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-        })
-        .eq("id", paId);
+      const response = await fetch(`/api/prior-auths/${paId}/submit`, {
+        method: 'POST',
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to submit prior auth');
 
       // Update local state
       get().updatePriorAuth(paId, {
-        status: "submitted",
-        submitted_at: new Date().toISOString(),
+        status: "pending",
+        submittedAt: new Date(),
       });
     } catch (error) {
       console.error("Failed to submit prior auth:", error);
@@ -410,24 +462,22 @@ export const createPriorAuthSlice: StateCreator<
 
   approvePriorAuth: async (paId, approvalData) => {
     try {
-      const { error } = await supabase
-        .from("prior_auth")
-        .update({
-          status: "approved",
-          approved_at: new Date().toISOString(),
-          auth_number: approvalData.approvalNumber,
-          duration_days: approvalData.durationDays,
-        })
-        .eq("id", paId);
+      const response = await fetch(`/api/prior-auths/${paId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(approvalData),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to approve prior auth');
 
       // Update local state
       get().updatePriorAuth(paId, {
         status: "approved",
-        approved_at: new Date().toISOString(),
-        auth_number: approvalData.approvalNumber,
-        duration_days: approvalData.durationDays,
+        approvedAt: new Date(),
+        authNumber: approvalData.approvalNumber,
+        durationDays: approvalData.durationDays,
       });
     } catch (error) {
       console.error("Failed to approve prior auth:", error);
@@ -437,21 +487,20 @@ export const createPriorAuthSlice: StateCreator<
 
   denyPriorAuth: async (paId, denialReason) => {
     try {
-      const { error } = await supabase
-        .from("prior_auth")
-        .update({
-          status: "denied",
-          denied_at: new Date().toISOString(),
-          issues: [denialReason],
-        })
-        .eq("id", paId);
+      const response = await fetch(`/api/prior-auths/${paId}/deny`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ denialReason }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to deny prior auth');
 
       // Update local state
       get().updatePriorAuth(paId, {
         status: "denied",
-        denied_at: new Date().toISOString(),
+        deniedAt: new Date(),
         issues: [denialReason],
       });
     } catch (error) {

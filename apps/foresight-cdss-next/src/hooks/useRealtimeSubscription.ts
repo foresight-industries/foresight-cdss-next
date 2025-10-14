@@ -1,69 +1,67 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
-import { useAppStore } from "@/stores/useAppStore";
 import { queryKeys } from "@/lib/query/keys";
 
-export function useClaimRealtimeUpdates(teamId: string) {
+interface RealtimePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: any;
+  old?: any;
+}
+
+export function useClaimRealtimeUpdates(organizationId: string) {
   const queryClient = useQueryClient();
-  const supabase = createClient();
-  const { subscriptions } = useAppStore();
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`claims:${teamId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "claim",
-          filter: `team_id=eq.${teamId}`,
-        },
-        (payload) => {
-          // Type assertion for claim table
-          const claimRecord = payload.new as { id?: string } | null;
+    // For AWS, we would typically use AWS AppSync, EventBridge, or WebSocket API
+    // This is a placeholder implementation using WebSockets
+    const wsUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001';
+    const ws = new WebSocket(`${wsUrl}/claims?organizationId=${organizationId}`);
+    
+    ws.onopen = () => {
+      console.log(`Connected to claims realtime for organization ${organizationId}`);
+    };
 
-          // Update specific claim
-          if (payload.eventType === "UPDATE" && claimRecord?.id) {
-            queryClient.setQueryData(
-              queryKeys.claims.detail(claimRecord.id),
-              payload.new
-            );
-          }
+    ws.onmessage = (event) => {
+      try {
+        const payload: RealtimePayload = JSON.parse(event.data);
+        
+        // Handle claims updates
+        if (payload.eventType === 'UPDATE' && payload.new?.id) {
+          queryClient.setQueryData(
+            queryKeys.claims.detail(payload.new.id),
+            payload.new
+          );
+        }
 
-          // Invalidate list queries
-          queryClient.invalidateQueries({
-            queryKey: queryKeys.claims.list(),
-            refetchType: "active",
+        // Invalidate list queries for claims
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.claims.list(),
+          refetchType: "active",
+        });
+
+        // Handle denial tracking updates
+        if (payload.new?.claimId) {
+          void queryClient.invalidateQueries({
+            queryKey: queryKeys.claims.detail(payload.new.claimId),
           });
         }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "denial_tracking",
-          filter: `team_id=eq.${teamId}`,
-        },
-        (payload) => {
-          // Type assertion for denial_tracking table
-          const denialRecord = payload.new as { claim_id?: string } | null;
-          if (denialRecord?.claim_id) {
-            queryClient.invalidateQueries({
-              queryKey: queryKeys.claims.detail(denialRecord.claim_id),
-            });
-          }
-        }
-      )
-      .subscribe();
+      } catch (error) {
+        console.error('Error parsing realtime message:', error);
+      }
+    };
 
-    subscriptions.add(channel);
+    ws.onerror = (error) => {
+      console.error(`WebSocket error for claims:`, error);
+    };
+
+    wsRef.current = ws;
 
     return () => {
-      supabase.removeChannel(channel);
-      subscriptions.delete(channel);
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
     };
-  }, [teamId]);
+  }, [organizationId, queryClient]);
 }

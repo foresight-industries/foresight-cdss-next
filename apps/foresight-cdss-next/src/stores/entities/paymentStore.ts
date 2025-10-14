@@ -1,23 +1,168 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible types
+type PaymentDetail = {
+  id: string;
+  organizationId: string;
+  claimId?: string;
+  payerId: string;
+  patientId?: string;
+  paymentAmount: number;
+  paymentDate: Date;
+  paymentMethod: string;
+  checkNumber?: string;
+  referenceNumber?: string;
+  paymentType: 'copay' | 'deductible' | 'coinsurance' | 'patient' | 'insurance' | 'other';
+  status: 'pending' | 'posted' | 'processed' | 'cancelled';
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PaymentAdjustment = {
+  id: string;
+  organizationId: string;
+  paymentDetailId: string;
+  adjustmentType: string;
+  adjustmentAmount: number;
+  reasonCode?: string;
+  description?: string;
+  appliedDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PaymentPlan = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  totalAmount: number;
+  paidAmount: number;
+  remainingAmount: number;
+  monthlyPayment: number;
+  startDate: Date;
+  endDate?: Date;
+  status: 'active' | 'completed' | 'cancelled' | 'defaulted';
+  interestRate?: number;
+  setupFee?: number;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PaymentPostingSession = {
+  id: string;
+  organizationId: string;
+  sessionName: string;
+  startedAt: Date;
+  completedAt?: Date;
+  status: 'in_progress' | 'completed' | 'cancelled';
+  totalPayments: number;
+  totalAmount: number;
+  userId: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PaymentReconciliation = {
+  id: string;
+  organizationId: string;
+  paymentDetailId: string;
+  expectedAmount: number;
+  actualAmount: number;
+  varianceAmount: number;
+  reconciliationDate: Date;
+  status: 'matched' | 'variance' | 'unmatched';
+  notes?: string;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PaymentVariance = {
+  id: string;
+  organizationId: string;
+  paymentDetailId: string;
+  varianceType: string;
+  varianceAmount: number;
+  expectedAmount: number;
+  actualAmount: number;
+  description?: string;
+  status: 'pending' | 'reviewed' | 'resolved';
+  reviewedAt?: Date;
+  reviewedBy?: string;
+  resolutionNotes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type CreditBalance = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  currentBalance: number;
+  availableBalance: number;
+  lastActivityDate: Date;
+  status: 'active' | 'expired' | 'transferred';
+  expirationDate?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type RemittanceAdvice = {
+  id: string;
+  organizationId: string;
+  payerId: string;
+  remittanceNumber: string;
+  paymentDate: Date;
+  totalAmount: number;
+  fileFormat: string;
+  fileName?: string;
+  fileUrl?: string;
+  status: 'pending' | 'processed' | 'error';
+  processedAt?: Date;
+  errorMessage?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ERALineDetail = {
+  id: string;
+  organizationId: string;
+  remittanceAdviceId: string;
+  claimId?: string;
+  lineNumber: number;
+  serviceDate: Date;
+  procedureCode: string;
+  chargedAmount: number;
+  allowedAmount: number;
+  paidAmount: number;
+  adjustmentAmount: number;
+  reasonCodes?: string[];
+  remarkCodes?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface PaymentSlice {
   // State
-  paymentDetails: Tables<"payment_detail">[];
-  paymentAdjustments: Tables<"payment_adjustment">[];
-  paymentPlans: Tables<"payment_plan">[];
-  paymentPostingSessions: Tables<"payment_posting_session">[];
-  paymentReconciliations: Tables<"payment_reconciliation">[];
-  paymentVariances: Tables<"payment_variance">[];
-  creditBalances: Tables<"credit_balance">[];
-  remittanceAdvices: Tables<"remittance_advice">[];
-  eraLineDetails: Tables<"era_line_detail">[];
+  paymentDetails: PaymentDetail[];
+  paymentAdjustments: PaymentAdjustment[];
+  paymentPlans: PaymentPlan[];
+  paymentPostingSessions: PaymentPostingSession[];
+  paymentReconciliations: PaymentReconciliation[];
+  paymentVariances: PaymentVariance[];
+  creditBalances: CreditBalance[];
+  remittanceAdvices: RemittanceAdvice[];
+  eraLineDetails: ERALineDetail[];
 
   // Selected items
-  selectedPaymentDetail: Tables<"payment_detail"> | null;
-  selectedRemittanceAdvice: Tables<"remittance_advice"> | null;
-  selectedPaymentPlan: Tables<"payment_plan"> | null;
+  selectedPaymentDetail: PaymentDetail | null;
+  selectedRemittanceAdvice: RemittanceAdvice | null;
+  selectedPaymentPlan: PaymentPlan | null;
 
   // Loading states
   paymentDetailsLoading: boolean;
@@ -41,8 +186,8 @@ export interface PaymentSlice {
       | "last_90_days"
       | "custom";
     customDateRange?: { from: Date; to: Date };
-    payerId?: number;
-    patientId?: number;
+    payerId?: string;
+    patientId?: string;
     minAmount?: number;
     maxAmount?: number;
     paymentMethod?: string;
@@ -50,91 +195,91 @@ export interface PaymentSlice {
   };
 
   // Actions
-  setPaymentDetails: (details: Tables<"payment_detail">[]) => void;
-  setSelectedPaymentDetail: (detail: Tables<"payment_detail"> | null) => void;
-  addPaymentDetail: (detail: Tables<"payment_detail">) => void;
+  setPaymentDetails: (details: PaymentDetail[]) => void;
+  setSelectedPaymentDetail: (detail: PaymentDetail | null) => void;
+  addPaymentDetail: (detail: PaymentDetail) => void;
   updatePaymentDetail: (
     id: string,
-    updates: Partial<Tables<"payment_detail">>
+    updates: Partial<PaymentDetail>
   ) => void;
   removePaymentDetail: (id: string) => void;
 
   // Payment adjustments actions
-  setPaymentAdjustments: (adjustments: Tables<"payment_adjustment">[]) => void;
-  addPaymentAdjustment: (adjustment: Tables<"payment_adjustment">) => void;
+  setPaymentAdjustments: (adjustments: PaymentAdjustment[]) => void;
+  addPaymentAdjustment: (adjustment: PaymentAdjustment) => void;
   updatePaymentAdjustment: (
     id: string,
-    updates: Partial<Tables<"payment_adjustment">>
+    updates: Partial<PaymentAdjustment>
   ) => void;
   removePaymentAdjustment: (id: string) => void;
 
   // Payment plans actions
-  setPaymentPlans: (plans: Tables<"payment_plan">[]) => void;
-  setSelectedPaymentPlan: (plan: Tables<"payment_plan"> | null) => void;
-  addPaymentPlan: (plan: Tables<"payment_plan">) => void;
+  setPaymentPlans: (plans: PaymentPlan[]) => void;
+  setSelectedPaymentPlan: (plan: PaymentPlan | null) => void;
+  addPaymentPlan: (plan: PaymentPlan) => void;
   updatePaymentPlan: (
     id: string,
-    updates: Partial<Tables<"payment_plan">>
+    updates: Partial<PaymentPlan>
   ) => void;
   removePaymentPlan: (id: string) => void;
 
   // Payment posting sessions actions
   setPaymentPostingSessions: (
-    sessions: Tables<"payment_posting_session">[]
+    sessions: PaymentPostingSession[]
   ) => void;
   addPaymentPostingSession: (
-    session: Tables<"payment_posting_session">
+    session: PaymentPostingSession
   ) => void;
   updatePaymentPostingSession: (
     id: string,
-    updates: Partial<Tables<"payment_posting_session">>
+    updates: Partial<PaymentPostingSession>
   ) => void;
 
   // Payment reconciliations actions
   setPaymentReconciliations: (
-    reconciliations: Tables<"payment_reconciliation">[]
+    reconciliations: PaymentReconciliation[]
   ) => void;
   addPaymentReconciliation: (
-    reconciliation: Tables<"payment_reconciliation">
+    reconciliation: PaymentReconciliation
   ) => void;
   updatePaymentReconciliation: (
     id: string,
-    updates: Partial<Tables<"payment_reconciliation">>
+    updates: Partial<PaymentReconciliation>
   ) => void;
 
   // Payment variances actions
-  setPaymentVariances: (variances: Tables<"payment_variance">[]) => void;
-  addPaymentVariance: (variance: Tables<"payment_variance">) => void;
+  setPaymentVariances: (variances: PaymentVariance[]) => void;
+  addPaymentVariance: (variance: PaymentVariance) => void;
   updatePaymentVariance: (
     id: string,
-    updates: Partial<Tables<"payment_variance">>
+    updates: Partial<PaymentVariance>
   ) => void;
 
   // Credit balances actions
-  setCreditBalances: (balances: Tables<"credit_balance">[]) => void;
-  addCreditBalance: (balance: Tables<"credit_balance">) => void;
+  setCreditBalances: (balances: CreditBalance[]) => void;
+  addCreditBalance: (balance: CreditBalance) => void;
   updateCreditBalance: (
     id: string,
-    updates: Partial<Tables<"credit_balance">>
+    updates: Partial<CreditBalance>
   ) => void;
 
   // Remittance advice actions
-  setRemittanceAdvices: (advices: Tables<"remittance_advice">[]) => void;
+  setRemittanceAdvices: (advices: RemittanceAdvice[]) => void;
   setSelectedRemittanceAdvice: (
-    advice: Tables<"remittance_advice"> | null
+    advice: RemittanceAdvice | null
   ) => void;
-  addRemittanceAdvice: (advice: Tables<"remittance_advice">) => void;
+  addRemittanceAdvice: (advice: RemittanceAdvice) => void;
   updateRemittanceAdvice: (
     id: string,
-    updates: Partial<Tables<"remittance_advice">>
+    updates: Partial<RemittanceAdvice>
   ) => void;
 
   // ERA line details actions
-  setERALineDetails: (details: Tables<"era_line_detail">[]) => void;
-  addERALineDetail: (detail: Tables<"era_line_detail">) => void;
+  setERALineDetails: (details: ERALineDetail[]) => void;
+  addERALineDetail: (detail: ERALineDetail) => void;
   updateERALineDetail: (
     id: string,
-    updates: Partial<Tables<"era_line_detail">>
+    updates: Partial<ERALineDetail>
   ) => void;
 
   // Filter actions
@@ -390,13 +535,11 @@ export const createPaymentSlice: StateCreator<
   fetchPaymentDetails: async () => {
     set({ paymentDetailsLoading: true, paymentDetailsError: null });
     try {
-      const { data, error } = await supabase
-        .from("payment_detail")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ paymentDetails: data || [], paymentDetailsLoading: false });
+      const response = await fetch('/api/payments/details');
+      if (!response.ok) throw new Error('Failed to fetch payment details');
+      
+      const data = await response.json();
+      set({ paymentDetails: data.paymentDetails || [], paymentDetailsLoading: false });
     } catch (error) {
       set({
         paymentDetailsError:
@@ -411,13 +554,11 @@ export const createPaymentSlice: StateCreator<
   fetchPaymentAdjustments: async () => {
     set({ paymentAdjustmentsLoading: true, paymentAdjustmentsError: null });
     try {
-      const { data, error } = await supabase
-        .from("payment_adjustment")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ paymentAdjustments: data || [], paymentAdjustmentsLoading: false });
+      const response = await fetch('/api/payments/adjustments');
+      if (!response.ok) throw new Error('Failed to fetch payment adjustments');
+      
+      const data = await response.json();
+      set({ paymentAdjustments: data.paymentAdjustments || [], paymentAdjustmentsLoading: false });
     } catch (error) {
       set({
         paymentAdjustmentsError:
@@ -432,13 +573,11 @@ export const createPaymentSlice: StateCreator<
   fetchPaymentPlans: async () => {
     set({ paymentPlansLoading: true, paymentPlansError: null });
     try {
-      const { data, error } = await supabase
-        .from("payment_plan")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ paymentPlans: data || [], paymentPlansLoading: false });
+      const response = await fetch('/api/payments/plans');
+      if (!response.ok) throw new Error('Failed to fetch payment plans');
+      
+      const data = await response.json();
+      set({ paymentPlans: data.paymentPlans || [], paymentPlansLoading: false });
     } catch (error) {
       set({
         paymentPlansError:
@@ -453,48 +592,44 @@ export const createPaymentSlice: StateCreator<
   fetchPaymentPostingSessions: async () => {
     set({ paymentPostingSessionsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("payment_posting_session")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/payments/posting-sessions');
+      if (!response.ok) throw new Error('Failed to fetch payment posting sessions');
+      
+      const data = await response.json();
       set({
-        paymentPostingSessions: data || [],
+        paymentPostingSessions: data.paymentPostingSessions || [],
         paymentPostingSessionsLoading: false,
       });
     } catch (error) {
       set({ paymentPostingSessionsLoading: false });
+      console.error("Failed to fetch payment posting sessions:", error);
     }
   },
 
   fetchPaymentReconciliations: async () => {
     set({ paymentReconciliationsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("payment_reconciliation")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/payments/reconciliations');
+      if (!response.ok) throw new Error('Failed to fetch payment reconciliations');
+      
+      const data = await response.json();
       set({
-        paymentReconciliations: data || [],
+        paymentReconciliations: data.paymentReconciliations || [],
         paymentReconciliationsLoading: false,
       });
     } catch (error) {
       set({ paymentReconciliationsLoading: false });
+      console.error("Failed to fetch payment reconciliations:", error);
     }
   },
 
   fetchPaymentVariances: async () => {
     try {
-      const { data, error } = await supabase
-        .from("payment_variance")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ paymentVariances: data || [] });
+      const response = await fetch('/api/payments/variances');
+      if (!response.ok) throw new Error('Failed to fetch payment variances');
+      
+      const data = await response.json();
+      set({ paymentVariances: data.paymentVariances || [] });
     } catch (error) {
       console.error("Failed to fetch payment variances:", error);
     }
@@ -502,13 +637,11 @@ export const createPaymentSlice: StateCreator<
 
   fetchCreditBalances: async () => {
     try {
-      const { data, error } = await supabase
-        .from("credit_balance")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ creditBalances: data || [] });
+      const response = await fetch('/api/payments/credit-balances');
+      if (!response.ok) throw new Error('Failed to fetch credit balances');
+      
+      const data = await response.json();
+      set({ creditBalances: data.creditBalances || [] });
     } catch (error) {
       console.error("Failed to fetch credit balances:", error);
     }
@@ -517,27 +650,24 @@ export const createPaymentSlice: StateCreator<
   fetchRemittanceAdvices: async () => {
     set({ remittanceAdvicesLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("remittance_advice")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ remittanceAdvices: data || [], remittanceAdvicesLoading: false });
+      const response = await fetch('/api/payments/remittance-advices');
+      if (!response.ok) throw new Error('Failed to fetch remittance advices');
+      
+      const data = await response.json();
+      set({ remittanceAdvices: data.remittanceAdvices || [], remittanceAdvicesLoading: false });
     } catch (error) {
       set({ remittanceAdvicesLoading: false });
+      console.error("Failed to fetch remittance advices:", error);
     }
   },
 
   fetchERALineDetails: async (remittanceId) => {
     try {
-      const { data, error } = await supabase
-        .from("era_line_detail")
-        .select("*")
-        .eq("remittance_advice_id", remittanceId);
-
-      if (error) throw error;
-      set({ eraLineDetails: data || [] });
+      const response = await fetch(`/api/payments/remittance-advices/${remittanceId}/era-line-details`);
+      if (!response.ok) throw new Error('Failed to fetch ERA line details');
+      
+      const data = await response.json();
+      set({ eraLineDetails: data.eraLineDetails || [] });
     } catch (error) {
       console.error("Failed to fetch ERA line details:", error);
     }
@@ -545,15 +675,19 @@ export const createPaymentSlice: StateCreator<
 
   postPayment: async (paymentData) => {
     try {
-      const { data, error } = await supabase
-        .from("payment_detail")
-        .insert([paymentData])
-        .select()
-        .single();
+      const response = await fetch('/api/payments/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
 
-      if (error) throw error;
-      if (data) {
-        get().addPaymentDetail(data);
+      if (!response.ok) throw new Error('Failed to post payment');
+      
+      const data = await response.json();
+      if (data.paymentDetail) {
+        get().addPaymentDetail(data.paymentDetail);
       }
     } catch (error) {
       console.error("Failed to post payment:", error);
@@ -563,20 +697,19 @@ export const createPaymentSlice: StateCreator<
 
   reconcilePayment: async (paymentId, reconciliationData) => {
     try {
-      const { data, error } = await supabase
-        .from("payment_reconciliation")
-        .insert([
-          {
-            payment_detail_id: paymentId,
-            ...reconciliationData,
-          },
-        ])
-        .select()
-        .single();
+      const response = await fetch(`/api/payments/details/${paymentId}/reconcile`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reconciliationData),
+      });
 
-      if (error) throw error;
-      if (data) {
-        get().addPaymentReconciliation(data);
+      if (!response.ok) throw new Error('Failed to reconcile payment');
+      
+      const data = await response.json();
+      if (data.paymentReconciliation) {
+        get().addPaymentReconciliation(data.paymentReconciliation);
       }
 
       // Update payment detail status

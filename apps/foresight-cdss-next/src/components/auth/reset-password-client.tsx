@@ -12,7 +12,7 @@ import {
   EyeOff,
   Loader2,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+// import { useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,24 +34,22 @@ export default function ResetPasswordClient() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const router = useRouter();
-  const supabase = createClient();
+  // const { user } = useClerk();
 
   useEffect(() => {
-    // Handle the auth callback from email
-    const handleAuthCallback = async () => {
-      const { error } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Error getting session:", error);
-        setError(
-          "Invalid or expired reset link. Please request a new password reset."
-        );
-      }
-    };
+    // Get the reset token from URL parameters
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    const token = urlParams.get('token');
 
-    handleAuthCallback();
-  }, [supabase.auth]);
+    if (token) {
+      setResetToken(token);
+    } else {
+      setError("Invalid or missing reset token. Please request a new password reset.");
+    }
+  }, []);
 
   const validatePassword = (password: string): string[] => {
     const errors: string[] = [];
@@ -98,22 +96,36 @@ export default function ResetPasswordClient() {
       return;
     }
 
+    // Check if we have a reset token
+    if (!resetToken) {
+      setError("Invalid or missing reset token. Please request a new password reset.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      // Call API to reset password with Clerk
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: resetToken,
+          password: password,
+        }),
       });
 
-      if (error) {
-        setError(error.message);
-        return;
+      if (response.ok) {
+        setIsSuccess(true);
+        // Redirect to login page after a delay
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to reset password. Please try again.');
       }
-
-      setIsSuccess(true);
-
-      // Redirect to login page after a delay
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       console.error("Error updating password:", err);

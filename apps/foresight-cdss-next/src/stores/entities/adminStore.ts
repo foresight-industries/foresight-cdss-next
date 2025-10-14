@@ -1,38 +1,90 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
 import { TeamRole } from "@/types/team.types";
+
+// AWS-compatible types
+type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  ownerId: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type TeamMember = {
+  id: string;
+  organizationId: string;
+  clerkUserId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type TeamInvitation = {
+  id: string;
+  organizationId: string;
+  email: string;
+  role: string;
+  expiresAt: Date;
+  acceptedAt?: Date;
+  createdAt: Date;
+};
+
+type SystemSettings = {
+  id: string;
+  key: string;
+  value: any;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ApiKey = {
+  id: string;
+  organizationId: string;
+  name: string;
+  keyHash: string;
+  isActive: boolean;
+  createdAt: Date;
+  lastUsedAt?: Date;
+};
+
+type AuditLog = {
+  id: string;
+  organizationId: string;
+  userId: string;
+  action: string;
+  resource: string;
+  details: any;
+  createdAt: Date;
+};
 
 export interface AdminSlice {
   // State
-  teams: Tables<"team">[];
-  teamMembers: Tables<"team_member">[];
-  teamInvitations: Tables<"team_invitation">[];
-  teamSettings: Tables<"team_settings">[];
-  userProfiles: Tables<"user_profile">[];
-  userSessions: Tables<"user_session">[];
-  systemSettings: Tables<"system_settings">[];
-  apiKeys: Tables<"api_key">[];
-  apiVersions: Tables<"api_version">[];
-  auditLogs: Tables<"audit_log">[];
-  securityAuditLogs: Tables<"security_audit_log">[];
-  phiExportLogs: Tables<"phi_export_log">[];
+  organizations: Organization[];
+  teamMembers: TeamMember[];
+  teamInvitations: TeamInvitation[];
+  systemSettings: SystemSettings[];
+  apiKeys: ApiKey[];
+  auditLogs: AuditLog[];
 
   // Loading states
-  teamsLoading: boolean;
+  organizationsLoading: boolean;
   teamMembersLoading: boolean;
-  userProfilesLoading: boolean;
   systemSettingsLoading: boolean;
   auditLogsLoading: boolean;
 
   // Error states
-  teamsError: string | null;
+  organizationsError: string | null;
   teamMembersError: string | null;
-  userProfilesError: string | null;
 
   // Filter state
   adminFilters: {
-    teamId?: string;
+    organizationId?: string;
     userRole?: string;
     activeOnly?: boolean;
     dateRange?:
@@ -44,99 +96,51 @@ export interface AdminSlice {
     customDateRange?: { from: Date; to: Date };
   };
 
-  // Actions
-  setTeams: (teams: Tables<"team">[]) => void;
-  addTeam: (team: Tables<"team">) => void;
-  updateTeam: (id: string, updates: Partial<Tables<"team">>) => void;
-  removeTeam: (id: string) => void;
+  // Organizations actions
+  setOrganizations: (organizations: Organization[]) => void;
+  addOrganization: (organization: Organization) => void;
+  updateOrganization: (id: string, updates: Partial<Organization>) => void;
+  removeOrganization: (id: string) => void;
 
   // Team members actions
-  setTeamMembers: (members: Tables<"team_member">[]) => void;
-  addTeamMember: (member: Tables<"team_member">) => void;
-  updateTeamMember: (
-    id: string,
-    updates: Partial<Tables<"team_member">>
-  ) => void;
+  setTeamMembers: (members: TeamMember[]) => void;
+  addTeamMember: (member: TeamMember) => void;
+  updateTeamMember: (id: string, updates: Partial<TeamMember>) => void;
   removeTeamMember: (id: string) => void;
 
   // Team invitations actions
-  setTeamInvitations: (invitations: Tables<"team_invitation">[]) => void;
-  addTeamInvitation: (invitation: Tables<"team_invitation">) => void;
-  updateTeamInvitation: (
-    id: string,
-    updates: Partial<Tables<"team_invitation">>
-  ) => void;
+  setTeamInvitations: (invitations: TeamInvitation[]) => void;
+  addTeamInvitation: (invitation: TeamInvitation) => void;
+  updateTeamInvitation: (id: string, updates: Partial<TeamInvitation>) => void;
   removeTeamInvitation: (id: string) => void;
 
-  // Team settings actions
-  setTeamSettings: (settings: Tables<"team_settings">[]) => void;
-  updateTeamSettings: (
-    teamId: string,
-    updates: Partial<Tables<"team_settings">>
-  ) => void;
-
-  // User profiles actions
-  setUserProfiles: (profiles: Tables<"user_profile">[]) => void;
-  addUserProfile: (profile: Tables<"user_profile">) => void;
-  updateUserProfile: (
-    id: string,
-    updates: Partial<Tables<"user_profile">>
-  ) => void;
-  removeUserProfile: (id: string) => void;
-
-  // User sessions actions
-  setUserSessions: (sessions: Tables<"user_session">[]) => void;
-  addUserSession: (session: Tables<"user_session">) => void;
-  updateUserSession: (
-    id: string,
-    updates: Partial<Tables<"user_session">>
-  ) => void;
-
   // System settings actions
-  setSystemSettings: (settings: Tables<"system_settings">[]) => void;
+  setSystemSettings: (settings: SystemSettings[]) => void;
   updateSystemSettings: (key: string, value: any) => void;
 
   // API keys actions
-  setApiKeys: (keys: Tables<"api_key">[]) => void;
-  addApiKey: (key: Tables<"api_key">) => void;
-  updateApiKey: (id: string, updates: Partial<Tables<"api_key">>) => void;
+  setApiKeys: (keys: ApiKey[]) => void;
+  addApiKey: (key: ApiKey) => void;
+  updateApiKey: (id: string, updates: Partial<ApiKey>) => void;
   removeApiKey: (id: string) => void;
 
-  // API versions actions
-  setApiVersions: (versions: Tables<"api_version">[]) => void;
-  addApiVersion: (version: Tables<"api_version">) => void;
-
   // Audit logs actions
-  setAuditLogs: (logs: Tables<"audit_log">[]) => void;
-  addAuditLog: (log: Tables<"audit_log">) => void;
-
-  // Security audit logs actions
-  setSecurityAuditLogs: (logs: Tables<"security_audit_log">[]) => void;
-  addSecurityAuditLog: (log: Tables<"security_audit_log">) => void;
-
-  // PHI export logs actions
-  setPHIExportLogs: (logs: Tables<"phi_export_log">[]) => void;
-  addPHIExportLog: (log: Tables<"phi_export_log">) => void;
+  setAuditLogs: (logs: AuditLog[]) => void;
+  addAuditLog: (log: AuditLog) => void;
 
   // Filter actions
   setAdminFilters: (filters: AdminSlice["adminFilters"]) => void;
   clearAdminFilters: () => void;
 
   // Async actions
-  fetchTeams: () => Promise<void>;
-  fetchTeamMembers: (teamId?: string) => Promise<void>;
-  fetchTeamInvitations: (teamId?: string) => Promise<void>;
-  fetchTeamSettings: (teamId: string) => Promise<void>;
-  fetchUserProfiles: () => Promise<void>;
-  fetchUserSessions: () => Promise<void>;
+  fetchOrganizations: () => Promise<void>;
+  fetchTeamMembers: (organizationId?: string) => Promise<void>;
+  fetchTeamInvitations: (organizationId?: string) => Promise<void>;
   fetchSystemSettings: () => Promise<void>;
   fetchApiKeys: () => Promise<void>;
-  fetchApiVersions: () => Promise<void>;
   fetchAuditLogs: () => Promise<void>;
-  fetchSecurityAuditLogs: () => Promise<void>;
-  fetchPHIExportLogs: () => Promise<void>;
   inviteTeamMember: (
-    teamId: string,
+    organizationId: string,
     email: string,
     role: TeamRole
   ) => Promise<void>;
@@ -149,30 +153,22 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
   get
 ) => ({
   // Initial state
-  teams: [],
+  organizations: [],
   teamMembers: [],
   teamInvitations: [],
-  teamSettings: [],
-  userProfiles: [],
-  userSessions: [],
   systemSettings: [],
   apiKeys: [],
-  apiVersions: [],
   auditLogs: [],
-  securityAuditLogs: [],
-  phiExportLogs: [],
 
   // Loading states
-  teamsLoading: false,
+  organizationsLoading: false,
   teamMembersLoading: false,
-  userProfilesLoading: false,
   systemSettingsLoading: false,
   auditLogsLoading: false,
 
   // Error states
-  teamsError: null,
+  organizationsError: null,
   teamMembersError: null,
-  userProfilesError: null,
 
   // Filter state
   adminFilters: {
@@ -180,22 +176,22 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
     dateRange: "last_30_days",
   },
 
-  // Teams actions
-  setTeams: (teams) => set({ teams }),
+  // Organizations actions
+  setOrganizations: (organizations) => set({ organizations }),
 
-  addTeam: (team) =>
+  addOrganization: (organization) =>
     set((state) => ({
-      teams: [...state.teams, team],
+      organizations: [...state.organizations, organization],
     })),
 
-  updateTeam: (id, updates) =>
+  updateOrganization: (id, updates) =>
     set((state) => ({
-      teams: state.teams.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+      organizations: state.organizations.map((o) => (o.id === id ? { ...o, ...updates } : o)),
     })),
 
-  removeTeam: (id) =>
+  removeOrganization: (id) =>
     set((state) => ({
-      teams: state.teams.filter((t) => t.id !== id),
+      organizations: state.organizations.filter((o) => o.id !== id),
     })),
 
   // Team members actions
@@ -238,51 +234,6 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
       teamInvitations: state.teamInvitations.filter((i) => i.id !== id),
     })),
 
-  // Team settings actions
-  setTeamSettings: (settings) => set({ teamSettings: settings }),
-
-  updateTeamSettings: (teamId, updates) =>
-    set((state) => ({
-      teamSettings: state.teamSettings.map((s) =>
-        s.team_id === teamId ? { ...s, ...updates } : s
-      ),
-    })),
-
-  // User profiles actions
-  setUserProfiles: (profiles) => set({ userProfiles: profiles }),
-
-  addUserProfile: (profile) =>
-    set((state) => ({
-      userProfiles: [...state.userProfiles, profile],
-    })),
-
-  updateUserProfile: (id, updates) =>
-    set((state) => ({
-      userProfiles: state.userProfiles.map((p) =>
-        p.id === id ? { ...p, ...updates } : p
-      ),
-    })),
-
-  removeUserProfile: (id) =>
-    set((state) => ({
-      userProfiles: state.userProfiles.filter((p) => p.id !== id),
-    })),
-
-  // User sessions actions
-  setUserSessions: (sessions) => set({ userSessions: sessions }),
-
-  addUserSession: (session) =>
-    set((state) => ({
-      userSessions: [...state.userSessions, session],
-    })),
-
-  updateUserSession: (id, updates) =>
-    set((state) => ({
-      userSessions: state.userSessions.map((s) =>
-        s.id === id ? { ...s, ...updates } : s
-      ),
-    })),
-
   // System settings actions
   setSystemSettings: (settings) => set({ systemSettings: settings }),
 
@@ -313,36 +264,12 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
       apiKeys: state.apiKeys.filter((k) => k.id !== id),
     })),
 
-  // API versions actions
-  setApiVersions: (versions) => set({ apiVersions: versions }),
-
-  addApiVersion: (version) =>
-    set((state) => ({
-      apiVersions: [...state.apiVersions, version],
-    })),
-
   // Audit logs actions
   setAuditLogs: (logs) => set({ auditLogs: logs }),
 
   addAuditLog: (log) =>
     set((state) => ({
       auditLogs: [log, ...state.auditLogs],
-    })),
-
-  // Security audit logs actions
-  setSecurityAuditLogs: (logs) => set({ securityAuditLogs: logs }),
-
-  addSecurityAuditLog: (log) =>
-    set((state) => ({
-      securityAuditLogs: [log, ...state.securityAuditLogs],
-    })),
-
-  // PHI export logs actions
-  setPHIExportLogs: (logs) => set({ phiExportLogs: logs }),
-
-  addPHIExportLog: (log) =>
-    set((state) => ({
-      phiExportLogs: [log, ...state.phiExportLogs],
     })),
 
   // Filter actions
@@ -360,40 +287,35 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
     }),
 
   // Async actions
-  fetchTeams: async () => {
-    set({ teamsLoading: true, teamsError: null });
+  fetchOrganizations: async () => {
+    set({ organizationsLoading: true, organizationsError: null });
     try {
-      const { data, error } = await supabase
-        .from("team")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ teams: data || [], teamsLoading: false });
+      const response = await fetch('/api/admin/organizations');
+      if (!response.ok) throw new Error('Failed to fetch organizations');
+      
+      const data = await response.json();
+      set({ organizations: data.organizations || [], organizationsLoading: false });
     } catch (error) {
       set({
-        teamsError:
-          error instanceof Error ? error.message : "Failed to fetch teams",
-        teamsLoading: false,
+        organizationsError:
+          error instanceof Error ? error.message : "Failed to fetch organizations",
+        organizationsLoading: false,
       });
     }
   },
 
-  fetchTeamMembers: async (teamId) => {
+  fetchTeamMembers: async (organizationId) => {
     set({ teamMembersLoading: true, teamMembersError: null });
     try {
-      let query = supabase.from("team_member").select("*");
-
-      if (teamId) {
-        query = query.eq("team_id", teamId);
-      }
-
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
-
-      if (error) throw error;
-      set({ teamMembers: data || [], teamMembersLoading: false });
+      const url = organizationId 
+        ? `/api/admin/team-members?organizationId=${organizationId}`
+        : '/api/admin/team-members';
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch team members');
+      
+      const data = await response.json();
+      set({ teamMembers: data.teamMembers || [], teamMembersLoading: false });
     } catch (error) {
       set({
         teamMembersError:
@@ -405,182 +327,81 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
     }
   },
 
-  fetchTeamInvitations: async (teamId) => {
+  fetchTeamInvitations: async (organizationId) => {
     try {
-      let query = supabase.from("team_invitation").select("*");
-
-      if (teamId) {
-        query = query.eq("team_id", teamId);
-      }
-
-      const { data, error } = await query.order("created_at", {
-        ascending: false,
-      });
-
-      if (error) throw error;
-      set({ teamInvitations: data || [] });
+      const url = organizationId 
+        ? `/api/admin/team-invitations?organizationId=${organizationId}`
+        : '/api/admin/team-invitations';
+      
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch team invitations');
+      
+      const data = await response.json();
+      set({ teamInvitations: data.teamInvitations || [] });
     } catch (error) {
       console.error("Failed to fetch team invitations:", error);
-    }
-  },
-
-  fetchTeamSettings: async (teamId) => {
-    try {
-      const { data, error } = await supabase
-        .from("team_settings")
-        .select("*")
-        .eq("team_id", teamId);
-
-      if (error) throw error;
-      set({ teamSettings: data || [] });
-    } catch (error) {
-      console.error("Failed to fetch team settings:", error);
-    }
-  },
-
-  fetchUserProfiles: async () => {
-    set({ userProfilesLoading: true, userProfilesError: null });
-    try {
-      const { data, error } = await supabase
-        .from("user_profile")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ userProfiles: data || [], userProfilesLoading: false });
-    } catch (error) {
-      set({
-        userProfilesError:
-          error instanceof Error
-            ? error.message
-            : "Failed to fetch user profiles",
-        userProfilesLoading: false,
-      });
-    }
-  },
-
-  fetchUserSessions: async () => {
-    try {
-      const { data, error } = await supabase
-        .from("user_session")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ userSessions: data || [] });
-    } catch (error) {
-      console.error("Failed to fetch user sessions:", error);
     }
   },
 
   fetchSystemSettings: async () => {
     set({ systemSettingsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("system_settings")
-        .select("*");
-
-      if (error) throw error;
-      set({ systemSettings: data || [], systemSettingsLoading: false });
+      const response = await fetch('/api/admin/system-settings');
+      if (!response.ok) throw new Error('Failed to fetch system settings');
+      
+      const data = await response.json();
+      set({ systemSettings: data.systemSettings || [], systemSettingsLoading: false });
     } catch (error) {
       set({ systemSettingsLoading: false });
+      console.error("Failed to fetch system settings:", error);
     }
   },
 
   fetchApiKeys: async () => {
     try {
-      const { data, error } = await supabase
-        .from("api_key")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ apiKeys: data || [] });
+      const response = await fetch('/api/admin/api-keys');
+      if (!response.ok) throw new Error('Failed to fetch API keys');
+      
+      const data = await response.json();
+      set({ apiKeys: data.apiKeys || [] });
     } catch (error) {
       console.error("Failed to fetch API keys:", error);
-    }
-  },
-
-  fetchApiVersions: async () => {
-    try {
-      const { data, error } = await supabase
-        .from("api_version")
-        .select("*")
-        .order("version", { ascending: false });
-
-      if (error) throw error;
-      set({ apiVersions: data || [] });
-    } catch (error) {
-      console.error("Failed to fetch API versions:", error);
     }
   },
 
   fetchAuditLogs: async () => {
     set({ auditLogsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("audit_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-
-      if (error) throw error;
-      set({ auditLogs: data || [], auditLogsLoading: false });
+      const response = await fetch('/api/admin/audit-logs');
+      if (!response.ok) throw new Error('Failed to fetch audit logs');
+      
+      const data = await response.json();
+      set({ auditLogs: data.auditLogs || [], auditLogsLoading: false });
     } catch (error) {
       set({ auditLogsLoading: false });
+      console.error("Failed to fetch audit logs:", error);
     }
   },
 
-  fetchSecurityAuditLogs: async () => {
+  inviteTeamMember: async (organizationId, email, role: TeamRole) => {
     try {
-      const { data, error } = await supabase
-        .from("security_audit_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
+      const response = await fetch('/api/admin/team-invitations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationId,
+          email,
+          role,
+        }),
+      });
 
-      if (error) throw error;
-      set({ securityAuditLogs: data || [] });
-    } catch (error) {
-      console.error("Failed to fetch security audit logs:", error);
-    }
-  },
-
-  fetchPHIExportLogs: async () => {
-    try {
-      const { data, error } = await supabase
-        .from("phi_export_log")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1000);
-
-      if (error) throw error;
-      set({ phiExportLogs: data || [] });
-    } catch (error) {
-      console.error("Failed to fetch PHI export logs:", error);
-    }
-  },
-
-  inviteTeamMember: async (teamId, email, role: TeamRole) => {
-    try {
-      const { data, error } = await supabase
-        .from("team_invitation")
-        .insert([
-          {
-            team_id: teamId,
-            email,
-            role,
-            expires_at: new Date(
-              Date.now() + 7 * 24 * 60 * 60 * 1000
-            ).toISOString(), // 7 days
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        get().addTeamInvitation(data);
+      if (!response.ok) throw new Error('Failed to invite team member');
+      
+      const data = await response.json();
+      if (data.invitation) {
+        get().addTeamInvitation(data.invitation);
       }
     } catch (error) {
       console.error("Failed to invite team member:", error);
@@ -590,18 +411,15 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
 
   acceptTeamInvitation: async (invitationId) => {
     try {
-      const { error } = await supabase
-        .from("team_invitation")
-        .update({
-          accepted_at: new Date().toISOString(),
-        })
-        .eq("id", invitationId);
+      const response = await fetch(`/api/admin/team-invitations/${invitationId}/accept`, {
+        method: 'POST',
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to accept team invitation');
 
       // Update local state
       get().updateTeamInvitation(invitationId, {
-        accepted_at: new Date().toISOString(),
+        acceptedAt: new Date(),
       });
     } catch (error) {
       console.error("Failed to accept team invitation:", error);
@@ -611,18 +429,15 @@ export const createAdminSlice: StateCreator<AdminSlice, [], [], AdminSlice> = (
 
   revokeApiKey: async (keyId) => {
     try {
-      const { error } = await supabase
-        .from("api_key")
-        .update({
-          is_active: false,
-        })
-        .eq("id", keyId);
+      const response = await fetch(`/api/admin/api-keys/${keyId}/revoke`, {
+        method: 'POST',
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to revoke API key');
 
       // Update local state
       get().updateApiKey(keyId, {
-        is_active: false,
+        isActive: false,
       });
     } catch (error) {
       console.error("Failed to revoke API key:", error);

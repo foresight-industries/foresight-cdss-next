@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAppStore } from "@/stores/mainStore";
-import type { Tables } from "@/types/database.types";
 
 // Cache entry interface
 interface CacheEntry<T> {
@@ -263,17 +262,17 @@ export const useStoreCache = () => {
           switch (entityType) {
             case "patients":
               if (Array.isArray(cachedData)) {
-                store.setPatients(cachedData as Tables<"patient">[]);
+                store.setPatients(cachedData);
               }
               break;
             case "claims":
               if (Array.isArray(cachedData)) {
-                store.setClaims(cachedData as Tables<"claim">[]);
+                store.setClaims(cachedData);
               }
               break;
             case "priorAuths":
               if (Array.isArray(cachedData)) {
-                store.setPriorAuths(cachedData as Tables<"prior_auth">[]);
+                store.setPriorAuths(cachedData);
               }
               break;
             // Add other entity types as needed
@@ -340,7 +339,7 @@ export const useEntityCache = <T>(
 };
 
 // Hook for patient-specific data caching
-export const usePatientCache = (patientId: number) => {
+export const usePatientCache = (patientId: string) => {
   const fetchPatientProfile = useAppStore((state) => state.fetchPatientProfile);
   const fetchPatientDiagnoses = useAppStore(
     (state) => state.fetchPatientDiagnoses

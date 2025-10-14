@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient as Clerk } from '@clerk/nextjs/server';
+import { createAuthenticatedDatabaseClient } from '@/lib/aws/database';
+import { teamMembers } from '@foresight-cdss-next/db/src/schema';
+import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,9 +38,10 @@ export async function POST(request: NextRequest) {
     });
 
     // Find the most recently joined organization (this would be from the invitation)
-    const latestMembership = organizationMemberships.data.sort(
+    const sortedMemberships = organizationMemberships.data.toSorted(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
+    );
+    const latestMembership = sortedMemberships[0];
 
     if (!latestMembership) {
       return NextResponse.json({
@@ -54,36 +58,31 @@ export async function POST(request: NextRequest) {
     // - Log the invitation acceptance
 
     try {
-      // Example: Create user profile if it doesn't exist
-      // You might want to move this to a separate function
-      const { createClient } = require('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      );
+      const { db } = await createAuthenticatedDatabaseClient();
 
-      // Check if user profile exists
-      const { data: existingProfile } = await supabase
-        .from('user_profile')
-        .select('id')
-        .eq('id', userId)
-        .single();
+      // Check if team member record exists
+      const existingMember = await db
+        .select({ id: teamMembers.id })
+        .from(teamMembers)
+        .where(eq(teamMembers.clerkUserId, userId))
+        .limit(1);
 
-      if (!existingProfile) {
-        // Create user profile
-        await supabase
-          .from('user_profile')
-          .insert({
-            id: userId,
+      if (existingMember.length === 0) {
+        // Create team member record
+        await db
+          .insert(teamMembers)
+          .values({
+            organizationId: organizationId,
+            clerkUserId: userId,
             email: latestMembership.publicUserData?.identifier || '',
-            first_name: latestMembership.publicUserData?.firstName || '',
-            last_name: latestMembership.publicUserData?.lastName || '',
-            role: 'provider', // Default role for invited users
+            firstName: latestMembership.publicUserData?.firstName || '',
+            lastName: latestMembership.publicUserData?.lastName || '',
+            role: 'provider',
+            isActive: true,
+            createdAt: new Date(),
+            updatedAt: new Date(),
           });
       }
-
-      // You might also want to create a team membership record
-      // that links the user to their team within the organization
 
     } catch (dbError) {
       console.error('Error setting up user data after invitation acceptance:', dbError);

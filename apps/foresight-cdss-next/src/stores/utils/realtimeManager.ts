@@ -1,22 +1,23 @@
 import { useCallback, useEffect, useRef } from "react";
-import {
-  RealtimeChannel,
-  RealtimePostgresChangesPayload,
-} from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
 import { useAppStore } from "../mainStore";
-import type { Database, Tables } from "@/types/database.types";
 
-type DatabaseTables = keyof Database["public"]["Tables"];
+// AWS database table names based on the schema
+type DatabaseTables = 'patients' | 'claims' | 'priorAuths' | 'paymentDetails' | 'organizations' | 'appointments' | 'auditLogs';
 
-// Real-time subscription manager
+interface RealtimePayload<T = any> {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: T;
+  old?: T;
+}
+
+// AWS-based realtime manager (using WebSockets or AWS AppSync)
 export class RealtimeManager {
-  private channels: Map<string, RealtimeChannel> = new Map();
-  private subscriptions: Map<string, () => void> = new Map();
+  private readonly websockets: Map<string, WebSocket> = new Map();
+  private readonly subscriptions: Map<string, () => void> = new Map();
 
-  subscribe<T extends DatabaseTables>(
-    table: T,
-    callback: (payload: RealtimePostgresChangesPayload<Tables<T>>) => void,
+  subscribe<T = any>(
+    table: DatabaseTables,
+    callback: (payload: RealtimePayload<T>) => void,
     filter?: string
   ): () => void {
     const channelName = `${table}${filter ? `-${filter}` : ""}`;
@@ -24,21 +25,32 @@ export class RealtimeManager {
     // Remove existing subscription if it exists
     this.unsubscribe(channelName);
 
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: table as string,
-          filter,
-        },
-        callback
-      )
-      .subscribe();
+    // For AWS, we would typically use AWS AppSync, EventBridge, or WebSocket API
+    // This is a placeholder implementation using WebSockets
+    const wsUrl = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://localhost:3001';
+    const ws = new WebSocket(`${wsUrl}/${table}`);
+    
+    ws.onopen = () => {
+      console.log(`Connected to realtime for ${table}`);
+      if (filter) {
+        ws.send(JSON.stringify({ type: 'filter', filter }));
+      }
+    };
 
-    this.channels.set(channelName, channel);
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        callback(payload);
+      } catch (error) {
+        console.error('Error parsing realtime message:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error(`WebSocket error for ${table}:`, error);
+    };
+
+    this.websockets.set(channelName, ws);
 
     // Return unsubscribe function
     const unsubscribe = () => this.unsubscribe(channelName);
@@ -48,24 +60,24 @@ export class RealtimeManager {
   }
 
   unsubscribe(channelName: string): void {
-    const channel = this.channels.get(channelName);
-    if (channel) {
-      supabase.removeChannel(channel);
-      this.channels.delete(channelName);
+    const ws = this.websockets.get(channelName);
+    if (ws) {
+      ws.close();
+      this.websockets.delete(channelName);
       this.subscriptions.delete(channelName);
     }
   }
 
   unsubscribeAll(): void {
-    this.channels.forEach((channel) => {
-      supabase.removeChannel(channel);
-    });
-    this.channels.clear();
+    for (const [, ws] of this.websockets) {
+      ws.close();
+    }
+    this.websockets.clear();
     this.subscriptions.clear();
   }
 
   getActiveSubscriptions(): string[] {
-    return Array.from(this.channels.keys());
+    return Array.from(this.websockets.keys());
   }
 }
 
@@ -73,14 +85,14 @@ export class RealtimeManager {
 export const realtimeManager = new RealtimeManager();
 
 // Hook for managing real-time subscriptions
-export const useRealtimeSubscription = <T extends DatabaseTables>(
-  table: T,
+export const useRealtimeSubscription = (
+  table: DatabaseTables,
   options: {
     enabled?: boolean;
     filter?: string;
-    onInsert?: (record: Tables<T>) => void;
-    onUpdate?: (record: Tables<T>) => void;
-    onDelete?: (record: Partial<Tables<T>>) => void;
+    onInsert?: (record: any) => void;
+    onUpdate?: (record: any) => void;
+    onDelete?: (record: any) => void;
   } = {}
 ) => {
   const { enabled = true, filter, onInsert, onUpdate, onDelete } = options;
@@ -94,7 +106,7 @@ export const useRealtimeSubscription = <T extends DatabaseTables>(
   const unsubscribeRef = useRef<(() => void) | null>(null);
 
   const handleChange = useCallback(
-    (payload: RealtimePostgresChangesPayload<Tables<T>>) => {
+    (payload: RealtimePayload) => {
       updateRealtimeTimestamp();
 
       switch (payload.eventType) {
@@ -105,7 +117,7 @@ export const useRealtimeSubscription = <T extends DatabaseTables>(
           onUpdate?.(payload.new);
           break;
         case "DELETE":
-          onDelete?.(payload.old as Partial<Tables<T>>);
+          onDelete?.(payload.old);
           break;
       }
     },
@@ -152,7 +164,7 @@ export const usePatientRealtime = (enabled = true) => {
   const updatePatient = useAppStore((state) => state.updatePatient);
   const removePatient = useAppStore((state) => state.removePatient);
 
-  useRealtimeSubscription("patient", {
+  useRealtimeSubscription("patients", {
     enabled,
     onInsert: (patient) => {
       addPatient(patient);
@@ -174,7 +186,7 @@ export const useClaimRealtime = (enabled = true) => {
   const updateClaim = useAppStore((state) => state.updateClaim);
   const removeClaim = useAppStore((state) => state.removeClaim);
 
-  useRealtimeSubscription("claim", {
+  useRealtimeSubscription("claims", {
     enabled,
     onInsert: (claim) => {
       addClaim(claim);
@@ -196,7 +208,7 @@ export const usePriorAuthRealtime = (enabled = true) => {
   const updatePriorAuth = useAppStore((state) => state.updatePriorAuth);
   const removePriorAuth = useAppStore((state) => state.removePriorAuth);
 
-  useRealtimeSubscription("prior_auth", {
+  useRealtimeSubscription("priorAuths", {
     enabled,
     onInsert: (priorAuth) => {
       addPriorAuth(priorAuth);
@@ -218,7 +230,7 @@ export const usePaymentRealtime = (enabled = true) => {
   const updatePaymentDetail = useAppStore((state) => state.updatePaymentDetail);
   const removePaymentDetail = useAppStore((state) => state.removePaymentDetail);
 
-  useRealtimeSubscription("payment_detail", {
+  useRealtimeSubscription("paymentDetails", {
     enabled,
     onInsert: (payment) => {
       addPaymentDetail(payment);
@@ -234,23 +246,23 @@ export const usePaymentRealtime = (enabled = true) => {
   });
 };
 
-// Hook for team real-time updates (admin)
-export const useTeamRealtime = (enabled = true) => {
-  const addTeam = useAppStore((state) => state.addTeam);
-  const updateTeam = useAppStore((state) => state.updateTeam);
-  const removeTeam = useAppStore((state) => state.removeTeam);
+// Hook for organization real-time updates (admin)
+export const useOrganizationRealtime = (enabled = true) => {
+  const addOrganization = useAppStore((state) => state.addOrganization);
+  const updateOrganization = useAppStore((state) => state.updateOrganization);
+  const removeOrganization = useAppStore((state) => state.removeOrganization);
 
-  useRealtimeSubscription("team", {
+  useRealtimeSubscription("organizations", {
     enabled,
-    onInsert: (team) => {
-      addTeam(team);
+    onInsert: (organization) => {
+      addOrganization(organization);
     },
-    onUpdate: (team) => {
-      updateTeam(team.id, team);
+    onUpdate: (organization) => {
+      updateOrganization(organization.id, organization);
     },
-    onDelete: (team) => {
-      if (team.id) {
-        removeTeam(team.id);
+    onDelete: (organization) => {
+      if (organization.id) {
+        removeOrganization(organization.id);
       }
     },
   });
@@ -263,7 +275,7 @@ export const useRealtimeUpdates = (
     claims?: boolean;
     priorAuths?: boolean;
     payments?: boolean;
-    teams?: boolean;
+    organizations?: boolean;
   } = {}
 ) => {
   const {
@@ -271,14 +283,14 @@ export const useRealtimeUpdates = (
     claims = true,
     priorAuths = true,
     payments = true,
-    teams = true,
+    organizations = true,
   } = options;
 
   usePatientRealtime(patients);
   useClaimRealtime(claims);
   usePriorAuthRealtime(priorAuths);
   usePaymentRealtime(payments);
-  useTeamRealtime(teams);
+  useOrganizationRealtime(organizations);
 
   const setRealtimeConnected = useAppStore(
     (state) => state.setRealtimeConnected
