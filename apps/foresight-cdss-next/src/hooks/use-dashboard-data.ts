@@ -1,21 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/lib/supabase/client";
-import { Tables } from "@/lib/supabase";
-import type { StatusDistribution } from "@/types/pa.types";
 
-// Fetch dashboard metrics from the existing prior_auth table
+// Fetch dashboard metrics from the AWS prior_auth table
 export function useDashboardMetrics() {
   return useQuery({
     queryKey: ['dashboard-metrics'],
     queryFn: async () => {
-      // Get basic counts from existing prior_auth table
-      const { data: paData, error: paError } = await supabase
-        .from(Tables.PRIOR_AUTH)
-        .select('id, status, created_at, updated_at');
+      // Get basic counts from AWS prior_auth table
+      const response = await fetch('/api/prior-auths?metrics=true');
+      if (!response.ok) {
+        throw new Error('Failed to fetch dashboard metrics');
+      }
 
-      if (paError) throw paError;
-
-      const totalPas = paData?.length || 0;
+      const data = await response.json();
+      const totalPas = data.total || 0;
 
       // Calculate basic status distribution
       // const statusCounts = paData?.reduce((acc, pa) => {
@@ -72,99 +69,57 @@ export function useDashboardMetrics() {
   });
 }
 
-// Fetch status distribution from prior_auth table
+// Fetch status distribution from AWS prior_auth table
 export function useStatusDistribution() {
   return useQuery({
     queryKey: ['status-distribution'],
     queryFn: async () => {
-      return calculateStatusDistributionFallback();
+      const response = await fetch('/api/prior-auths/status-distribution');
+      if (!response.ok) {
+        throw new Error('Failed to fetch status distribution');
+      }
+      return response.json();
     },
     staleTime: 1000 * 60, // 1 minute
   });
 }
 
-// Fetch recent PA activity using the basic prior_auth table
+// Fetch recent PA activity using the AWS prior_auth table
 export function useRecentActivity(limit = 10) {
   return useQuery({
     queryKey: ['recent-activity', limit],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from(Tables.PRIOR_AUTH)
-        .select(`
-          id,
-          attempt_count,
-          status,
-          created_at,
-          updated_at,
-          patient_id,
-          prescription_request:prescription_request_id (
-            medication_quantity:medication_quantity_id (
-              medication_dosage:medication_dosage_id (
-                medication:medication_id (
-                  display_name,
-                  name
-                )
-              )
-            )
-          ),
-          patient:patient_id (
-            id,
-            external_id,
-            height,
-            weight,
-            patient_profile:patient_profile (
-              first_name,
-              last_name,
-              birth_date
-            ),
-            patient_diagnosis (
-              name,
-              ICD_10
-            )
-          )
-        `)
-        .order('updated_at', { ascending: false })
-        .limit(limit);
+      const response = await fetch(`/api/prior-auths/recent?limit=${limit}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch recent activity');
+      }
 
-      if (error) throw error;
+      const data = await response.json();
 
-      return data?.map((item, index) => {
+      return data?.map((item: any, index: number) => {
         const patient = item.patient;
-        // const profile = patient?.patient_profile;
-        // const diagnosis = patient?.patient_diagnosis || [];
-        // const medication = item.prescription_request?.medication_quantity?.medication_dosage?.medication;
-        const profile = {
-          first_name: 'John',
-          last_name: 'Doe',
-          birth_date: '1990-01-01'
-        };
-        const diagnosis = [
-          { name: 'Diabetes', ICD_10: 'D00' },
-          { name: 'Hypertension', ICD_10: 'H00' }
-        ];
-        const medication = {
-          display_name: 'Wegovy',
-          name: 'Wegovy',
-        }
+        const profile = patient?.profile || patient;
+        const diagnosis = patient?.diagnoses || [];
+        const medication = item.medication || { display_name: 'Unknown Medication' };
 
         return {
           id: `PA-2025-${String(item.id).padStart(4, "0")}`,
           patientName:
-            `${profile?.first_name || ""} ${profile?.last_name || ""}`.trim() ||
+            `${profile?.firstName || profile?.first_name || ""} ${profile?.lastName || profile?.last_name || ""}`.trim() ||
             "Unknown Patient",
-          patientId: `PT-${item.patient_id}`,
+          patientId: `PT-${item.patientId || item.patient_id}`,
           conditions: formatPatientConditions(patient, diagnosis),
-          attempt: `${getOrdinal(item.attempt_count || 1)} Attempt`,
+          attempt: `${getOrdinal(item.attemptCount || item.attempt_count || 1)} Attempt`,
           medication: getMedicationDisplay(
-            medication?.display_name || medication?.name
+            medication?.displayName || medication?.display_name || medication?.name
           ),
-          payer: "Aetna", // Default payer since payer_name doesn't exist
+          payer: item.payer?.name || "Unknown Payer",
           status: mapStatusToUIStatus(item.status ?? ""),
-          confidence: 85 + Math.floor(Math.random() * 15), // Random confidence for demo
+          confidence: item.confidence || (85 + Math.floor(Math.random() * 15)), // Use provided confidence or fallback
           updatedAt: formatTimeAgo(
-            item.updated_at
-              ? item.updated_at
-              : item.created_at ?? new Date().toISOString()
+            item.updatedAt || item.updated_at
+              ? item.updatedAt || item.updated_at
+              : item.createdAt || item.created_at || new Date().toISOString()
           ),
         };
       }) || [];
@@ -173,45 +128,20 @@ export function useRecentActivity(limit = 10) {
   });
 }
 
-// Calculate status distribution from prior_auth table
-async function calculateStatusDistributionFallback(): Promise<StatusDistribution> {
-  const { data, error } = await supabase
-    .from(Tables.PRIOR_AUTH)
-    .select('status');
-
-  if (error) throw error;
-
-  const distribution: StatusDistribution = {
-    needsReview: 0,
-    autoProcessing: 0,
-    autoApproved: 0,
-    denied: 0,
-    total: data?.length || 0
-  };
-
-  for (const item of data) {
-    if (
-      item.status === "in_review" ||
-      item.status === "pending_info" ||
-      !item.status
-    ) {
-      distribution.needsReview++;
-    } else if (
-      item.status === "ready_to_submit" ||
-      item.status === "submitted"
-    ) {
-      distribution.autoProcessing++;
-    } else if (
-      item.status === "approved" ||
-      item.status === "partially_approved"
-    ) {
-      distribution.autoApproved++;
-    } else if (item.status === "denied" || item.status === "expired") {
-      distribution.denied++;
-    }
+// Status mapping updated for AWS priorAuthStatusEnum
+function mapStatusToUIStatus(status: string): 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied' {
+  switch (status) {
+    case 'pending':
+      return 'needs-review';
+    case 'approved':
+      return 'auto-approved';
+    case 'denied':
+    case 'expired':
+    case 'cancelled':
+      return 'denied';
+    default:
+      return 'needs-review';
   }
-
-  return distribution;
 }
 
 // Helper functions
@@ -222,12 +152,12 @@ function formatPatientConditions(patient: any, diagnosis: any[] = []): string {
 
   // Add conditions from diagnosis array
   if (Array.isArray(diagnosis) && diagnosis.length > 0) {
-    conditions.push(...diagnosis.map(d => d.name || d.ICD_10).filter(Boolean));
+    conditions.push(...diagnosis.map(d => d.name || d.description || d.ICD_10 || d.icd10Code).filter(Boolean));
   }
 
   // Calculate BMI if height and weight are available
   if (patient.height && patient.weight) {
-    const heightInM = patient.height / 100; // Convert cm to m
+    const heightInM = (patient.height / 100); // Convert cm to m
     const bmi = (patient.weight / (heightInM * heightInM)).toFixed(1);
     conditions.push(`BMI: ${bmi}`);
   }
@@ -236,23 +166,6 @@ function formatPatientConditions(patient: any, diagnosis: any[] = []): string {
 }
 
 
-function mapStatusToUIStatus(status: string): 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied' {
-  switch (status) {
-    case 'pending':
-    case 'review':
-      return 'needs-review';
-    case 'processing':
-    case 'submitted':
-      return 'auto-processing';
-    case 'approved':
-    case 'authorized':
-      return 'auto-approved';
-    case 'denied':
-    case 'rejected':
-    default:
-      return 'denied';
-  }
-}
 
 function getMedicationDisplay(medicationName: string | null | undefined): string {
   if (!medicationName) return 'Unknown Medication';

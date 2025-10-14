@@ -1,4 +1,3 @@
-// hooks/useRealtimeSubscription.ts
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";

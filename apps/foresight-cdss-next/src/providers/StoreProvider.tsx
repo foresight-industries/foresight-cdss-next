@@ -1,53 +1,51 @@
 "use client";
 
 import { type ReactNode, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useSessionStore } from "@/stores/sessionStore";
 import { useRealtimeStore } from "@/stores/realtimeStore";
-import { createClient } from "@/lib/supabase/client";
 
 export function StoreProvider({
   children,
 }: Readonly<{ children: ReactNode }>) {
+  const { user } = useUser();
   const clearChannels = useRealtimeStore((s) => s.clearChannels);
 
   useEffect(() => {
-    // Initialize session from Supabase auth
+    // Initialize session from Clerk auth and AWS database
     const initializeSession = async () => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      if (!user) {
+        // Clear session if no user
+        useSessionStore.getState().clearSession?.();
+        return;
+      }
 
-      if (user) {
-        // Fetch user profile and team data
-        const { data: profile } = await supabase
-          .from("user_profile")
-          .select("*")
-          .eq("id", user.id)
-          .single();
+      try {
+        // Fetch organization/team data from API
+        const response = await fetch('/api/teams/current');
+        if (!response.ok) {
+          console.error('Failed to fetch team data for session');
+          return;
+        }
 
-        if (profile?.current_team_id) {
-          const { data: team } = await supabase
-            .from("team")
-            .select("*")
-            .eq("id", profile.current_team_id)
-            .single();
+        const data = await response.json();
+        
+        if (data.team && data.members) {
+          // Find current user's membership
+          const currentMember = data.members.find(
+            (member: any) => member.user_id === user.id
+          );
 
-          const { data: member } = await supabase
-            .from("team_member")
-            .select("*")
-            .eq("user_id", user.id)
-            .eq("team_id", profile.current_team_id)
-            .single();
-
-          if (team && member) {
+          if (currentMember) {
             useSessionStore.getState().setSession({
-              team,
-              member,
-              permissions: (member.permissions as string[]) || [],
+              team: data.team, // Organization data mapped as team
+              member: currentMember,
+              permissions: currentMember.permissions || [],
             });
           }
         }
+      } catch (error) {
+        console.error('Error initializing session:', error);
       }
     };
 
@@ -57,7 +55,7 @@ export function StoreProvider({
     return () => {
       clearChannels();
     };
-  }, [clearChannels]);
+  }, [user, clearChannels]); // Added user to dependencies
 
   return <>{children}</>;
 }

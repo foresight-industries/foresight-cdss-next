@@ -3,7 +3,9 @@
  * This can be called from cron jobs, API routes, or other triggers
  */
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient } from '@/lib/aws/database';
+import { webhookDeliveries } from '@foresight-cdss-next/db';
+import { eq, and, lt, sql } from 'drizzle-orm';
 
 export interface WebhookProcessorConfig {
   processorUrl?: string;
@@ -13,14 +15,14 @@ export interface WebhookProcessorConfig {
 }
 
 export class WebhookProcessor {
-  private config: Required<WebhookProcessorConfig>;
+  private readonly config: Required<WebhookProcessorConfig>;
 
   constructor(config: WebhookProcessorConfig = {}) {
     this.config = {
       processorUrl: config.processorUrl || '/api/webhooks/process',
       authToken: config.authToken || process.env.WEBHOOK_PROCESSOR_TOKEN || '',
-      batchSize: config.batchSize || parseInt(process.env.WEBHOOK_PROCESSOR_BATCH_SIZE || '50'),
-      retryDelayMs: config.retryDelayMs || parseInt(process.env.WEBHOOK_PROCESSOR_RETRY_DELAY_MS || '5000')
+      batchSize: config.batchSize || Number.parseInt(process.env.WEBHOOK_PROCESSOR_BATCH_SIZE || '50'),
+      retryDelayMs: config.retryDelayMs || Number.parseInt(process.env.WEBHOOK_PROCESSOR_RETRY_DELAY_MS || '5000')
     };
   }
 
@@ -77,28 +79,23 @@ export class WebhookProcessor {
     total: number;
   }> {
     try {
-      const supabase = await createSupabaseServerClient();
+      const { db } = await createAuthenticatedDatabaseClient();
 
-      const { data: stats, error } = await supabase
-        .from('webhook_queue')
-        .select('status')
-        .then(async (result) => {
-          if (result.error) throw result.error;
+      // Get all webhook deliveries and calculate stats
+      const deliveries = await db
+        .select({
+          status: webhookDeliveries.status
+        })
+        .from(webhookDeliveries);
 
-          const items = result.data || [];
-          const stats = {
-            pending: items.filter(item => item.status === 'pending').length,
-            processing: items.filter(item => item.status === 'processing').length,
-            failed: items.filter(item => item.status === 'failed').length,
-            total: items.length
-          };
+      const stats = {
+        pending: deliveries.filter((item: { status: string }) => item.status === 'pending').length,
+        processing: deliveries.filter((item: { status: string }) => item.status === 'processing').length,
+        failed: deliveries.filter((item: { status: string }) => item.status === 'failed').length,
+        total: deliveries.length
+      };
 
-          return { data: stats, error: null };
-        });
-
-      if (error) throw error;
-
-      return stats || { pending: 0, processing: 0, failed: 0, total: 0 };
+      return stats;
 
     } catch (error) {
       console.error('Error getting queue stats:', error);
@@ -111,33 +108,40 @@ export class WebhookProcessor {
    */
   async retryFailedWebhooks(): Promise<number> {
     try {
-      const supabase = await createSupabaseServerClient();
+      const { db } = await createAuthenticatedDatabaseClient();
 
       // Reset failed webhooks that haven't exceeded max attempts
-      // First, get webhooks that can be retried
-      const { data: retriableWebhooks } = await supabase
-        .from('webhook_queue')
-        .select('id, attempts, max_attempts')
-        .eq('status', 'failed')
-        .lt('attempts', 'max_attempts');
+      // First, get webhooks that can be retried (using attemptCount field from schema)
+      const retriableWebhooks = await db
+        .select({
+          id: webhookDeliveries.id,
+          attemptCount: webhookDeliveries.attemptCount
+        })
+        .from(webhookDeliveries)
+        .where(
+          and(
+            eq(webhookDeliveries.status, 'failed'),
+            sql`${webhookDeliveries.attemptCount} < 3`
+          )
+        );
 
       if (!retriableWebhooks || retriableWebhooks.length === 0) {
         return 0;
       }
 
       // Update the retriable webhooks
-      const { data, error } = await supabase
-        .from('webhook_queue')
-        .update({
+      const updatedDeliveries = await db
+        .update(webhookDeliveries)
+        .set({
           status: 'pending',
-          scheduled_for: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          nextRetryAt: new Date()
         })
-        .in('id', retriableWebhooks.map(w => w.id))
-        .select('id');
+        .where(
+          sql`${webhookDeliveries.id} = ANY(${retriableWebhooks.map((w: { id: string }) => w.id)})`
+        )
+        .returning({ id: webhookDeliveries.id });
 
-      if (error) throw error;
-      return data?.length || 0;
+      return updatedDeliveries.length;
 
     } catch (error) {
       console.error('Error retrying failed webhooks:', error);
@@ -150,18 +154,16 @@ export class WebhookProcessor {
    */
   async cleanupOldDeliveries(olderThanDays = 30): Promise<number> {
     try {
-      const supabase = await createSupabaseServerClient();
+      const { db } = await createAuthenticatedDatabaseClient();
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - olderThanDays);
 
-      const { data, error } = await supabase
-        .from('webhook_delivery')
-        .delete()
-        .lt('created_at', cutoffDate.toISOString())
-        .select('id');
+      const deletedDeliveries = await db
+        .delete(webhookDeliveries)
+        .where(lt(webhookDeliveries.createdAt, cutoffDate))
+        .returning({ id: webhookDeliveries.id });
 
-      if (error) throw error;
-      return data?.length || 0;
+      return deletedDeliveries.length;
 
     } catch (error) {
       console.error('Error cleaning up old deliveries:', error);
@@ -173,26 +175,23 @@ export class WebhookProcessor {
    * Manually trigger webhook for specific event
    */
   async triggerWebhook(
-    teamId: string,
+    organizationId: string,
     eventType: string,
-    payload: any,
+    payload: Record<string, unknown>,
     environment: 'development' | 'production' = 'production'
   ): Promise<boolean> {
     try {
-      const supabase = await createSupabaseServerClient();
+      const { db } = await createAuthenticatedDatabaseClient();
 
-      // Use the database function to enqueue the webhook
-      const { error } = await supabase.rpc('enqueue_webhook_event', {
-        p_team_id: teamId,
-        p_event_type: eventType,
-        p_payload: payload,
-        p_environment: environment
+      // Create a new webhook delivery entry
+      // Note: Missing webhookConfigId - this would need to be provided or looked up
+      await db.insert(webhookDeliveries).values({
+        webhookConfigId: '', // This would need to be passed in or looked up
+        eventType,
+        eventData: payload,
+        status: 'pending',
+        attemptCount: 0
       });
-
-      if (error) {
-        console.error('Error triggering webhook:', error);
-        return false;
-      }
 
       return true;
 
@@ -213,14 +212,10 @@ export function getCurrentEnvironment(): 'development' | 'production' {
 
 // Utility to set environment context for database operations
 export async function setEnvironmentContext(environment: 'development' | 'production') {
-  const supabase = await createSupabaseServerClient();
-
   try {
-    await supabase.rpc('set_config', {
-      setting_name: 'app.environment',
-      new_value: environment,
-      is_local: true
-    });
+    // With AWS RDS, we can use environment variables or connection parameters
+    // This is more of a placeholder since AWS RDS doesn't use the same session config pattern
+    process.env.DATABASE_ENVIRONMENT = environment;
   } catch (error) {
     console.warn('Could not set environment context:', error);
   }

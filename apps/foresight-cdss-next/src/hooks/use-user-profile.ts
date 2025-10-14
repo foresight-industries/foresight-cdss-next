@@ -2,49 +2,90 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
-import { createClient } from "@/lib/supabase/client";
 import type { UserProfile, UserProfileUpdate } from "@/types/profile.types";
-import { Tables } from "@/lib/supabase";
 
 async function fetchUserProfile(userId: string): Promise<UserProfile> {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from(Tables.USER_PROFILE)
-    .select("*")
-    .eq("id", userId)
-    .single();
-
-  if (error) throw error;
-
-  // Ensure timezone has a default value if null
-  return {
-    ...data,
-    timezone: data.timezone ?? "America/New_York",
-    role: data.role ?? "user",
-  };
+  // AWS schema doesn't have user_profile table - user data comes from Clerk
+  // Fetch user preferences/settings from API endpoint or use defaults
+  try {
+    const response = await fetch('/api/profile');
+    if (!response.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+    
+    const data = await response.json();
+    
+    // Ensure defaults are set
+    return {
+      id: userId,
+      email: data.email || null,
+      first_name: data.firstName || data.first_name || null,
+      last_name: data.lastName || data.last_name || null,
+      role: data.role || "user",
+      department: data.department || null,
+      job_title: data.job_title || null,
+      phone: data.phone || null,
+      location: data.location || null,
+      timezone: data.timezone || "America/New_York",
+      bio: data.bio || null,
+      avatar_url: data.avatar_url || null,
+      created_at: data.createdAt || data.created_at || new Date().toISOString(),
+      updated_at: data.updatedAt || data.updated_at || new Date().toISOString(),
+    };
+  } catch {
+    // Fallback to minimal profile with defaults
+    return {
+      id: userId,
+      email: null,
+      first_name: null,
+      last_name: null,
+      role: "user",
+      department: null,
+      job_title: null,
+      phone: null,
+      location: null,
+      timezone: "America/New_York",
+      bio: null,
+      avatar_url: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+  }
 }
 
 async function updateUserProfileFn(params: { userId: string; updates: UserProfileUpdate }): Promise<UserProfile> {
   const { userId, updates } = params;
-  const supabase = createClient();
+  
+  const response = await fetch('/api/profile', {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
 
-  const { data, error } = await supabase
-    .from(Tables.USER_PROFILE)
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", userId)
-    .select()
-    .single();
+  if (!response.ok) {
+    throw new Error('Failed to update user profile');
+  }
 
-  if (error) throw error;
-
-  // Ensure timezone has a default value if null
+  const data = await response.json();
+  
+  // Ensure defaults are set
   return {
-    ...data,
-    timezone: data.timezone || "America/New_York",
+    id: userId,
+    email: data.email || null,
+    first_name: data.firstName || data.first_name || null,
+    last_name: data.lastName || data.last_name || null,
     role: data.role || "user",
+    department: data.department || null,
+    job_title: data.job_title || null,
+    phone: data.phone || null,
+    location: data.location || null,
+    timezone: data.timezone || "America/New_York",
+    bio: data.bio || null,
+    avatar_url: data.avatar_url || null,
+    created_at: data.createdAt || data.created_at || new Date().toISOString(),
+    updated_at: data.updatedAt || data.updated_at || new Date().toISOString(),
   };
 }
 

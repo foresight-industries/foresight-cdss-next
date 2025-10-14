@@ -1,14 +1,15 @@
-import { createSupabaseServerClient, getCurrentUser } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSingle } from '@/lib/aws/database';
+import { auth } from '@clerk/nextjs/server';
+import { eq, and } from 'drizzle-orm';
+import { teamMembers, organizations } from '@foresight-cdss-next/db';
 import ProfileClient from '@/components/profile/profile-client';
 
 async function loadUserProfile() {
   try {
-    // Use the new Clerk-integrated Supabase client (same as dashboard)
-    const supabase = await createSupabaseServerClient();
-
-    // Get current user using the same method as the Supabase client
-    const currentUserInfo = await getCurrentUser();
-    if (!currentUserInfo?.userId) {
+    // Get current user from Clerk
+    const { userId } = await auth();
+    
+    if (!userId) {
       console.error('No authenticated user');
       return {
         membership: null,
@@ -19,55 +20,57 @@ async function loadUserProfile() {
       };
     }
 
-    const { userId } = currentUserInfo;
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    // Get user profile data with simpler query
-    const { data: userProfile, error: profileError } = await supabase
-      .from('user_profile')
-      .select('*')
-      .eq('clerk_id', userId)
-      .maybeSingle(); // Use maybeSingle instead of single to avoid errors when no data
+    // Note: AWS schema doesn't have a separate user_profile table
+    // User profile data comes from Clerk and team membership
+    const userProfile = null; // Not stored in AWS schema
 
-    if (profileError) {
-      console.error('Error fetching user profile:', JSON.stringify(profileError));
-    }
+    // Get organization membership data with organization details
+    const { data: membership } = await safeSingle(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role,
+        isActive: teamMembers.isActive,
+        createdAt: teamMembers.createdAt,
+        organizationName: organizations.name,
+        organizationSlug: organizations.slug,
+        organizationId_org: organizations.id
+      })
+      .from(teamMembers)
+      .innerJoin(organizations, eq(teamMembers.organizationId, organizations.id))
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    // Get team membership data with simpler query
-    const { data: membership, error: membershipError } = await supabase
-      .from('team_member')
-      .select('team_id, role, status, created_at')
-      .eq('clerk_user_id', userId)
-      .eq('status', 'active')
-      .maybeSingle(); // Use maybeSingle instead of single
+    // Transform membership data to match expected format
+    const membershipData = membership as {
+      organizationId: string;
+      role: string;
+      isActive: boolean;
+      createdAt: Date;
+      organizationName: string;
+      organizationSlug: string;
+      organizationId_org: string;
+    } | null;
 
-    if (membershipError) {
-      console.error('Error fetching team membership:', JSON.stringify(membershipError));
-    }
-
-    // Get team info separately if membership exists
-    let teamInfo = null;
-    if (membership?.team_id) {
-      const { data: team, error: teamError } = await supabase
-        .from('team')
-        .select('id, name, slug, logo_url')
-        .eq('id', membership.team_id)
-        .maybeSingle();
-
-      if (teamError) {
-        console.error('Error fetching team info:', JSON.stringify(teamError));
-      } else {
-        teamInfo = team;
+    const membershipWithTeam = membershipData ? {
+      team_id: membershipData.organizationId,
+      role: membershipData.role,
+      status: membershipData.isActive ? 'active' : 'inactive',
+      created_at: membershipData.createdAt,
+      team: {
+        id: membershipData.organizationId,
+        name: membershipData.organizationName,
+        slug: membershipData.organizationSlug,
+        logo_url: null // Not available in AWS schema
       }
-    }
-
-    // Combine membership with team info
-    const membershipWithTeam = membership ? {
-      ...membership,
-      team: teamInfo
     } : null;
 
     // Determine the user's title/role
-    const userTitle = membership?.role || userProfile?.role || 'PA Coordinator';
+    const userTitle = membershipData?.role || 'PA Coordinator';
 
     return {
       membership: membershipWithTeam,

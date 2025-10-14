@@ -2,92 +2,47 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUser } from "@clerk/nextjs";
-import { createClient } from "@/lib/supabase/client";
 import type {
   InviteTeamMemberRequest,
   MemberStatus,
-  PlanType,
   Team,
   TeamInvitation,
   TeamMember,
   TeamRole,
   UpdateTeamMemberRequest,
 } from "@/types/team.types";
-import { Tables } from "@/lib/supabase";
 
 async function fetchTeamData(userId: string) {
-  const supabase = createClient();
-
-  // Get a user's current team
-  const { data: profile, error: profileError } = await supabase
-    .from(Tables.USER_PROFILE)
-    .select("current_team_id")
-    .eq("id", userId)
-    .single();
-
-  // Handle auth errors by signing out
-  if (
-    profileError?.code === "PGRST301" ||
-    profileError?.message?.includes("JWT")
-  ) {
-    await supabase.auth.signOut();
-    throw new Error("Session expired");
+  // Fetch organization data from API endpoint
+  const response = await fetch('/api/teams/current');
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error("Session expired");
+    }
+    throw new Error('Failed to fetch team data');
   }
 
-  if (profileError) throw profileError;
+  const data = await response.json();
 
-  if (!profile?.current_team_id) {
+  if (!data.team) {
     return { team: null, members: [], invitations: [] };
   }
 
-  // Get team details
-  const { data: team, error: teamError } = await supabase
-    .from(Tables.TEAM)
-    .select("*")
-    .eq("id", profile.current_team_id)
-    .single();
-
-  if (teamError) throw teamError;
-
-  // Get team members with user profiles
-  const { data: members, error: membersError } = await supabase
-    .from(Tables.TEAM_MEMBER)
-    .select(
-      `
-      *,
-      user_profile(email, first_name, last_name)
-    `
-    )
-    .eq("team_id", profile.current_team_id)
-    .eq("status", "active");
-
-  if (membersError) throw membersError;
-
-  // Get pending invitations
-  const { data: invitations, error: invitationsError } = await supabase
-    .from(Tables.TEAM_INVITATION)
-    .select("*")
-    .eq("team_id", profile.current_team_id)
-    .is("accepted_at", null)
-    .gt("expires_at", new Date().toISOString());
-
-  if (invitationsError) throw invitationsError;
-
-  // Transform team with proper defaults
+  // Transform data to match expected format
   const teamWithDefaults: Team = {
-    id: team.id,
-    name: team.name,
-    slug: team.slug,
-    description: team.description,
-    logo_url: team.logo_url,
-    settings: (team.settings as Record<string, string>) || {},
-    plan_type: (team.plan_type as PlanType) || "basic",
-    created_at: team.created_at || new Date().toISOString(),
-    updated_at: team.updated_at || new Date().toISOString(),
+    id: data.team.id,
+    name: data.team.name,
+    slug: data.team.slug,
+    description: data.team.description || null,
+    logo_url: data.team.logo_url || null,
+    settings: data.team.settings || {},
+    plan_type: data.team.plan_type || "basic",
+    created_at: data.team.created_at || new Date().toISOString(),
+    updated_at: data.team.updated_at || new Date().toISOString(),
   };
 
   // Transform members with proper defaults
-  const membersWithDefaults = (members || []).map((member) => ({
+  const membersWithDefaults = (data.members || []).map((member: any) => ({
     id: member.id,
     team_id: member.team_id || "",
     user_id: member.user_id || "",
@@ -99,11 +54,11 @@ async function fetchTeamData(userId: string) {
     created_at: member.created_at || new Date().toISOString(),
     updated_at: member.updated_at || new Date().toISOString(),
     user_profile: member.user_profile || undefined,
-  })) as unknown as TeamMember[];
+  })) as TeamMember[];
 
   // Transform invitations with proper defaults
-  const invitationsWithDefaults: TeamInvitation[] = (invitations || []).map(
-    (invitation) => ({
+  const invitationsWithDefaults: TeamInvitation[] = (data.invitations || []).map(
+    (invitation: any) => ({
       id: invitation.id,
       team_id: invitation.team_id || "",
       email: invitation.email,
@@ -124,78 +79,55 @@ async function fetchTeamData(userId: string) {
 }
 
 async function inviteTeamMemberFn(params: { currentTeam: Team; invite: InviteTeamMemberRequest; userId: string }) {
-  const { currentTeam, invite, userId } = params;
-  const supabase = createClient();
+  const { invite } = params;
 
-  // Check if a user already exists
-  const { data: existingUser } = await supabase
-    .from(Tables.USER_PROFILE)
-    .select('id')
-    .eq('email', invite.email)
-    .single();
+  const response = await fetch('/api/teams/invitations', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(invite),
+  });
 
-  if (existingUser) {
-    // User exists, add them directly
-    const { error } = await supabase
-      .from(Tables.TEAM_MEMBER)
-      .insert({
-        team_id: currentTeam.id,
-        user_id: existingUser.id,
-        role: invite.role,
-        status: 'active',
-        invited_by: userId,
-        joined_at: new Date().toISOString()
-      });
-
-    if (error) throw error;
-  } else {
-    // Create invitation
-    const { error } = await supabase
-      .from(Tables.TEAM_INVITATION)
-      .insert({
-        team_id: currentTeam.id,
-        email: invite.email,
-        role: invite.role,
-        invited_by: userId
-      });
-
-    if (error) throw error;
+  if (!response.ok) {
+    throw new Error('Failed to invite team member');
   }
 }
 
 async function updateTeamMemberFn(params: { memberId: string; updates: UpdateTeamMemberRequest }) {
   const { memberId, updates } = params;
-  const supabase = createClient();
 
-  const { error } = await supabase
-    .from(Tables.TEAM_MEMBER)
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", memberId);
+  const response = await fetch(`/api/teams/members/${memberId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(updates),
+  });
 
-  if (error) throw error;
+  if (!response.ok) {
+    throw new Error('Failed to update team member');
+  }
 }
 
 async function removeTeamMemberFn(memberId: string) {
-  const supabase = createClient();
-  const { error } = await supabase
-    .from(Tables.TEAM_MEMBER)
-    .delete()
-    .eq('id', memberId);
+  const response = await fetch(`/api/teams/members/${memberId}`, {
+    method: 'DELETE',
+  });
 
-  if (error) throw error;
+  if (!response.ok) {
+    throw new Error('Failed to remove team member');
+  }
 }
 
 async function cancelInvitationFn(invitationId: string) {
-  const supabase = createClient();
-  const { error } = await supabase
-    .from(Tables.TEAM_INVITATION)
-    .delete()
-    .eq('id', invitationId);
+  const response = await fetch(`/api/teams/invitations/${invitationId}`, {
+    method: 'DELETE',
+  });
 
-  if (error) throw error;
+  if (!response.ok) {
+    throw new Error('Failed to cancel invitation');
+  }
 }
 
 export function useTeam() {

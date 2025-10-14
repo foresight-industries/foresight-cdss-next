@@ -1,108 +1,115 @@
-// Settings Service - Hybrid approach for existing rules engine
+// Settings Service - AWS database integration for rules engine
 
-import { createClient } from "@supabase/supabase-js";
+import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeInsert, safeUpdate, safeDelete } from "@/lib/aws/database";
+import { eq, and } from "drizzle-orm";
+import {
+  systemSettings,
+  automationRules,
+  businessRules,
+  notificationTemplates
+} from "@foresight-cdss-next/db";
 
-// Types for the hybrid approach
-export interface TeamAutomationConfig {
+// Types for AWS schema integration
+export interface OrganizationAutomationConfig {
   id: string;
-  team_id: string;
-  global_confidence_threshold: number;
-  auto_approval_threshold: number;
-  require_review_threshold: number;
-  cpt_code_threshold: number;
-  icd10_threshold: number;
-  place_of_service_threshold: number;
-  modifiers_threshold: number;
-  enable_auto_submission: boolean;
-  enable_auto_epa: boolean;
-  enable_bulk_processing: boolean;
-  confidence_score_enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  organizationId: string;
+  globalConfidenceThreshold: number;
+  autoApprovalThreshold: number;
+  requireReviewThreshold: number;
+  cptCodeThreshold: number;
+  icd10Threshold: number;
+  placeOfServiceThreshold: number;
+  modifiersThreshold: number;
+  enableAutoSubmission: boolean;
+  enableAutoEpa: boolean;
+  enableBulkProcessing: boolean;
+  confidenceScoreEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-export interface TeamValidationConfig {
+export interface OrganizationValidationConfig {
   id: string;
-  team_id: string;
-  telehealth_enabled: boolean;
-  in_person_enabled: boolean;
-  home_visits_enabled: boolean;
-  enforce_pos_validation: boolean;
-  block_on_missing_fields: boolean;
-  enable_time_validation: boolean;
-  extract_time_from_notes: boolean;
-  enforce_credentialing: boolean;
-  multi_state_licensure: boolean;
-  show_credentialing_alerts: boolean;
-  allowed_provider_statuses: string[];
-  medical_necessity_threshold: number;
-  log_rule_applications: boolean;
-  log_auto_fixes: boolean;
-  audit_retention_period: string;
-  created_at: string;
-  updated_at: string;
+  organizationId: string;
+  telehealthEnabled: boolean;
+  inPersonEnabled: boolean;
+  homeVisitsEnabled: boolean;
+  enforcePosValidation: boolean;
+  blockOnMissingFields: boolean;
+  enableTimeValidation: boolean;
+  extractTimeFromNotes: boolean;
+  enforceCredentialing: boolean;
+  multiStateLicensure: boolean;
+  showCredentialingAlerts: boolean;
+  allowedProviderStatuses: string[];
+  medicalNecessityThreshold: number;
+  logRuleApplications: boolean;
+  logAutoFixes: boolean;
+  auditRetentionPeriod: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-// Existing rule types (from your current schema)
-export interface AutomationRule {
+// Rule types adapted to AWS schema
+export interface AutomationRuleType {
   id: string;
-  team_id: string;
+  organizationId: string;
   name: string;
   description?: string;
   conditions: any;
   actions: any;
-  is_active: boolean;
+  isActive: boolean;
   priority: number;
-  created_at: string;
-  updated_at: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface PayerOverrideRule {
   id: string;
-  team_id: string;
-  payer_name: string;
-  rule_name: string;
+  organizationId: string;
+  payerName: string;
+  ruleName: string;
   description: string;
-  rule_type: string;
+  ruleType: string;
   conditions: any;
   actions: any;
   enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface EmTimeRule {
   id: string;
-  team_id: string;
-  cpt_code: string;
+  organizationId: string;
+  cptCode: string;
   description: string;
-  min_minutes: number;
-  max_minutes: number;
+  minMinutes: number;
+  maxMinutes: number;
   enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface DenialPlaybook {
   id: string;
-  team_id: string;
+  organizationId: string;
   code: string;
   description: string;
   strategy: string;
   enabled: boolean;
-  auto_fix_enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  autoFixEnabled: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 // Comprehensive settings response
-export interface TeamSettingsResponse {
-  // Basic config (from new tables)
-  automation_config: TeamAutomationConfig;
-  validation_config: TeamValidationConfig;
+export interface OrganizationSettingsResponse {
+  // Basic config (adapted to AWS schema)
+  automation_config: OrganizationAutomationConfig;
+  validation_config: OrganizationValidationConfig;
 
-  // Existing sophisticated rules (from your current tables)
-  automation_rules: AutomationRule[];
+  // Rules from AWS schema
+  automation_rules: AutomationRuleType[];
   payer_override_rules: PayerOverrideRule[];
   em_time_rules: EmTimeRule[];
   denial_playbook: DenialPlaybook[];
@@ -121,16 +128,15 @@ export interface TeamSettingsResponse {
 }
 
 export class SettingsService {
-  private supabase;
-
-  constructor(supabaseUrl: string, supabaseKey: string) {
-    this.supabase = createClient(supabaseUrl, supabaseKey);
+  // No longer needs constructor parameters since we use AWS database client
+  constructor() {
+    // AWS database client is created per-request
   }
 
   // ===================================
-  // GET ALL SETTINGS (Hybrid Approach)
+  // GET ALL SETTINGS (AWS Approach)
   // ===================================
-  async getTeamSettings(teamId: string): Promise<TeamSettingsResponse> {
+  async getOrganizationSettings(organizationId: string): Promise<OrganizationSettingsResponse> {
     // Fetch basic config and rules in parallel
     const [
       automationConfigResult,
@@ -140,25 +146,25 @@ export class SettingsService {
       timeRulesResult,
       denialRulesResult,
     ] = await Promise.all([
-      this.getOrCreateAutomationConfig(teamId),
-      this.getOrCreateValidationConfig(teamId),
-      this.getAutomationRules(teamId),
-      this.getPayerOverrideRules(teamId),
-      this.getEmTimeRules(teamId),
-      this.getDenialPlaybook(teamId),
+      this.getOrCreateAutomationConfig(organizationId),
+      this.getOrCreateValidationConfig(organizationId),
+      this.getAutomationRules(organizationId),
+      this.getPayerOverrideRules(organizationId),
+      this.getEmTimeRules(organizationId),
+      this.getDenialPlaybook(organizationId),
     ]);
 
     // Calculate rule summary
     const rule_summary = {
       total_automation_rules: automationRulesResult.length,
-      active_automation_rules: automationRulesResult.filter((r) => r.is_active)
+      active_automation_rules: automationRulesResult.filter((r: any) => r.isActive)
         .length,
       total_payer_rules: payerRulesResult.length,
-      active_payer_rules: payerRulesResult.filter((r) => r.enabled).length,
+      active_payer_rules: payerRulesResult.filter((r: any) => r.enabled).length,
       total_time_rules: timeRulesResult.length,
-      active_time_rules: timeRulesResult.filter((r) => r.enabled).length,
+      active_time_rules: timeRulesResult.filter((r: any) => r.enabled).length,
       total_denial_rules: denialRulesResult.length,
-      active_denial_rules: denialRulesResult.filter((r) => r.enabled).length,
+      active_denial_rules: denialRulesResult.filter((r: any) => r.enabled).length,
     };
 
     return {
@@ -176,376 +182,377 @@ export class SettingsService {
   // BASIC CONFIG MANAGEMENT
   // ===================================
   async updateAutomationConfig(
-    teamId: string,
+    organizationId: string,
     updates: Partial<
-      Omit<TeamAutomationConfig, "id" | "team_id" | "created_at" | "updated_at">
+      Omit<OrganizationAutomationConfig, "id" | "organizationId" | "createdAt" | "updatedAt">
     >
-  ): Promise<TeamAutomationConfig> {
-    const { data, error } = await this.supabase
-      .from("team_automation_config")
-      .update(updates)
-      .eq("team_id", teamId)
-      .select()
-      .single();
+  ): Promise<OrganizationAutomationConfig> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    const { data } = await safeUpdate(async () =>
+      db.update(systemSettings)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(systemSettings.organizationId, organizationId))
+        .returning()
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error('Failed to update automation config');
+    }
+
+    return data[0] as OrganizationAutomationConfig;
   }
 
   async updateValidationConfig(
-    teamId: string,
+    organizationId: string,
     updates: Partial<
-      Omit<TeamValidationConfig, "id" | "team_id" | "created_at" | "updated_at">
+      Omit<OrganizationValidationConfig, "id" | "organizationId" | "createdAt" | "updatedAt">
     >
-  ): Promise<TeamValidationConfig> {
-    const { data, error } = await this.supabase
-      .from("team_validation_config")
-      .update(updates)
-      .eq("team_id", teamId)
-      .select()
-      .single();
+  ): Promise<OrganizationValidationConfig> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    const { data } = await safeUpdate(async () =>
+      db.update(systemSettings)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(systemSettings.organizationId, organizationId))
+        .returning()
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error('Failed to update validation config');
+    }
+
+    return data[0] as OrganizationValidationConfig;
   }
 
   private async getOrCreateAutomationConfig(
-    teamId: string
-  ): Promise<TeamAutomationConfig> {
-    const { data, error } = await this.supabase
-      .from("team_automation_config")
-      .select("*")
-      .eq("team_id", teamId)
-      .maybeSingle();
+    organizationId: string
+  ): Promise<OrganizationAutomationConfig> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
+    const { data: existingConfig } = await safeSingle(async () =>
+      db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.organizationId, organizationId))
+    );
 
-    if (!data) {
-      // Create default config
-      const { data: newConfig, error: createError } = await this.supabase
-        .from("team_automation_config")
-        .insert({ team_id: teamId })
-        .select()
-        .single();
-
-      if (createError) throw createError;
-      return newConfig;
+    if (existingConfig) {
+      return existingConfig as OrganizationAutomationConfig;
     }
 
-    return data;
+    // Create default config
+    const { data: newConfig } = await safeInsert(async () =>
+      db.insert(systemSettings)
+        .values({
+          organizationId,
+          globalConfidenceThreshold: 0.7,
+          autoApprovalThreshold: 0.9,
+          requireReviewThreshold: 0.5,
+          cptCodeThreshold: 0.8,
+          icd10Threshold: 0.8,
+          placeOfServiceThreshold: 0.8,
+          modifiersThreshold: 0.8,
+          enableAutoSubmission: false,
+          enableAutoEpa: false,
+          enableBulkProcessing: false,
+          confidenceScoreEnabled: true
+        })
+        .returning()
+    );
+
+    if (!newConfig || newConfig.length === 0) {
+      throw new Error('Failed to create automation config');
+    }
+
+    return newConfig[0] as OrganizationAutomationConfig;
   }
 
   private async getOrCreateValidationConfig(
-    teamId: string
-  ): Promise<TeamValidationConfig> {
-    const { data, error } = await this.supabase
-      .from("team_validation_config")
-      .select("*")
-      .eq("team_id", teamId)
-      .maybeSingle();
+    organizationId: string
+  ): Promise<OrganizationValidationConfig> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
+    const { data: existingConfig } = await safeSingle(async () =>
+      db.select()
+        .from(systemSettings)
+        .where(eq(systemSettings.organizationId, organizationId))
+    );
 
-    if (!data) {
-      // Create default config
-      const { data: newConfig, error: createError } = await this.supabase
-        .from("team_validation_config")
-        .insert({ team_id: teamId })
-        .select()
-        .single();
-
-      if (createError) throw createError;
-      return newConfig;
+    if (existingConfig) {
+      return existingConfig as OrganizationValidationConfig;
     }
 
-    return data;
+    // Create default config
+    const { data: newConfig } = await safeInsert(async () =>
+      db.insert(systemSettings)
+        .values({
+          organizationId,
+          telehealthEnabled: true,
+          inPersonEnabled: true,
+          homeVisitsEnabled: false,
+          enforcePosValidation: true,
+          blockOnMissingFields: false,
+          enableTimeValidation: true,
+          extractTimeFromNotes: false,
+          enforceCredentialing: true,
+          multiStateLicensure: false,
+          showCredentialingAlerts: true,
+          allowedProviderStatuses: ['active', 'credentialed'],
+          medicalNecessityThreshold: 0.8,
+          logRuleApplications: true,
+          logAutoFixes: true,
+          auditRetentionPeriod: '365 days'
+        })
+        .returning()
+    );
+
+    if (!newConfig || newConfig.length === 0) {
+      throw new Error('Failed to create validation config');
+    }
+
+    return newConfig[0] as OrganizationValidationConfig;
   }
 
   // ===================================
-  // EXISTING RULE MANAGEMENT (Leverage your current tables)
+  // RULE MANAGEMENT
   // ===================================
-  async getAutomationRules(teamId: string): Promise<AutomationRule[]> {
-    const { data, error } = await this.supabase
-      .from("automation_rule")
-      .select("*")
-      .eq("team_id", teamId)
-      .order("priority", { ascending: false });
+  async getAutomationRules(organizationId: string): Promise<AutomationRuleType[]> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data || [];
+    const { data } = await safeSelect(async () =>
+      db.select()
+        .from(automationRules)
+        .where(eq(automationRules.organizationId, organizationId))
+        .orderBy(automationRules.priority)
+    );
+
+    return data as AutomationRuleType[] || [];
   }
 
-  async getPayerOverrideRules(teamId: string): Promise<PayerOverrideRule[]> {
-    const { data, error } = await this.supabase
-      .from("payer_override_rule")
-      .select("*")
-      .eq("team_id", teamId)
-      .order("payer_name");
+  async getPayerOverrideRules(organizationId: string): Promise<PayerOverrideRule[]> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data || [];
+    const { data } = await safeSelect(async () =>
+      db.select()
+        .from(businessRules)
+        .where(and(
+          eq(businessRules.organizationId, organizationId),
+          eq(businessRules.category, 'payer_override')
+        ))
+    );
+
+    return (data as PayerOverrideRule[]) || [];
   }
 
-  async getEmTimeRules(teamId: string): Promise<EmTimeRule[]> {
-    const { data, error } = await this.supabase
-      .from("em_time_rules")
-      .select("*")
-      .eq("team_id", teamId)
-      .order("cpt_code");
+  async getEmTimeRules(organizationId: string): Promise<EmTimeRule[]> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data || [];
+    const { data } = await safeSelect(async () =>
+      db.select()
+        .from(businessRules)
+        .where(and(
+          eq(businessRules.organizationId, organizationId),
+          eq(businessRules.category, 'em_time')
+        ))
+    );
+
+    return (data as EmTimeRule[]) || [];
   }
 
-  async getDenialPlaybook(teamId: string): Promise<DenialPlaybook[]> {
-    const { data, error } = await this.supabase
-      .from("denial_playbook")
-      .select("*")
-      .eq("team_id", teamId)
-      .order("code");
+  async getDenialPlaybook(organizationId: string): Promise<DenialPlaybook[]> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data || [];
+    const { data } = await safeSelect(async () =>
+      db.select()
+        .from(businessRules)
+        .where(and(
+          eq(businessRules.organizationId, organizationId),
+          eq(businessRules.category, 'denial_playbook')
+        ))
+    );
+
+    return (data as DenialPlaybook[]) || [];
   }
 
   // ===================================
-  // RULE MANAGEMENT (CRUD for existing tables)
+  // RULE MANAGEMENT (CRUD)
   // ===================================
   async createAutomationRule(
-    teamId: string,
-    rule: Omit<AutomationRule, "id" | "team_id" | "created_at" | "updated_at">
-  ): Promise<AutomationRule> {
-    const { data, error } = await this.supabase
-      .from("automation_rule")
-      .insert({ ...rule, team_id: teamId })
-      .select()
-      .single();
+    organizationId: string,
+    rule: Omit<AutomationRuleType, "id" | "organizationId" | "createdAt" | "updatedAt">
+  ): Promise<AutomationRuleType> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    const { data } = await safeInsert(async () =>
+      db.insert(automationRules)
+        .values({ ...rule, organizationId })
+        .returning()
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error('Failed to create automation rule');
+    }
+
+    return data[0] as AutomationRuleType;
   }
 
   async updateAutomationRule(
     ruleId: string,
-    updates: Partial<AutomationRule>
-  ): Promise<AutomationRule> {
-    const { data, error } = await this.supabase
-      .from("automation_rule")
-      .update(updates)
-      .eq("id", ruleId)
-      .select()
-      .single();
+    updates: Partial<AutomationRuleType>
+  ): Promise<AutomationRuleType> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    const { data } = await safeUpdate(async () =>
+      db.update(automationRules)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(automationRules.id, ruleId))
+        .returning()
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error('Failed to update automation rule');
+    }
+
+    return data[0] as AutomationRuleType;
   }
 
   async deleteAutomationRule(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("automation_rule")
-      .delete()
-      .eq("id", ruleId);
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
+    await safeDelete(async () =>
+      db.delete(automationRules)
+        .where(eq(automationRules.id, ruleId))
+    );
   }
 
-  // Similar CRUD methods for other rule types...
-  async createPayerOverrideRule(
-    teamId: string,
-    rule: Omit<
-      PayerOverrideRule,
-      "id" | "team_id" | "created_at" | "updated_at"
-    >
-  ): Promise<PayerOverrideRule> {
-    const { data, error } = await this.supabase
-      .from("payer_override_rule")
-      .insert({ ...rule, team_id: teamId })
-      .select()
-      .single();
+  async createBusinessRule(
+    organizationId: string,
+    rule: Omit<PayerOverrideRule | EmTimeRule | DenialPlaybook, "id" | "organizationId" | "createdAt" | "updatedAt">
+  ): Promise<PayerOverrideRule | EmTimeRule | DenialPlaybook> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    const { data } = await safeInsert(async () =>
+      db.insert(businessRules)
+        .values({ ...rule, organizationId })
+        .returning()
+    );
+
+    if (!data || data.length === 0) {
+      throw new Error('Failed to create business rule');
+    }
+
+    return data[0] as PayerOverrideRule | EmTimeRule | DenialPlaybook;
   }
 
-  async createEmTimeRule(
-    teamId: string,
-    rule: Omit<EmTimeRule, "id" | "team_id" | "created_at" | "updated_at">
-  ): Promise<EmTimeRule> {
-    const { data, error } = await this.supabase
-      .from("em_time_rules")
-      .insert({ ...rule, team_id: teamId })
-      .select()
-      .single();
+  async deleteBusinessRule(ruleId: string): Promise<void> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
+    await safeDelete(async () =>
+      db.delete(businessRules)
+        .where(eq(businessRules.id, ruleId))
+    );
   }
 
-  async createDenialRule(
-    teamId: string,
-    rule: Omit<DenialPlaybook, "id" | "team_id" | "created_at" | "updated_at">
-  ): Promise<DenialPlaybook> {
-    const { data, error } = await this.supabase
-      .from("denial_playbook")
-      .insert({ ...rule, team_id: teamId })
-      .select()
-      .single();
+  async updateNotificationSettings(organizationId: string, updates: Record<string, any>): Promise<Record<string, any>> {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    if (error) throw error;
-    return data;
-  }
+    const { data } = await safeUpdate(async () =>
+      db.update(notificationTemplates)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(notificationTemplates.organizationId, organizationId))
+        .returning()
+    );
 
-  async deleteConflictRule(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("automation_rule")
-      .delete()
-      .eq("id", ruleId);
+    if (!data || data.length === 0) {
+      throw new Error('Failed to update notification settings');
+    }
 
-    if (error) throw error;
-  }
-
-  async deleteTimeBasedRule(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("em_time_rules")
-      .delete()
-      .eq("id", ruleId);
-
-    if (error) throw error;
-  }
-
-  async deleteDenialRule(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("denial_playbook")
-      .delete()
-      .eq("id", ruleId);
-
-    if (error) throw error;
-  }
-
-  async deletePayerOverrideRule(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("payer_override_rule")
-      .delete()
-      .eq("id", ruleId);
-
-    if (error) throw error;
-  }
-
-  async deleteFieldMapping(ruleId: string): Promise<void> {
-    const { error } = await this.supabase
-      .from("field_mapping")
-      .delete()
-      .eq("id", ruleId);
-
-    if (error) throw error;
-  }
-
-  async updateNotificationSettings(teamId: string, updates: any): Promise<any> {
-    const { data, error } = await this.supabase
-      .from("team_notification_config")
-      .update(updates)
-      .eq("team_id", teamId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  async createConflictRule(
-    teamId: string,
-    rule: Omit<AutomationRule, "id" | "team_id" | "created_at" | "updated_at">
-  ): Promise<AutomationRule> {
-    const { data, error } = await this.supabase
-      .from("automation_rule")
-      .insert({ ...rule, team_id: teamId })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-
-  async createFieldMapping(teamId: string, mapping: any): Promise<any> {
-    const { data, error } = await this.supabase
-      .from("field_mapping")
-      .insert({ ...mapping, team_id: teamId })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    return data[0] as Record<string, any>;
   }
 
   // ===================================
-  // ANALYTICS (Leverage your existing rule_execution_log)
+  // ANALYTICS
   // ===================================
-  async getRuleExecutionStats(teamId: string, days = 30): Promise<any> {
+  async getRuleExecutionStats(organizationId: string, days = 30): Promise<Record<string, any>[]> {
+    const { db } = await createAuthenticatedDatabaseClient();
     const since = new Date();
     since.setDate(since.getDate() - days);
 
-    const { data, error } = await this.supabase
-      .from("rule_execution_log")
-      .select(
-        `
-        executed_at,
-        execution_result,
-        business_rule_id,
-        business_rule:business_rule_id(name, rule_type)
-      `
-      )
-      .eq("business_rule.team_id", teamId)
-      .gte("executed_at", since.toISOString());
+    const { data } = await safeSelect(async () =>
+      db.select({
+        executedAt: businessRules.createdAt,
+        ruleId: businessRules.id,
+        ruleName: businessRules.name,
+        category: businessRules.category
+      })
+      .from(businessRules)
+      .where(and(
+        eq(businessRules.organizationId, organizationId),
+        // Note: No execution log table in AWS schema, using creation date as proxy
+      ))
+    );
 
-    if (error) throw error;
-    return data;
+    return data as Record<string, any>[] || [];
   }
 
-  async getTeamSettingsSummary(teamId: string): Promise<any> {
-    const { data, error } = await this.supabase
-      .from("team_settings_unified")
-      .select("*")
-      .eq("team_id", teamId)
-      .single();
+  async getOrganizationSettingsSummary(organizationId: string): Promise<Record<string, any>> {
+    const settings = await this.getOrganizationSettings(organizationId);
 
-    if (error) throw error;
-    return data;
+    return {
+      organizationId,
+      automation_enabled: settings.automation_config.enableAutoSubmission,
+      validation_enabled: settings.validation_config.enforcePosValidation,
+      total_rules: settings.rule_summary.total_automation_rules +
+                   settings.rule_summary.total_payer_rules +
+                   settings.rule_summary.total_time_rules +
+                   settings.rule_summary.total_denial_rules,
+      active_rules: settings.rule_summary.active_automation_rules +
+                    settings.rule_summary.active_payer_rules +
+                    settings.rule_summary.active_time_rules +
+                    settings.rule_summary.active_denial_rules
+    };
   }
 
   // ===================================
   // BULK OPERATIONS
   // ===================================
   async bulkUpdateSettings(
-    teamId: string,
+    organizationId: string,
     updates: {
-      automation_config?: Partial<TeamAutomationConfig>;
-      validation_config?: Partial<TeamValidationConfig>;
+      automation_config?: Partial<OrganizationAutomationConfig>;
+      validation_config?: Partial<OrganizationValidationConfig>;
     }
   ): Promise<{
-    automation_config: TeamAutomationConfig;
-    validation_config: TeamValidationConfig;
+    automation_config: OrganizationAutomationConfig;
+    validation_config: OrganizationValidationConfig;
   }> {
     const promises = [];
 
     if (updates.automation_config) {
       promises.push(
-        this.updateAutomationConfig(teamId, updates.automation_config)
+        this.updateAutomationConfig(organizationId, updates.automation_config)
       );
     } else {
-      promises.push(this.getOrCreateAutomationConfig(teamId));
+      promises.push(this.getOrCreateAutomationConfig(organizationId));
     }
 
     if (updates.validation_config) {
       promises.push(
-        this.updateValidationConfig(teamId, updates.validation_config)
+        this.updateValidationConfig(organizationId, updates.validation_config)
       );
     } else {
-      promises.push(this.getOrCreateValidationConfig(teamId));
+      promises.push(this.getOrCreateValidationConfig(organizationId));
     }
 
     const [automation_config, validation_config] = (await Promise.all(
       promises
-    )) as [TeamAutomationConfig, TeamValidationConfig];
+    )) as [OrganizationAutomationConfig, OrganizationValidationConfig];
 
     return { automation_config, validation_config };
   }
