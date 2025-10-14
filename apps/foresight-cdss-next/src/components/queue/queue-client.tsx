@@ -271,9 +271,9 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     setSelectedPaId(null);
     setInitialAction(undefined); // Clear any pending actions
     // Remove the pa query parameter from URL
-    const url = new URL(globalThis.location.href);
-    url.searchParams.delete("pa");
-    router.replace(url.pathname + url.search, { scroll: false });
+    // const url = new URL(globalThis.location.href);
+    // url.searchParams.delete("pa");
+    // router.replace(url.pathname + url.search, { scroll: false });
     
     // Reset closing state after URL update completes
     closingTimeoutRef.current = setTimeout(() => {
@@ -287,32 +287,32 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
     (paId: string) => {
       setSelectedPaId(paId);
       // Add the pa query parameter to URL
-      const currentParams = new URLSearchParams(globalThis.location.search);
-      currentParams.set("pa", paId);
-      router.replace(`${globalThis.location.pathname}?${currentParams.toString()}`, { scroll: false });
+      // const currentParams = new URLSearchParams(globalThis.location.search);
+      // currentParams.set("pa", paId);
+      // router.replace(`${globalThis.location.pathname}?${currentParams.toString()}`, { scroll: false });
     },
     [router]
   );
 
   // Handle PA query parameter to auto-open PA details
-  useEffect(() => {
-    // Don't update state if we're in the middle of closing
-    if (isClosing) return;
-    
-    const paParam = searchParams.get("pa");
-    if (paParam) {
-      // Find the PA by ID
-      const pa = queueData.find((item) => item.id === paParam);
-      if (pa && selectedPaId !== paParam) {
-        setSelectedPaId(paParam);
-      }
-    } else {
-      // If there's no pa parameter but we have an active PA, close it
-      if (selectedPaId) {
-        setSelectedPaId(null);
-      }
-    }
-  }, [searchParams, queueData, selectedPaId, isClosing]);
+  // useEffect(() => {
+  //   // Don't update state if we're in the middle of closing
+  //   if (isClosing) return;
+  //   
+  //   const paParam = searchParams.get("pa");
+  //   if (paParam) {
+  //     // Find the PA by ID
+  //     const pa = queueData.find((item) => item.id === paParam);
+  //     if (pa && selectedPaId !== paParam) {
+  //       setSelectedPaId(paParam);
+  //     }
+  //   } else {
+  //     // If there's no pa parameter but we have an active PA, close it
+  //     if (selectedPaId) {
+  //       setSelectedPaId(null);
+  //     }
+  //   }
+  // }, [searchParams, queueData, selectedPaId, isClosing]);
 
   // Keyboard navigation event handler
   useEffect(() => {
