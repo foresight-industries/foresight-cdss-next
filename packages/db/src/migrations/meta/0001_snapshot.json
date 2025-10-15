@@ -1,6 +1,6 @@
 {
-  "id": "ad49a23a-ff6a-46d0-9a76-af59f0f4a889",
-  "prevId": "e9db831f-a28e-4e61-bfd2-4464e3b480a1",
+  "id": "abd80e5a-d261-4315-ab1c-a13960521492",
+  "prevId": "ad49a23a-ff6a-46d0-9a76-af59f0f4a889",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -20562,7 +20562,15 @@
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "modifier_code_unique": {
+          "name": "modifier_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "modifier_code"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

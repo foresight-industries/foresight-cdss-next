@@ -11,6 +11,7 @@ import {
   varchar,
   pgEnum,
   index,
+  unique,
   json,
   jsonb,
   serial,
@@ -5369,6 +5370,7 @@ export const modifierCodes = pgTable('modifier_code', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
+  modifierCodeUnique: unique('modifier_code_unique').on(table.modifierCode),
   modifierCodeIdx: index('modifier_code_modifier_code_idx').on(table.modifierCode),
   categoryIdx: index('modifier_code_category_idx').on(table.category),
   activeIdx: index('modifier_code_active_idx').on(table.isActive),
