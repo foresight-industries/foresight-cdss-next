@@ -3,6 +3,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
@@ -213,6 +214,51 @@ export class ApiStack extends cdk.Stack {
       integration: new apigatewayIntegrations.HttpLambdaIntegration(
         'PresignIntegration',
         presignFn
+      ),
+    });
+
+    // Document Status API Lambda
+    const documentStatusRole = createFunctionRole('DocumentStatusFunction');
+    const documentStatusFn = new lambda.Function(this, 'DocumentStatusFunction', {
+      ...functionProps,
+      functionName: `rcm-document-status-${props.stageName}`,
+      handler: 'document-status-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
+      role: documentStatusRole,
+    });
+
+    // Grant database access to document status function
+    documentStatusRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'rds-data:BeginTransaction',
+        'rds-data:CommitTransaction',
+        'rds-data:ExecuteStatement',
+        'rds-data:RollbackTransaction',
+      ],
+      resources: [props.database.clusterArn],
+    }));
+    documentStatusRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [props.database.secret?.secretArn ?? ''],
+    }));
+
+    this.httpApi.addRoutes({
+      path: '/documents/{id}/status',
+      methods: [apigateway.HttpMethod.GET],
+      integration: new apigatewayIntegrations.HttpLambdaIntegration(
+        'DocumentStatusIntegration',
+        documentStatusFn
+      ),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/documents/{id}/extracted-fields',
+      methods: [apigateway.HttpMethod.GET],
+      integration: new apigatewayIntegrations.HttpLambdaIntegration(
+        'DocumentExtractedFieldsIntegration',
+        documentStatusFn
       ),
     });
 

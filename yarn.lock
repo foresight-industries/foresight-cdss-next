@@ -323,7 +323,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@aws-sdk/client-s3@npm:^3.910.0":
+"@aws-sdk/client-s3@npm:^3.908.0, @aws-sdk/client-s3@npm:^3.910.0":
   version: 3.910.0
   resolution: "@aws-sdk/client-s3@npm:3.910.0"
   dependencies:
@@ -573,6 +573,54 @@ __metadata:
     "@smithy/util-utf8": "npm:^4.2.0"
     tslib: "npm:^2.6.2"
   checksum: 10c0/d0f634c2f2c1c6234e1706470ca29f9455e97257d6263add984180e7d3c547f442673d031a1a3b6be68c78e1a4424719147cdf96b52f1bb7cc4ead70915d648b
+  languageName: node
+  linkType: hard
+
+"@aws-sdk/client-textract@npm:^3.908.0":
+  version: 3.910.0
+  resolution: "@aws-sdk/client-textract@npm:3.910.0"
+  dependencies:
+    "@aws-crypto/sha256-browser": "npm:5.2.0"
+    "@aws-crypto/sha256-js": "npm:5.2.0"
+    "@aws-sdk/core": "npm:3.910.0"
+    "@aws-sdk/credential-provider-node": "npm:3.910.0"
+    "@aws-sdk/middleware-host-header": "npm:3.910.0"
+    "@aws-sdk/middleware-logger": "npm:3.910.0"
+    "@aws-sdk/middleware-recursion-detection": "npm:3.910.0"
+    "@aws-sdk/middleware-user-agent": "npm:3.910.0"
+    "@aws-sdk/region-config-resolver": "npm:3.910.0"
+    "@aws-sdk/types": "npm:3.910.0"
+    "@aws-sdk/util-endpoints": "npm:3.910.0"
+    "@aws-sdk/util-user-agent-browser": "npm:3.910.0"
+    "@aws-sdk/util-user-agent-node": "npm:3.910.0"
+    "@smithy/config-resolver": "npm:^4.3.2"
+    "@smithy/core": "npm:^3.16.1"
+    "@smithy/fetch-http-handler": "npm:^5.3.3"
+    "@smithy/hash-node": "npm:^4.2.2"
+    "@smithy/invalid-dependency": "npm:^4.2.2"
+    "@smithy/middleware-content-length": "npm:^4.2.2"
+    "@smithy/middleware-endpoint": "npm:^4.3.3"
+    "@smithy/middleware-retry": "npm:^4.4.3"
+    "@smithy/middleware-serde": "npm:^4.2.2"
+    "@smithy/middleware-stack": "npm:^4.2.2"
+    "@smithy/node-config-provider": "npm:^4.3.2"
+    "@smithy/node-http-handler": "npm:^4.4.1"
+    "@smithy/protocol-http": "npm:^5.3.2"
+    "@smithy/smithy-client": "npm:^4.8.1"
+    "@smithy/types": "npm:^4.7.1"
+    "@smithy/url-parser": "npm:^4.2.2"
+    "@smithy/util-base64": "npm:^4.3.0"
+    "@smithy/util-body-length-browser": "npm:^4.2.0"
+    "@smithy/util-body-length-node": "npm:^4.2.1"
+    "@smithy/util-defaults-mode-browser": "npm:^4.3.2"
+    "@smithy/util-defaults-mode-node": "npm:^4.2.3"
+    "@smithy/util-endpoints": "npm:^3.2.2"
+    "@smithy/util-middleware": "npm:^4.2.2"
+    "@smithy/util-retry": "npm:^4.2.2"
+    "@smithy/util-utf8": "npm:^4.2.0"
+    "@smithy/uuid": "npm:^1.1.0"
+    tslib: "npm:^2.6.2"
+  checksum: 10c0/679b62ed3ed6f2b3ef2cbcbc99c36111806f464f68982244b5aa580519989705f1ce7182a4ceea483aae8d5241f0bccf8723646ac2c99d29fc8b62bd68120e78
   languageName: node
   linkType: hard
 
@@ -3952,7 +4000,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@foresight-cdss-next/db@workspace:packages/db":
+"@foresight-cdss-next/db@npm:*, @foresight-cdss-next/db@workspace:packages/db":
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/db@workspace:packages/db"
   dependencies:
@@ -10910,7 +10958,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/aws-lambda@npm:^8.10.155":
+"@types/aws-lambda@npm:^8.10.145, @types/aws-lambda@npm:^8.10.155":
   version: 8.10.155
   resolution: "@types/aws-lambda@npm:8.10.155"
   checksum: 10c0/13152e02990feb563a30a47c72be00618cd5e3d30347f095dadb401ad22647958e2c94312f1529fd604c2d4521bf28e8793d2a0fad6f5c7334e7e1bab8facc83
@@ -13194,7 +13242,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"aws-sdk@npm:^2.814.0":
+"aws-sdk@npm:^2.1400.0, aws-sdk@npm:^2.814.0":
   version: 2.1692.0
   resolution: "aws-sdk@npm:2.1692.0"
   dependencies:
@@ -16488,6 +16536,21 @@ __metadata:
   checksum: 10c0/b6416aaff1f380bf56c3b552f31fdf7a69b45689368deca72d28636f41c16bb28ec3ebc40ace97db4c1afc0ceeb8120e8492fe0046841c94c2933b2e30a7d5ac
   languageName: node
   linkType: hard
+
+"document-processor@workspace:packages/functions/document-processor":
+  version: 0.0.0-use.local
+  resolution: "document-processor@workspace:packages/functions/document-processor"
+  dependencies:
+    "@aws-sdk/client-rds-data": "npm:^3.908.0"
+    "@aws-sdk/client-s3": "npm:^3.908.0"
+    "@aws-sdk/client-textract": "npm:^3.908.0"
+    "@foresight-cdss-next/db": "npm:*"
+    "@types/aws-lambda": "npm:^8.10.145"
+    "@types/node": "npm:^24.7.2"
+    drizzle-orm: "npm:^0.44.6"
+    typescript: "npm:~5.8.2"
+  languageName: unknown
+  linkType: soft
 
 "dom-accessibility-api@npm:^0.5.9":
   version: 0.5.16
@@ -25782,6 +25845,26 @@ __metadata:
   checksum: 10c0/b201c4b66049369a60e766318caff5cb3cc5a900efd89bdac431463822d976ad0670912c931fdbdcf5543207daf6f6833bca57aa116e1661d2ea91e12ca692c4
   languageName: node
   linkType: hard
+
+"rcm-api-functions@workspace:packages/functions/api":
+  version: 0.0.0-use.local
+  resolution: "rcm-api-functions@workspace:packages/functions/api"
+  languageName: unknown
+  linkType: soft
+
+"rcm-auth-functions@workspace:packages/functions/auth":
+  version: 0.0.0-use.local
+  resolution: "rcm-auth-functions@workspace:packages/functions/auth"
+  languageName: unknown
+  linkType: soft
+
+"rcm-workers@workspace:packages/functions/workers":
+  version: 0.0.0-use.local
+  resolution: "rcm-workers@workspace:packages/functions/workers"
+  dependencies:
+    aws-sdk: "npm:^2.1400.0"
+  languageName: unknown
+  linkType: soft
 
 "react-day-picker@npm:^9.11.0":
   version: 9.11.0

@@ -11,7 +11,8 @@
     "db:studio": "npx drizzle-kit studio --port 4000",
     "db:reset": "tsx scripts/reset-db.ts",
     "db:reset:force": "tsx scripts/reset-db.ts --force",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:populate-codes": "tsx scripts/populate-codes-simple.ts"
   },
   "type": "commonjs",
   "dependencies": {
