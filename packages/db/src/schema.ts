@@ -14,9 +14,10 @@ import {
   json,
   jsonb,
   serial,
-  bigint
+  bigint,
+  type PgTableWithColumns
 } from 'drizzle-orm/pg-core';
-import { InferSelectModel, InferInsertModel } from 'drizzle-orm';
+import { InferSelectModel, InferInsertModel, sql } from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS
@@ -2482,7 +2483,12 @@ export const automationRules = pgTable('automation_rule', {
 }));
 
 // Business rule action executions (track when automation rules fire)
-export const businessRuleActions = pgTable('business_rule_action', {
+export const businessRuleActions: PgTableWithColumns<{
+  name: 'business_rule_action';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('business_rule_action', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   automationRuleId: uuid('automation_rule_id').references(() => automationRules.id).notNull(),
@@ -2642,7 +2648,12 @@ export const contractedRates = pgTable('contracted_rate', {
 }));
 
 // Master fee schedules
-export const feeSchedules = pgTable('fee_schedule', {
+export const feeSchedules: PgTableWithColumns<{
+  name: 'fee_schedule';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('fee_schedule', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
@@ -2816,7 +2827,12 @@ export const collections = pgTable('collection', {
 }));
 
 // Charge capture
-export const chargeCapture = pgTable('charge_capture', {
+export const chargeCapture: PgTableWithColumns<{
+  name: 'charge_capture';
+  schema: undefined;
+  columns: any;
+  dialect: 'pg';
+}> = pgTable('charge_capture', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
   patientId: uuid('patient_id').references(() => patients.id).notNull(),
@@ -4961,6 +4977,15 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
   coSurgeon: boolean('co_surgeon').default(false),
   multipleProc: boolean('multiple_proc').default(false),
 
+  // Additional billing fields from guide
+  globalPeriod: varchar('global_period', { length: 10 }),
+  priorAuthCommonlyRequired: boolean('prior_auth_commonly_required').default(false),
+  modifier51Exempt: boolean('modifier_51_exempt').default(false),
+
+  // Usage tracking from guide
+  usageCount: integer('usage_count').default(0),
+  lastUsedDate: date('last_used_date'),
+
   // Status and dates
   isActive: boolean('is_active').default(true),
   effectiveDate: date('effective_date').notNull(),
@@ -4970,10 +4995,27 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
+  // Existing indexes
   orgIdx: index('cpt_code_master_org_idx').on(table.organizationId),
   cptCodeIdx: index('cpt_code_master_cpt_code_idx').on(table.cptCode),
   categoryIdx: index('cpt_code_master_category_idx').on(table.category),
   activeIdx: index('cpt_code_master_active_idx').on(table.isActive),
+
+  // Performance indexes from guide
+  // RVU-based queries (for billing calculations)
+  rvuIdx: index('cpt_code_master_rvu_idx').on(table.rvuTotal),
+
+  // Prior auth required codes
+  priorAuthIdx: index('cpt_code_master_prior_auth_idx').on(table.priorAuthCommonlyRequired),
+
+  // Hot CPT codes
+  hotCodesIdx: index('cpt_code_master_hot_codes_idx').on(table.usageCount, table.cptCode),
+
+  // Global period for billing workflows
+  globalPeriodIdx: index('cpt_code_master_global_period_idx').on(table.globalPeriod),
+
+  // Usage tracking for caching decisions
+  usageTrackingIdx: index('cpt_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),
 }));
 
 // ICD-10 Code Master - Essential for diagnosis coding
@@ -5006,8 +5048,17 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   publicHealthReporting: boolean('public_health_reporting').default(false),
   manifestationCode: boolean('manifestation_code').default(false), // Cannot be primary diagnosis
 
+  // Additional fields from guide
+  isBillable: boolean('is_billable').default(true).notNull(),
+  isHeader: boolean('is_header').default(false).notNull(),
+  requiresAdditionalDigit: boolean('requires_additional_digit').default(false).notNull(),
+
+  // Usage tracking from guide
+  usageCount: integer('usage_count').default(0),
+  lastUsedDate: date('last_used_date'),
+
   // Status and dates
-  isActive: boolean('is_active').default(true),
+  isActive: boolean('is_active').default(true).notNull(),
   effectiveDate: date('effective_date').notNull(),
   terminationDate: date('termination_date'),
 
@@ -5015,12 +5066,265 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
+  // Existing indexes
   orgIdx: index('icd10_code_master_org_idx').on(table.organizationId),
   icd10CodeIdx: index('icd10_code_master_icd10_code_idx').on(table.icd10Code),
   chapterIdx: index('icd10_code_master_chapter_idx').on(table.chapter),
   categoryIdx: index('icd10_code_master_category_idx').on(table.category),
   codeTypeIdx: index('icd10_code_master_code_type_idx').on(table.codeType),
   activeIdx: index('icd10_code_master_active_idx').on(table.isActive),
+
+  // Performance indexes from guide
+  // Billable codes only (most queries need billable codes)
+  billableActiveIdx: index('icd10_code_master_billable_active_idx').on(table.icd10Code).where(
+    sql`${table.isBillable} = true AND ${table.isActive} = true`
+  ),
+
+  // Hot codes index (frequently used)
+  hotCodesIdx: index('icd10_code_master_hot_codes_idx').on(table.icd10Code, table.shortDescription).where(
+    sql`${table.usageCount} > 100`
+  ),
+
+  // Composite index for common query patterns
+  compositeIdx: index('icd10_code_master_composite_idx').on(
+    table.icd10Code,
+    table.shortDescription,
+    table.category,
+    table.isBillable
+  ).where(sql`${table.isActive} = true`),
+
+  // Usage tracking for caching decisions
+  usageTrackingIdx: index('icd10_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),
+}));
+
+// Cross-reference table for code relationships
+export const codeCrosswalk = pgTable('code_crosswalk', {
+  id: serial('id').primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Code references
+  icd10CodeId: uuid('icd10_code_id').references(() => icd10CodeMaster.id),
+  cptCodeId: uuid('cpt_code_id').references(() => cptCodeMaster.id),
+
+  // Relationship details
+  relationshipType: varchar('relationship_type', { length: 50 }), // 'commonly_paired', 'requires_support', etc.
+  payerSpecific: varchar('payer_specific', { length: 100 }),
+  effectivenessDate: date('effectiveness_date'),
+  terminationDate: date('termination_date'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('code_crosswalk_org_idx').on(table.organizationId),
+  icd10Idx: index('code_crosswalk_icd10_idx').on(table.icd10CodeId),
+  cptIdx: index('code_crosswalk_cpt_idx').on(table.cptCodeId),
+  relationshipIdx: index('code_crosswalk_relationship_idx').on(table.relationshipType),
+}));
+
+// Audit table for code updates
+export const codeUpdateHistory = pgTable('code_update_history', {
+  id: serial('id').primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Changed entity details
+  tableName: varchar('table_name', { length: 50 }).notNull(), // 'cpt_code_master' or 'icd10_code_master'
+  codeId: uuid('code_id'), // References either icd10_code_master.id or cpt_code_master.id
+  codeValue: varchar('code_value', { length: 10 }),
+
+  // Change details
+  fieldChanged: varchar('field_changed', { length: 100 }),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
+  changeType: varchar('change_type', { length: 20 }).notNull(), // 'INSERT', 'UPDATE', 'DELETE'
+
+  // Change attribution
+  changedBy: uuid('changed_by').references(() => teamMembers.id),
+  changedAt: timestamp('changed_at').defaultNow().notNull(),
+  updateSource: varchar('update_source', { length: 100 }), // 'CMS', 'AMA', 'Manual', etc.
+}, (table) => ({
+  orgIdx: index('code_update_history_org_idx').on(table.organizationId),
+  tableIdx: index('code_update_history_table_idx').on(table.tableName),
+  codeIdx: index('code_update_history_code_idx').on(table.codeId),
+  changedByIdx: index('code_update_history_changed_by_idx').on(table.changedBy),
+  changedAtIdx: index('code_update_history_changed_at_idx').on(table.changedAt),
+}));
+
+// Table for tracking most commonly used codes (for caching optimization)
+export const hotCodesCache = pgTable('hot_codes_cache', {
+  id: serial('id').primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Code identification
+  codeType: varchar('code_type', { length: 10 }).notNull(), // 'ICD10' or 'CPT'
+  codeId: uuid('code_id'), // References either table
+  codeValue: varchar('code_value', { length: 10 }).notNull(),
+
+  // Usage tracking
+  usageCount: integer('usage_count').default(0),
+  lastCalculated: timestamp('last_calculated').defaultNow().notNull(),
+  shouldCache: boolean('should_cache').default(false),
+}, (table) => ({
+  orgIdx: index('hot_codes_cache_org_idx').on(table.organizationId),
+  codeTypeIdx: index('hot_codes_cache_code_type_idx').on(table.codeType),
+  codeIdx: index('hot_codes_cache_code_idx').on(table.codeId),
+  usageIdx: index('hot_codes_cache_usage_idx').on(table.usageCount),
+  shouldCacheIdx: index('hot_codes_cache_should_cache_idx').on(table.shouldCache),
+}));
+
+// Staging tables for annual code updates
+export const cptCodeStaging = pgTable('cpt_code_staging', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Code details (same structure as cptCodeMaster)
+  cptCode: varchar('cpt_code', { length: 10 }).notNull(),
+  shortDescription: varchar('short_description', { length: 100 }).notNull(),
+  longDescription: text('long_description').notNull(),
+
+  // Classification
+  category: varchar('category', { length: 50 }),
+  section: varchar('section', { length: 50 }),
+  subsection: varchar('subsection', { length: 50 }),
+
+  // Billing information
+  rvuWork: decimal('rvu_work', { precision: 10, scale: 4 }),
+  rvuPracticeExpense: decimal('rvu_practice_expense', { precision: 10, scale: 4 }),
+  rvuMalpractice: decimal('rvu_malpractice', { precision: 10, scale: 4 }),
+  rvuTotal: decimal('rvu_total', { precision: 10, scale: 4 }),
+
+  // Usage rules
+  bilateralSurgery: boolean('bilateral_surgery').default(false),
+  assistantSurgeon: boolean('assistant_surgeon').default(false),
+  coSurgeon: boolean('co_surgeon').default(false),
+  multipleProc: boolean('multiple_proc').default(false),
+
+  // Additional billing fields
+  globalPeriod: varchar('global_period', { length: 10 }),
+  priorAuthCommonlyRequired: boolean('prior_auth_commonly_required').default(false),
+  modifier51Exempt: boolean('modifier_51_exempt').default(false),
+
+  // Status and dates
+  isActive: boolean('is_active').default(true),
+  effectiveDate: date('effective_date').notNull(),
+  terminationDate: date('termination_date'),
+
+  // Staging metadata
+  updateYear: integer('update_year').notNull(),
+  importBatch: varchar('import_batch', { length: 50 }),
+  validationStatus: varchar('validation_status', { length: 20 }).default('pending'),
+  validationErrors: jsonb('validation_errors'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('cpt_code_staging_org_idx').on(table.organizationId),
+  cptCodeIdx: index('cpt_code_staging_cpt_code_idx').on(table.cptCode),
+  updateYearIdx: index('cpt_code_staging_update_year_idx').on(table.updateYear),
+  batchIdx: index('cpt_code_staging_batch_idx').on(table.importBatch),
+  validationIdx: index('cpt_code_staging_validation_idx').on(table.validationStatus),
+}));
+
+export const icd10CodeStaging = pgTable('icd10_code_staging', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Code details (same structure as icd10CodeMaster)
+  icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
+  shortDescription: varchar('short_description', { length: 100 }).notNull(),
+  longDescription: text('long_description').notNull(),
+
+  // Classification
+  chapter: varchar('chapter', { length: 100 }),
+  chapterRange: varchar('chapter_range', { length: 20 }),
+  section: varchar('section', { length: 100 }),
+  category: varchar('category', { length: 50 }),
+
+  // Code characteristics
+  codeType: varchar('code_type', { length: 20 }),
+  laterality: varchar('laterality', { length: 20 }),
+  encounter: varchar('encounter', { length: 20 }),
+
+  // Clinical information
+  ageGroup: varchar('age_group', { length: 50 }),
+  gender: varchar('gender', { length: 20 }),
+
+  // Code usage
+  reportingRequired: boolean('reporting_required').default(false),
+  publicHealthReporting: boolean('public_health_reporting').default(false),
+  manifestationCode: boolean('manifestation_code').default(false),
+
+  // Additional fields
+  isBillable: boolean('is_billable').default(true),
+  isHeader: boolean('is_header').default(false),
+  requiresAdditionalDigit: boolean('requires_additional_digit').default(false),
+
+  // Status and dates
+  isActive: boolean('is_active').default(true),
+  effectiveDate: date('effective_date').notNull(),
+  terminationDate: date('termination_date'),
+
+  // Staging metadata
+  updateYear: integer('update_year').notNull(),
+  importBatch: varchar('import_batch', { length: 50 }),
+  validationStatus: varchar('validation_status', { length: 20 }).default('pending'),
+  validationErrors: jsonb('validation_errors'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('icd10_code_staging_org_idx').on(table.organizationId),
+  icd10CodeIdx: index('icd10_code_staging_icd10_code_idx').on(table.icd10Code),
+  updateYearIdx: index('icd10_code_staging_update_year_idx').on(table.updateYear),
+  batchIdx: index('icd10_code_staging_batch_idx').on(table.importBatch),
+  validationIdx: index('icd10_code_staging_validation_idx').on(table.validationStatus),
+}));
+
+// Annual update tracking
+export const annualCodeUpdates = pgTable('annual_code_update', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Update details
+  updateYear: integer('update_year').notNull(),
+  codeType: varchar('code_type', { length: 10 }).notNull(), // 'ICD10' or 'CPT'
+
+  // Update process tracking
+  status: varchar('status', { length: 20 }).default('planned'), // planned, in_progress, completed, failed, rolled_back
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+
+  // Statistics
+  totalRecordsProcessed: integer('total_records_processed'),
+  newCodes: integer('new_codes'),
+  updatedCodes: integer('updated_codes'),
+  deprecatedCodes: integer('deprecated_codes'),
+
+  // Data source
+  sourceFile: varchar('source_file', { length: 255 }),
+  sourceChecksum: varchar('source_checksum', { length: 64 }),
+  sourceUrl: text('source_url'),
+
+  // Backup information
+  backupLocation: text('backup_location'),
+  canRollback: boolean('can_rollback').default(true),
+
+  // Error handling
+  errorMessage: text('error_message'),
+  validationErrors: jsonb('validation_errors'),
+
+  // Attribution
+  initiatedBy: uuid('initiated_by').references(() => teamMembers.id),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('annual_code_update_org_idx').on(table.organizationId),
+  yearTypeIdx: index('annual_code_update_year_type_idx').on(table.updateYear, table.codeType),
+  statusIdx: index('annual_code_update_status_idx').on(table.status),
+  initiatedByIdx: index('annual_code_update_initiated_by_idx').on(table.initiatedBy),
 }));
 
 // Place of Service - Service location codes
@@ -6646,6 +6950,3 @@ export type NewDatabaseConnectionLog = InferInsertModel<typeof databaseConnectio
 
 export type DatabaseQueryLog = InferSelectModel<typeof databaseQueryLogs>;
 export type NewDatabaseQueryLog = InferInsertModel<typeof databaseQueryLogs>;
-
-export type DatabaseAuthenticationLog = InferSelectModel<typeof databaseAuthenticationLogs>;
-export type NewDatabaseAuthenticationLog = InferInsertModel<typeof databaseAuthenticationLogs>;

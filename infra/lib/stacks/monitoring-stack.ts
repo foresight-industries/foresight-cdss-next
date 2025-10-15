@@ -27,12 +27,21 @@ export class MonitoringStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
-    // SNS Topic for alerts - reference existing topics from previous monitoring deployments
-    this.alarmTopic = sns.Topic.fromTopicArn(
-      this,
-      'AlarmTopic',
-      `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
-    );
+    // SNS Topic for alerts - reference existing topic from alerting stack
+    if (props.stackType === 'alerting') {
+      // Create topic only in alerting stack
+      this.alarmTopic = new sns.Topic(this, 'AlarmTopic', {
+        topicName: `rcm-alarms-${props.stageName}`,
+        displayName: `RCM Alarms - ${props.stageName}`,
+      });
+    } else {
+      // Reference existing topic in monitoring stack with different construct ID
+      this.alarmTopic = sns.Topic.fromTopicArn(
+        this,
+        'ExistingAlarmTopic',
+        `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
+      );
+    }
 
     // Only add subscriptions in the alerting stack
     if (props.stackType === 'alerting') {
@@ -46,7 +55,7 @@ export class MonitoringStack extends cdk.Stack {
       // Add Slack webhook if configured
       if (process.env.SLACK_WEBHOOK_URL) {
         const slackFunction = new lambda.Function(this, 'SlackNotifier', {
-          runtime: lambda.Runtime.NODEJS_20_X,
+          runtime: lambda.Runtime.NODEJS_22_X,
           handler: 'index.handler',
           code: lambda.Code.fromInline(`
             const https = require('https');
@@ -222,7 +231,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'Count',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -234,7 +243,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: '4XXError',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -245,7 +254,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: '5XXError',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -263,7 +272,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'IntegrationLatency',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -273,7 +282,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'IntegrationLatency',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
