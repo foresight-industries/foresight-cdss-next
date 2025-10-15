@@ -4953,7 +4953,6 @@ export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
 // CPT Code Master - Essential for procedure coding
 export const cptCodeMaster = pgTable('cpt_code_master', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   cptCode: varchar('cpt_code', { length: 10 }).notNull(),
@@ -4996,7 +4995,6 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   // Existing indexes
-  orgIdx: index('cpt_code_master_org_idx').on(table.organizationId),
   cptCodeIdx: index('cpt_code_master_cpt_code_idx').on(table.cptCode),
   categoryIdx: index('cpt_code_master_category_idx').on(table.category),
   activeIdx: index('cpt_code_master_active_idx').on(table.isActive),
@@ -5021,7 +5019,6 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
 // ICD-10 Code Master - Essential for diagnosis coding
 export const icd10CodeMaster = pgTable('icd10_code_master', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
@@ -5067,7 +5064,6 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   // Existing indexes
-  orgIdx: index('icd10_code_master_org_idx').on(table.organizationId),
   icd10CodeIdx: index('icd10_code_master_icd10_code_idx').on(table.icd10Code),
   chapterIdx: index('icd10_code_master_chapter_idx').on(table.chapter),
   categoryIdx: index('icd10_code_master_category_idx').on(table.category),

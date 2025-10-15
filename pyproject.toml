@@ -1,0 +1,38 @@
+[project]
+name = "medical-codes-processor"
+version = "0.1.0"
+description = "Scripts for processing and importing medical codes (ICD-10, CPT)"
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.28.0",
+    "pandas>=1.5.0",
+    "openpyxl>=3.0.0",
+    "lxml>=4.9.0",
+    "beautifulsoup4>=4.11.0",
+    "pandas-stubs>=2.0.3.230814",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0"
+]
+
+[tool.uv]
+package = false
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
