@@ -17,7 +17,7 @@ import {
   bigint,
   type PgTableWithColumns
 } from 'drizzle-orm/pg-core';
-import { InferSelectModel, InferInsertModel, eq, gt, and } from 'drizzle-orm';
+import { InferSelectModel, InferInsertModel, sql } from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS
@@ -5077,15 +5077,12 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   // Performance indexes from guide
   // Billable codes only (most queries need billable codes)
   billableActiveIdx: index('icd10_code_master_billable_active_idx').on(table.icd10Code).where(
-    and(
-      eq(table.isBillable, true),
-      eq(table.isActive, true)
-    )!
+    sql`${table.isBillable} = true AND ${table.isActive} = true`
   ),
 
   // Hot codes index (frequently used)
   hotCodesIdx: index('icd10_code_master_hot_codes_idx').on(table.icd10Code, table.shortDescription).where(
-    gt(table.usageCount, 100)
+    sql`${table.usageCount} > 100`
   ),
 
   // Composite index for common query patterns
@@ -5094,7 +5091,7 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
     table.shortDescription,
     table.category,
     table.isBillable
-  ).where(eq(table.isActive, true)),
+  ).where(sql`${table.isActive} = true`),
 
   // Usage tracking for caching decisions
   usageTrackingIdx: index('icd10_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),

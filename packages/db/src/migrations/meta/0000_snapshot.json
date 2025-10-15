@@ -1,5 +1,5 @@
 {
-  "id": "2490fd95-2610-4e12-8232-38db90e85ac8",
+  "id": "4680e239-12f2-4583-a6d4-959bb1f2ce58",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -589,6 +589,244 @@
           "tableTo": "team_member",
           "columnsFrom": [
             "team_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.annual_code_update": {
+      "name": "annual_code_update",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "update_year": {
+          "name": "update_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_type": {
+          "name": "code_type",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'planned'"
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "total_records_processed": {
+          "name": "total_records_processed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_codes": {
+          "name": "new_codes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_codes": {
+          "name": "updated_codes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deprecated_codes": {
+          "name": "deprecated_codes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_file": {
+          "name": "source_file",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_checksum": {
+          "name": "source_checksum",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_url": {
+          "name": "source_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "backup_location": {
+          "name": "backup_location",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "can_rollback": {
+          "name": "can_rollback",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation_errors": {
+          "name": "validation_errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "initiated_by": {
+          "name": "initiated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "annual_code_update_org_idx": {
+          "name": "annual_code_update_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "annual_code_update_year_type_idx": {
+          "name": "annual_code_update_year_type_idx",
+          "columns": [
+            {
+              "expression": "update_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "code_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "annual_code_update_status_idx": {
+          "name": "annual_code_update_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "annual_code_update_initiated_by_idx": {
+          "name": "annual_code_update_initiated_by_idx",
+          "columns": [
+            {
+              "expression": "initiated_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "annual_code_update_organization_id_organization_id_fk": {
+          "name": "annual_code_update_organization_id_organization_id_fk",
+          "tableFrom": "annual_code_update",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "annual_code_update_initiated_by_team_member_id_fk": {
+          "name": "annual_code_update_initiated_by_team_member_id_fk",
+          "tableFrom": "annual_code_update",
+          "tableTo": "team_member",
+          "columnsFrom": [
+            "initiated_by"
           ],
           "columnsTo": [
             "id"
@@ -6365,6 +6603,364 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.code_crosswalk": {
+      "name": "code_crosswalk",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "icd10_code_id": {
+          "name": "icd10_code_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpt_code_id": {
+          "name": "cpt_code_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "relationship_type": {
+          "name": "relationship_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payer_specific": {
+          "name": "payer_specific",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "effectiveness_date": {
+          "name": "effectiveness_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "termination_date": {
+          "name": "termination_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "code_crosswalk_org_idx": {
+          "name": "code_crosswalk_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_crosswalk_icd10_idx": {
+          "name": "code_crosswalk_icd10_idx",
+          "columns": [
+            {
+              "expression": "icd10_code_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_crosswalk_cpt_idx": {
+          "name": "code_crosswalk_cpt_idx",
+          "columns": [
+            {
+              "expression": "cpt_code_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_crosswalk_relationship_idx": {
+          "name": "code_crosswalk_relationship_idx",
+          "columns": [
+            {
+              "expression": "relationship_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "code_crosswalk_organization_id_organization_id_fk": {
+          "name": "code_crosswalk_organization_id_organization_id_fk",
+          "tableFrom": "code_crosswalk",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "code_crosswalk_icd10_code_id_icd10_code_master_id_fk": {
+          "name": "code_crosswalk_icd10_code_id_icd10_code_master_id_fk",
+          "tableFrom": "code_crosswalk",
+          "tableTo": "icd10_code_master",
+          "columnsFrom": [
+            "icd10_code_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "code_crosswalk_cpt_code_id_cpt_code_master_id_fk": {
+          "name": "code_crosswalk_cpt_code_id_cpt_code_master_id_fk",
+          "tableFrom": "code_crosswalk",
+          "tableTo": "cpt_code_master",
+          "columnsFrom": [
+            "cpt_code_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.code_update_history": {
+      "name": "code_update_history",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "table_name": {
+          "name": "table_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_id": {
+          "name": "code_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code_value": {
+          "name": "code_value",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "field_changed": {
+          "name": "field_changed",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "old_value": {
+          "name": "old_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "new_value": {
+          "name": "new_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "change_type": {
+          "name": "change_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "changed_by": {
+          "name": "changed_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "changed_at": {
+          "name": "changed_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "update_source": {
+          "name": "update_source",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "code_update_history_org_idx": {
+          "name": "code_update_history_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_update_history_table_idx": {
+          "name": "code_update_history_table_idx",
+          "columns": [
+            {
+              "expression": "table_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_update_history_code_idx": {
+          "name": "code_update_history_code_idx",
+          "columns": [
+            {
+              "expression": "code_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_update_history_changed_by_idx": {
+          "name": "code_update_history_changed_by_idx",
+          "columns": [
+            {
+              "expression": "changed_by",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "code_update_history_changed_at_idx": {
+          "name": "code_update_history_changed_at_idx",
+          "columns": [
+            {
+              "expression": "changed_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "code_update_history_organization_id_organization_id_fk": {
+          "name": "code_update_history_organization_id_organization_id_fk",
+          "tableFrom": "code_update_history",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "code_update_history_changed_by_team_member_id_fk": {
+          "name": "code_update_history_changed_by_team_member_id_fk",
+          "tableFrom": "code_update_history",
+          "tableTo": "team_member",
+          "columnsFrom": [
+            "changed_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.collection": {
       "name": "collection",
       "schema": "",
@@ -8215,6 +8811,39 @@
           "notNull": false,
           "default": false
         },
+        "global_period": {
+          "name": "global_period",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prior_auth_commonly_required": {
+          "name": "prior_auth_commonly_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "modifier_51_exempt": {
+          "name": "modifier_51_exempt",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "usage_count": {
+          "name": "usage_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_used_date": {
+          "name": "last_used_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
@@ -8309,12 +8938,381 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "cpt_code_master_rvu_idx": {
+          "name": "cpt_code_master_rvu_idx",
+          "columns": [
+            {
+              "expression": "rvu_total",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_master_prior_auth_idx": {
+          "name": "cpt_code_master_prior_auth_idx",
+          "columns": [
+            {
+              "expression": "prior_auth_commonly_required",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_master_hot_codes_idx": {
+          "name": "cpt_code_master_hot_codes_idx",
+          "columns": [
+            {
+              "expression": "usage_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cpt_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_master_global_period_idx": {
+          "name": "cpt_code_master_global_period_idx",
+          "columns": [
+            {
+              "expression": "global_period",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_master_usage_tracking_idx": {
+          "name": "cpt_code_master_usage_tracking_idx",
+          "columns": [
+            {
+              "expression": "usage_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_used_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "cpt_code_master_organization_id_organization_id_fk": {
           "name": "cpt_code_master_organization_id_organization_id_fk",
           "tableFrom": "cpt_code_master",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cpt_code_staging": {
+      "name": "cpt_code_staging",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cpt_code": {
+          "name": "cpt_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_description": {
+          "name": "short_description",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "long_description": {
+          "name": "long_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "section": {
+          "name": "section",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "subsection": {
+          "name": "subsection",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rvu_work": {
+          "name": "rvu_work",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rvu_practice_expense": {
+          "name": "rvu_practice_expense",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rvu_malpractice": {
+          "name": "rvu_malpractice",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rvu_total": {
+          "name": "rvu_total",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bilateral_surgery": {
+          "name": "bilateral_surgery",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "assistant_surgeon": {
+          "name": "assistant_surgeon",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "co_surgeon": {
+          "name": "co_surgeon",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "multiple_proc": {
+          "name": "multiple_proc",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "global_period": {
+          "name": "global_period",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "prior_auth_commonly_required": {
+          "name": "prior_auth_commonly_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "modifier_51_exempt": {
+          "name": "modifier_51_exempt",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "termination_date": {
+          "name": "termination_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "update_year": {
+          "name": "update_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "import_batch": {
+          "name": "import_batch",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
+        },
+        "validation_errors": {
+          "name": "validation_errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "cpt_code_staging_org_idx": {
+          "name": "cpt_code_staging_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_staging_cpt_code_idx": {
+          "name": "cpt_code_staging_cpt_code_idx",
+          "columns": [
+            {
+              "expression": "cpt_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_staging_update_year_idx": {
+          "name": "cpt_code_staging_update_year_idx",
+          "columns": [
+            {
+              "expression": "update_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_staging_batch_idx": {
+          "name": "cpt_code_staging_batch_idx",
+          "columns": [
+            {
+              "expression": "import_batch",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "cpt_code_staging_validation_idx": {
+          "name": "cpt_code_staging_validation_idx",
+          "columns": [
+            {
+              "expression": "validation_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "cpt_code_staging_organization_id_organization_id_fk": {
+          "name": "cpt_code_staging_organization_id_organization_id_fk",
+          "tableFrom": "cpt_code_staging",
           "tableTo": "organization",
           "columnsFrom": [
             "organization_id"
@@ -9196,6 +10194,1085 @@
         "custom_field_organization_id_organization_id_fk": {
           "name": "custom_field_organization_id_organization_id_fk",
           "tableFrom": "custom_field",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.database_authentication_log": {
+      "name": "database_authentication_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempt_id": {
+          "name": "attempt_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "username": {
+          "name": "username",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "database_name": {
+          "name": "database_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authentication_method": {
+          "name": "authentication_method",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "authentication_result": {
+          "name": "authentication_result",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "failure_reason": {
+          "name": "failure_reason",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_ip_address": {
+          "name": "client_ip_address",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "client_port": {
+          "name": "client_port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_agent": {
+          "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connection_protocol": {
+          "name": "connection_protocol",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssl_used": {
+          "name": "ssl_used",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ssl_cipher": {
+          "name": "ssl_cipher",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "certificate_used": {
+          "name": "certificate_used",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "certificate_subject": {
+          "name": "certificate_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "application_name": {
+          "name": "application_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "risk_score": {
+          "name": "risk_score",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "risk_factors": {
+          "name": "risk_factors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_anomalous": {
+          "name": "is_anomalous",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "geo_location": {
+          "name": "geo_location",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "time_zone": {
+          "name": "time_zone",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "attempts_in_window": {
+          "name": "attempts_in_window",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_blocked": {
+          "name": "is_blocked",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "block_reason": {
+          "name": "block_reason",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_time": {
+          "name": "event_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "db_auth_log_org_idx": {
+          "name": "db_auth_log_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_username_idx": {
+          "name": "db_auth_log_username_idx",
+          "columns": [
+            {
+              "expression": "username",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_client_ip_idx": {
+          "name": "db_auth_log_client_ip_idx",
+          "columns": [
+            {
+              "expression": "client_ip_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_result_idx": {
+          "name": "db_auth_log_result_idx",
+          "columns": [
+            {
+              "expression": "authentication_result",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_event_time_idx": {
+          "name": "db_auth_log_event_time_idx",
+          "columns": [
+            {
+              "expression": "event_time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_risk_score_idx": {
+          "name": "db_auth_log_risk_score_idx",
+          "columns": [
+            {
+              "expression": "risk_score",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_anomalous_idx": {
+          "name": "db_auth_log_anomalous_idx",
+          "columns": [
+            {
+              "expression": "is_anomalous",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_blocked_idx": {
+          "name": "db_auth_log_blocked_idx",
+          "columns": [
+            {
+              "expression": "is_blocked",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_session_idx": {
+          "name": "db_auth_log_session_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_auth_log_method_idx": {
+          "name": "db_auth_log_method_idx",
+          "columns": [
+            {
+              "expression": "authentication_method",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "database_authentication_log_organization_id_organization_id_fk": {
+          "name": "database_authentication_log_organization_id_organization_id_fk",
+          "tableFrom": "database_authentication_log",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.database_connection_log": {
+      "name": "database_connection_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connection_id": {
+          "name": "connection_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "database_name": {
+          "name": "database_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "application_name": {
+          "name": "application_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event_type": {
+          "name": "event_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "connection_state": {
+          "name": "connection_state",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authentication_method": {
+          "name": "authentication_method",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authentication_success": {
+          "name": "authentication_success",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "authentication_error": {
+          "name": "authentication_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_ip_address": {
+          "name": "client_ip_address",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_port": {
+          "name": "client_port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "server_port": {
+          "name": "server_port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'tcp'"
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_start_time": {
+          "name": "session_start_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_end_time": {
+          "name": "session_end_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_duration": {
+          "name": "session_duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "connection_time": {
+          "name": "connection_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_count": {
+          "name": "query_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "transaction_count": {
+          "name": "transaction_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "bytes_transferred": {
+          "name": "bytes_transferred",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "pool_name": {
+          "name": "pool_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active_connections": {
+          "name": "active_connections",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "waiting_clients": {
+          "name": "waiting_clients",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pool_utilization": {
+          "name": "pool_utilization",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_stack": {
+          "name": "error_stack",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "db_connection_log_org_idx": {
+          "name": "db_connection_log_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_user_idx": {
+          "name": "db_connection_log_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_event_type_idx": {
+          "name": "db_connection_log_event_type_idx",
+          "columns": [
+            {
+              "expression": "event_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_client_ip_idx": {
+          "name": "db_connection_log_client_ip_idx",
+          "columns": [
+            {
+              "expression": "client_ip_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_session_idx": {
+          "name": "db_connection_log_session_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_created_at_idx": {
+          "name": "db_connection_log_created_at_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_auth_success_idx": {
+          "name": "db_connection_log_auth_success_idx",
+          "columns": [
+            {
+              "expression": "authentication_success",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_connection_log_connection_state_idx": {
+          "name": "db_connection_log_connection_state_idx",
+          "columns": [
+            {
+              "expression": "connection_state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "database_connection_log_organization_id_organization_id_fk": {
+          "name": "database_connection_log_organization_id_organization_id_fk",
+          "tableFrom": "database_connection_log",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.database_query_log": {
+      "name": "database_query_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_id": {
+          "name": "query_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "transaction_id": {
+          "name": "transaction_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_text": {
+          "name": "query_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_hash": {
+          "name": "query_hash",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_type": {
+          "name": "query_type",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "query_parameters": {
+          "name": "query_parameters",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration": {
+          "name": "duration",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "planning_time": {
+          "name": "planning_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "execution_time": {
+          "name": "execution_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rows_returned": {
+          "name": "rows_returned",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "rows_affected": {
+          "name": "rows_affected",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "blocks_read": {
+          "name": "blocks_read",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "blocks_written": {
+          "name": "blocks_written",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "memory_used": {
+          "name": "memory_used",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "temp_files_used": {
+          "name": "temp_files_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_slow_query": {
+          "name": "is_slow_query",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "complexity_score": {
+          "name": "complexity_score",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locks_acquired": {
+          "name": "locks_acquired",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_wait_time": {
+          "name": "lock_wait_time",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deadlock_detected": {
+          "name": "deadlock_detected",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "database_name": {
+          "name": "database_name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "application_name": {
+          "name": "application_name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_ip_address": {
+          "name": "client_ip_address",
+          "type": "varchar(45)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_occurred": {
+          "name": "error_occurred",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "error_code": {
+          "name": "error_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "db_query_log_org_idx": {
+          "name": "db_query_log_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_session_idx": {
+          "name": "db_query_log_session_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_query_type_idx": {
+          "name": "db_query_log_query_type_idx",
+          "columns": [
+            {
+              "expression": "query_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_duration_idx": {
+          "name": "db_query_log_duration_idx",
+          "columns": [
+            {
+              "expression": "duration",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_start_time_idx": {
+          "name": "db_query_log_start_time_idx",
+          "columns": [
+            {
+              "expression": "start_time",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_slow_query_idx": {
+          "name": "db_query_log_slow_query_idx",
+          "columns": [
+            {
+              "expression": "is_slow_query",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_error_idx": {
+          "name": "db_query_log_error_idx",
+          "columns": [
+            {
+              "expression": "error_occurred",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_user_idx": {
+          "name": "db_query_log_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_client_ip_idx": {
+          "name": "db_query_log_client_ip_idx",
+          "columns": [
+            {
+              "expression": "client_ip_address",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "db_query_log_query_hash_idx": {
+          "name": "db_query_log_query_hash_idx",
+          "columns": [
+            {
+              "expression": "query_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "database_query_log_organization_id_organization_id_fk": {
+          "name": "database_query_log_organization_id_organization_id_fk",
+          "tableFrom": "database_query_log",
           "tableTo": "organization",
           "columnsFrom": [
             "organization_id"
@@ -13907,6 +15984,160 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.hot_codes_cache": {
+      "name": "hot_codes_cache",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_type": {
+          "name": "code_type",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "code_id": {
+          "name": "code_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code_value": {
+          "name": "code_value",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "usage_count": {
+          "name": "usage_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_calculated": {
+          "name": "last_calculated",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "should_cache": {
+          "name": "should_cache",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "hot_codes_cache_org_idx": {
+          "name": "hot_codes_cache_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hot_codes_cache_code_type_idx": {
+          "name": "hot_codes_cache_code_type_idx",
+          "columns": [
+            {
+              "expression": "code_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hot_codes_cache_code_idx": {
+          "name": "hot_codes_cache_code_idx",
+          "columns": [
+            {
+              "expression": "code_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hot_codes_cache_usage_idx": {
+          "name": "hot_codes_cache_usage_idx",
+          "columns": [
+            {
+              "expression": "usage_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hot_codes_cache_should_cache_idx": {
+          "name": "hot_codes_cache_should_cache_idx",
+          "columns": [
+            {
+              "expression": "should_cache",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "hot_codes_cache_organization_id_organization_id_fk": {
+          "name": "hot_codes_cache_organization_id_organization_id_fk",
+          "tableFrom": "hot_codes_cache",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.icd10_code_master": {
       "name": "icd10_code_master",
       "schema": "",
@@ -14017,11 +16248,45 @@
           "notNull": false,
           "default": false
         },
+        "is_billable": {
+          "name": "is_billable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "is_header": {
+          "name": "is_header",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "requires_additional_digit": {
+          "name": "requires_additional_digit",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "usage_count": {
+          "name": "usage_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_used_date": {
+          "name": "last_used_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
         "is_active": {
           "name": "is_active",
           "type": "boolean",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "default": true
         },
         "effective_date": {
@@ -14141,12 +16406,393 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "icd10_code_master_billable_active_idx": {
+          "name": "icd10_code_master_billable_active_idx",
+          "columns": [
+            {
+              "expression": "icd10_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"icd10_code_master\".\"is_billable\" = true AND \"icd10_code_master\".\"is_active\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_master_hot_codes_idx": {
+          "name": "icd10_code_master_hot_codes_idx",
+          "columns": [
+            {
+              "expression": "icd10_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "short_description",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"icd10_code_master\".\"usage_count\" > 100",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_master_composite_idx": {
+          "name": "icd10_code_master_composite_idx",
+          "columns": [
+            {
+              "expression": "icd10_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "short_description",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "is_billable",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"icd10_code_master\".\"is_active\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_master_usage_tracking_idx": {
+          "name": "icd10_code_master_usage_tracking_idx",
+          "columns": [
+            {
+              "expression": "usage_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_used_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "icd10_code_master_organization_id_organization_id_fk": {
           "name": "icd10_code_master_organization_id_organization_id_fk",
           "tableFrom": "icd10_code_master",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.icd10_code_staging": {
+      "name": "icd10_code_staging",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "icd10_code": {
+          "name": "icd10_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_description": {
+          "name": "short_description",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "long_description": {
+          "name": "long_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "chapter": {
+          "name": "chapter",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "chapter_range": {
+          "name": "chapter_range",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "section": {
+          "name": "section",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "code_type": {
+          "name": "code_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "laterality": {
+          "name": "laterality",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encounter": {
+          "name": "encounter",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "age_group": {
+          "name": "age_group",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gender": {
+          "name": "gender",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reporting_required": {
+          "name": "reporting_required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "public_health_reporting": {
+          "name": "public_health_reporting",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "manifestation_code": {
+          "name": "manifestation_code",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_billable": {
+          "name": "is_billable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "is_header": {
+          "name": "is_header",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "requires_additional_digit": {
+          "name": "requires_additional_digit",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "termination_date": {
+          "name": "termination_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "update_year": {
+          "name": "update_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "import_batch": {
+          "name": "import_batch",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
+        },
+        "validation_errors": {
+          "name": "validation_errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "icd10_code_staging_org_idx": {
+          "name": "icd10_code_staging_org_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_staging_icd10_code_idx": {
+          "name": "icd10_code_staging_icd10_code_idx",
+          "columns": [
+            {
+              "expression": "icd10_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_staging_update_year_idx": {
+          "name": "icd10_code_staging_update_year_idx",
+          "columns": [
+            {
+              "expression": "update_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_staging_batch_idx": {
+          "name": "icd10_code_staging_batch_idx",
+          "columns": [
+            {
+              "expression": "import_batch",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "icd10_code_staging_validation_idx": {
+          "name": "icd10_code_staging_validation_idx",
+          "columns": [
+            {
+              "expression": "validation_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "icd10_code_staging_organization_id_organization_id_fk": {
+          "name": "icd10_code_staging_organization_id_organization_id_fk",
+          "tableFrom": "icd10_code_staging",
           "tableTo": "organization",
           "columnsFrom": [
             "organization_id"
