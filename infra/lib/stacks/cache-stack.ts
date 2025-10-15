@@ -10,6 +10,7 @@ export interface CacheStackProps extends StackProps {
 
 export class CacheStack extends Stack {
   public readonly redisConnectionStringSecret: secretsmanager.Secret;
+  public readonly redisCaSecret: secretsmanager.Secret;
   public readonly redisConnectionStringParameter: ssm.StringParameter;
 
   constructor(scope: Construct, id: string, props: CacheStackProps) {
@@ -20,6 +21,12 @@ export class CacheStack extends Stack {
     this.redisConnectionStringSecret = new secretsmanager.Secret(this, 'RedisConnectionSecret', {
       secretName: `foresight-${props.environment}-redis-connection`,
       description: 'Redis.io connection string for medical code caching - manually set after Redis.io setup',
+    });
+
+    // Redis.io CA certificate secret
+    this.redisCaSecret = new secretsmanager.Secret(this, 'RedisCaSecret', {
+      secretName: `foresight-${props.environment}-redis-ca-cert`,
+      description: 'Redis.io CA certificate for TLS connections - manually set after downloading from Redis.io',
     });
 
     // Parameter for Redis configuration reference
@@ -105,6 +112,12 @@ export class CacheStack extends Stack {
       description: 'SSM Parameter name for Redis URL',
       exportName: `${this.stackName}-redis-parameter-name`,
     });
+
+    new CfnOutput(this, 'RedisCaSecretArn', {
+      value: this.redisCaSecret.secretArn,
+      description: 'ARN of the Redis CA certificate secret',
+      exportName: `${this.stackName}-redis-ca-secret-arn`,
+    });
   }
 
   /**
@@ -120,6 +133,7 @@ export class CacheStack extends Stack {
         ],
         Resource: [
           this.redisConnectionStringSecret.secretArn,
+          this.redisCaSecret.secretArn,
         ],
       },
       {

@@ -4,6 +4,7 @@
 import Redis, { Cluster } from 'ioredis';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { cptCodeMaster, icd10CodeMaster, codeCrosswalk, hotCodesCache } from '@foresight-cdss-next/db/src/schema';
 import { eq, and } from 'drizzle-orm';
 
@@ -38,16 +39,17 @@ interface CodeCrossWalk {
 class MedicalCodeCacheService {
   private redis: Redis | Cluster | null = null;
   private readonly db: ReturnType<typeof drizzle>;
+  private readonly secretsClient: SecretsManagerClient;
   private readonly DEFAULT_TTL = 3600; // 1 hour
   private readonly HOT_CODES_TTL = 7200; // 2 hours
   private readonly fallbackCache = new Map<string, { data: any; expires: number }>();
   private redisInitPromise: Promise<void> | null = null;
 
   constructor() {
-    // Initialize AWS RDS Data API client
-    const rdsClient = new RDSDataClient({
-      region: process.env.AWS_REGION || 'us-east-1',
-    });
+    // Initialize AWS clients
+    const region = process.env.AWS_REGION || 'us-east-1';
+    const rdsClient = new RDSDataClient({ region });
+    this.secretsClient = new SecretsManagerClient({ region });
 
     if (
       !process.env.DATABASE_NAME ||
@@ -71,43 +73,88 @@ class MedicalCodeCacheService {
     await this.redisInitPromise;
   }
 
+  private async getSecret(secretArn: string): Promise<string> {
+    try {
+      const command = new GetSecretValueCommand({ SecretId: secretArn });
+      const response = await this.secretsClient.send(command);
+      return response.SecretString || '';
+    } catch (error) {
+      console.error(`Failed to retrieve secret ${secretArn}:`, error);
+      throw error;
+    }
+  }
+
   private async initRedis(): Promise<void> {
     try {
       if (process.env.REDIS_DB_URL) {
         const isClusterMode = process.env.REDIS_CLUSTER_MODE === 'true' || process.env.NODE_ENV === 'production';
         const password = process.env.REDIS_DB_PASSWORD;
+        
+        // Get Redis CA certificate for TLS connections
+        let caCert: string | undefined;
+        if (process.env.REDIS_CA_SECRET_ARN) {
+          try {
+            caCert = await this.getSecret(process.env.REDIS_CA_SECRET_ARN);
+          } catch (error) {
+            console.warn('Failed to retrieve Redis CA certificate, continuing without TLS:', error);
+          }
+        }
 
         if (isClusterMode) {
-          // Production: Redis Cluster with VPC peering
-          const [host, port] = process.env.REDIS_DB_URL.replace('redis://', '').split(':');
+          // Production: Redis Cluster with VPC peering and TLS
+          const url = process.env.REDIS_DB_URL.replace(/^rediss?:\/\//, '');
+          const [hostPort] = url.split('@').slice(-1); // Get the part after @ if present
+          const [host, port] = hostPort.split(':');
+
+          const redisOptions: any = {
+            password,
+            connectTimeout: 10000,
+            lazyConnect: true,
+            keepAlive: 30000,
+            maxRetriesPerRequest: null,
+          };
+
+          // Add TLS configuration if CA certificate is available
+          if (caCert && process.env.REDIS_DB_URL.startsWith('rediss://')) {
+            redisOptions.tls = {
+              ca: caCert,
+              checkServerIdentity: () => undefined, // Disable hostname verification for Redis.io
+              rejectUnauthorized: true,
+            };
+          }
 
           this.redis = new Redis.Cluster(
-            [{ host: host.split('@').pop() || host, port: Number.parseInt(port) || 6379 }],
+            [{ host, port: Number.parseInt(port) || 6379 }],
             {
               enableReadyCheck: false,
               enableOfflineQueue: false,
-              redisOptions: {
-                password,
-                connectTimeout: 10000,
-                lazyConnect: true,
-                keepAlive: 30000,
-                maxRetriesPerRequest: null,
-              },
+              redisOptions,
               scaleReads: 'slave', // Read from replicas when possible
             }
           );
 
-          console.log('Redis Cluster initialized for medical code caching');
+          console.log('Redis Cluster initialized for medical code caching with TLS:', !!caCert);
         } else {
-          // Staging: Single Redis instance with public endpoint
-          this.redis = new Redis(process.env.REDIS_DB_URL, {
+          // Staging: Single Redis instance with optional TLS
+          const redisOptions: any = {
             maxRetriesPerRequest: 3,
             lazyConnect: true,
             connectTimeout: 10000,
             keepAlive: 30000,
-          });
+          };
 
-          console.log('Redis single-node initialized for medical code caching');
+          // Add TLS configuration if CA certificate is available
+          if (caCert && process.env.REDIS_DB_URL.startsWith('rediss://')) {
+            redisOptions.tls = {
+              ca: caCert,
+              checkServerIdentity: () => undefined, // Disable hostname verification for Redis.io
+              rejectUnauthorized: true,
+            };
+          }
+
+          this.redis = new Redis(process.env.REDIS_DB_URL, redisOptions);
+
+          console.log('Redis single-node initialized for medical code caching with TLS:', !!caCert);
         }
 
         await this.redis.ping();

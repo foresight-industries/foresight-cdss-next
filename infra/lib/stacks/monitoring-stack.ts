@@ -35,10 +35,10 @@ export class MonitoringStack extends cdk.Stack {
         displayName: `RCM Alarms - ${props.stageName}`,
       });
     } else {
-      // Reference existing topic in monitoring stack
+      // Reference existing topic in monitoring stack with different construct ID
       this.alarmTopic = sns.Topic.fromTopicArn(
         this,
-        'AlarmTopic',
+        'ExistingAlarmTopic',
         `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
       );
     }

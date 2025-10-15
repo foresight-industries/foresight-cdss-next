@@ -57,6 +57,7 @@ export class ApiStack extends cdk.Stack {
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
         // Cache configuration
         REDIS_DB_URL: redisUrl,
+        REDIS_CA_SECRET_ARN: props.cacheStack.redisCaSecret.secretArn,
         CACHE_DEFAULT_TTL: '3600',
         CACHE_HOT_CODES_TTL: '7200',
         // Medical data configuration
@@ -272,14 +273,17 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Grant common permissions to all function roles
-    const allRoles = [patientsRole, claimsRole, presignRole, authorizerRole];
+    const allRoles = [patientsRole, claimsRole, presignRole, authorizerRole, medicalCodesRole];
 
     for (const role of allRoles) {
-      // Grant cache access
+      // Grant cache access (connection string and CA certificate)
       role.addToPolicy(new cdk.aws_iam.PolicyStatement({
         effect: cdk.aws_iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
-        resources: [props.cacheStack.redisConnectionStringSecret.secretArn],
+        resources: [
+          props.cacheStack.redisConnectionStringSecret.secretArn,
+          props.cacheStack.redisCaSecret.secretArn,
+        ],
       }));
 
       // Grant SSM parameter access for cache configuration
