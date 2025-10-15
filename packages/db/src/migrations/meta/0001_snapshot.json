@@ -1,6 +1,6 @@
 {
-  "id": "e9db831f-a28e-4e61-bfd2-4464e3b480a1",
-  "prevId": "401d6baf-67e4-40aa-b720-b8d9ea7f57fa",
+  "id": "ad49a23a-ff6a-46d0-9a76-af59f0f4a889",
+  "prevId": "e9db831f-a28e-4e61-bfd2-4464e3b480a1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -20437,12 +20437,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "modifier_code": {
           "name": "modifier_code",
           "type": "varchar(5)",
@@ -20520,21 +20514,6 @@
         }
       },
       "indexes": {
-        "modifier_code_org_idx": {
-          "name": "modifier_code_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "modifier_code_modifier_code_idx": {
           "name": "modifier_code_modifier_code_idx",
           "columns": [
@@ -20581,21 +20560,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "modifier_code_organization_id_organization_id_fk": {
-          "name": "modifier_code_organization_id_organization_id_fk",
-          "tableFrom": "modifier_code",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

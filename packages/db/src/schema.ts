@@ -5346,7 +5346,6 @@ export const placeOfService = pgTable('place_of_service', {
 // Modifier Codes - Medical coding modifiers
 export const modifierCodes = pgTable('modifier_code', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Modifier details
   modifierCode: varchar('modifier_code', { length: 5 }).notNull(),
@@ -5370,7 +5369,6 @@ export const modifierCodes = pgTable('modifier_code', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('modifier_code_org_idx').on(table.organizationId),
   modifierCodeIdx: index('modifier_code_modifier_code_idx').on(table.modifierCode),
   categoryIdx: index('modifier_code_category_idx').on(table.category),
   activeIdx: index('modifier_code_active_idx').on(table.isActive),
