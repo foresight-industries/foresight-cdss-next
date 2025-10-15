@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as stepfunctions from 'aws-cdk-lib/aws-stepfunctions';
 import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
@@ -16,58 +17,108 @@ export class WorkflowStack extends cdk.Stack {
     super(scope, id, props);
 
     // Lambda functions for workflow steps
-    const checkEligibility = new lambda.Function(this, 'CheckEligibilityFn', {
+    const checkEligibility = new lambdaNodejs.NodejsFunction(this, 'CheckEligibilityFn', {
+      functionName: `rcm-check-eligibility-${props.stageName}`,
+      entry: '../packages/functions/workflows/check-eligibility.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'check-eligibility.handler',
-      code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
       environment: {
+        NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_NAME: 'rcm',
       },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
     });
 
-    const submitClaim = new lambda.Function(this, 'SubmitClaimFn', {
+    const submitClaim = new lambdaNodejs.NodejsFunction(this, 'SubmitClaimFn', {
+      functionName: `rcm-submit-claim-${props.stageName}`,
+      entry: '../packages/functions/workflows/submit-claim.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'submit-claim.handler',
-      code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
       environment: {
+        NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_NAME: 'rcm',
       },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
     });
 
-    const checkClaimStatus = new lambda.Function(this, 'CheckClaimStatusFn', {
+    const checkClaimStatus = new lambdaNodejs.NodejsFunction(this, 'CheckClaimStatusFn', {
+      functionName: `rcm-check-claim-status-${props.stageName}`,
+      entry: '../packages/functions/workflows/check-claim-status.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'check-claim-status.handler',
-      code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
       environment: {
+        NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_NAME: 'rcm',
       },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
     });
 
-    const processPayment = new lambda.Function(this, 'ProcessPaymentFn', {
+    const processPayment = new lambdaNodejs.NodejsFunction(this, 'ProcessPaymentFn', {
+      functionName: `rcm-process-payment-${props.stageName}`,
+      entry: '../packages/functions/workflows/process-payment.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'process-payment.handler',
-      code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
       environment: {
+        NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_NAME: 'rcm',
       },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
     });
 
-    const sendNotification = new lambda.Function(this, 'SendNotificationFn', {
+    const sendNotification = new lambdaNodejs.NodejsFunction(this, 'SendNotificationFn', {
+      functionName: `rcm-send-notification-${props.stageName}`,
+      entry: '../packages/functions/workflows/send-notification.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'send-notification.handler',
-      code: lambda.Code.fromAsset('../packages/functions/workflows'),
+      timeout: cdk.Duration.minutes(1),
+      memorySize: 256,
       environment: {
+        NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_NAME: 'rcm',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
       },
     });
 

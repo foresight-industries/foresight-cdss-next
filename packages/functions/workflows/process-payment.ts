@@ -1,13 +1,13 @@
-exports.handler = async (event) => {
+export default async (event) => {
     console.log('Process payment workflow: claimId=%s paidAmount=%s', event.claimId, event.paidAmount);
-    
+
     try {
         // Mock payment processing logic
         const { claimId, paidAmount, patientId, providerId } = event;
-        
+
         // Generate payment ID
-        const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
+        const paymentId = `PAY-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
         // Simulate payment allocation
         const allocation = {
             paymentId,
@@ -18,10 +18,10 @@ exports.handler = async (event) => {
             processedAt: new Date().toISOString(),
             status: 'processed'
         };
-        
+
         // Simulate line item matching for ERA processing
         const matched = Math.random() > 0.1; // 90% match rate
-        
+
         return {
             statusCode: 200,
             body: {

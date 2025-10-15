@@ -1,5 +1,6 @@
 import { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -131,11 +132,11 @@ export class MedicalCodeCache extends Construct {
     );
 
     // Create the medical code cache Lambda function
-    this.cacheFunction = new lambda.Function(this, 'MedicalCodeCacheFunction', {
+    this.cacheFunction = new lambdaNodejs.NodejsFunction(this, 'MedicalCodeCacheFunction', {
       functionName: `foresight-${props.environment}-medical-code-cache`,
+      entry: '../packages/functions/api/medical-codes-api.ts',
+      handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'medical-codes-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
       role: this.role,
       timeout: Duration.minutes(15),
       memorySize: 1024,
@@ -157,6 +158,12 @@ export class MedicalCodeCache extends Construct {
         BATCH_SIZE: '1000',
         MAX_RETRY_ATTEMPTS: '3',
         CACHE_PREWARM_ENABLED: props.environment === 'prod' ? 'true' : 'false',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
       },
       tracing: lambda.Tracing.ACTIVE,
       reservedConcurrentExecutions: props.environment === 'prod' ? 10 : 2,

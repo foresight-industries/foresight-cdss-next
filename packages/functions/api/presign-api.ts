@@ -1,8 +1,25 @@
-const AWS = require('aws-sdk');
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const s3 = new AWS.S3();
+const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
-exports.handler = async (event) => {
+interface PresignRequest {
+    fileName: string;
+    fileType: string;
+    operation?: 'putObject' | 'getObject';
+    expiresIn?: number;
+    fileSize?: number;
+}
+
+interface PresignResponse {
+    presignedUrl: string;
+    fileKey: string;
+    method: string;
+    expiresIn: number;
+    uploadMetadata?: Record<string, string>;
+}
+
+export const handler = async (event: any) => {
     console.log(
         'Presign API request received: method=%s resource=%s requestId=%s',
         event.httpMethod,
@@ -58,11 +75,21 @@ exports.handler = async (event) => {
     }
 };
 
-async function generatePresignedUrl(requestData, organizationId, userId) {
-    const { fileName, fileType, operation = 'putObject', expiresIn = 3600 } = requestData;
+async function generatePresignedUrl(requestData: PresignRequest, organizationId: string, userId: string): Promise<PresignResponse> {
+    const { fileName, fileType, operation = 'putObject', expiresIn = 3600, fileSize } = requestData;
 
     if (!fileName || !fileType) {
         throw new Error('fileName and fileType are required');
+    }
+
+    // Validate file type
+    if (!isValidFileType(fileType)) {
+        throw new Error(`File type '${fileType}' is not allowed`);
+    }
+
+    // Validate file size if provided
+    if (fileSize && fileSize > getMaxFileSize(fileType)) {
+        throw new Error(`File size exceeds maximum allowed size for ${fileType}`);
     }
 
     // Generate secure file key
@@ -75,36 +102,40 @@ async function generatePresignedUrl(requestData, organizationId, userId) {
         throw new Error('Documents bucket not configured');
     }
 
-    let presignedUrl;
-    let method;
+    let presignedUrl: string;
+    let method: string;
 
     try {
         switch (operation) {
-            case 'putObject':
-                // Generate URL for uploading
-                presignedUrl = await s3.getSignedUrlPromise('putObject', {
+            case 'putObject': {
+                // Create PutObjectCommand with metadata
+                const putCommand = new PutObjectCommand({
                     Bucket: bucketName,
                     Key: fileKey,
                     ContentType: fileType,
-                    Expires: expiresIn,
                     Metadata: {
                         'uploaded-by': userId,
                         'organization-id': organizationId,
                         'original-filename': fileName
                     }
                 });
+
+                presignedUrl = await getSignedUrl(s3, putCommand, { expiresIn });
                 method = 'PUT';
                 break;
+            }
 
-            case 'getObject':
-                // Generate URL for downloading
-                presignedUrl = await s3.getSignedUrlPromise('getObject', {
+            case 'getObject': {
+                // Create GetObjectCommand for downloading
+                const getCommand = new GetObjectCommand({
                     Bucket: bucketName,
-                    Key: fileKey,
-                    Expires: expiresIn
+                    Key: fileKey
                 });
+
+                presignedUrl = await getSignedUrl(s3, getCommand, { expiresIn });
                 method = 'GET';
                 break;
+            }
 
             default:
                 throw new Error(`Unsupported operation: ${operation}`);
@@ -123,14 +154,14 @@ async function generatePresignedUrl(requestData, organizationId, userId) {
             } : undefined
         };
 
-    } catch (error) {
+    } catch (error: any) {
         console.error('S3 presigning error:', error);
         throw new Error(`Failed to generate presigned URL: ${error.message}`);
     }
 }
 
 // Helper function to validate file types
-function isValidFileType(fileType, allowedTypes = []) {
+function isValidFileType(fileType: string, allowedTypes: string[] = []): boolean {
     const defaultAllowedTypes = [
         'application/pdf',
         'image/jpeg',
@@ -148,7 +179,7 @@ function isValidFileType(fileType, allowedTypes = []) {
 }
 
 // Helper function to validate file size (can be used in frontend)
-function getMaxFileSize(fileType) {
+function getMaxFileSize(fileType: string): number {
     // Return max file size in bytes
     const imageSizeLimit = 10 * 1024 * 1024; // 10MB for images
     const documentSizeLimit = 50 * 1024 * 1024; // 50MB for documents

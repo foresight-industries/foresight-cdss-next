@@ -1,6 +1,6 @@
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
-import { SQSEvent, SQSRecord } from 'aws-lambda';
+import type { SQSEvent, SQSRecord } from 'aws-lambda';
 
 const sns = new SNSClient({});
 const cloudwatch = new CloudWatchClient({});
@@ -14,7 +14,7 @@ export const handler = async (event: SQSEvent) => {
       const alertMessage = `Failed messages in DLQ: ${event.Records.length}
 
 Records:
-${event.Records.map((record: SQSRecord, index: number) => 
+${event.Records.map((record: SQSRecord, index: number) =>
   `${index + 1}. Message ID: ${record.messageId}
      Body: ${record.body.substring(0, 200)}${record.body.length > 200 ? '...' : ''}
      Attributes: ${JSON.stringify(record.messageAttributes)}`

@@ -1,9 +1,4 @@
-const { Clerk } = require('@clerk/clerk-sdk-node');
-
-// Initialize Clerk
-const clerk = Clerk({
-    secretKey: process.env.CLERK_SECRET_KEY,
-});
+import { clerkClient as clerk } from '@clerk/express';
 
 exports.handler = async (event) => {
     console.log(
@@ -11,27 +6,27 @@ exports.handler = async (event) => {
         event.methodArn,
         event.requestContext?.requestId || 'unknown'
     );
-    
+
     try {
-        const { authorizationToken, methodArn } = event;
-        
+        const { sessionId, authorizationToken, methodArn } = event;
+
         if (!authorizationToken) {
             throw new Error('Unauthorized: Missing authorization token');
         }
-        
+
         // Extract Bearer token
         const token = authorizationToken.replace('Bearer ', '');
-        
+
         // Verify the JWT token with Clerk
-        const session = await clerk.sessions.verifySession(token);
-        
+        const session = await clerk.sessions.verifySession(sessionId, token);
+
         if (!session) {
             throw new Error('Unauthorized: Invalid session');
         }
-        
+
         // Get user information
         const user = await clerk.users.getUser(session.userId);
-        
+
         // Generate policy
         const policy = generatePolicy(session.userId, 'Allow', methodArn, {
             userId: session.userId,
@@ -40,10 +35,10 @@ exports.handler = async (event) => {
             lastName: user.lastName,
             organizationId: user.publicMetadata?.organizationId
         });
-        
+
         console.log('Authorization successful for user:', session.userId);
         return policy;
-        
+
     } catch (error) {
         console.error('Authorization failed:', error);
         throw new Error('Unauthorized');

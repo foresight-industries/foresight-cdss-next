@@ -8,6 +8,7 @@
     "test": "echo 'No tests specified'"
   },
   "dependencies": {
+    "@aws-sdk/client-sns": "^3.911.0",
     "aws-sdk": "^2.1400.0"
   },
   "engines": {

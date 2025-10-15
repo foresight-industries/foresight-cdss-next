@@ -73,20 +73,25 @@ export class QueueStack extends cdk.Stack {
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
-    // Lambda for Claims Processing
-    const claimsProcessor = new lambda.Function(this, 'ClaimsProcessor', {
+    // Lambda for Claims Processing - Using NodejsFunction for better bundling
+    const claimsProcessor = new lambdaNodejs.NodejsFunction(this, 'ClaimsProcessor', {
       functionName: `rcm-claims-processor-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'claims-processor.handler',
+      entry: '../packages/functions/workers/claims-processor.ts',
+      handler: 'handler',
       timeout: cdk.Duration.minutes(10),
       memorySize: 1024,
-      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
       // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 10 } : {}),
     });
@@ -103,19 +108,24 @@ export class QueueStack extends cdk.Stack {
       })
     );
 
-    // Lambda for Webhook Delivery
-    const webhookDelivery = new lambda.Function(this, 'WebhookDelivery', {
+    // Lambda for Webhook Delivery - Using NodejsFunction for better bundling
+    const webhookDelivery = new lambdaNodejs.NodejsFunction(this, 'WebhookDelivery', {
       functionName: `rcm-webhook-delivery-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'webhook-delivery.handler',
+      entry: '../packages/functions/workers/webhook-delivery.ts',
+      handler: 'handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
-      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
       // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 50 } : {}),
     });
@@ -130,20 +140,25 @@ export class QueueStack extends cdk.Stack {
       })
     );
 
-    // Lambda for Eligibility Checks
-    const eligibilityChecker = new lambda.Function(this, 'EligibilityChecker', {
+    // Lambda for Eligibility Checks - Using NodejsFunction for better bundling
+    const eligibilityChecker = new lambdaNodejs.NodejsFunction(this, 'EligibilityChecker', {
       functionName: `rcm-eligibility-checker-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'eligibility-checker.handler',
+      entry: '../packages/functions/workers/eligibility-checker.ts',
+      handler: 'handler',
       timeout: cdk.Duration.minutes(2),
       memorySize: 512,
-      code: lambda.Code.fromAsset('../packages/functions/workers'),
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         PAYER_API_KEY: process.env.PAYER_API_KEY || '',
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
       // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 20 } : {}),
     });

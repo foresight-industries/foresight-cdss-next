@@ -1,13 +1,13 @@
-exports.handler = async (event) => {
+export default async (event) => {
     console.log('Check eligibility workflow: patientId=%s serviceCode=%s', event.patientId, event.serviceCode);
-    
+
     try {
         // Mock eligibility check logic
         const { patientId, serviceCode, providerId } = event;
-        
+
         // Simulate eligibility verification
         const isEligible = Math.random() > 0.2; // 80% eligible rate
-        
+
         return {
             statusCode: 200,
             body: {

@@ -14,6 +14,7 @@
     "vercel:env:pull-dev": "yarn vercel env pull --environment preview .env.local"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.52",
     "@aws-sdk/client-lambda": "^3.908.0",
     "@aws-sdk/client-rds-data": "^3.910.0",
     "@aws-sdk/client-s3": "^3.910.0",
@@ -60,6 +61,7 @@
     "@vercel/analytics": "^1.5.0",
     "@vercel/speed-insights": "^1.2.0",
     "@xmldom/xmldom": "^0.8.11",
+    "ai": "^5.0.72",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -74,6 +76,7 @@
     "lucide-react": "^0.545.0",
     "next": "~15.5.5",
     "next-themes": "^0.4.6",
+    "pg": "^8.16.3",
     "postcss": "^8.5.6",
     "react": "19.0.0",
     "react-day-picker": "^9.11.0",
@@ -101,6 +104,7 @@
     "@types/crypto-js": "^4",
     "@types/jsonwebtoken": "^9",
     "@types/node": "*",
+    "@types/pg": "^8.15.5",
     "cross-var": "^1.1.0",
     "eslint": "*",
     "prettier": "*",
