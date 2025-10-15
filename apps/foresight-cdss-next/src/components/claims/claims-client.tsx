@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
   MoreHorizontal,
@@ -165,7 +165,6 @@ interface ClaimsClientProps {
 
 export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   const [threshold] = useState(0.88);
   const [filters, setFilters] = useState<ClaimFilters>({
@@ -206,7 +205,7 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
   const [showAddNoteDialog, setShowAddNoteDialog] = useState(false);
   const [noteClaimId, setNoteClaimId] = useState<string | null>(null);
   const [noteText, setNoteText] = useState("");
-
+console.log(isClosing);
   const payers = useMemo(
     () =>
       Array.from(
@@ -395,14 +394,14 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
     if (closingTimeoutRef.current) {
       clearTimeout(closingTimeoutRef.current);
     }
-    
+
     setIsClosing(true);
     setActiveClaimId(null);
     // Remove the claim query parameter from URL
-    const url = new URL(globalThis.location.href);
-    url.searchParams.delete("claim");
-    router.replace(url.pathname + url.search, { scroll: false });
-    
+    // const url = new URL(globalThis.location.href);
+    // url.searchParams.delete("claim");
+    // router.replace(url.pathname + url.search, { scroll: false });
+
     // Reset closing state after URL update completes
     closingTimeoutRef.current = setTimeout(() => {
       setIsClosing(false);
@@ -415,9 +414,9 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
     (claimId: string) => {
       setActiveClaimId(claimId);
       // Add the claim query parameter to URL
-      const currentParams = new URLSearchParams(globalThis.location.search);
-      currentParams.set("claim", claimId);
-      router.replace(`${globalThis.location.pathname}?${currentParams.toString()}`, { scroll: false });
+      // const currentParams = new URLSearchParams(globalThis.location.search);
+      // currentParams.set("claim", claimId);
+      // router.replace(`${globalThis.location.pathname}?${currentParams.toString()}`, { scroll: false });
     },
     [router]
   );
@@ -877,24 +876,24 @@ export function ClaimsClient({ data }: Readonly<ClaimsClientProps>) {
   ]);
 
   // Handle claim query parameter to auto-open claim details
-  useEffect(() => {
-    // Don't update state if we're in the middle of closing
-    if (isClosing) return;
+  // useEffect(() => {
+  //   // Don't update state if we're in the middle of closing
+  //   if (isClosing) return;
 
-    const claimParam = searchParams.get("claim");
-    if (claimParam) {
-      // Find the claim by ID
-      const claim = claims.find((c) => c.id === claimParam);
-      if (claim && activeClaimId !== claimParam) {
-        setActiveClaimId(claimParam);
-      }
-    } else {
-      // If there's no claim parameter but we have an active claim, close it
-      if (activeClaimId) {
-        setActiveClaimId(null);
-      }
-    }
-  }, [searchParams, claims, activeClaimId, isClosing]);
+  //   const claimParam = searchParams.get("claim");
+  //   if (claimParam) {
+  //     // Find the claim by ID
+  //     const claim = claims.find((c) => c.id === claimParam);
+  //     if (claim && activeClaimId !== claimParam) {
+  //       setActiveClaimId(claimParam);
+  //     }
+  //   } else {
+  //     // If there's no claim parameter but we have an active claim, close it
+  //     if (activeClaimId) {
+  //       setActiveClaimId(null);
+  //     }
+  //   }
+  // }, [searchParams, claims, activeClaimId, isClosing]);
 
   const filteredClaims = useMemo(() => {
     let filtered = claims.filter((claim) => {

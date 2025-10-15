@@ -3,15 +3,20 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
+import { CacheStack } from './cache-stack';
+import { MedicalDataStack } from './medical-data-stack';
 
 interface ApiStackProps extends cdk.StackProps {
   stageName: string;
   database: rds.DatabaseCluster;
   documentsBucket: s3.Bucket;
+  cacheStack: CacheStack;
+  medicalDataStack: MedicalDataStack;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -23,13 +28,26 @@ export class ApiStack extends cdk.Stack {
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
       code: lambda.Code.fromAsset('./layers/dependencies'),
-      compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
+      compatibleRuntimes: [lambda.Runtime.NODEJS_22_X],
       description: 'Common dependencies for Lambda functions',
     });
 
-    // Base Lambda function props
+    // Get cache and medical data configuration from stacks
+    // Redis URL will be resolved at runtime from the secret
+    const redisUrl = `{{resolve:secretsmanager:${props.cacheStack.redisConnectionStringSecret.secretName}}}`;
+    const medicalCodesBucket = props.medicalDataStack.medicalCodesBucket.bucketName;
+
+    // Base Lambda function props with explicit role to avoid cross-environment issues
+    const createFunctionRole = (name: string) => new cdk.aws_iam.Role(this, `${name}Role`, {
+      roleName: `rcm-${name.toLowerCase()}-role-${props.stageName}`,
+      assumedBy: new cdk.aws_iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        cdk.aws_iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
     const functionProps = {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
@@ -38,6 +56,13 @@ export class ApiStack extends cdk.Stack {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
+        // Cache configuration
+        REDIS_DB_URL: redisUrl,
+        REDIS_CA_SECRET_ARN: props.cacheStack.redisCaSecret.secretArn,
+        CACHE_DEFAULT_TTL: '3600',
+        CACHE_HOT_CODES_TTL: '7200',
+        // Medical data configuration
+        MEDICAL_CODES_BUCKET: medicalCodesBucket,
       },
       layers: [dependenciesLayer],
       tracing: lambda.Tracing.ACTIVE,
@@ -46,11 +71,13 @@ export class ApiStack extends cdk.Stack {
     const clerkSecret = secretsManager.Secret.fromSecretNameV2(this, 'ClerkSecret', `rcm-clerk-secret-${props.stageName}`);
 
     // Clerk authorizer Lambda
+    const authorizerRole = createFunctionRole('ClerkAuthorizer');
     const authorizerFn = new lambda.Function(this, 'ClerkAuthorizer', {
       ...functionProps,
       functionName: `rcm-clerk-authorizer-${props.stageName}`,
       handler: 'clerk-authorizer.handler',
       code: lambda.Code.fromAsset('../packages/functions/auth'),
+      role: authorizerRole,
       environment: {
         ...functionProps.environment,
         CLERK_SECRET_ARN: clerkSecret.secretArn,
@@ -58,7 +85,11 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Grant read access to Clerk secret
-    clerkSecret.grantRead(authorizerFn);
+    authorizerRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [clerkSecret.secretArn],
+    }));
 
     // Create HTTP API with Clerk authorizer
     const authorizer = new apigatewayAuthorizers.HttpLambdaAuthorizer(
@@ -85,16 +116,36 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Patient API Lambda
+    const patientsRole = createFunctionRole('PatientsFunction');
     const patientsFn = new lambda.Function(this, 'PatientsFunction', {
       ...functionProps,
       functionName: `rcm-patients-${props.stageName}`,
       handler: 'patients-api.handler',
       code: lambda.Code.fromAsset('../packages/functions/api'),
+      role: patientsRole,
     });
 
-    // Grant permissions
-    props.database.grantDataApiAccess(patientsFn);
-    props.documentsBucket.grantReadWrite(patientsFn);
+    // Grant permissions via IAM policies to avoid cross-stack issues
+    patientsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: [
+        'rds-data:BeginTransaction',
+        'rds-data:CommitTransaction',
+        'rds-data:ExecuteStatement',
+        'rds-data:RollbackTransaction',
+      ],
+      resources: [props.database.clusterArn],
+    }));
+    patientsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [props.database.secret?.secretArn ?? ''],
+    }));
+    patientsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
+      resources: [props.documentsBucket.bucketArn, `${props.documentsBucket.bucketArn}/*`],
+    }));
 
     // Add routes
     this.httpApi.addRoutes({
@@ -107,15 +158,30 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Claims API Lambda
+    const claimsRole = createFunctionRole('ClaimsFunction');
     const claimsFn = new lambda.Function(this, 'ClaimsFunction', {
       ...functionProps,
       functionName: `rcm-claims-${props.stageName}`,
       handler: 'claims-api.handler',
       code: lambda.Code.fromAsset('../packages/functions/api'),
+      role: claimsRole,
     });
 
-    props.database.grantDataApiAccess(claimsFn);
-    props.documentsBucket.grantReadWrite(claimsFn);
+    claimsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: [
+        'rds-data:BeginTransaction',
+        'rds-data:CommitTransaction',
+        'rds-data:ExecuteStatement',
+        'rds-data:RollbackTransaction',
+      ],
+      resources: [props.database.clusterArn],
+    }));
+    claimsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
+      resources: [props.documentsBucket.bucketArn, `${props.documentsBucket.bucketArn}/*`],
+    }));
 
     this.httpApi.addRoutes({
       path: '/claims',
@@ -127,15 +193,20 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Presigned URL Lambda (for S3 uploads)
+    const presignRole = createFunctionRole('PresignFunction');
     const presignFn = new lambda.Function(this, 'PresignFunction', {
       ...functionProps,
       functionName: `rcm-presign-${props.stageName}`,
       handler: 'presign-api.handler',
       code: lambda.Code.fromAsset('../packages/functions/api'),
+      role: presignRole,
     });
 
-    props.documentsBucket.grantPut(presignFn);
-    props.documentsBucket.grantRead(presignFn);
+    presignRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket'],
+      resources: [props.documentsBucket.bucketArn, `${props.documentsBucket.bucketArn}/*`],
+    }));
 
     this.httpApi.addRoutes({
       path: '/documents/presign',
@@ -145,6 +216,151 @@ export class ApiStack extends cdk.Stack {
         presignFn
       ),
     });
+
+    // Document Status API Lambda
+    const documentStatusRole = createFunctionRole('DocumentStatusFunction');
+    const documentStatusFn = new lambda.Function(this, 'DocumentStatusFunction', {
+      ...functionProps,
+      functionName: `rcm-document-status-${props.stageName}`,
+      handler: 'document-status-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
+      role: documentStatusRole,
+    });
+
+    // Grant database access to document status function
+    documentStatusRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'rds-data:BeginTransaction',
+        'rds-data:CommitTransaction',
+        'rds-data:ExecuteStatement',
+        'rds-data:RollbackTransaction',
+      ],
+      resources: [props.database.clusterArn],
+    }));
+    documentStatusRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [props.database.secret?.secretArn ?? ''],
+    }));
+
+    this.httpApi.addRoutes({
+      path: '/documents/{id}/status',
+      methods: [apigateway.HttpMethod.GET],
+      integration: new apigatewayIntegrations.HttpLambdaIntegration(
+        'DocumentStatusIntegration',
+        documentStatusFn
+      ),
+    });
+
+    this.httpApi.addRoutes({
+      path: '/documents/{id}/extracted-fields',
+      methods: [apigateway.HttpMethod.GET],
+      integration: new apigatewayIntegrations.HttpLambdaIntegration(
+        'DocumentExtractedFieldsIntegration',
+        documentStatusFn
+      ),
+    });
+
+    // Medical Code Processing Lambda (for annual updates)
+    const medicalCodesRole = createFunctionRole('MedicalCodesFunction');
+    const medicalCodesFn = new lambda.Function(this, 'MedicalCodesFunction', {
+      ...functionProps,
+      functionName: `rcm-medical-codes-${props.stageName}`,
+      handler: 'medical-codes-api.handler',
+      code: lambda.Code.fromAsset('../packages/functions/api'),
+      timeout: cdk.Duration.minutes(15), // Longer timeout for code processing
+      memorySize: 1024, // More memory for processing large datasets
+      role: medicalCodesRole,
+      environment: {
+        ...functionProps.environment,
+        MEDICAL_CODES_BACKUP_BUCKET: props.medicalDataStack.medicalCodesBackupBucket.bucketName,
+      },
+    });
+
+    // Grant comprehensive permissions to medical codes function via IAM policies
+    medicalCodesRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: [
+        'rds-data:BeginTransaction',
+        'rds-data:CommitTransaction',
+        'rds-data:ExecuteStatement',
+        'rds-data:RollbackTransaction',
+      ],
+      resources: [props.database.clusterArn],
+    }));
+
+    medicalCodesRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: [
+        's3:GetObject',
+        's3:GetObjectVersion',
+        's3:PutObject',
+        's3:DeleteObject',
+        's3:ListBucket',
+      ],
+      resources: [
+        props.medicalDataStack.medicalCodesBucket.bucketArn,
+        `${props.medicalDataStack.medicalCodesBucket.bucketArn}/*`,
+        props.medicalDataStack.medicalCodesBackupBucket.bucketArn,
+        `${props.medicalDataStack.medicalCodesBackupBucket.bucketArn}/*`,
+      ],
+    }));
+
+    medicalCodesRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [props.cacheStack.redisConnectionStringSecret.secretArn],
+    }));
+
+    // Add medical codes API routes
+    this.httpApi.addRoutes({
+      path: '/medical-codes',
+      methods: [apigateway.HttpMethod.ANY],
+      integration: new apigatewayIntegrations.HttpLambdaIntegration(
+        'MedicalCodesIntegration',
+        medicalCodesFn
+      ),
+    });
+
+    // Grant common permissions to all function roles
+    const allRoles = [patientsRole, claimsRole, presignRole, authorizerRole, medicalCodesRole];
+
+    for (const role of allRoles) {
+      // Grant cache access (connection string and CA certificate)
+      role.addToPolicy(new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ['secretsmanager:GetSecretValue'],
+        resources: [
+          props.cacheStack.redisConnectionStringSecret.secretArn,
+          props.cacheStack.redisCaSecret.secretArn,
+        ],
+      }));
+
+      // Grant SSM parameter access for cache configuration
+      role.addToPolicy(new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [
+          'ssm:GetParameter',
+          'ssm:GetParameters',
+          'ssm:GetParametersByPath',
+        ],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/foresight/${props.stageName}/cache/*`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/foresight/${props.stageName}/storage/*`,
+        ],
+      }));
+
+      // Grant medical codes bucket read access (for code lookups)
+      role.addToPolicy(new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: ['s3:GetObject', 's3:ListBucket'],
+        resources: [
+          props.medicalDataStack.medicalCodesBucket.bucketArn,
+          `${props.medicalDataStack.medicalCodesBucket.bucketArn}/*`,
+        ],
+      }));
+    }
 
     // Output API endpoint
     new cdk.CfnOutput(this, 'ApiEndpoint', {

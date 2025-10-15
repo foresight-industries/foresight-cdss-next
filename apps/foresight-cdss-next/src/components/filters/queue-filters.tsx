@@ -2,6 +2,8 @@
 
 import { DataFilters } from './data-filters';
 import { QueueFilters as QueueFiltersType, createQueueFilterSections, getQueueFilterDisplayValue, getQueueFilterLabel } from './filter-configs';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 interface QueueFiltersProps {
   filters: QueueFiltersType;
@@ -36,6 +38,30 @@ export function QueueFilters({
     return getQueueFilterDisplayValue(key, value, payerOptions);
   };
 
+  // Custom render function for the toggle switch
+  const renderCustomFilters = () => (
+    <div className="flex items-center gap-3">
+      <Switch
+        id="only-review-pa"
+        checked={filters.onlyNeedsReview}
+        onCheckedChange={(checked) => {
+          const newFilters = {
+            ...filters,
+            onlyNeedsReview: checked === true,
+          };
+          onFiltersChange(newFilters);
+        }}
+        disabled={disabled}
+      />
+      <Label
+        htmlFor="only-review-pa"
+        className="mt-2 text-sm leading-none self-center"
+      >
+        Only show prior auths needing review
+      </Label>
+    </div>
+  );
+
   return (
     <DataFilters
       filters={filters}
@@ -46,6 +72,7 @@ export function QueueFilters({
       getFilterLabel={getQueueFilterLabel}
       className={className}
       disabled={disabled}
+      customFilters={renderCustomFilters()}
     />
   );
 }

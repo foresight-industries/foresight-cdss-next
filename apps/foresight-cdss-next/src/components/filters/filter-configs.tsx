@@ -152,6 +152,7 @@ export interface QueueFilters {
   payer: string;
   dateFrom: string;
   dateTo: string;
+  onlyNeedsReview: boolean;
   // Column-specific filters
   patientName: string;
   paId: string;
@@ -281,6 +282,7 @@ export const getQueueFilterLabel = (key: string): string => {
     status: 'Status',
     priority: 'Priority',
     payer: 'Payer',
+    onlyNeedsReview: 'Only Needs Review',
     patientName: 'Patient',
     paId: 'PA ID',
     medication: 'Medication',

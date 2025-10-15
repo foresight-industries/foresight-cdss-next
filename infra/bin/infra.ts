@@ -2,6 +2,8 @@
 
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3notifications from 'aws-cdk-lib/aws-s3-notifications';
 import { DatabaseStack } from '../lib/stacks/database-stack';
 import { StorageStack } from '../lib/stacks/storage-stack';
 import { ApiStack } from '../lib/stacks/api-stack';
@@ -9,6 +11,8 @@ import { QueueStack } from '../lib/stacks/queue-stack';
 import { WorkflowStack } from '../lib/stacks/workflow-stack';
 import { MonitoringStack } from '../lib/stacks/monitoring-stack';
 import { SecurityStack } from '../lib/stacks/security-stack';
+import { DocumentProcessingStack } from '../lib/stacks/document-processing-stack';
+import { MedicalInfrastructure } from '../lib/medical-infrastructure';
 
 const app = new cdk.App();
 
@@ -29,13 +33,21 @@ for (const envName of ['staging', 'prod']) {
       dbMinCapacity: envName === 'prod' ? 2 : 0.5,
       dbMaxCapacity: envName === 'prod' ? 4 : 1,
       logRetention: envName === 'prod' ? 30 : 7,
-      enableDeletionProtection: envName === 'prod',
+      enableDeletionProtection: envName === 'prod', // Only enable for prod during staging recreation
     },
   });
 
   const storage = new StorageStack(app, `RCM-Storage-${envName}`, {
     env,
     stageName: envName,
+  });
+
+  // Create medical infrastructure (cache + medical data)
+  const medicalInfra = new MedicalInfrastructure(app, `RCM-Medical-${envName}`, {
+    env,
+    environment: envName as 'staging' | 'prod',
+    database: database.cluster,
+    documentsBucket: storage.documentsBucket,
   });
 
   // Create a simple alert stack first (just SNS topic and database alarms)
@@ -60,6 +72,8 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
     database: database.cluster,
     documentsBucket: storage.documentsBucket,
+    cacheStack: medicalInfra.cacheStack,
+    medicalDataStack: medicalInfra.medicalDataStack,
   });
 
   const workflows = new WorkflowStack(app, `RCM-Workflows-${envName}`, {
@@ -73,6 +87,14 @@ for (const envName of ['staging', 'prod']) {
     env,
     stageName: envName,
     api: api.httpApi,
+  });
+
+  // Document processing stack - use CloudFormation import to avoid dependency
+  const documentProcessing = new DocumentProcessingStack(app, `RCM-DocumentProcessing-${envName}`, {
+    env,
+    stageName: envName,
+    documentsBucketName: cdk.Fn.importValue(`RCM-DocumentsBucket-${envName}`),
+    database: database.cluster,
   });
 
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
@@ -90,13 +112,57 @@ for (const envName of ['staging', 'prod']) {
 
   // Add dependencies
   alerting.addDependency(database);
+  medicalInfra.addDependency(database);
+  medicalInfra.addDependency(storage);
   queues.addDependency(database);
   queues.addDependency(storage);
   queues.addDependency(alerting);
   api.addDependency(database);
   api.addDependency(storage);
+  api.addDependency(medicalInfra);
   workflows.addDependency(queues);
   security.addDependency(api);
+  documentProcessing.addDependency(database);
+  // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
+  // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);
   monitoring.addDependency(queues);
+
+  // Configure S3 event notifications after both stacks are created
+  // This avoids cyclic dependencies between storage and document processing
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.documentProcessorFunction),
+    {
+      prefix: 'documents/',
+      suffix: '.pdf',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.documentProcessorFunction),
+    {
+      prefix: 'documents/',
+      suffix: '.png',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.documentProcessorFunction),
+    {
+      prefix: 'documents/',
+      suffix: '.jpg',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.documentProcessorFunction),
+    {
+      prefix: 'documents/',
+      suffix: '.jpeg',
+    }
+  );
 }

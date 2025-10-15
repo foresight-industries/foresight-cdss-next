@@ -17,7 +17,7 @@ export class WorkflowStack extends cdk.Stack {
 
     // Lambda functions for workflow steps
     const checkEligibility = new lambda.Function(this, 'CheckEligibilityFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'check-eligibility.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
       environment: {
@@ -28,7 +28,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     const submitClaim = new lambda.Function(this, 'SubmitClaimFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'submit-claim.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
       environment: {
@@ -39,7 +39,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     const checkClaimStatus = new lambda.Function(this, 'CheckClaimStatusFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'check-claim-status.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
       environment: {
@@ -50,7 +50,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     const processPayment = new lambda.Function(this, 'ProcessPaymentFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'process-payment.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
       environment: {
@@ -61,7 +61,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     const sendNotification = new lambda.Function(this, 'SendNotificationFn', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'send-notification.handler',
       code: lambda.Code.fromAsset('../packages/functions/workflows'),
       environment: {
