@@ -76,7 +76,7 @@ export class QueueStack extends cdk.Stack {
     // Lambda for Claims Processing
     const claimsProcessor = new lambda.Function(this, 'ClaimsProcessor', {
       functionName: `rcm-claims-processor-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'claims-processor.handler',
       timeout: cdk.Duration.minutes(10),
       memorySize: 1024,
@@ -106,7 +106,7 @@ export class QueueStack extends cdk.Stack {
     // Lambda for Webhook Delivery
     const webhookDelivery = new lambda.Function(this, 'WebhookDelivery', {
       functionName: `rcm-webhook-delivery-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'webhook-delivery.handler',
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
@@ -133,7 +133,7 @@ export class QueueStack extends cdk.Stack {
     // Lambda for Eligibility Checks
     const eligibilityChecker = new lambda.Function(this, 'EligibilityChecker', {
       functionName: `rcm-eligibility-checker-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'eligibility-checker.handler',
       timeout: cdk.Duration.minutes(2),
       memorySize: 512,
@@ -162,7 +162,7 @@ export class QueueStack extends cdk.Stack {
     const dlqProcessor = new lambdaNodejs.NodejsFunction(this, 'DLQProcessor', {
       functionName: `rcm-dlq-processor-${props.stageName}`,
       entry: '../packages/functions/workers/dlq-processor.ts',
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {

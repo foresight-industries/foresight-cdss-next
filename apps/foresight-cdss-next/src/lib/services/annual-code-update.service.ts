@@ -32,9 +32,9 @@ interface CodeUpdateResult {
 }
 
 export class AnnualCodeUpdateService {
-  private db: ReturnType<typeof drizzle>;
-  private s3: S3Client;
-  private cache = getMedicalCodeCache();
+  private readonly db: ReturnType<typeof drizzle>;
+  private readonly s3: S3Client;
+  private readonly cache = getMedicalCodeCache();
 
   constructor() {
     // Initialize AWS clients
@@ -42,10 +42,18 @@ export class AnnualCodeUpdateService {
       region: process.env.AWS_REGION || 'us-east-1',
     });
 
+    if (
+      !process.env.DATABASE_NAME ||
+      !process.env.DATABASE_SECRET_ARN ||
+      !process.env.DATABASE_CLUSTER_ARN
+    ) {
+      throw new Error('Missing required AWS RDS environment variables');
+    }
+
     this.db = drizzle(rdsClient, {
-      database: process.env.DATABASE_NAME!,
-      secretArn: process.env.DATABASE_SECRET_ARN!,
-      resourceArn: process.env.DATABASE_CLUSTER_ARN!,
+      database: process.env.DATABASE_NAME,
+      secretArn: process.env.DATABASE_SECRET_ARN,
+      resourceArn: process.env.DATABASE_CLUSTER_ARN,
     });
 
     this.s3 = new S3Client({

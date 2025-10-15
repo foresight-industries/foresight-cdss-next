@@ -46,7 +46,7 @@ export class MonitoringStack extends cdk.Stack {
       // Add Slack webhook if configured
       if (process.env.SLACK_WEBHOOK_URL) {
         const slackFunction = new lambda.Function(this, 'SlackNotifier', {
-          runtime: lambda.Runtime.NODEJS_20_X,
+          runtime: lambda.Runtime.NODEJS_22_X,
           handler: 'index.handler',
           code: lambda.Code.fromInline(`
             const https = require('https');
@@ -222,7 +222,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'Count',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -234,7 +234,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: '4XXError',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -245,7 +245,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: '5XXError',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -263,7 +263,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'IntegrationLatency',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },
@@ -273,7 +273,7 @@ export class MonitoringStack extends cdk.Stack {
             new cloudwatch.Metric({
               namespace: 'AWS/ApiGatewayV2',
               metricName: 'IntegrationLatency',
-              dimensionsMap: { 
+              dimensionsMap: {
                 ApiId: props.api.httpApiId,
                 Stage: '$default'
               },

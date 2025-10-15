@@ -4,8 +4,6 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as events from 'aws-cdk-lib/aws-events';
-import * as targets from 'aws-cdk-lib/aws-events-targets';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
 
 export interface MedicalDataStackProps extends StackProps {
   environment: 'staging' | 'prod';
@@ -53,14 +51,14 @@ export class MedicalDataStack extends Stack {
           transitions: [
             {
               storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: Duration.days(7), // Move Redis backups to IA after 7 days
+              transitionAfter: Duration.days(30), // AWS minimum for IA transition
             },
             {
               storageClass: s3.StorageClass.GLACIER,
-              transitionAfter: Duration.days(30), // Archive Redis backups after 30 days
+              transitionAfter: Duration.days(90), // Archive Redis backups after 90 days
             },
           ],
-          expiration: Duration.days(props.environment === 'prod' ? 365 : 90), // Keep prod backups 1 year
+          expiration: Duration.days(props.environment === 'prod' ? 365 : 180), // Keep staging backups 6 months, prod 1 year
         },
       ],
       removalPolicy: props.environment === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
@@ -92,38 +90,26 @@ export class MedicalDataStack extends Stack {
       removalPolicy: RemovalPolicy.RETAIN, // Always retain backups
     });
 
-    // Add resource-based policy for Redis.io backup access
+    // Add official Redis.io backup access policy as per Redis documentation
     this.medicalCodesBucket.addToResourcePolicy(
       new iam.PolicyStatement({
+        sid: 'RedisCloudBackupsAccess',
         effect: iam.Effect.ALLOW,
-        principals: [new iam.AnyPrincipal()],
+        principals: [new iam.ArnPrincipal('arn:aws:iam::168085023892:root')],
         actions: [
           's3:PutObject',
-          's3:PutObjectAcl',
-          's3:GetBucketLocation',
-          's3:ListBucket',
+          's3:GetObject',
+          's3:DeleteObject',
         ],
         resources: [
-          this.medicalCodesBucket.bucketArn,
           `${this.medicalCodesBucket.bucketArn}/backups/redis/*`,
         ],
-        conditions: {
-          StringEquals: {
-            's3:x-amz-acl': 'bucket-owner-full-control',
-          },
-          StringLike: {
-            'aws:SourceIp': [
-              // Redis.io IP ranges - these would need to be updated with actual Redis.io IPs
-              '0.0.0.0/0', // Placeholder - Redis.io will provide specific IP ranges
-            ],
-          },
-        },
       })
     );
 
     // Cross-bucket replication for disaster recovery
     if (props.environment === 'prod') {
-      // Enable replication to backup bucket
+      // Enable replication to our s3 backup bucket
       this.medicalCodesBucket.addToResourcePolicy(
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
@@ -212,6 +198,19 @@ export class MedicalDataStack extends Stack {
       parameterName: `/foresight/${props.environment}/storage/cpt-codes-prefix`,
       stringValue: 'cpt-codes/',
       description: 'S3 prefix for CPT code files',
+    });
+
+    // Medical codes import and backup structure
+    new ssm.StringParameter(this, 'MedicalCodesImportPrefix', {
+      parameterName: `/foresight/${props.environment}/storage/medical-codes-import-prefix`,
+      stringValue: 'medical-codes-import/',
+      description: 'S3 prefix for annual medical code import files',
+    });
+
+    new ssm.StringParameter(this, 'MedicalCodesBackupPrefix', {
+      parameterName: `/foresight/${props.environment}/storage/medical-codes-backup-prefix`,
+      stringValue: 'medical-codes-backup/',
+      description: 'S3 prefix for medical code backup files',
     });
 
     new ssm.StringParameter(this, 'BackupsPrefix', {

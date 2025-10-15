@@ -27,12 +27,13 @@ export class ApiStack extends cdk.Stack {
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
       code: lambda.Code.fromAsset('./layers/dependencies'),
-      compatibleRuntimes: [lambda.Runtime.NODEJS_20_X],
+      compatibleRuntimes: [lambda.Runtime.NODEJS_22_X],
       description: 'Common dependencies for Lambda functions',
     });
 
     // Get cache and medical data configuration from stacks
-    const redisUrl = props.cacheStack.redisConnectionStringSecret.secretValue.unsafeUnwrap();
+    // Redis URL will be resolved at runtime from the secret
+    const redisUrl = `{{resolve:secretsmanager:${props.cacheStack.redisConnectionStringSecret.secretName}}}`;
     const medicalCodesBucket = props.medicalDataStack.medicalCodesBucket.bucketName;
 
     // Base Lambda function props with explicit role to avoid cross-environment issues
@@ -45,7 +46,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     const functionProps = {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {

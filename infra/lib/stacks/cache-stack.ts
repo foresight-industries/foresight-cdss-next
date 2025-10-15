@@ -1,4 +1,4 @@
-import { Stack, StackProps, CfnOutput, SecretValue } from 'aws-cdk-lib';
+import { Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -16,20 +16,17 @@ export class CacheStack extends Stack {
     super(scope, id, props);
 
     // Redis.io connection configuration
-    // This will store the Redis.io connection string securely
+    // Create a simple secret without automatic policies
     this.redisConnectionStringSecret = new secretsmanager.Secret(this, 'RedisConnectionSecret', {
       secretName: `foresight-${props.environment}-redis-connection`,
       description: 'Redis.io connection string for medical code caching - manually set after Redis.io setup',
-      secretStringValue: SecretValue.unsafePlainText(
-        props.redisConnectionString || 'redis://localhost:6379'
-      ),
     });
 
-    // Parameter for non-sensitive Redis configuration (just the URL without credentials)
+    // Parameter for Redis configuration reference
     this.redisConnectionStringParameter = new ssm.StringParameter(this, 'RedisUrlParameter', {
       parameterName: `/foresight/${props.environment}/cache/redis-url`,
-      stringValue: props.redisConnectionString || 'redis://localhost:6379',
-      description: 'Redis.io URL for medical code caching',
+      stringValue: this.redisConnectionStringSecret.secretName, // Store secret name, not value
+      description: 'Redis.io secret name reference for medical code caching',
     });
 
     // Cache configuration parameters
@@ -75,6 +72,25 @@ export class CacheStack extends Stack {
       parameterName: `/foresight/${props.environment}/cache/backup-retention`,
       stringValue: props.environment === 'prod' ? '30' : '7',
       description: 'Retention period for Redis.io backups (days)',
+    });
+
+    // Redis.io optimal configuration parameters for medical code caching
+    new ssm.StringParameter(this, 'RedisMaxMemoryPolicy', {
+      parameterName: `/foresight/${props.environment}/cache/maxmemory-policy`,
+      stringValue: 'allkeys-lru',
+      description: 'Redis eviction policy - remove least recently used keys for medical codes',
+    });
+
+    new ssm.StringParameter(this, 'RedisTimeout', {
+      parameterName: `/foresight/${props.environment}/cache/timeout`,
+      stringValue: '300',
+      description: 'Redis client timeout in seconds',
+    });
+
+    new ssm.StringParameter(this, 'RedisTcpKeepalive', {
+      parameterName: `/foresight/${props.environment}/cache/tcp-keepalive`,
+      stringValue: '60',
+      description: 'Redis TCP keepalive in seconds for stable connections',
     });
 
     // Output the secret ARN for use in other stacks

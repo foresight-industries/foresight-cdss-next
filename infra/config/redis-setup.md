@@ -18,6 +18,11 @@
    - **Region**: Choose closest to your AWS region
    - **Modules**: Enable RediSearch and RedisJSON for enhanced features
 
+3. Configure Redis parameters for medical code optimization:
+   - **maxmemory-policy**: `allkeys-lru` (evict least recently used keys)
+   - **timeout**: `300` (5 minute client timeout)
+   - **tcp-keepalive**: `60` (1 minute keepalive for stable connections)
+
 ### Step 3: Get Connection Details
 After database creation, you'll get:
 - **Endpoint**: `redis-xxxxx.xxxxx.redislabs.com:xxxxx`
@@ -72,6 +77,22 @@ Add to `cdk.json`:
 ```
 
 ## 4. Medical Code Cache Configuration
+
+### Redis.io Optimal Settings
+Configure these parameters in your Redis.io console under "Configuration":
+
+```redis
+# Memory Management
+maxmemory-policy allkeys-lru
+
+# Connection Stability  
+timeout 300
+tcp-keepalive 60
+
+# Performance
+tcp-nodelay yes
+maxclients 10000
+```
 
 The infrastructure automatically creates the following cache keys structure:
 

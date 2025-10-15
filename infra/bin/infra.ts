@@ -30,7 +30,7 @@ for (const envName of ['staging', 'prod']) {
       dbMinCapacity: envName === 'prod' ? 2 : 0.5,
       dbMaxCapacity: envName === 'prod' ? 4 : 1,
       logRetention: envName === 'prod' ? 30 : 7,
-      enableDeletionProtection: envName === 'prod',
+      enableDeletionProtection: envName === 'prod', // Only enable for prod during staging recreation
     },
   });
 

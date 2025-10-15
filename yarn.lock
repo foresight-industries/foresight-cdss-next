@@ -4051,6 +4051,7 @@ __metadata:
     "@radix-ui/react-toggle": "npm:^1.1.10"
     "@radix-ui/react-toggle-group": "npm:^1.1.11"
     "@radix-ui/react-tooltip": "npm:^1.2.8"
+    "@redis-ai/langcache": "npm:^0.10.1"
     "@sentry/nextjs": "npm:^10.17.0"
     "@supabase/ssr": "npm:^0.7.0"
     "@supabase/supabase-js": "npm:^2.50.0"
@@ -8053,6 +8054,15 @@ __metadata:
   version: 1.1.1
   resolution: "@radix-ui/rect@npm:1.1.1"
   checksum: 10c0/0dac4f0f15691199abe6a0e067821ddd9d0349c0c05f39834e4eafc8403caf724106884035ae91bbc826e10367e6a5672e7bec4d4243860fa7649de246b1f60b
+  languageName: node
+  linkType: hard
+
+"@redis-ai/langcache@npm:^0.10.1":
+  version: 0.10.1
+  resolution: "@redis-ai/langcache@npm:0.10.1"
+  dependencies:
+    zod: "npm:^3.20.0"
+  checksum: 10c0/89cb0cc63993410785869a7fccfe83c22f4233acd02077949b6d3d8b14b1ff426bc7bf9f8d6c575c1034589e51129d1178bd44909b9f2cf6672078019df9774d
   languageName: node
   linkType: hard
 
@@ -30417,6 +30427,13 @@ __metadata:
   version: 3.22.4
   resolution: "zod@npm:3.22.4"
   checksum: 10c0/7578ab283dac0eee66a0ad0fc4a7f28c43e6745aadb3a529f59a4b851aa10872b3890398b3160f257f4b6817b4ce643debdda4fb21a2c040adda7862cab0a587
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.20.0":
+  version: 3.25.76
+  resolution: "zod@npm:3.25.76"
+  checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
   languageName: node
   linkType: hard
 

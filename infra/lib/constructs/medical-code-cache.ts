@@ -133,7 +133,7 @@ export class MedicalCodeCache extends Construct {
     // Create the medical code cache Lambda function
     this.cacheFunction = new lambda.Function(this, 'MedicalCodeCacheFunction', {
       functionName: `foresight-${props.environment}-medical-code-cache`,
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'medical-codes-api.handler',
       code: lambda.Code.fromAsset('../packages/functions/api'),
       role: this.role,
@@ -164,18 +164,8 @@ export class MedicalCodeCache extends Construct {
       retryAttempts: 2,
     });
 
-    // Grant database access
-    props.database.grantDataApiAccess(this.cacheFunction);
-
-    // Grant S3 access
-    props.medicalCodesBucket.grantReadWrite(this.cacheFunction);
-    props.backupBucket.grantReadWrite(this.cacheFunction);
-
-    // Grant secrets access
-    props.redisSecret.grantRead(this.cacheFunction);
-    if (props.database.secret) {
-      props.database.secret.grantRead(this.cacheFunction);
-    }
+    // Note: All permissions are handled via the IAM role inline policies above
+    // to avoid cross-environment resource access issues and unsupported principals
   }
 
   /**
