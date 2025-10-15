@@ -56,3 +56,6 @@ test-output
 !.env*.example
 
 *.tsbuildinfo
+
+# Temporary SQL workspace output files
+packages/db/*.sql

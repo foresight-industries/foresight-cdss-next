@@ -7,7 +7,6 @@
     "build": "echo 'Build complete'",
     "test": "echo 'No tests specified'"
   },
-  "dependencies": {},
   "engines": {
     "node": ">=20.0.0"
   }

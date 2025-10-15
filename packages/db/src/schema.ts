@@ -11,6 +11,7 @@ import {
   varchar,
   pgEnum,
   index,
+  unique,
   json,
   jsonb,
   serial,
@@ -4914,7 +4915,6 @@ export type NewProviderEnrollment = InferInsertModel<typeof providerEnrollments>
 // Adjustment Reason Codes - Critical for claim adjustments
 export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   code: varchar('code', { length: 10 }).notNull(),
@@ -4942,7 +4942,6 @@ export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: uuid('created_by').references(() => teamMembers.id),
 }, (table) => ({
-  orgIdx: index('adjustment_reason_code_org_idx').on(table.organizationId),
   codeIdx: index('adjustment_reason_code_code_idx').on(table.code),
   codeTypeIdx: index('adjustment_reason_code_type_idx').on(table.codeType),
   categoryIdx: index('adjustment_reason_code_category_idx').on(table.category),
@@ -4953,7 +4952,6 @@ export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
 // CPT Code Master - Essential for procedure coding
 export const cptCodeMaster = pgTable('cpt_code_master', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   cptCode: varchar('cpt_code', { length: 10 }).notNull(),
@@ -4996,7 +4994,6 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   // Existing indexes
-  orgIdx: index('cpt_code_master_org_idx').on(table.organizationId),
   cptCodeIdx: index('cpt_code_master_cpt_code_idx').on(table.cptCode),
   categoryIdx: index('cpt_code_master_category_idx').on(table.category),
   activeIdx: index('cpt_code_master_active_idx').on(table.isActive),
@@ -5021,7 +5018,6 @@ export const cptCodeMaster = pgTable('cpt_code_master', {
 // ICD-10 Code Master - Essential for diagnosis coding
 export const icd10CodeMaster = pgTable('icd10_code_master', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
@@ -5067,7 +5063,6 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
   // Existing indexes
-  orgIdx: index('icd10_code_master_org_idx').on(table.organizationId),
   icd10CodeIdx: index('icd10_code_master_icd10_code_idx').on(table.icd10Code),
   chapterIdx: index('icd10_code_master_chapter_idx').on(table.chapter),
   categoryIdx: index('icd10_code_master_category_idx').on(table.category),
@@ -5174,7 +5169,6 @@ export const hotCodesCache = pgTable('hot_codes_cache', {
 // Staging tables for annual code updates
 export const cptCodeStaging = pgTable('cpt_code_staging', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details (same structure as cptCodeMaster)
   cptCode: varchar('cpt_code', { length: 10 }).notNull(),
@@ -5218,7 +5212,6 @@ export const cptCodeStaging = pgTable('cpt_code_staging', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('cpt_code_staging_org_idx').on(table.organizationId),
   cptCodeIdx: index('cpt_code_staging_cpt_code_idx').on(table.cptCode),
   updateYearIdx: index('cpt_code_staging_update_year_idx').on(table.updateYear),
   batchIdx: index('cpt_code_staging_batch_idx').on(table.importBatch),
@@ -5227,7 +5220,6 @@ export const cptCodeStaging = pgTable('cpt_code_staging', {
 
 export const icd10CodeStaging = pgTable('icd10_code_staging', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details (same structure as icd10CodeMaster)
   icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
@@ -5274,7 +5266,6 @@ export const icd10CodeStaging = pgTable('icd10_code_staging', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('icd10_code_staging_org_idx').on(table.organizationId),
   icd10CodeIdx: index('icd10_code_staging_icd10_code_idx').on(table.icd10Code),
   updateYearIdx: index('icd10_code_staging_update_year_idx').on(table.updateYear),
   batchIdx: index('icd10_code_staging_batch_idx').on(table.importBatch),
@@ -5284,7 +5275,6 @@ export const icd10CodeStaging = pgTable('icd10_code_staging', {
 // Annual update tracking
 export const annualCodeUpdates = pgTable('annual_code_update', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Update details
   updateYear: integer('update_year').notNull(),
@@ -5321,7 +5311,6 @@ export const annualCodeUpdates = pgTable('annual_code_update', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('annual_code_update_org_idx').on(table.organizationId),
   yearTypeIdx: index('annual_code_update_year_type_idx').on(table.updateYear, table.codeType),
   statusIdx: index('annual_code_update_status_idx').on(table.status),
   initiatedByIdx: index('annual_code_update_initiated_by_idx').on(table.initiatedBy),
@@ -5358,7 +5347,6 @@ export const placeOfService = pgTable('place_of_service', {
 // Modifier Codes - Medical coding modifiers
 export const modifierCodes = pgTable('modifier_code', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Modifier details
   modifierCode: varchar('modifier_code', { length: 5 }).notNull(),
@@ -5382,7 +5370,7 @@ export const modifierCodes = pgTable('modifier_code', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('modifier_code_org_idx').on(table.organizationId),
+  modifierCodeUnique: unique('modifier_code_unique').on(table.modifierCode),
   modifierCodeIdx: index('modifier_code_modifier_code_idx').on(table.modifierCode),
   categoryIdx: index('modifier_code_category_idx').on(table.category),
   activeIdx: index('modifier_code_active_idx').on(table.isActive),

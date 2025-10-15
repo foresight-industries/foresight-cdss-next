@@ -5,7 +5,6 @@ import * as schema from './schema';
 
 // Enhanced RDS Data Client with logging
 class LoggedRDSDataClient extends RDSDataClient {
-  private connectionCount = 0;
   private activeConnections = 0;
   private readonly poolName: string;
 
@@ -14,7 +13,7 @@ class LoggedRDSDataClient extends RDSDataClient {
     this.poolName = poolName;
   }
 
-  async send(command: any): Promise<any> {
+  override async send(command: any): Promise<any> {
     const startTime = Date.now();
     const commandName = command.constructor.name;
 
@@ -79,21 +78,21 @@ class LoggedRDSDataClient extends RDSDataClient {
 
 // Database configuration
 const dbConfig = {
-  database: process.env.DATABASE_NAME,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN,
-  secretArn: process.env.DATABASE_SECRET_ARN,
+  database: process.env.DATABASE_NAME!,
+  resourceArn: process.env.DATABASE_CLUSTER_ARN!,
+  secretArn: process.env.DATABASE_SECRET_ARN!,
 };
 
 // Validate required environment variables
-if (!dbConfig.database) {
+if (!process.env.DATABASE_NAME) {
   throw new Error('DATABASE_NAME is not defined');
 }
 
-if (!dbConfig.resourceArn) {
+if (!process.env.DATABASE_CLUSTER_ARN) {
   throw new Error('DATABASE_CLUSTER_ARN is not defined');
 }
 
-if (!dbConfig.secretArn) {
+if (!process.env.DATABASE_SECRET_ARN) {
   throw new Error('DATABASE_SECRET_ARN is not defined');
 }
 

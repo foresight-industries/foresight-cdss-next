@@ -68,7 +68,8 @@
     "apps/*",
     "infra",
     "!infra/layers/dependencies",
-    "packages/*"
+    "packages/*",
+    "packages/functions/*"
   ],
   "packageManager": "yarn@4.10.3"
 }
