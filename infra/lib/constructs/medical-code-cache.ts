@@ -146,7 +146,7 @@ export class MedicalCodeCache extends Construct {
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         // Cache configuration
-        REDIS_URL: redisUrl,
+        REDIS_DB_URL: redisUrl,
         REDIS_SECRET_ARN: props.redisSecret.secretArn,
         CACHE_DEFAULT_TTL: cacheDefaultTtl,
         CACHE_HOT_CODES_TTL: cacheHotCodesTtl,

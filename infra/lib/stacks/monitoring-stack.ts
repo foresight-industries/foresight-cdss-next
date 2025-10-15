@@ -27,12 +27,21 @@ export class MonitoringStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: MonitoringStackProps) {
     super(scope, id, props);
 
-    // SNS Topic for alerts - reference existing topics from previous monitoring deployments
-    this.alarmTopic = sns.Topic.fromTopicArn(
-      this,
-      'AlarmTopic',
-      `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
-    );
+    // SNS Topic for alerts - reference existing topic from alerting stack
+    if (props.stackType === 'alerting') {
+      // Create topic only in alerting stack
+      this.alarmTopic = new sns.Topic(this, 'AlarmTopic', {
+        topicName: `rcm-alarms-${props.stageName}`,
+        displayName: `RCM Alarms - ${props.stageName}`,
+      });
+    } else {
+      // Reference existing topic in monitoring stack
+      this.alarmTopic = sns.Topic.fromTopicArn(
+        this,
+        'AlarmTopic',
+        `arn:aws:sns:${this.region}:${this.account}:rcm-alarms-${props.stageName}`
+      );
+    }
 
     // Only add subscriptions in the alerting stack
     if (props.stackType === 'alerting') {

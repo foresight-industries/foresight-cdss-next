@@ -107,18 +107,8 @@ export class MedicalDataStack extends Stack {
       })
     );
 
-    // Cross-bucket replication for disaster recovery
-    if (props.environment === 'prod') {
-      // Enable replication to our s3 backup bucket
-      this.medicalCodesBucket.addToResourcePolicy(
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          principals: [new iam.ServicePrincipal('s3.amazonaws.com')],
-          actions: ['s3:ReplicateObject', 's3:ReplicateDelete'],
-          resources: [`${this.medicalCodesBackupBucket.bucketArn}/*`],
-        })
-      );
-    }
+    // Note: Cross-bucket replication would be configured via S3 replication rules
+    // not bucket policies. Bucket policies can only reference their own bucket's resources.
 
     // IAM role for medical code processing
     this.processingRole = new iam.Role(this, 'MedicalCodeProcessingRole', {

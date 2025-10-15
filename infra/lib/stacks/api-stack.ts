@@ -56,7 +56,7 @@ export class ApiStack extends cdk.Stack {
         DATABASE_NAME: 'rcm',
         DOCUMENTS_BUCKET: props.documentsBucket.bucketName,
         // Cache configuration
-        REDIS_URL: redisUrl,
+        REDIS_DB_URL: redisUrl,
         CACHE_DEFAULT_TTL: '3600',
         CACHE_HOT_CODES_TTL: '7200',
         // Medical data configuration

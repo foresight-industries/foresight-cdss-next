@@ -1,7 +1,7 @@
 // Medical Code Caching Service for AWS + Next.js
 // Uses Redis for distributed caching or in-memory with proper Next.js handling
 
-import Redis from 'ioredis';
+import Redis, { Cluster } from 'ioredis';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { cptCodeMaster, icd10CodeMaster, codeCrosswalk, hotCodesCache } from '@foresight-cdss-next/db/src/schema';
@@ -36,7 +36,7 @@ interface CodeCrossWalk {
 }
 
 class MedicalCodeCacheService {
-  private redis: Redis | null = null;
+  private redis: Redis | Cluster | null = null;
   private readonly db: ReturnType<typeof drizzle>;
   private readonly DEFAULT_TTL = 3600; // 1 hour
   private readonly HOT_CODES_TTL = 7200; // 2 hours
@@ -73,14 +73,45 @@ class MedicalCodeCacheService {
 
   private async initRedis(): Promise<void> {
     try {
-      if (process.env.REDIS_URL) {
-        this.redis = new Redis(process.env.REDIS_URL, {
-          maxRetriesPerRequest: 3,
-          lazyConnect: true,
-        });
+      if (process.env.REDIS_DB_URL) {
+        const isClusterMode = process.env.REDIS_CLUSTER_MODE === 'true' || process.env.NODE_ENV === 'production';
+        const password = process.env.REDIS_DB_PASSWORD;
+
+        if (isClusterMode) {
+          // Production: Redis Cluster with VPC peering
+          const [host, port] = process.env.REDIS_DB_URL.replace('redis://', '').split(':');
+
+          this.redis = new Redis.Cluster(
+            [{ host: host.split('@').pop() || host, port: Number.parseInt(port) || 6379 }],
+            {
+              enableReadyCheck: false,
+              enableOfflineQueue: false,
+              redisOptions: {
+                password,
+                connectTimeout: 10000,
+                lazyConnect: true,
+                keepAlive: 30000,
+                maxRetriesPerRequest: null,
+              },
+              scaleReads: 'slave', // Read from replicas when possible
+            }
+          );
+
+          console.log('Redis Cluster initialized for medical code caching');
+        } else {
+          // Staging: Single Redis instance with public endpoint
+          this.redis = new Redis(process.env.REDIS_DB_URL, {
+            maxRetriesPerRequest: 3,
+            lazyConnect: true,
+            connectTimeout: 10000,
+            keepAlive: 30000,
+          });
+
+          console.log('Redis single-node initialized for medical code caching');
+        }
 
         await this.redis.ping();
-        console.log('Redis connected for medical code caching');
+        console.log('Redis connection successful');
       }
     } catch (error) {
       console.warn('Redis not available, using fallback cache:', error);
@@ -413,7 +444,14 @@ class MedicalCodeCacheService {
 
     try {
       if (this.redis) {
-        await this.redis.flushall();
+        // Handle both cluster and single-node Redis
+        if (this.redis instanceof Redis.Cluster) {
+          // For cluster mode, flush all nodes
+          const nodes = this.redis.nodes('master');
+          await Promise.all(nodes.map(node => node.flushall()));
+        } else {
+          await this.redis.flushall();
+        }
       } else {
         this.fallbackCache.clear();
       }
@@ -447,12 +485,15 @@ class MedicalCodeCacheService {
   }
 
   // Health check
-  async healthCheck(): Promise<{ redis: boolean; fallback: boolean }> {
+  async healthCheck(): Promise<{ redis: boolean; fallback: boolean; mode: string }> {
     let redisHealth = false;
+    let mode = 'fallback';
+
     try {
       if (this.redis) {
         await this.redis.ping();
         redisHealth = true;
+        mode = this.redis instanceof Redis.Cluster ? 'cluster' : 'single-node';
       }
     } catch (error) {
       console.error('Redis health check failed:', error);
@@ -461,6 +502,7 @@ class MedicalCodeCacheService {
     return {
       redis: redisHealth,
       fallback: true, // In-memory fallback is always available
+      mode,
     };
   }
 }
