@@ -1,6 +1,6 @@
 {
-  "id": "401d6baf-67e4-40aa-b720-b8d9ea7f57fa",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "e9db831f-a28e-4e61-bfd2-4464e3b480a1",
+  "prevId": "401d6baf-67e4-40aa-b720-b8d9ea7f57fa",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -156,12 +156,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "code": {
           "name": "code",
           "type": "varchar(10)",
@@ -267,21 +261,6 @@
         }
       },
       "indexes": {
-        "adjustment_reason_code_org_idx": {
-          "name": "adjustment_reason_code_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "adjustment_reason_code_code_idx": {
           "name": "adjustment_reason_code_code_idx",
           "columns": [
@@ -359,19 +338,6 @@
         }
       },
       "foreignKeys": {
-        "adjustment_reason_code_organization_id_organization_id_fk": {
-          "name": "adjustment_reason_code_organization_id_organization_id_fk",
-          "tableFrom": "adjustment_reason_code",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "adjustment_reason_code_payer_id_payer_id_fk": {
           "name": "adjustment_reason_code_payer_id_payer_id_fk",
           "tableFrom": "adjustment_reason_code",

@@ -4914,7 +4914,6 @@ export type NewProviderEnrollment = InferInsertModel<typeof providerEnrollments>
 // Adjustment Reason Codes - Critical for claim adjustments
 export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details
   code: varchar('code', { length: 10 }).notNull(),
@@ -4942,7 +4941,6 @@ export const adjustmentReasonCodes = pgTable('adjustment_reason_code', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   createdBy: uuid('created_by').references(() => teamMembers.id),
 }, (table) => ({
-  orgIdx: index('adjustment_reason_code_org_idx').on(table.organizationId),
   codeIdx: index('adjustment_reason_code_code_idx').on(table.code),
   codeTypeIdx: index('adjustment_reason_code_type_idx').on(table.codeType),
   categoryIdx: index('adjustment_reason_code_category_idx').on(table.category),
