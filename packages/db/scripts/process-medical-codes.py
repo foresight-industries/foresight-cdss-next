@@ -299,16 +299,17 @@ def process_cpt_file(file_path):
     NULL,
     NULL,
     NULL,
-    NULL,
-    true,
     false,
-    true,
+    false,
+    false,
     false,
     NULL,
-    NULL,
-    '2025-01-01'::date,
-    NULL,
+    false,
+    false,
     0,
+    NULL,
+    true,
+    '2025-01-01'::date,
     NULL
 )""")
 
@@ -327,17 +328,18 @@ INSERT INTO cpt_code_master (
     rvu_practice_expense,
     rvu_malpractice,
     rvu_total,
+    bilateral_surgery,
+    assistant_surgeon,
+    co_surgeon,
+    multiple_proc,
     global_period,
-    is_active,
-    requires_modifier,
-    is_billable,
     prior_auth_commonly_required,
-    age_restrictions,
-    gender_restrictions,
-    effective_date,
-    termination_date,
+    modifier_51_exempt,
     usage_count,
-    last_used_date
+    last_used_date,
+    is_active,
+    effective_date,
+    termination_date
 ) VALUES
 {','.join(values)}
 ON CONFLICT (cpt_code) DO UPDATE SET
