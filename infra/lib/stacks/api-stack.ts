@@ -137,6 +137,11 @@ export class ApiStack extends cdk.Stack {
     }));
     patientsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
       effect: cdk.aws_iam.Effect.ALLOW,
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [props.database.secret?.secretArn ?? ''],
+    }));
+    patientsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
+      effect: cdk.aws_iam.Effect.ALLOW,
       actions: ['s3:GetObject', 's3:PutObject', 's3:DeleteObject', 's3:ListBucket'],
       resources: [props.documentsBucket.bucketArn, `${props.documentsBucket.bucketArn}/*`],
     }));
