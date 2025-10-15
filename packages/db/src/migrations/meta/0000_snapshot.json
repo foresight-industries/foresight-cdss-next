@@ -1,5 +1,5 @@
 {
-  "id": "91611972-015a-42a9-9fa3-a71ccd39924f",
+  "id": "401d6baf-67e4-40aa-b720-b8d9ea7f57fa",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -614,12 +614,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "update_year": {
           "name": "update_year",
           "type": "integer",
@@ -740,21 +734,6 @@
         }
       },
       "indexes": {
-        "annual_code_update_org_idx": {
-          "name": "annual_code_update_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "annual_code_update_year_type_idx": {
           "name": "annual_code_update_year_type_idx",
           "columns": [
@@ -808,19 +787,6 @@
         }
       },
       "foreignKeys": {
-        "annual_code_update_organization_id_organization_id_fk": {
-          "name": "annual_code_update_organization_id_organization_id_fk",
-          "tableFrom": "annual_code_update",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
         "annual_code_update_initiated_by_team_member_id_fk": {
           "name": "annual_code_update_initiated_by_team_member_id_fk",
           "tableFrom": "annual_code_update",
@@ -9024,12 +8990,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "cpt_code": {
           "name": "cpt_code",
           "type": "varchar(10)",
@@ -9198,21 +9158,6 @@
         }
       },
       "indexes": {
-        "cpt_code_staging_org_idx": {
-          "name": "cpt_code_staging_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "cpt_code_staging_cpt_code_idx": {
           "name": "cpt_code_staging_cpt_code_idx",
           "columns": [
@@ -9274,21 +9219,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "cpt_code_staging_organization_id_organization_id_fk": {
-          "name": "cpt_code_staging_organization_id_organization_id_fk",
-          "tableFrom": "cpt_code_staging",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -16463,12 +16394,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "icd10_code": {
           "name": "icd10_code",
           "type": "varchar(10)",
@@ -16643,21 +16568,6 @@
         }
       },
       "indexes": {
-        "icd10_code_staging_org_idx": {
-          "name": "icd10_code_staging_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "icd10_code_staging_icd10_code_idx": {
           "name": "icd10_code_staging_icd10_code_idx",
           "columns": [
@@ -16719,21 +16629,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "icd10_code_staging_organization_id_organization_id_fk": {
-          "name": "icd10_code_staging_organization_id_organization_id_fk",
-          "tableFrom": "icd10_code_staging",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

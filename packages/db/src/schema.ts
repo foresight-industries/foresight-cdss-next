@@ -5170,7 +5170,6 @@ export const hotCodesCache = pgTable('hot_codes_cache', {
 // Staging tables for annual code updates
 export const cptCodeStaging = pgTable('cpt_code_staging', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details (same structure as cptCodeMaster)
   cptCode: varchar('cpt_code', { length: 10 }).notNull(),
@@ -5214,7 +5213,6 @@ export const cptCodeStaging = pgTable('cpt_code_staging', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('cpt_code_staging_org_idx').on(table.organizationId),
   cptCodeIdx: index('cpt_code_staging_cpt_code_idx').on(table.cptCode),
   updateYearIdx: index('cpt_code_staging_update_year_idx').on(table.updateYear),
   batchIdx: index('cpt_code_staging_batch_idx').on(table.importBatch),
@@ -5223,7 +5221,6 @@ export const cptCodeStaging = pgTable('cpt_code_staging', {
 
 export const icd10CodeStaging = pgTable('icd10_code_staging', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Code details (same structure as icd10CodeMaster)
   icd10Code: varchar('icd10_code', { length: 10 }).notNull(),
@@ -5270,7 +5267,6 @@ export const icd10CodeStaging = pgTable('icd10_code_staging', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('icd10_code_staging_org_idx').on(table.organizationId),
   icd10CodeIdx: index('icd10_code_staging_icd10_code_idx').on(table.icd10Code),
   updateYearIdx: index('icd10_code_staging_update_year_idx').on(table.updateYear),
   batchIdx: index('icd10_code_staging_batch_idx').on(table.importBatch),
@@ -5280,7 +5276,6 @@ export const icd10CodeStaging = pgTable('icd10_code_staging', {
 // Annual update tracking
 export const annualCodeUpdates = pgTable('annual_code_update', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // Update details
   updateYear: integer('update_year').notNull(),
@@ -5317,7 +5312,6 @@ export const annualCodeUpdates = pgTable('annual_code_update', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('annual_code_update_org_idx').on(table.organizationId),
   yearTypeIdx: index('annual_code_update_year_type_idx').on(table.updateYear, table.codeType),
   statusIdx: index('annual_code_update_status_idx').on(table.status),
   initiatedByIdx: index('annual_code_update_initiated_by_idx').on(table.initiatedBy),
