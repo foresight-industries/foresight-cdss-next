@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { teamMembers, organizations } from '@foresight-cdss-next/db';
+import { userProfiles, organizations, teamMembers, UserProfile } from '@foresight-cdss-next/db';
 
 // PUT - Update user profile
 export async function PUT(request: NextRequest) {
@@ -20,20 +20,19 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Profile data required' }, { status: 400 });
     }
 
-    // Find the user's team member record
-    const { data: existingMember } = await safeSingle(async () =>
+    // Find the user's profile record
+    const { data: existingProfile } : { data: UserProfile | null, error: Error | null } = await safeSingle(async () =>
       db.select({
-        id: teamMembers.id,
-        organizationId: teamMembers.organizationId
+        id: userProfiles.id
       })
-      .from(teamMembers)
+      .from(userProfiles)
       .where(and(
-        eq(teamMembers.clerkUserId, userId),
-        eq(teamMembers.isActive, true)
+        eq(userProfiles.clerkUserId, userId),
+        eq(userProfiles.isActive, true)
       ))
     );
 
-    if (!existingMember) {
+    if (!existingProfile?.id) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
@@ -54,16 +53,16 @@ export async function PUT(request: NextRequest) {
 
     // Update team member profile
     const { data: updatedProfile, error: profileError } = await safeUpdate(async () =>
-      db.update(teamMembers)
+      db.update(userProfiles)
         .set(profileUpdate)
-        .where(eq(teamMembers.id, (existingMember as any).id))
+        .where(eq(userProfiles.id, existingProfile.id))
         .returning({
-          id: teamMembers.id,
-          email: teamMembers.email,
-          firstName: teamMembers.firstName,
-          lastName: teamMembers.lastName,
-          role: teamMembers.role,
-          updatedAt: teamMembers.updatedAt
+          id: userProfiles.id,
+          email: userProfiles.email,
+          firstName: userProfiles.firstName,
+          lastName: userProfiles.lastName,
+          role: userProfiles.role,
+          updatedAt: userProfiles.updatedAt
         })
     );
 
@@ -96,20 +95,20 @@ export async function GET() {
     // Get user team membership with organization details
     const { data: teamMember, error: memberError } = await safeSingle(async () =>
       db.select({
-        id: teamMembers.id,
-        email: teamMembers.email,
-        firstName: teamMembers.firstName,
-        lastName: teamMembers.lastName,
-        role: teamMembers.role,
-        isActive: teamMembers.isActive,
-        lastSeenAt: teamMembers.lastSeenAt,
-        createdAt: teamMembers.createdAt,
-        updatedAt: teamMembers.updatedAt,
-        organizationId: teamMembers.organizationId,
+        id: userProfiles.id,
+        email: userProfiles.email,
+        firstName: userProfiles.firstName,
+        lastName: userProfiles.lastName,
+        role: userProfiles.role,
+        isActive: userProfiles.isActive,
+        lastSeenAt: userProfiles.lastSeenAt,
+        createdAt: userProfiles.createdAt,
+        updatedAt: userProfiles.updatedAt,
+        clerkUserId: userProfiles.clerkUserId,
         organizationName: organizations.name,
         organizationSlug: organizations.slug
       })
-      .from(teamMembers)
+      .from(userProfiles)
       .leftJoin(organizations, eq(teamMembers.organizationId, organizations.id))
       .where(and(
         eq(teamMembers.clerkUserId, userId),
@@ -130,7 +129,7 @@ export async function GET() {
     }
 
     const memberData = teamMember as any;
-    
+
     // Format response to match expected structure
     const profile = {
       user_id: userId,

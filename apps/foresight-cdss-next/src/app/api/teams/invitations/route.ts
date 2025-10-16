@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { teamMembers, organizations, organizationInvitations } from '@foresight-cdss-next/db';
+import { teamMembers, organizations, organizationInvitations, userProfiles } from '@foresight-cdss-next/db';
 import { randomBytes } from 'crypto';
 
 interface TeamInvitation {
@@ -81,9 +81,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         const { data: existingMember } = await safeSingle(async () =>
           db.select({ id: teamMembers.id })
           .from(teamMembers)
+          .innerJoin(userProfiles, eq(teamMembers.clerkUserId, userProfiles.clerkUserId))
           .where(and(
             eq(teamMembers.organizationId, organization_id),
-            eq(teamMembers.email, invitation.email),
+            eq(userProfiles.email, invitation.email),
             eq(teamMembers.isActive, true)
           ))
         );

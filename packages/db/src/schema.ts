@@ -224,6 +224,29 @@ export const dataSourceTypeEnum = pgEnum('data_source_type', [
 // CORE TABLES
 // ============================================================================
 
+// User profiles (individual records, separate from orgs)
+export const userProfiles = pgTable('user_profile', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clerkUserId: text('clerk_user_id').unique().notNull(),
+
+  // Profile
+  email: text('email').notNull(),
+  firstName: text('first_name'),
+  lastName: text('last_name'),
+  role: accessLevelEnum('role').default('read').notNull(),
+
+  // Status
+  isActive: boolean('is_active').default(true).notNull(),
+  lastSeenAt: timestamp('last_seen_at'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+}, (table) => ({
+  clerkUserIdx: index('user_profile_clerk_user_idx').on(table.clerkUserId),
+}));
+
 // Organizations (replacing teams for better multi-tenancy)
 export const organizations = pgTable('organization', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -261,12 +284,10 @@ export const organizations = pgTable('organization', {
 export const teamMembers = pgTable('team_member', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  clerkUserId: text('clerk_user_id').notNull(),
+  userProfileId: uuid('user_profile_id').references(() => userProfiles.id).notNull(),
+  clerkUserId: text('clerk_user_id').references(() => userProfiles.clerkUserId).notNull(),
 
-  // Profile
-  email: text('email').notNull(),
-  firstName: text('first_name'),
-  lastName: text('last_name'),
+  // Team-level role
   role: accessLevelEnum('role').default('read').notNull(),
 
   // Status
@@ -278,8 +299,8 @@ export const teamMembers = pgTable('team_member', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
 }, (table) => ({
-  orgUserIdx: index('team_member_org_user_idx').on(table.organizationId, table.clerkUserId),
-  clerkUserIdx: index('team_member_clerk_user_idx').on(table.clerkUserId),
+  orgUserIdx: index('team_member_org_user_idx').on(table.organizationId, table.userProfileId),
+  userProfileIdx: index('team_member_user_profile_idx').on(table.userProfileId),
 }));
 
 // Patients
@@ -7087,6 +7108,8 @@ export const databaseAuthenticationLogs = pgTable('database_authentication_log',
   sessionIdx: index('db_auth_log_session_idx').on(table.sessionId),
   methodIdx: index('db_auth_log_method_idx').on(table.authenticationMethod),
 }));
+
+export type UserProfile = InferSelectModel<typeof userProfiles>;
 
 // Export types for the new logging tables
 export type DatabaseConnectionLog = InferSelectModel<typeof databaseConnectionLogs>;

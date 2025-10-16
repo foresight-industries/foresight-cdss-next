@@ -1,6 +1,6 @@
 import { createDatabaseClient, safeSelect } from '@/lib/aws/database';
 import { eq } from 'drizzle-orm';
-import { auditLogs, teamMembers } from '@foresight-cdss-next/db';
+import { auditLogs, teamMembers, userProfiles } from '@foresight-cdss-next/db';
 import DashboardClient from '@/components/dashboard/dashboard-client';
 import { epaQueueItems } from '@/data/epa-queue';
 import { initialClaims } from '@/data/claims';
@@ -38,10 +38,11 @@ async function loadDashboardData(organizationId: string) {
         createdAt: auditLogs.createdAt,
         userId: auditLogs.userId,
         // Get user details if available
-        userEmail: teamMembers.email
+        userEmail: userProfiles.email
       })
       .from(auditLogs)
       .leftJoin(teamMembers, eq(auditLogs.userId, teamMembers.id))
+      .leftJoin(userProfiles, eq(teamMembers.clerkUserId, userProfiles.clerkUserId))
       .where(eq(auditLogs.organizationId, organizationId))
       .orderBy(auditLogs.createdAt)
       .limit(10)

@@ -12,7 +12,7 @@ import type {
 } from "@clerk/nextjs/server";
 import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
 import { eq, and } from "drizzle-orm";
-import { teamMembers, organizations, organizationInvitations, type Organization } from "@foresight-cdss-next/db";
+import { teamMembers, organizations, organizationInvitations, userProfiles, type Organization, UserProfile } from "@foresight-cdss-next/db";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
@@ -180,15 +180,37 @@ async function handleUserCreated(data: UserWebhookEvent['data']) {
       throw new TypeError("Invalid user data");
     }
 
-    // Note: Since we don't have a separate user_profile table in AWS schema,
-    // user data will be managed through team membership when they join an organization
-    console.log(`User created in Clerk: ${data.id}`, {
-      email: data.email_addresses?.[0]?.email_address,
-      firstName: data.first_name,
-      lastName: data.last_name
-    });
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    return { success: true, message: `User ${data.id} noted for future organization membership` };
+    // Check if user profile already exists
+    const { data: existingUser } = await safeSingle(async () =>
+      db.select({ id: userProfiles.id })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, data.id))
+    );
+
+    if (existingUser) {
+      return { success: true, message: `User ${data.id} already exists` };
+    }
+
+    // Create user profile
+    const { error } = await safeInsert(async () =>
+      db.insert(userProfiles)
+        .values({
+          clerkUserId: data.id,
+          email: data.email_addresses?.[0]?.email_address || '',
+          firstName: data.first_name,
+          lastName: data.last_name,
+          role: 'read',
+          isActive: true
+        })
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, message: `User profile created for ${data.id}` };
   } catch (error) {
     console.error("Error handling user creation:", error);
     return {
@@ -206,23 +228,23 @@ async function handleUserUpdated(data: UserWebhookEvent['data']) {
 
     const { db } = await createAuthenticatedDatabaseClient();
 
-    // Update user info in team members table where this user exists
+    // Update user profile
     const { error } = await safeUpdate(async () =>
-      db.update(teamMembers)
+      db.update(userProfiles)
         .set({
-          email: data.email_addresses?.[0]?.email_address,
+          email: data.email_addresses?.[0]?.email_address || '',
           firstName: data.first_name,
           lastName: data.last_name,
           updatedAt: new Date()
         })
-        .where(eq(teamMembers.clerkUserId, data.id))
+        .where(eq(userProfiles.clerkUserId, data.id))
     );
 
     if (error) {
       throw error;
     }
 
-    return { success: true, message: `User ${data.id} updated in team memberships` };
+    return { success: true, message: `User profile updated for ${data.id}` };
   } catch (error) {
     console.error("Error updating user:", error);
     return {
@@ -244,20 +266,46 @@ async function handleUserDeleted(data: UserWebhookEvent['data']) {
 
     const { db } = createDatabaseAdminClient();
 
-    // Soft delete - set status to inactive
-    const { error } = await safeUpdate(async () =>
-      db.update(teamMembers)
+    // Get user profile to find the internal ID
+    const { data: userProfile } : { data: UserProfile | null, error: Error | null } = await safeSingle(async () =>
+      db.select({ id: userProfiles.id })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, data.id!))
+    );
+
+    // Soft delete user profile
+    const { error: profileError } = await safeUpdate(async () =>
+      db.update(userProfiles)
         .set({
           isActive: false,
           deletedAt: new Date(),
           updatedAt: new Date()
         })
-        .where(eq(teamMembers.clerkUserId, data.id!))
+        .where(eq(userProfiles.clerkUserId, data.id!))
     );
 
-    if (error) throw error;
+    if (profileError) {
+      console.warn("Failed to soft delete user profile:", profileError);
+    }
 
-    return { success: true, message: `User ${data.id} deactivated` };
+    // Soft delete all team member records for this user
+    if (userProfile?.id) {
+      const { error: memberError } = await safeUpdate(async () =>
+        db.update(teamMembers)
+          .set({
+            isActive: false,
+            deletedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(teamMembers.userProfileId, userProfile.id))
+      );
+
+      if (memberError) {
+        console.warn("Failed to soft delete team memberships:", memberError);
+      }
+    }
+
+    return { success: true, message: `User ${data.id} and all memberships deactivated` };
   } catch (error) {
     console.error("Error deleting user:", error);
     return {

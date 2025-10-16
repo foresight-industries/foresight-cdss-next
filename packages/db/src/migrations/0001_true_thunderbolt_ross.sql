@@ -1,1 +1,0 @@
-ALTER TABLE "organization_invitation" ADD COLUMN "clerk_invitation_id" varchar(255);

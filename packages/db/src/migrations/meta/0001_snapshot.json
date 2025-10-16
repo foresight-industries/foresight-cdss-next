@@ -1,6 +1,6 @@
 {
-  "id": "1cfe2044-5ff9-4f7f-bf6d-a8029721d715",
-  "prevId": "a5ebaa34-3dbd-4e15-87e7-c188b5f1b6a5",
+  "id": "6312f3d6-3bb3-474a-853b-4ab2f97bb241",
+  "prevId": "bba0ac7c-bb0c-4914-b26e-d448b2482e44",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -36478,29 +36478,17 @@
           "primaryKey": false,
           "notNull": true
         },
+        "user_profile_id": {
+          "name": "user_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "clerk_user_id": {
           "name": "clerk_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "first_name": {
-          "name": "first_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_name": {
-          "name": "last_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "role": {
           "name": "role",
@@ -36555,7 +36543,7 @@
               "nulls": "last"
             },
             {
-              "expression": "clerk_user_id",
+              "expression": "user_profile_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -36566,11 +36554,11 @@
           "method": "btree",
           "with": {}
         },
-        "team_member_clerk_user_idx": {
-          "name": "team_member_clerk_user_idx",
+        "team_member_user_profile_idx": {
+          "name": "team_member_user_profile_idx",
           "columns": [
             {
-              "expression": "clerk_user_id",
+              "expression": "user_profile_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -36592,6 +36580,32 @@
           ],
           "columnsTo": [
             "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "team_member_user_profile_id_user_profile_id_fk": {
+          "name": "team_member_user_profile_id_user_profile_id_fk",
+          "tableFrom": "team_member",
+          "tableTo": "user_profile",
+          "columnsFrom": [
+            "user_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "team_member_clerk_user_id_user_profile_clerk_user_id_fk": {
+          "name": "team_member_clerk_user_id_user_profile_clerk_user_id_fk",
+          "tableFrom": "team_member",
+          "tableTo": "user_profile",
+          "columnsFrom": [
+            "clerk_user_id"
+          ],
+          "columnsTo": [
+            "clerk_user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -37033,6 +37047,107 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_profile": {
+      "name": "user_profile",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "clerk_user_id": {
+          "name": "clerk_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "access_level",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'read'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "user_profile_clerk_user_idx": {
+          "name": "user_profile_clerk_user_idx",
+          "columns": [
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
