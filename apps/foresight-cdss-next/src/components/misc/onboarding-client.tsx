@@ -343,6 +343,7 @@ export default function OnboardingClient() {
                     <Input
                       id="member-email"
                       type="email"
+                      inputMode="email"
                       value={newMemberEmail}
                       onChange={(e) => setNewMemberEmail(e.target.value)}
                       placeholder="colleague@example.com"

@@ -54,7 +54,7 @@ export default function ForgotPasswordClient() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="max-w-md w-full space-y-8 p-6">
           <div className="text-center">
             <Image
@@ -64,10 +64,10 @@ export default function ForgotPasswordClient() {
               height={64}
               className="mx-auto rounded-lg"
             />
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Check your email
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Password reset instructions sent
             </p>
           </div>
@@ -103,8 +103,8 @@ export default function ForgotPasswordClient() {
           </Card>
 
           <div className="text-center">
-            <p className="text-xs text-gray-500">
-              © 2025 Foresight Industries. All rights reserved.
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              &copy; 2025 Foresight Industries. All rights reserved.
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function ForgotPasswordClient() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
           <Image
@@ -123,10 +123,10 @@ export default function ForgotPasswordClient() {
             height={64}
             className="mx-auto rounded-lg"
           />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
             Forgot your password?
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Enter your email address and we&apos;ll send you a link to reset
             your password
           </p>
@@ -151,12 +151,13 @@ export default function ForgotPasswordClient() {
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
                   <Input
                     id="email"
                     name="email"
                     type="email"
                     autoComplete="email"
+                    inputMode="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -192,8 +193,8 @@ export default function ForgotPasswordClient() {
         </Card>
 
         <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2025 Foresight Industries. All rights reserved.
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            &copy; 2025 Foresight Industries. All rights reserved.
           </p>
         </div>
       </div>

@@ -1814,6 +1814,7 @@ function SettingsPageContent({
               <Input
                 id="invite-email"
                 type="email"
+                inputMode="email"
                 value={inviteForm.email}
                 onChange={(e) =>
                   handleInviteFormChange("email", e.target.value)
@@ -1959,6 +1960,7 @@ function SettingsPageContent({
               <Input
                 id="edit-email"
                 type="email"
+                inputMode="email"
                 value={editForm.email}
                 onChange={(e) => handleEditFormChange("email", e.target.value)}
                 placeholder="jane.doe@company.com"

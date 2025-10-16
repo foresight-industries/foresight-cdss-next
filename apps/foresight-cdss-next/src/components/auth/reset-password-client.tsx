@@ -136,7 +136,7 @@ export default function ResetPasswordClient() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="max-w-md w-full space-y-8 p-6">
           <div className="text-center">
             <Image
@@ -146,10 +146,10 @@ export default function ResetPasswordClient() {
               height={64}
               className="mx-auto rounded-lg"
             />
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Password updated
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Your password has been successfully changed
             </p>
           </div>
@@ -184,7 +184,7 @@ export default function ResetPasswordClient() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
           <Image
@@ -194,10 +194,10 @@ export default function ResetPasswordClient() {
             height={64}
             className="mx-auto rounded-lg"
           />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
             Reset your password
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Enter your new password below
           </p>
         </div>
@@ -255,9 +255,9 @@ export default function ResetPasswordClient() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 </div>
@@ -284,15 +284,15 @@ export default function ResetPasswordClient() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 </div>
               </div>
 
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
                 <p className="font-medium mb-1">Password requirements:</p>
                 <ul className="space-y-1">
                   <li>• At least 8 characters long</li>
@@ -328,8 +328,8 @@ export default function ResetPasswordClient() {
         </Card>
 
         <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2025 Foresight Industries. All rights reserved.
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            &copy; 2025 Foresight Industries. All rights reserved.
           </p>
         </div>
       </div>

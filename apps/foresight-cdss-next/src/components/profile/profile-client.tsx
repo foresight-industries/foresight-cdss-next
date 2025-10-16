@@ -340,6 +340,7 @@ export default function ProfileClient({
                 <Input
                   id="email"
                   type="email"
+                  inputMode="email"
                   value={profileForm.email}
                   onChange={(e) => handleProfileChange("email", e.target.value)}
                 />
