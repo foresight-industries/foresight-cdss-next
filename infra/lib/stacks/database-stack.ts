@@ -98,17 +98,12 @@ export class DatabaseStack extends cdk.Stack {
       allowAllOutbound: false,
     });
 
-    // Database credentials - protected from deletion
-    const credentials = new secretsmanager.Secret(this, 'DBCredentials', {
-      secretName: `rcm-db-rds-credential-${props.stageName}`,
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({ username: 'rcmadmin' }),
-        generateStringKey: 'password',
-        excludeCharacters: ' %+~`#$&*()|[]{}:;<>?!\'/@"\\',
-        passwordLength: 32,
-      },
-      removalPolicy: cdk.RemovalPolicy.RETAIN, // Protect secret from deletion
-    });
+    // Import existing database credentials to avoid secret recreation
+    const credentials = secretsmanager.Secret.fromSecretNameV2(
+      this,
+      'DBCredentials',
+      `rcm-db-rds-credential-${props.stageName}`
+    );
 
     // PostgreSQL 17.5 parameter group optimized for medical code queries
     const parameterGroup = new rds.ParameterGroup(this, 'ClusterParameterGroup', {

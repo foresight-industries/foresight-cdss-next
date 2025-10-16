@@ -10,63 +10,31 @@ export interface MedicalDataStackProps extends StackProps {
 }
 
 export class MedicalDataStack extends Stack {
-  public readonly medicalCodesBucket: s3.Bucket;
-  public readonly medicalCodesBackupBucket: s3.Bucket;
+  public readonly medicalCodesBucket: s3.IBucket;
+  public readonly medicalCodesBackupBucket: s3.Bucket; // New v2 bucket for Comprehend Medical
+  public readonly redisBackupBucket: s3.IBucket; // Existing bucket for Redis backups
   public readonly processingRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: MedicalDataStackProps) {
     super(scope, id, props);
 
     // S3 bucket for storing annual medical code files (ICD-10, CPT)
-    this.medicalCodesBucket = new s3.Bucket(this, 'MedicalCodesBucket', {
-      bucketName: `foresight-${props.environment}-medical-codes`,
-      versioned: true,
-      encryption: s3.BucketEncryption.S3_MANAGED,
-      publicReadAccess: false,
-      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-      lifecycleRules: [
-        {
-          id: 'DeleteOldVersions',
-          enabled: true,
-          noncurrentVersionExpiration: Duration.days(90),
-        },
-        {
-          id: 'ArchiveOldFiles',
-          enabled: true,
-          transitions: [
-            {
-              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: Duration.days(30),
-            },
-            {
-              storageClass: s3.StorageClass.GLACIER,
-              transitionAfter: Duration.days(90),
-            },
-          ],
-        },
-        {
-          id: 'RedisBackupLifecycle',
-          enabled: true,
-          prefix: 'backups/redis/',
-          transitions: [
-            {
-              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-              transitionAfter: Duration.days(30), // AWS minimum for IA transition
-            },
-            {
-              storageClass: s3.StorageClass.GLACIER,
-              transitionAfter: Duration.days(90), // Archive Redis backups after 90 days
-            },
-          ],
-          expiration: Duration.days(props.environment === 'prod' ? 365 : 180), // Keep staging backups 6 months, prod 1 year
-        },
-      ],
-      removalPolicy: props.environment === 'prod' ? RemovalPolicy.RETAIN : RemovalPolicy.DESTROY,
-    });
+    this.medicalCodesBucket = s3.Bucket.fromBucketName(
+      this,
+      'MedicalCodesBucket',
+      `foresight-${props.environment}-medical-codes`
+    );
 
-    // Backup bucket for medical code data
+    // Import existing Redis backup bucket (don't interfere with Redis backups)
+    this.redisBackupBucket = s3.Bucket.fromBucketName(
+      this,
+      'RedisBackupBucket',
+      `foresight-${props.environment}-medical-codes-backup`
+    );
+
+    // Create new backup bucket for Comprehend Medical (v2 with unique name to avoid conflicts)
     this.medicalCodesBackupBucket = new s3.Bucket(this, 'MedicalCodesBackupBucket', {
-      bucketName: `foresight-${props.environment}-medical-codes-backup`,
+      bucketName: `foresight-${props.environment}-medical-codes-backup-v2`,
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       publicReadAccess: false,
@@ -220,7 +188,7 @@ export class MedicalDataStack extends Stack {
       description: 'S3 path for Redis backup files from Redis.io',
     });
 
-    new ssm.StringParameter(this, 'RedisBackupBucket', {
+    new ssm.StringParameter(this, 'RedisBackupBucketParameter', {
       parameterName: `/foresight/${props.environment}/storage/redis-backup-bucket`,
       stringValue: this.medicalCodesBucket.bucketName,
       description: 'S3 bucket for Redis backup files from Redis.io',

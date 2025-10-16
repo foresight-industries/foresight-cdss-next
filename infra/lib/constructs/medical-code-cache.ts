@@ -11,8 +11,8 @@ import { Duration, Stack } from 'aws-cdk-lib';
 export interface MedicalCodeCacheProps {
   environment: 'staging' | 'prod';
   database: rds.DatabaseCluster;
-  medicalCodesBucket: s3.Bucket;
-  backupBucket: s3.Bucket;
+  medicalCodesBucket: s3.IBucket;
+  backupBucket: s3.IBucket | s3.Bucket;
   redisSecret: secretsmanager.Secret;
 }
 
@@ -59,7 +59,7 @@ export class MedicalCodeCache extends Construct {
                 'secretsmanager:DescribeSecret',
               ],
               resources: [
-                props.database.secret?.secretArn || '',
+                `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret:rcm-db-rds-credential-${props.environment}-*`,
                 props.redisSecret.secretArn,
               ],
             }),
@@ -143,7 +143,7 @@ export class MedicalCodeCache extends Construct {
       environment: {
         NODE_ENV: props.environment,
         // Database configuration
-        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_SECRET_ARN: `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret:rcm-db-rds-credential-${props.environment}`,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         // Cache configuration

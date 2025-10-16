@@ -42,7 +42,7 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
   });
 
-  // Create medical infrastructure (cache + medical data)
+  // Create medical infrastructure (cache + medical data + comprehend medical)
   const medicalInfra = new MedicalInfrastructure(app, `RCM-Medical-${envName}`, {
     env,
     environment: envName as 'staging' | 'prod',
