@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeUpdate, safeInsert } from '@/lib/aws/database';
 import { eq, and, isNull } from 'drizzle-orm';
-import { webhookConfigs, webhookDeliveries } from '@foresight-cdss-next/db';
+import { webhookConfigs, webhookDeliveries, webhookSecrets } from '@foresight-cdss-next/db';
 import crypto from 'node:crypto';
 
 // This endpoint processes webhook deliveries that failed and need retry
@@ -27,13 +27,17 @@ export async function POST(request: NextRequest) {
         eventData: webhookDeliveries.eventData,
         attemptCount: webhookDeliveries.attemptCount,
         webhookUrl: webhookConfigs.url,
-        webhookSecret: webhookConfigs.secret,
+        secretId: (webhookSecrets as any).secretId,
         timeoutSeconds: webhookConfigs.timeoutSeconds,
         organizationId: webhookConfigs.organizationId,
         isActive: webhookConfigs.isActive
       })
       .from(webhookDeliveries)
       .leftJoin(webhookConfigs, eq(webhookDeliveries.webhookConfigId, webhookConfigs.id))
+      .leftJoin(webhookSecrets, and(
+        eq(webhookSecrets.webhookConfigId, webhookConfigs.id),
+        eq(webhookSecrets.isActive, true)
+      ))
       .where(and(
         eq(webhookDeliveries.status, 'failed'),
         isNull(webhookDeliveries.deliveredAt),
@@ -53,9 +57,9 @@ export async function POST(request: NextRequest) {
     );
 
     if (!retriableDeliveries || retriableDeliveries.length === 0) {
-      return NextResponse.json({ 
-        message: 'No webhook deliveries to retry', 
-        processed: 0 
+      return NextResponse.json({
+        message: 'No webhook deliveries to retry',
+        processed: 0
       });
     }
 
@@ -71,7 +75,7 @@ export async function POST(request: NextRequest) {
           eventData: any;
           attemptCount: number;
           webhookUrl: string;
-          webhookSecret: string;
+          secretId: string | null;
           timeoutSeconds: number;
           organizationId: string;
         };
@@ -108,7 +112,7 @@ export async function POST(request: NextRequest) {
 
       } catch (error) {
         console.error(`Error processing webhook delivery ${(delivery as any).id}:`, error);
-        
+
         // Update attempt count even on processing error
         await safeUpdate(async () =>
           db.update(webhookDeliveries)
@@ -151,7 +155,7 @@ interface WebhookDeliveryItem {
   eventData: any;
   attemptCount: number;
   webhookUrl: string;
-  webhookSecret: string;
+  secretId: string | null;
   timeoutSeconds: number;
   organizationId: string;
 }
@@ -177,8 +181,9 @@ async function processWebhookDelivery(
     }
 
     // Create HMAC signature for security (skip if no secret)
-    const signature = delivery.webhookSecret
-      ? createHmacSignature(delivery.eventData, delivery.webhookSecret)
+    // TODO: Fetch actual secret from AWS Secrets Manager using delivery.secretId
+    const signature = delivery.secretId
+      ? '' // Skip signature for now since we need to fetch from AWS Secrets Manager
       : '';
 
     // Prepare headers
@@ -242,13 +247,13 @@ async function processWebhookDelivery(
   }
 }
 
-function createHmacSignature(payload: any, secret: string): string {
-  const body = JSON.stringify(payload);
-  return crypto
-    .createHmac('sha256', secret)
-    .update(body)
-    .digest('hex');
-}
+// function createHmacSignature(payload: any, secret: string): string {
+//   const body = JSON.stringify(payload);
+//   return crypto
+//     .createHmac('sha256', secret)
+//     .update(body)
+//     .digest('hex');
+// }
 
 // Health check endpoint
 export async function GET() {
@@ -265,26 +270,30 @@ export async function PUT(request: NextRequest) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
     const body = await request.json();
-    
+
     const { webhook_config_id, event_type, payload } = body;
-    
+
     if (!webhook_config_id || !event_type || !payload) {
       return NextResponse.json({
         error: 'Missing required fields: webhook_config_id, event_type, payload'
       }, { status: 400 });
     }
 
-    // Get webhook configuration
+    // Get webhook configuration with secret
     const { data: webhook } = await safeSelect(async () =>
       db.select({
         id: webhookConfigs.id,
         url: webhookConfigs.url,
-        secret: webhookConfigs.secret,
+        secretId: (webhookSecrets as any).secretId,
         timeoutSeconds: webhookConfigs.timeoutSeconds,
         organizationId: webhookConfigs.organizationId,
         isActive: webhookConfigs.isActive
       })
       .from(webhookConfigs)
+      .leftJoin(webhookSecrets, and(
+        eq(webhookSecrets.webhookConfigId, webhookConfigs.id),
+        eq(webhookSecrets.isActive, true)
+      ))
       .where(eq(webhookConfigs.id, webhook_config_id))
     );
 
@@ -295,7 +304,7 @@ export async function PUT(request: NextRequest) {
     const webhookConfig = webhook[0] as {
       id: string;
       url: string;
-      secret: string;
+      secretId: string | null;
       timeoutSeconds: number;
       organizationId: string;
       isActive: boolean;
@@ -332,7 +341,7 @@ export async function PUT(request: NextRequest) {
       eventData: payload,
       attemptCount: 0,
       webhookUrl: webhookConfig.url,
-      webhookSecret: webhookConfig.secret,
+      secretId: webhookConfig.secretId,
       timeoutSeconds: webhookConfig.timeoutSeconds,
       organizationId: webhookConfig.organizationId
     };

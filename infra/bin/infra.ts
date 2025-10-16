@@ -13,6 +13,7 @@ import { MonitoringStack } from '../lib/stacks/monitoring-stack';
 import { SecurityStack } from '../lib/stacks/security-stack';
 import { DocumentProcessingStack } from '../lib/stacks/document-processing-stack';
 import { MedicalInfrastructure } from '../lib/medical-infrastructure';
+import { WebhookStack } from '../lib/stacks/webhook-stack';
 
 const app = new cdk.App();
 
@@ -97,6 +98,13 @@ for (const envName of ['staging', 'prod']) {
     database: database.cluster,
   });
 
+  // Enhanced webhook system
+  const webhooks = new WebhookStack(app, `RCM-Webhooks-${envName}`, {
+    env,
+    environment: envName as 'staging' | 'prod',
+    database: database.cluster,
+  });
+
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
     env,
     stageName: envName,
@@ -123,6 +131,7 @@ for (const envName of ['staging', 'prod']) {
   workflows.addDependency(queues);
   security.addDependency(api);
   documentProcessing.addDependency(database);
+  webhooks.addDependency(database);
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);

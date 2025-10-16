@@ -13,6 +13,17 @@ import type {
 import { safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
 import { eq, and, sql } from "drizzle-orm";
 import { teamMembers, organizations, organizationInvitations, userProfiles, UserProfile, type Organization } from "@foresight-cdss-next/db";
+import {
+  publishOrganizationCreated,
+  // publishOrganizationUpdated,
+  // publishOrganizationDeleted,
+  // publishUserCreated,
+  // publishUserUpdated,
+  // publishUserDeleted,
+  // publishTeamMemberAdded,
+  // publishTeamMemberUpdated,
+  // publishTeamMemberRemoved
+} from "@/lib/webhooks";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
@@ -347,6 +358,23 @@ async function handleOrganizationCreated(data: OrganizationWebhookEvent['data'])
 
     if (error) {
       throw error;
+    }
+
+    // Get the created organization to get internal ID
+    const { data: createdOrg } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.id))
+    );
+
+    // Publish webhook event
+    if (createdOrg?.id) {
+      await publishOrganizationCreated(createdOrg.id, {
+        clerk_org_id: data.id,
+        name: data.name,
+        slug: data.slug,
+        created_at: new Date().toISOString()
+      });
     }
 
     return { success: true, message: `Organization ${data.id} created` };

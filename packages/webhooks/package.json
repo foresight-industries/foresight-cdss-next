@@ -1,0 +1,28 @@
+{
+  "name": "@foresight-cdss-next/webhooks",
+  "version": "1.0.0",
+  "description": "Webhook utilities for Foresight CDSS",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@aws-sdk/client-eventbridge": "^3.0.0",
+    "@aws-sdk/client-rds-data": "^3.0.0",
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  }
+}
