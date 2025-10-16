@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CheckCircle, Loader2, AlertCircle, Mail } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
@@ -16,53 +15,57 @@ export default function ConfirmEmailClient() {
   const [error, setError] = useState('');
 
   const router = useRouter();
-  const supabase = createClient();
 
   useEffect(() => {
     const handleEmailConfirmation = async () => {
       try {
-        // Get the hash fragment from the URL which contains the auth tokens
-        const hashFragment = globalThis.location.hash.substring(1);
-        const params = new URLSearchParams(hashFragment);
+        // Check for Clerk verification token in URL params
+        const urlParams = new URLSearchParams(globalThis.location.search);
+        const token = urlParams.get('token');
+        const type = urlParams.get('type');
 
-        const accessToken = params.get('access_token');
-        const refreshToken = params.get('refresh_token');
-        const type = params.get('type');
+        if (type === 'email_verification' && token) {
+          // Handle Clerk email verification
+          try {
+            const response = await fetch('/api/auth/verify-email', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ token }),
+            });
 
-        if (type === 'signup' && accessToken && refreshToken) {
-          // Set the session with the tokens from the email link
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-
-          if (error) {
-            console.error('Error confirming email:', error);
-            setError('Failed to confirm email. The link may be invalid or expired.');
-          } else {
-            setIsSuccess(true);
-            // Redirect to dashboard after successful confirmation
-            setTimeout(() => {
-              router.push('/');
-            }, 3000);
+            if (response.ok) {
+              setIsSuccess(true);
+              // Redirect to dashboard after successful confirmation
+              setTimeout(() => {
+                router.push('/');
+              }, 3000);
+            } else {
+              const data = await response.json();
+              setError(data.error || 'Failed to verify email. The link may be invalid or expired.');
+            }
+          } catch (apiError) {
+            console.error('API error:', apiError);
+            setError('Failed to verify email. Please try again.');
           }
-        } else if (type === 'recovery') {
+        } else if (type === 'password_reset') {
           // Handle password reset confirmation - redirect to reset password page
           router.push('/reset-password');
           return;
         } else {
-          setError('Invalid confirmation link. Please check the link from your email.');
+          setError('Invalid verification link. Please check the link from your email.');
         }
       } catch (err) {
-        console.error('Error during email confirmation:', err);
-        setError('An unexpected error occurred during confirmation.');
+        console.error('Error during email verification:', err);
+        setError('An unexpected error occurred during verification.');
       } finally {
         setIsLoading(false);
       }
     };
 
     handleEmailConfirmation();
-  }, [router, supabase.auth]);
+  }, [router]);
 
   if (isLoading) {
     return (
@@ -204,7 +207,7 @@ export default function ConfirmEmailClient() {
 
           <div className="text-center">
             <p className="text-xs text-gray-500">
-              © 2025 Foresight Industries. All rights reserved.
+              &copy; 2025 Foresight Industries. All rights reserved.
             </p>
           </div>
         </div>

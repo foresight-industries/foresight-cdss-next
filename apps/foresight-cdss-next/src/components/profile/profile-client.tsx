@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { createClient } from '@/lib/supabase/client';
 import { useUser } from '@clerk/nextjs';
 
 interface ProfileClientProps {
@@ -29,7 +28,7 @@ export default function ProfileClient({
   userId,
 }: Readonly<ProfileClientProps>) {
   const { user } = useUser();
-  const userEmail = user?.emailAddresses?.[0].emailAddress ?? "";
+  // const userEmail = user?.emailAddresses?.[0].emailAddress ?? "";
 
   const [hasChanges, setHasChanges] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -158,28 +157,19 @@ export default function ProfileClient({
     setPasswordLoading(true);
 
     try {
-      const supabase = createClient();
-
-      // First, verify the current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: passwordForm.currentPassword,
+      // Call API to change password with Clerk
+      const response = await fetch('/api/auth/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
       });
 
-      if (signInError) {
-        setPasswordError("Current password is incorrect");
-        setPasswordLoading(false);
-        return;
-      }
-
-      // Update the password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: passwordForm.newPassword,
-      });
-
-      if (updateError) {
-        setPasswordError(updateError.message);
-      } else {
+      if (response.ok) {
         setPasswordSuccess(true);
         setPasswordForm({
           currentPassword: "",
@@ -190,6 +180,9 @@ export default function ProfileClient({
           setShowPasswordDialog(false);
           setPasswordSuccess(false);
         }, 2000);
+      } else {
+        const data = await response.json();
+        setPasswordError(data.error || 'Failed to update password. Please try again.');
       }
     } catch {
       setPasswordError("An unexpected error occurred");
@@ -347,6 +340,7 @@ export default function ProfileClient({
                 <Input
                   id="email"
                   type="email"
+                  inputMode="email"
                   value={profileForm.email}
                   onChange={(e) => handleProfileChange("email", e.target.value)}
                 />

@@ -12,8 +12,7 @@ export default function NoTeamHome() {
 
   const handleSignOut = async () => {
     try {
-      await signOut();
-      router.push('/login');
+      await signOut({ redirectUrl: '/login' });
     } catch (error) {
       console.error('Error signing out:', error);
     }

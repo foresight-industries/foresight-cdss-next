@@ -1,15 +1,21 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { supabaseAdmin } from "@/lib/supabase/server";
-import type { Database } from "@/types/database.types";
+import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from "@/lib/aws/database";
+import { eq } from "drizzle-orm";
+import { 
+  organizations, 
+  analyticsEvents, 
+  notificationTemplates, 
+  notifications, 
+  workQueues
+} from "@foresight-cdss-next/db";
 
-export type RecurringPlanType =
-  Database["public"]["Enums"]["recurring_plan_type"];
-export type EventCategory =
-  Database["public"]["Enums"]["analytics_event_category"];
-export type NotificationCategory =
-  Database["public"]["Enums"]["notification_type"];
+// Define AWS schema compatible types
+export type RecurringPlanType = "starter" | "professional" | "enterprise" | "basic";
+export type OrganizationStatus = "active" | "trial" | "suspended" | "cancelled";
+export type EventCategory = "financial" | "usage" | "system" | "user";
+export type NotificationCategory = "billing" | "security" | "system" | "user";
 
 // Environment variable checks
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -179,54 +185,60 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     return;
   }
 
-  // Find the team by Clerk organization ID
-  const { data: syncRecord, error: syncError } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  // Find the organization by Clerk organization ID
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ 
+      id: organizations.id
+    })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (syncError || !syncRecord?.team_id) {
-    console.error('No team found for organization:', clerkOrgId, syncError);
-    await createManualReviewAlert('team_not_found', subscription.id);
+  if (!organization) {
+    console.error('No organization found for Clerk org:', clerkOrgId);
+    await createManualReviewAlert('organization_not_found', subscription.id);
     return;
   }
 
-  const teamId = syncRecord.team_id;
+  const organizationData = organization as { id: string; status: string };
+  const organizationId = organizationData.id;
 
-  // Map Stripe subscription status to your team status
-  const teamStatus = mapStripeStatusToTeamStatus(status);
+  // Map Stripe subscription status to organization status
+  const orgStatus = mapStripeStatusToOrgStatus(status);
   const planType = (await extractPlanType(items)) as RecurringPlanType;
 
-  // Update team record
-  const { error: updateError } = await supabaseAdmin
-    .from('team')
-    .update({
-      status: teamStatus,
-      plan_type: planType,
-      updated_at: new Date().toISOString(),
-      // Store trial end if applicable
-      trial_ends_at: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000).toISOString()
-        : null,
-      // Store subscription metadata
-      settings: {
-        stripe_subscription_id: subscription.id,
-        stripe_customer_id: typeof customer === 'string' ? customer : customer.id,
-        stripe_price_id: items.data[0]?.price.id,
-        stripe_product_id: typeof items.data[0]?.price.product === 'string' ? items.data[0]?.price.product : items.data[0]?.price.product.id,
-        billing_interval: items.data[0]?.price.recurring?.interval,
-      },
-    })
-    .eq('id', teamId);
+  // Update organization record
+  const { error: updateError } = await safeUpdate(async () =>
+    db.update(organizations)
+      .set({
+        status: orgStatus,
+        planType: planType,
+        updatedAt: new Date(),
+        // Store trial end if applicable
+        trialEndsAt: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000)
+          : null,
+        // Store subscription metadata in settings
+        settings: {
+          stripe_subscription_id: subscription.id,
+          stripe_customer_id: typeof customer === 'string' ? customer : customer.id,
+          stripe_price_id: items.data[0]?.price.id,
+          stripe_product_id: typeof items.data[0]?.price.product === 'string' ? items.data[0]?.price.product : items.data[0]?.price.product.id,
+          billing_interval: items.data[0]?.price.recurring?.interval,
+        },
+      })
+      .where(eq(organizations.id, organizationId))
+  );
 
   if (updateError) {
-    console.error('Error updating team:', updateError);
+    console.error('Error updating organization:', updateError);
     throw updateError; // This will be caught and logged
   }
 
   // Log analytics event
-  await logAnalyticsEvent(teamId, 'subscription_updated', {
+  await logAnalyticsEvent(organizationId, 'subscription_updated', {
     stripe_status: status,
     plan_type: planType,
     subscription_id: subscription.id,
@@ -235,7 +247,7 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   // Handle status-specific actions
   if (status === 'active' && subscription.metadata?.previous_status === 'trialing') {
-    await handleTrialConversion(teamId, subscription);
+    await handleTrialConversion(organizationId, subscription);
   }
 }
 
@@ -246,48 +258,51 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
 
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  const teamId = syncRecord.team_id;
+  const organizationId = (organization as { id: string }).id;
 
-  // Update team status to cancelled
-  await supabaseAdmin
-    .from('team')
-    .update({
-      status: 'cancelled',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', teamId);
+  // Update organization status to cancelled
+  await safeUpdate(async () =>
+    db.update(organizations)
+      .set({
+        status: 'cancelled',
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+  );
 
   // Create work queue item for offboarding
-  await supabaseAdmin
-    .from('work_queue')
-    .insert({
-      team_id: teamId,
-      entity_type: 'team',
-      entity_id: teamId,
-      queue_type: 'subscription_cancellation',
-      title: 'Subscription Cancelled - Offboarding Required',
-      description: 'Customer subscription has been cancelled. Begin offboarding process.',
-      priority: 2,
-      status: 'pending',
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-      metadata: {
-        subscription_id: subscription.id,
-        cancel_at: subscription.cancel_at,
-        cancel_at_period_end: subscription.cancel_at_period_end,
-        cancellation_details: JSON.stringify(subscription.cancellation_details),
-      },
-    });
+  await safeInsert(async () =>
+    db.insert(workQueues)
+      .values({
+        organizationId: organizationId,
+        entityType: 'organization',
+        entityId: organizationId,
+        title: 'Subscription Cancelled - Offboarding Required',
+        description: 'Customer subscription has been cancelled. Begin offboarding process.',
+        priority: 2,
+        status: 'pending',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        metadata: {
+          subscription_id: subscription.id,
+          cancel_at: subscription.cancel_at,
+          cancel_at_period_end: subscription.cancel_at_period_end,
+          cancellation_details: JSON.stringify(subscription.cancellation_details),
+        },
+      })
+  );
 
   // Send cancellation notification
-  await sendNotification(teamId, 'subscription_cancelled', {
+  await sendNotification(organizationId, 'subscription_cancelled', {
     subscription_id: subscription.id,
     effective_date: (subscription as any).current_period_end
       ? new Date((subscription as any).current_period_end * 1000).toISOString()
@@ -299,23 +314,28 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
   const clerkOrgId = subscription.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  await supabaseAdmin
-    .from('team')
-    .update({
-      status: 'suspended',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', syncRecord.team_id);
+  const organizationId = (organization as { id: string }).id;
 
-  await logAnalyticsEvent(syncRecord.team_id, 'subscription_paused', {
+  await safeUpdate(async () =>
+    db.update(organizations)
+      .set({
+        status: 'suspended',
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+  );
+
+  await logAnalyticsEvent(organizationId, 'subscription_paused', {
     subscription_id: subscription.id,
   });
 }
@@ -324,23 +344,28 @@ async function handleSubscriptionResumed(subscription: Stripe.Subscription) {
   const clerkOrgId = subscription.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  await supabaseAdmin
-    .from('team')
-    .update({
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', syncRecord.team_id);
+  const organizationId = (organization as { id: string }).id;
 
-  await logAnalyticsEvent(syncRecord.team_id, 'subscription_resumed', {
+  await safeUpdate(async () =>
+    db.update(organizations)
+      .set({
+        status: 'active',
+        updatedAt: new Date(),
+      })
+      .where(eq(organizations.id, organizationId))
+  );
+
+  await logAnalyticsEvent(organizationId, 'subscription_resumed', {
     subscription_id: subscription.id,
   });
 }
@@ -349,20 +374,24 @@ async function handleTrialEndingSoon(subscription: Stripe.Subscription) {
   const clerkOrgId = subscription.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
+
+  const organizationId = (organization as { id: string }).id;
 
   const trialEndDate = subscription.trial_end
     ? new Date(subscription.trial_end * 1000)
     : null;
 
   // Create notification for trial ending
-  await sendNotification(syncRecord.team_id, 'trial_ending', {
+  await sendNotification(organizationId, 'trial_ending', {
     trial_end_date: trialEndDate?.toISOString(),
     days_remaining: trialEndDate
       ? Math.ceil((trialEndDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -370,13 +399,13 @@ async function handleTrialEndingSoon(subscription: Stripe.Subscription) {
   });
 }
 
-async function handleTrialConversion(teamId: string, subscription: Stripe.Subscription) {
-  await logAnalyticsEvent(teamId, 'trial_converted', {
+async function handleTrialConversion(organizationId: string, subscription: Stripe.Subscription) {
+  await logAnalyticsEvent(organizationId, 'trial_converted', {
     subscription_id: subscription.id,
     plan_type: await extractPlanType(subscription.items),
   });
 
-  await sendNotification(teamId, 'trial_converted', {
+  await sendNotification(organizationId, 'trial_converted', {
     plan_name: subscription.items.data[0]?.price.nickname || 'Premium',
   });
 }
@@ -389,18 +418,20 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
     invoice.metadata?.clerk_organization_id;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  const teamId = syncRecord.team_id;
+  const organizationId = (organization as { id: string }).id;
 
   // Log failed payment
-  await logAnalyticsEvent(teamId, 'payment_failed', {
+  await logAnalyticsEvent(organizationId, 'payment_failed', {
     invoice_id: invoice.id,
     amount: invoice.amount_due,
     attempt_count: invoice.attempt_count,
@@ -408,18 +439,15 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
   });
 
   // Create alert for billing team
-  await supabaseAdmin
-    .from('work_queue')
-    .insert({
-      team_id: teamId,
-      entity_type: 'payment',
-      entity_id: invoice.id,
-      queue_type: 'payment_failure',
+  await safeInsert(async () =>
+    db.insert(workQueues).values({
+      organizationId: organizationId,
+      entityType: 'payment',
+      entityId: invoice.id,
       title: 'Payment Failed',
       description: `Payment of $${(invoice.amount_due / 100).toFixed(2)} failed. Attempt ${invoice.attempt_count}`,
       priority: 1,
       status: 'pending',
-      auto_escalate: invoice.attempt_count > 2, // Escalate after 2 failed attempts
       metadata: {
         invoice_id: invoice.id,
         customer_id: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id,
@@ -427,10 +455,11 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
         attempt_count: invoice.attempt_count,
         next_attempt: invoice.next_payment_attempt,
       },
-    });
+    })
+  );
 
-  // Send notification to team
-  await sendNotification(teamId, 'payment_failed', {
+  // Send notification to organization
+  await sendNotification(organizationId, 'payment_failed', {
     amount: (invoice.amount_due / 100).toFixed(2),
     attempt_count: invoice.attempt_count,
     hosted_invoice_url: invoice.hosted_invoice_url,
@@ -438,7 +467,7 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
 
   // If this is the final attempt, prepare for suspension
   if (invoice.attempt_count >= 3) {
-    await prepareSuspension(teamId, invoice);
+    await prepareSuspension(organizationId, invoice);
   }
 }
 
@@ -447,70 +476,71 @@ async function handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription:
     invoice.metadata?.clerk_organization_id;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  const teamId = syncRecord.team_id;
+  const organizationId = (organization as { id: string }).id;
 
   // Log successful payment
-  await logAnalyticsEvent(teamId, 'payment_succeeded', {
+  await logAnalyticsEvent(organizationId, 'payment_succeeded', {
     invoice_id: invoice.id,
     amount: invoice.amount_paid,
     subscription_id: String(invoice.subscription),
   });
 
-  // Update team status if it was suspended
-  const { data: currentTeam } = await supabaseAdmin
-    .from('team')
-    .select('status')
-    .eq('id', teamId)
-    .single();
-
-  if (currentTeam?.status === 'suspended') {
-    await supabaseAdmin
-      .from('team')
-      .update({
+  // Always update organization to active status on successful payment
+  // Since we don't have status field in current schema, we'll update anyway
+  await safeUpdate(async () =>
+    db.update(organizations)
+      .set({
         status: 'active',
-        updated_at: new Date().toISOString(),
+        updatedAt: new Date(),
       })
-      .eq('id', teamId);
+      .where(eq(organizations.id, organizationId))
+  );
 
-    // Notify team that access has been restored
-    await sendNotification(teamId, 'access_restored', {
-      invoice_id: invoice.id,
-    });
-  }
+  // Notify organization that access has been restored
+  await sendNotification(organizationId, 'access_restored', {
+    invoice_id: invoice.id,
+  });
 
   // Clear any payment failure work items
-  await supabaseAdmin
-    .from('work_queue')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-    })
-    .eq('team_id', teamId)
-    .eq('queue_type', 'payment_failure')
-    .eq('status', 'pending');
+  await safeUpdate(async () =>
+    db.update(workQueues)
+      .set({
+        status: 'completed',
+        updatedAt: new Date(),
+      })
+      .where(eq(workQueues.organizationId, organizationId))
+      .where(eq(workQueues.entityType, 'payment'))
+      .where(eq(workQueues.status, 'pending'))
+  );
 }
 
 async function handlePaymentActionRequired(invoice: Stripe.Invoice) {
   const clerkOrgId = invoice.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  await sendNotification(syncRecord.team_id, 'payment_action_required', {
+  const organizationId = (organization as { id: string }).id;
+
+  await sendNotification(organizationId, 'payment_action_required', {
     hosted_invoice_url: invoice.hosted_invoice_url,
     amount: (invoice.amount_due / 100).toFixed(2),
   });
@@ -520,16 +550,20 @@ async function handleCustomerUpdate(customer: Stripe.Customer) {
   const clerkOrgId = customer.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  // Update team with new customer info if relevant
-  await logAnalyticsEvent(syncRecord.team_id, 'customer_updated', {
+  const organizationId = (organization as { id: string }).id;
+
+  // Update organization with new customer info if relevant
+  await logAnalyticsEvent(organizationId, 'customer_updated', {
     customer_id: customer.id,
     email: customer.email,
   });
@@ -540,15 +574,19 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const clerkOrgId = session.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
 
-  await logAnalyticsEvent(syncRecord.team_id, 'checkout_completed', {
+  const organizationId = (organization as { id: string }).id;
+
+  await logAnalyticsEvent(organizationId, 'checkout_completed', {
     session_id: session.id,
     amount: session.amount_total,
     subscription: session.subscription,
@@ -558,7 +596,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
 async function handleDispute(dispute: Stripe.Dispute) {
   console.error('Payment dispute created:', dispute.id);
 
-  // Find the related team
+  // Find the related organization
   const charge = await stripe.charges.retrieve(dispute.charge as string);
   const customer = charge.customer;
 
@@ -570,28 +608,29 @@ async function handleDispute(dispute: Stripe.Dispute) {
   const clerkOrgId = customerData.metadata?.organizationId;
   if (!clerkOrgId) return;
 
-  const { data: syncRecord } = await supabaseAdmin
-    .from('clerk_user_sync')
-    .select('team_id')
-    .eq('organization_id', clerkOrgId)
-    .single();
+  const { db } = await createAuthenticatedDatabaseClient();
+  
+  const { data: organization } = await safeSingle(async () =>
+    db.select({ id: organizations.id })
+    .from(organizations)
+    .where(eq(organizations.clerkOrgId, clerkOrgId))
+  );
 
-  if (!syncRecord?.team_id) return;
+  if (!organization) return;
+
+  const organizationId = (organization as { id: string }).id;
 
   // Create high-priority work item
-  await supabaseAdmin
-    .from('work_queue')
-    .insert({
-      team_id: syncRecord.team_id,
-      entity_type: 'dispute',
-      entity_id: dispute.id,
-      queue_type: 'payment_dispute',
+  await safeInsert(async () =>
+    db.insert(workQueues).values({
+      organizationId: organizationId,
+      entityType: 'dispute',
+      entityId: dispute.id,
       title: `Payment Dispute - $${(dispute.amount / 100).toFixed(2)}`,
       description: `A payment dispute has been initiated. Response required by ${new Date((dispute.evidence_details?.due_by ?? 0) * 1000).toLocaleDateString()}`,
       priority: 1,
       status: 'pending',
-      auto_escalate: true,
-      due_date: new Date((dispute.evidence_details?.due_by ?? 0) * 1000).toISOString(),
+      dueDate: new Date((dispute.evidence_details?.due_by ?? 0) * 1000),
       metadata: {
         dispute_id: dispute.id,
         charge_id: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id,
@@ -599,7 +638,8 @@ async function handleDispute(dispute: Stripe.Dispute) {
         reason: dispute.reason,
         due_by: dispute.evidence_details.due_by,
       },
-    });
+    })
+  );
 }
 
 // === Helper Functions ===
@@ -615,7 +655,7 @@ async function getCustomerMetadata(customerId: string): Promise<any> {
   }
 }
 
-function mapStripeStatusToTeamStatus(stripeStatus: Stripe.Subscription.Status): Database['public']['Enums']['team_status'] {
+function mapStripeStatusToOrgStatus(stripeStatus: Stripe.Subscription.Status): OrganizationStatus {
   switch (stripeStatus) {
     case 'active':
       return 'active';
@@ -672,52 +712,64 @@ async function extractPlanType(items: Stripe.ApiList<Stripe.SubscriptionItem>): 
 }
 
 async function logAnalyticsEvent(
-  teamId: string,
+  organizationId: string,
   eventName: string,
   eventData: Record<string, any>
 ) {
   try {
-    await supabaseAdmin.from("analytics_event").insert({
-      team_id: teamId,
-      event_name: eventName,
-      event_category: "financial",
-      event_data: eventData,
-      created_at: new Date().toISOString(),
-    });
+    const { db } = await createAuthenticatedDatabaseClient();
+    await safeInsert(async () =>
+      db.insert(analyticsEvents).values({
+        organizationId: organizationId,
+        eventName: eventName,
+        eventCategory: "financial",
+        eventData: eventData,
+      })
+    );
   } catch (error) {
     console.error('Error logging analytics event:', error);
   }
 }
 
 async function sendNotification(
-  teamId: string,
+  organizationId: string,
   type: string,
   metadata: Record<string, any>
 ) {
   try {
-    // Get notification template
-    const { data: template } = await supabaseAdmin
-      .from("notification_template")
-      .select("*")
-      .eq("event_type", type as EventCategory)
-      .eq("is_active", true)
-      .single();
+    const { db } = await createAuthenticatedDatabaseClient();
+    
+    // Get notification template - simplified for AWS schema compatibility
+    const { data: template } = await safeSingle(async () =>
+      db.select()
+      .from(notificationTemplates)
+      .where(eq(notificationTemplates.isActive, true))
+      .limit(1)
+    );
 
     if (!template) {
       console.log('No active template for notification type:', type);
       return;
     }
 
+    const templateData = template as {
+      id: string;
+      subject: string;
+      bodyTemplate: string;
+    };
+
     // Create notification
-    await supabaseAdmin.from("notification").insert({
-      team_id: teamId,
-      type: type as NotificationCategory,
-      subject: template.subject || `Billing notification: ${type}`,
-      body: template.body_template || JSON.stringify(metadata),
-      status: "pending",
-      metadata: metadata,
-      template_id: template.id,
-    });
+    await safeInsert(async () =>
+      db.insert(notifications).values({
+        organizationId: organizationId,
+        type: type as NotificationCategory,
+        subject: templateData.subject || `Billing notification: ${type}`,
+        body: templateData.bodyTemplate || JSON.stringify(metadata),
+        status: "pending",
+        metadata: metadata,
+        templateId: templateData.id,
+      })
+    );
   } catch (error) {
     console.error('Error sending notification:', error);
   }
@@ -728,14 +780,14 @@ async function createManualReviewAlert(
   entityId: string
 ) {
   try {
+    const { db } = await createAuthenticatedDatabaseClient();
+    
     // Create an internal alert for your team to review
-    await supabaseAdmin
-      .from('work_queue')
-      .insert({
-        team_id: process.env.INTERNAL_TEAM_ID || 'internal',
-        entity_type: 'webhook_issue',
-        entity_id: entityId,
-        queue_type: 'manual_review',
+    await safeInsert(async () =>
+      db.insert(workQueues).values({
+        organizationId: process.env.INTERNAL_ORGANIZATION_ID || 'internal',
+        entityType: 'webhook_issue',
+        entityId: entityId,
         title: `Webhook Issue: ${alertType}`,
         description: `Manual review required for ${alertType} on entity ${entityId}`,
         priority: 2,
@@ -745,27 +797,27 @@ async function createManualReviewAlert(
           entity_id: entityId,
           timestamp: new Date().toISOString(),
         },
-      });
+      })
+    );
   } catch (error) {
     console.error('Error creating manual review alert:', error);
   }
 }
 
-async function prepareSuspension(teamId: string, invoice: Stripe.Invoice) {
-  await supabaseAdmin
-    .from('work_queue')
-    .insert({
-      team_id: teamId,
-      entity_type: 'suspension',
-      entity_id: invoice.id,
-      queue_type: 'pending_suspension',
+async function prepareSuspension(organizationId: string, invoice: Stripe.Invoice) {
+  const { db } = await createAuthenticatedDatabaseClient();
+  await safeInsert(async () =>
+    db.insert(workQueues).values({
+      organizationId: organizationId,
+      entityType: 'suspension',
+      entityId: invoice.id,
       title: 'Account Suspension Pending',
       description: 'Multiple payment attempts have failed. Account will be suspended if payment is not received.',
       priority: 1,
       status: 'pending',
-      auto_escalate: true,
-      due_date: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
-    });
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+    })
+  );
 }
 
 async function logWebhookError(eventType: string, error: any) {

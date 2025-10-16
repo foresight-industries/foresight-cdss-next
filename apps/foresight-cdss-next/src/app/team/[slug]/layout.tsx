@@ -1,6 +1,8 @@
 import { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createDatabaseClient, safeSingle } from '@/lib/aws/database';
+import { eq } from 'drizzle-orm';
+import { organizations } from '@foresight-cdss-next/db';
 import { redirect } from 'next/navigation';
 
 interface TeamLayoutProps {
@@ -8,32 +10,43 @@ interface TeamLayoutProps {
   params: { slug: string };
 }
 
-// This will be your team-specific layout
+// This will be your organization-specific layout
 export default async function TeamLayout({ children, params }: TeamLayoutProps) {
-  const supabase = await createSupabaseServerClient();
+  const { db } = await createDatabaseClient();
   const headersList = await headers();
 
-  // Get team info from middleware headers
+  // Get organization info from middleware headers
   const teamSlug = headersList.get('x-team-slug') || params.slug;
   const teamId = headersList.get('x-team-id');
   // const teamName = headersList.get('x-team-name');
 
-  // Verify team exists (extra safety check)
+  // Verify organization exists (extra safety check)
   if (!teamId) {
-    const { data: team, error } = await supabase
-      .from('team')
-      .select('id, slug, name, logo_url, branding_config')
-      .eq('slug', teamSlug)
-      .single();
+    const { data: organization } = await safeSingle(async () =>
+      db.select({
+        id: organizations.id,
+        slug: organizations.slug,
+        name: organizations.name,
+        deletedAt: organizations.deletedAt
+      })
+      .from(organizations)
+      .where(eq(organizations.slug, teamSlug))
+    );
 
-    if (error || !team) {
+    if (!organization) {
+      redirect('/team-not-found');
+    }
+
+    const organizationData = organization as { id: string; slug: string; name: string; deletedAt: Date | null };
+
+    if (organizationData.deletedAt) {
       redirect('/team-not-found');
     }
   }
 
   return (
     <div className="team-app" data-team-slug={teamSlug}>
-      {/* You can add team-specific branding, navigation, etc. here */}
+      {/* You can add organization-specific branding, navigation, etc. here */}
       <div className="team-content">
         {children}
       </div>
@@ -41,20 +54,25 @@ export default async function TeamLayout({ children, params }: TeamLayoutProps) 
   );
 }
 
-// Dynamic metadata based on team
+// Dynamic metadata based on organization
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  const supabase = await createSupabaseServerClient();
+  const { db } = await createDatabaseClient();
 
   const { slug } = await params;
 
-  const { data: team } = await supabase
-    .from('team')
-    .select('name, slug')
-    .eq('slug', slug)
-    .single();
+  const { data: organization } = await safeSingle(async () =>
+    db.select({
+      name: organizations.name,
+      slug: organizations.slug
+    })
+    .from(organizations)
+    .where(eq(organizations.slug, slug))
+  );
+
+  const organizationData = organization as { name: string; slug: string } | null;
 
   return {
-    title: team ? `${team.name} - Foresight RCM` : 'Team - Foresight RCM',
-    description: `${team?.name || 'Team'} dashboard powered by Foresight RCM`,
+    title: organizationData ? `${organizationData.name} - Foresight RCM` : 'Organization - Foresight RCM',
+    description: `${organizationData?.name || 'Organization'} dashboard powered by Foresight RCM`,
   };
 }

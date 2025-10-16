@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq } from 'drizzle-orm';
+import { teamMembers, payerConfigs, payerContracts } from '@foresight-cdss-next/db';
 import type { CreatePayerConfigRequest } from '@/types/payer.types';
 
 // GET - Get payer configurations
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -14,28 +16,37 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const payerId = params.id;
 
     // Verify user has access to this payer
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member) {
+    if (!member || member.length === 0) {
       return NextResponse.json({ error: 'Team access required' }, { status: 403 });
     }
 
+    const memberData = member[0] as any;
+
     // Get payer configurations
-    const { data: configs, error } = await supabase
-      .from('payer_config')
-      .select('*')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', member?.team_id ?? '')
-      .order('config_type');
+    const { data: configs, error } = await safeSelect(async () =>
+      db.select()
+        .from(payerConfigs)
+        .where(and(
+          eq(payerConfigs.payerId, payerId),
+          eq(payerConfigs.organizationId, memberData.organizationId)
+        ))
+    );
 
     if (error) {
       console.error('Error fetching payer configs:', error);
@@ -63,98 +74,110 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const payerId = params.id;
     const body: CreatePayerConfigRequest = await request.json();
 
-    // Validate request body
+    // Validate request body based on the actual payerConfigs schema
     const {
-      config_type,
-      auto_submit_claims,
-      auto_submit_pa,
-      timely_filing_days,
-      eligibility_cache_hours,
-      submission_batch_size,
-      submission_schedule,
-      portal_config,
-      special_rules
-    } = body;
+      submissionMethod,
+      clearinghouseId,
+      requiresPriorAuth,
+      priorAuthTypes,
+      maxClaimsPerBatch,
+      submissionFrequency,
+      autoSubmit,
+      retryAttempts,
+      notificationSettings
+    } = body as any;
 
-    if (!config_type) {
+    if (!submissionMethod) {
       return NextResponse.json({
-        error: 'config_type is required'
+        error: 'submissionMethod is required'
       }, { status: 400 });
     }
 
     // Get user's current team and verify admin permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0) {
+      return NextResponse.json({ error: 'Team access required' }, { status: 403 });
+    }
+
+    const memberData = member[0] as any;
+    if (!['super_admin', 'admin'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify payer exists and belongs to team
-    const { data: payer } = await supabase
-      .from('payer')
-      .select('id, team_id')
-      .eq('id', Number(payerId))
-      .eq('team_id', member?.team_id ?? '')
-      .single();
+    // Verify payer contract exists for organization
+    const { data: payerContract } = await safeSingle(async () =>
+      db.select({ id: payerContracts.id })
+        .from(payerContracts)
+        .where(and(
+          eq(payerContracts.payerId, payerId),
+          eq(payerContracts.organizationId, memberData.organizationId)
+        ))
+    );
 
-    if (!payer) {
-      return NextResponse.json({ error: 'Payer not found' }, { status: 404 });
+    if (!payerContract) {
+      return NextResponse.json({ error: 'Payer not found for this organization' }, { status: 404 });
     }
 
-    // Check if config already exists for this type
-    const { data: existingConfig } = await supabase
-      .from('payer_config')
-      .select('id')
-      .eq('payer_id', Number(payerId))
-      .eq('team_id', member?.team_id ?? '')
-      .eq('config_type', config_type)
-      .single();
+    // Check if config already exists
+    const { data: existingConfig } = await safeSingle(async () =>
+      db.select({ id: payerConfigs.id })
+        .from(payerConfigs)
+        .where(and(
+          eq(payerConfigs.payerId, payerId),
+          eq(payerConfigs.organizationId, memberData.organizationId)
+        ))
+    );
 
     if (existingConfig) {
       return NextResponse.json({
-        error: `Configuration for ${config_type} already exists. Use PUT to update.`
+        error: 'Configuration already exists. Use PUT to update.'
       }, { status: 409 });
     }
 
     // Create payer configuration
-    const insertData = {
-      payer_id: Number(payerId),
-      team_id: member.team_id ?? '',
-      config_type,
-      auto_submit_claims: auto_submit_claims || null,
-      auto_submit_pa: auto_submit_pa || null,
-      timely_filing_days: timely_filing_days || null,
-      eligibility_cache_hours: eligibility_cache_hours || null,
-      submission_batch_size: submission_batch_size || null,
-      submission_schedule: submission_schedule || null,
-      portal_config: (portal_config || null) as any,
-      special_rules: (special_rules || null) as any
-    };
+    const { data: config, error } = await safeInsert(async () =>
+      db.insert(payerConfigs)
+        .values({
+          organizationId: memberData.organizationId,
+          payerId: payerId,
+          submissionMethod: submissionMethod,
+          clearinghouseId: clearinghouseId || null,
+          requiresPriorAuth: requiresPriorAuth || false,
+          priorAuthTypes: priorAuthTypes || null,
+          maxClaimsPerBatch: maxClaimsPerBatch || 100,
+          submissionFrequency: submissionFrequency || null,
+          autoSubmit: autoSubmit || false,
+          retryAttempts: retryAttempts || 3,
+          notificationSettings: notificationSettings || null
+        })
+        .returning()
+    );
 
-    const { data: config, error } = await supabase
-      .from('payer_config')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) {
+    if (error || !config || config.length === 0) {
       console.error('Error creating payer config:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     return NextResponse.json({
-      config
+      config: config[0]
     }, { status: 201 });
 
   } catch (error) {

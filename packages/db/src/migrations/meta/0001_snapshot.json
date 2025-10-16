@@ -1,6 +1,6 @@
 {
-  "id": "abd80e5a-d261-4315-ab1c-a13960521492",
-  "prevId": "ad49a23a-ff6a-46d0-9a76-af59f0f4a889",
+  "id": "6312f3d6-3bb3-474a-853b-4ab2f97bb241",
+  "prevId": "bba0ac7c-bb0c-4914-b26e-d448b2482e44",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14437,6 +14437,359 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.external_service_credential": {
+      "name": "external_service_credential",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_name": {
+          "name": "service_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "service_type": {
+          "name": "service_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "environment": {
+          "name": "environment",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'production'"
+        },
+        "secret_arn": {
+          "name": "secret_arn",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "secret_region": {
+          "name": "secret_region",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'us-east-1'"
+        },
+        "credential_name": {
+          "name": "credential_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "is_valid": {
+          "name": "is_valid",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "last_validated": {
+          "name": "last_validated",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_validation_error": {
+          "name": "last_validation_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation_attempts": {
+          "name": "validation_attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_used": {
+          "name": "last_used",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usage_count": {
+          "name": "usage_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "enabled_features": {
+          "name": "enabled_features",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "connection_settings": {
+          "name": "connection_settings",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "auto_renew": {
+          "name": "auto_renew",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "updated_by": {
+          "name": "updated_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "external_service_credential_org_service_idx": {
+          "name": "external_service_credential_org_service_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_service_type_idx": {
+          "name": "external_service_credential_service_type_idx",
+          "columns": [
+            {
+              "expression": "service_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_active_idx": {
+          "name": "external_service_credential_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_valid_idx": {
+          "name": "external_service_credential_valid_idx",
+          "columns": [
+            {
+              "expression": "is_valid",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_secret_arn_idx": {
+          "name": "external_service_credential_secret_arn_idx",
+          "columns": [
+            {
+              "expression": "secret_arn",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_last_validated_idx": {
+          "name": "external_service_credential_last_validated_idx",
+          "columns": [
+            {
+              "expression": "last_validated",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_expires_at_idx": {
+          "name": "external_service_credential_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "external_service_credential_org_service_unique_idx": {
+          "name": "external_service_credential_org_service_unique_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "service_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "environment",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"external_service_credential\".\"is_active\" = true AND \"external_service_credential\".\"deleted_at\" IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "external_service_credential_organization_id_organization_id_fk": {
+          "name": "external_service_credential_organization_id_organization_id_fk",
+          "tableFrom": "external_service_credential",
+          "tableTo": "organization",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "external_service_credential_created_by_team_member_id_fk": {
+          "name": "external_service_credential_created_by_team_member_id_fk",
+          "tableFrom": "external_service_credential",
+          "tableTo": "team_member",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "external_service_credential_updated_by_team_member_id_fk": {
+          "name": "external_service_credential_updated_by_team_member_id_fk",
+          "tableFrom": "external_service_credential",
+          "tableTo": "team_member",
+          "columnsFrom": [
+            "updated_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.fee_schedule_item": {
       "name": "fee_schedule_item",
       "schema": "",
@@ -15840,6 +16193,478 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hcpcs_code_master": {
+      "name": "hcpcs_code_master",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hcpcs_code": {
+          "name": "hcpcs_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_description": {
+          "name": "short_description",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "long_description": {
+          "name": "long_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "level": {
+          "name": "level",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'II'"
+        },
+        "action_code": {
+          "name": "action_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coverage_status": {
+          "name": "coverage_status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pricing_indicator": {
+          "name": "pricing_indicator",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "multiple_pricing_indicator": {
+          "name": "multiple_pricing_indicator",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asc_payment_indicator": {
+          "name": "asc_payment_indicator",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asc_group_payment_weight": {
+          "name": "asc_group_payment_weight",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "termination_date": {
+          "name": "termination_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "usage_count": {
+          "name": "usage_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "default": 0
+        },
+        "last_used_date": {
+          "name": "last_used_date",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hcpcs_code_master_code_idx": {
+          "name": "hcpcs_code_master_code_idx",
+          "columns": [
+            {
+              "expression": "hcpcs_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_category_idx": {
+          "name": "hcpcs_code_master_category_idx",
+          "columns": [
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_active_idx": {
+          "name": "hcpcs_code_master_active_idx",
+          "columns": [
+            {
+              "expression": "is_active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_action_code_idx": {
+          "name": "hcpcs_code_master_action_code_idx",
+          "columns": [
+            {
+              "expression": "action_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_effective_date_idx": {
+          "name": "hcpcs_code_master_effective_date_idx",
+          "columns": [
+            {
+              "expression": "effective_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_active_codes_idx": {
+          "name": "hcpcs_code_master_active_codes_idx",
+          "columns": [
+            {
+              "expression": "hcpcs_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "short_description",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "category",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"hcpcs_code_master\".\"is_active\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_master_usage_tracking_idx": {
+          "name": "hcpcs_code_master_usage_tracking_idx",
+          "columns": [
+            {
+              "expression": "usage_count",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "last_used_date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "hcpcs_code_master_hcpcs_code_unique": {
+          "name": "hcpcs_code_master_hcpcs_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "hcpcs_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.hcpcs_code_staging": {
+      "name": "hcpcs_code_staging",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "hcpcs_code": {
+          "name": "hcpcs_code",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "short_description": {
+          "name": "short_description",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "long_description": {
+          "name": "long_description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "category": {
+          "name": "category",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "level": {
+          "name": "level",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'II'"
+        },
+        "action_code": {
+          "name": "action_code",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "coverage_status": {
+          "name": "coverage_status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pricing_indicator": {
+          "name": "pricing_indicator",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "multiple_pricing_indicator": {
+          "name": "multiple_pricing_indicator",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asc_payment_indicator": {
+          "name": "asc_payment_indicator",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "asc_group_payment_weight": {
+          "name": "asc_group_payment_weight",
+          "type": "numeric(10, 4)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": true
+        },
+        "effective_date": {
+          "name": "effective_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "termination_date": {
+          "name": "termination_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "update_year": {
+          "name": "update_year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "import_batch": {
+          "name": "import_batch",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validation_status": {
+          "name": "validation_status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'pending'"
+        },
+        "validation_errors": {
+          "name": "validation_errors",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "hcpcs_code_staging_hcpcs_code_idx": {
+          "name": "hcpcs_code_staging_hcpcs_code_idx",
+          "columns": [
+            {
+              "expression": "hcpcs_code",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_staging_update_year_idx": {
+          "name": "hcpcs_code_staging_update_year_idx",
+          "columns": [
+            {
+              "expression": "update_year",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_staging_batch_idx": {
+          "name": "hcpcs_code_staging_batch_idx",
+          "columns": [
+            {
+              "expression": "import_batch",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "hcpcs_code_staging_validation_idx": {
+          "name": "hcpcs_code_staging_validation_idx",
+          "columns": [
+            {
+              "expression": "validation_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -21002,6 +21827,12 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "clerk_invitation_id": {
+          "name": "clerk_invitation_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
@@ -27832,12 +28663,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "pos_code": {
           "name": "pos_code",
           "type": "varchar(5)",
@@ -27903,21 +28728,6 @@
         }
       },
       "indexes": {
-        "place_of_service_org_idx": {
-          "name": "place_of_service_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "place_of_service_pos_code_idx": {
           "name": "place_of_service_pos_code_idx",
           "columns": [
@@ -27949,21 +28759,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "place_of_service_organization_id_organization_id_fk": {
-          "name": "place_of_service_organization_id_organization_id_fk",
-          "tableFrom": "place_of_service",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
@@ -35682,29 +36478,17 @@
           "primaryKey": false,
           "notNull": true
         },
+        "user_profile_id": {
+          "name": "user_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "clerk_user_id": {
           "name": "clerk_user_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "first_name": {
-          "name": "first_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_name": {
-          "name": "last_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         },
         "role": {
           "name": "role",
@@ -35759,7 +36543,7 @@
               "nulls": "last"
             },
             {
-              "expression": "clerk_user_id",
+              "expression": "user_profile_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -35770,11 +36554,11 @@
           "method": "btree",
           "with": {}
         },
-        "team_member_clerk_user_idx": {
-          "name": "team_member_clerk_user_idx",
+        "team_member_user_profile_idx": {
+          "name": "team_member_user_profile_idx",
           "columns": [
             {
-              "expression": "clerk_user_id",
+              "expression": "user_profile_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -35796,6 +36580,32 @@
           ],
           "columnsTo": [
             "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "team_member_user_profile_id_user_profile_id_fk": {
+          "name": "team_member_user_profile_id_user_profile_id_fk",
+          "tableFrom": "team_member",
+          "tableTo": "user_profile",
+          "columnsFrom": [
+            "user_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "team_member_clerk_user_id_user_profile_clerk_user_id_fk": {
+          "name": "team_member_clerk_user_id_user_profile_clerk_user_id_fk",
+          "tableFrom": "team_member",
+          "tableTo": "user_profile",
+          "columnsFrom": [
+            "clerk_user_id"
+          ],
+          "columnsTo": [
+            "clerk_user_id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"
@@ -36237,6 +37047,107 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.user_profile": {
+      "name": "user_profile",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "clerk_user_id": {
+          "name": "clerk_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "first_name": {
+          "name": "first_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_name": {
+          "name": "last_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "access_level",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'read'"
+        },
+        "is_active": {
+          "name": "is_active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "user_profile_clerk_user_idx": {
+          "name": "user_profile_clerk_user_idx",
+          "columns": [
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

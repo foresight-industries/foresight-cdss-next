@@ -1,17 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeUpdate, safeDelete } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { eq, and } from 'drizzle-orm';
+import { webhookConfigs, webhookDeliveries, teamMembers, organizations } from '@foresight-cdss-next/db';
 
 // Available webhook events
 const AVAILABLE_EVENTS = [
   'all',
-  'team.created',
-  'team.updated',
-  'team.deleted',
+  'organization.created',
+  'organization.updated',
+  'organization.deleted',
   'team_member.added',
   'team_member.updated',
   'team_member.removed'
-];
+] as const;
 
 // GET - Get specific webhook configuration
 export async function GET(
@@ -24,51 +26,122 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const webhookId = params.id;
 
-    // Get webhook with team verification
-    const { data: webhook, error } = await supabase
-      .from('webhook_config')
-      .select(`
-        *,
-        team!inner(id, name, slug),
-        webhook_delivery (
-          id,
-          event_type,
-          response_status,
-          delivered_at,
-          failed_at,
-          error_message,
-          created_at
-        )
-      `)
-      .eq('id', webhookId)
-      .eq('team.team_member.user_id', userId)
-      .eq('team.team_member.status', 'active')
-      .single();
+    // Verify user has access to the webhook's organization
+    const { data: membership } = await safeSingle(async () =>
+      db.select({ 
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role 
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (error || !webhook) {
+    if (!membership) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const membershipData = membership as { organizationId: string; role: string };
+
+    // Get webhook with organization verification
+    const { data: webhook } = await safeSingle(async () =>
+      db.select({
+        id: webhookConfigs.id,
+        name: webhookConfigs.name,
+        url: webhookConfigs.url,
+        events: webhookConfigs.events,
+        isActive: webhookConfigs.isActive,
+        retryCount: webhookConfigs.retryCount,
+        timeoutSeconds: webhookConfigs.timeoutSeconds,
+        secret: webhookConfigs.secret,
+        organizationId: webhookConfigs.organizationId,
+        createdAt: webhookConfigs.createdAt,
+        updatedAt: webhookConfigs.updatedAt,
+        organizationName: organizations.name,
+        organizationSlug: organizations.slug
+      })
+      .from(webhookConfigs)
+      .leftJoin(organizations, eq(webhookConfigs.organizationId, organizations.id))
+      .where(and(
+        eq(webhookConfigs.id, webhookId),
+        eq(webhookConfigs.organizationId, membershipData.organizationId)
+      ))
+    );
+
+    if (!webhook) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    // Calculate delivery stats
-    const deliveries = webhook.webhook_delivery || [];
+    // Get delivery stats
+    const { data: deliveries } = await safeSelect(async () =>
+      db.select({
+        id: webhookDeliveries.id,
+        eventType: webhookDeliveries.eventType,
+        httpStatus: webhookDeliveries.httpStatus,
+        deliveredAt: webhookDeliveries.deliveredAt,
+        status: webhookDeliveries.status,
+        createdAt: webhookDeliveries.createdAt
+      })
+      .from(webhookDeliveries)
+      .where(eq(webhookDeliveries.webhookConfigId, webhookId))
+      .orderBy(webhookDeliveries.createdAt)
+      .limit(20)
+    );
+
+    if (!webhook) {
+      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
+    }
+
+    const webhookData = webhook as {
+      id: string;
+      name: string;
+      url: string;
+      events: string;
+      isActive: boolean;
+      retryCount: number;
+      timeoutSeconds: number;
+      secret: string;
+      organizationId: string;
+      createdAt: Date;
+      updatedAt: Date;
+      organizationName: string;
+      organizationSlug: string;
+    };
+
+    const deliveryList = (deliveries || []) as Array<{
+      id: string;
+      eventType: string;
+      httpStatus: number;
+      deliveredAt: Date | null;
+      status: string;
+      createdAt: Date;
+    }>;
+    
     const stats = {
-      total_deliveries: deliveries.length,
-      successful_deliveries: deliveries.filter(d => d.delivered_at).length,
-      failed_deliveries: deliveries.filter(d => d.failed_at).length,
-      last_delivery: deliveries[0]?.created_at || null,
-      recent_deliveries: deliveries.slice(0, 20)
+      total_deliveries: deliveryList.length,
+      successful_deliveries: deliveryList.filter(d => d.deliveredAt).length,
+      failed_deliveries: deliveryList.filter(d => d.status === 'failed').length,
+      last_delivery: deliveryList[0]?.createdAt || null,
+      recent_deliveries: deliveryList
     };
 
     // Remove secret from response for security
-    const { secret, webhook_delivery, ...webhookResponse } = webhook;
+    const { secret, organizationName, organizationSlug, organizationId, ...webhookResponse } = webhookData;
 
     return NextResponse.json({
       webhook: {
         ...webhookResponse,
-        secret_hint: secret ? `${secret.substring(0, 8)}...` : null
+        secret_hint: secret ? `${secret.substring(0, 8)}...` : null,
+        organization: {
+          id: organizationId,
+          name: organizationName,
+          slug: organizationSlug
+        }
       },
       stats
     });
@@ -90,49 +163,78 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const webhookId = params.id;
     const body = await request.json();
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSingle(async () =>
+      db.select({ 
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role 
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const memberData = member as { organizationId: string; role: string };
+    
+    if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify webhook belongs to user's team
-    const { data: existingWebhook } = await supabase
-      .from('webhook_config')
-      .select('team_id')
-      .eq('id', webhookId)
-      .single();
+    // Verify webhook belongs to user's organization
+    const { data: existingWebhook } = await safeSingle(async () =>
+      db.select({ organizationId: webhookConfigs.organizationId })
+      .from(webhookConfigs)
+      .where(eq(webhookConfigs.id, webhookId))
+    );
 
-    if (!existingWebhook || existingWebhook.team_id !== member.team_id) {
+    if (!existingWebhook) {
+      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
+    }
+
+    const existingWebhookData = existingWebhook as { organizationId: string };
+    
+    if (existingWebhookData.organizationId !== memberData.organizationId) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
     // Validate update fields
-    const allowedFields = ['name', 'url', 'events', 'active', 'retry_count', 'timeout_seconds'];
-    const updates: Record<string, any> = {};
+    const allowedFields = new Set(['name', 'url', 'events', 'isActive', 'retryCount', 'timeoutSeconds']);
+    const updates: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(body)) {
-      if (allowedFields.includes(key)) {
-        updates[key] = value;
+      // Map legacy field names to new schema
+      let mappedKey: string;
+      if (key === 'retry_count') {
+        mappedKey = 'retryCount';
+      } else if (key === 'timeout_seconds') {
+        mappedKey = 'timeoutSeconds';
+      } else if (key === 'active') {
+        mappedKey = 'isActive';
+      } else {
+        mappedKey = key;
+      }
+      
+      if (allowedFields.has(mappedKey)) {
+        updates[mappedKey] = value;
       }
     }
 
     // Validate URL if provided
     if (updates.url) {
       try {
-        new URL(updates.url);
+        new URL(updates.url as string);
       } catch {
         return NextResponse.json({ error: 'Invalid URL format' }, { status: 400 });
       }
@@ -144,7 +246,8 @@ export async function PUT(
         return NextResponse.json({ error: 'Events must be an array' }, { status: 400 });
       }
 
-      const invalidEvents = updates.events.filter(event => !AVAILABLE_EVENTS.includes(event));
+      const availableEventsSet = new Set(AVAILABLE_EVENTS as readonly string[]);
+      const invalidEvents = (updates.events as string[]).filter(event => !availableEventsSet.has(event));
       if (invalidEvents.length > 0) {
         return NextResponse.json({
           error: `Invalid events: ${invalidEvents.join(', ')}`
@@ -153,11 +256,11 @@ export async function PUT(
     }
 
     // Clamp numeric values
-    if (updates.retry_count !== undefined) {
-      updates.retry_count = Math.min(Math.max(updates.retry_count, 1), 10);
+    if (updates.retryCount !== undefined) {
+      updates.retryCount = Math.min(Math.max(updates.retryCount as number, 1), 10);
     }
-    if (updates.timeout_seconds !== undefined) {
-      updates.timeout_seconds = Math.min(Math.max(updates.timeout_seconds, 5), 300);
+    if (updates.timeoutSeconds !== undefined) {
+      updates.timeoutSeconds = Math.min(Math.max(updates.timeoutSeconds as number, 5), 300);
     }
 
     if (Object.keys(updates).length === 0) {
@@ -165,25 +268,37 @@ export async function PUT(
     }
 
     // Update webhook
-    const { data: webhook, error } = await supabase
-      .from('webhook_config')
-      .update(updates)
-      .eq('id', webhookId)
-      .select()
-      .single();
+    const { data: webhook, error } = await safeUpdate(async () =>
+      db.update(webhookConfigs)
+        .set({
+          ...updates,
+          updatedAt: new Date()
+        })
+        .where(eq(webhookConfigs.id, webhookId))
+        .returning()
+    );
 
-    if (error) {
+    if (error || !webhook || webhook.length === 0) {
       console.error('Error updating webhook:', error);
-      if (error.code === '23505') {
-        return NextResponse.json({
-          error: 'Webhook name already exists for this environment'
-        }, { status: 409 });
-      }
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update webhook' }, { status: 500 });
     }
 
+    const updatedWebhook = webhook[0] as {
+      id: string;
+      name: string;
+      url: string;
+      events: string;
+      isActive: boolean;
+      retryCount: number;
+      timeoutSeconds: number;
+      secret: string;
+      organizationId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     // Return without secret
-    const { secret, ...webhookResponse } = webhook;
+    const { secret, ...webhookResponse } = updatedWebhook;
 
     return NextResponse.json({
       webhook: {
@@ -200,7 +315,7 @@ export async function PUT(
 
 // DELETE - Delete webhook configuration
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
@@ -209,34 +324,60 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const webhookId = params.id;
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSingle(async () =>
+      db.select({ 
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role 
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const memberData = member as { organizationId: string; role: string };
+    
+    if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify webhook belongs to user's team and delete
-    const { data: webhook, error } = await supabase
-      .from('webhook_config')
-      .delete()
-      .eq('id', webhookId)
-      .eq('team_id', member.team_id ?? '')
-      .select()
-      .single();
+    // Verify webhook belongs to user's organization
+    const { data: existingWebhook } = await safeSingle(async () =>
+      db.select({ organizationId: webhookConfigs.organizationId })
+      .from(webhookConfigs)
+      .where(eq(webhookConfigs.id, webhookId))
+    );
 
-    if (error || !webhook) {
+    if (!existingWebhook) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
+    }
+
+    const existingWebhookData = existingWebhook as { organizationId: string };
+    
+    if (existingWebhookData.organizationId !== memberData.organizationId) {
+      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
+    }
+
+    // Delete webhook
+    const { error } = await safeDelete(async () =>
+      db.delete(webhookConfigs)
+        .where(eq(webhookConfigs.id, webhookId))
+    );
+
+    if (error) {
+      console.error('Error deleting webhook:', error);
+      return NextResponse.json({ error: 'Failed to delete webhook' }, { status: 500 });
     }
 
     return NextResponse.json({

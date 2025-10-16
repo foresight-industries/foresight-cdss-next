@@ -1,24 +1,24 @@
-exports.handler = async (event) => {
+export default async (event) => {
     console.log('Submit claim workflow: patientId=%s serviceCode=%s', event.patientId, event.serviceCode);
-    
+
     try {
         // Mock claim submission logic
         const { patientId, serviceCode, providerId, amount } = event;
-        
+
         // Generate claim ID
-        const claimId = `CLM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
+        const claimId = `CLM-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
         // Simulate submission to payer
         const submissionResult = {
             claimId,
             status: 'submitted',
             submittedAt: new Date().toISOString(),
             payerResponse: {
-                confirmationNumber: `CONF-${Math.random().toString(36).substr(2, 9)}`,
+                confirmationNumber: `CONF-${Math.random().toString(36).substring(2, 9)}`,
                 expectedProcessingDays: Math.floor(Math.random() * 30) + 1
             }
         };
-        
+
         return {
             statusCode: 200,
             body: {

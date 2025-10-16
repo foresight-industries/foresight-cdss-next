@@ -1,27 +1,55 @@
-// Updated API route for normalized settings
+// Updated API route for settings using AWS database
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeamMembership } from "@/lib/team";
-import { SettingsService } from "@/lib/services/settings.service";
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert, safeUpdate, safeDelete } from "@/lib/aws/database";
+import { eq, and } from "drizzle-orm";
+import { systemSettings, businessRules, automationRules, notificationTemplates } from "@foresight-cdss-next/db";
 
-// Initialize the settings service
-const settingsService = new SettingsService(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
-
-    // Use organization_id from team membership (assuming team = organization)
+    const { db } = await createAuthenticatedDatabaseClient();
     const organizationId = membership.team_id;
 
-    // Fetch all settings for the organization using normalized schema
-    const settings = await settingsService.getTeamSettings(organizationId);
+    // Fetch system settings
+    const { data: settings } = await safeSelect(async () =>
+      db.select()
+      .from(systemSettings)
+      .where(eq(systemSettings.organizationId, organizationId))
+    );
+
+    // Fetch automation rules
+    const { data: automationConfig } = await safeSelect(async () =>
+      db.select()
+      .from(automationRules)
+      .where(eq(automationRules.organizationId, organizationId))
+    );
+
+    // Fetch business rules
+    const { data: businessConfig } = await safeSelect(async () =>
+      db.select()
+      .from(businessRules)
+      .where(eq(businessRules.organizationId, organizationId))
+    );
+
+    // Fetch notification templates
+    const { data: notificationConfig } = await safeSelect(async () =>
+      db.select()
+      .from(notificationTemplates)
+      .where(eq(notificationTemplates.organizationId, organizationId))
+    );
+
+    // Organize settings by type
+    const organizedSettings = {
+      system: settings || [],
+      automation: automationConfig || [],
+      business_rules: businessConfig || [],
+      notifications: notificationConfig || []
+    };
 
     return NextResponse.json({
       success: true,
-      data: settings
+      data: organizedSettings
     });
 
   } catch (error) {
@@ -36,25 +64,100 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
+    const { db } = await createAuthenticatedDatabaseClient();
     const organizationId = membership.team_id;
 
     const body = await request.json();
-    const { settingType, updates } = body;
+    const { settingType, settingKey, settingValue, ruleId, updates } = body;
 
     let result;
 
     switch (settingType) {
-      case 'automation':
-        result = await settingsService.updateAutomationConfig(organizationId, updates);
-        break;
+      case 'system': {
+        // Update or create system setting
+        if (!settingKey) {
+          return NextResponse.json({ error: 'settingKey is required for system settings' }, { status: 400 });
+        }
+        
+        const { data: existingSetting } = await safeSingle(async () =>
+          db.select({ id: systemSettings.id })
+          .from(systemSettings)
+          .where(and(
+            eq(systemSettings.organizationId, organizationId),
+            eq(systemSettings.settingKey, settingKey)
+          ))
+        );
 
-      case 'notifications':
-        result = await settingsService.updateNotificationSettings(organizationId, updates);
+        if (existingSetting) {
+          // Update existing setting
+          const { data: updated } = await safeUpdate(async () =>
+            db.update(systemSettings)
+              .set({ 
+                settingValue: JSON.stringify(settingValue),
+                updatedAt: new Date()
+              })
+              .where(eq(systemSettings.id, (existingSetting as { id: string }).id))
+              .returning()
+          );
+          result = updated?.[0];
+        } else {
+          // Create new setting
+          const { data: created } = await safeInsert(async () =>
+            db.insert(systemSettings)
+              .values({
+                organizationId,
+                settingKey,
+                settingValue: JSON.stringify(settingValue),
+                scope: 'organization'
+              })
+              .returning()
+          );
+          result = created?.[0];
+        }
         break;
+      }
 
-      case 'validation':
-        result = await settingsService.updateValidationConfig(organizationId, updates);
+      case 'automation': {
+        if (!ruleId) {
+          return NextResponse.json({ error: 'ruleId is required for automation updates' }, { status: 400 });
+        }
+        
+        const { data: automationResult } = await safeUpdate(async () =>
+          db.update(automationRules)
+            .set({ 
+              ...updates,
+              updatedAt: new Date()
+            })
+            .where(and(
+              eq(automationRules.id, ruleId),
+              eq(automationRules.organizationId, organizationId)
+            ))
+            .returning()
+        );
+        result = automationResult?.[0];
         break;
+      }
+
+      case 'notifications': {
+        if (!ruleId) {
+          return NextResponse.json({ error: 'ruleId is required for notification updates' }, { status: 400 });
+        }
+        
+        const { data: notificationResult } = await safeUpdate(async () =>
+          db.update(notificationTemplates)
+            .set({ 
+              ...updates,
+              updatedAt: new Date()
+            })
+            .where(and(
+              eq(notificationTemplates.id, ruleId),
+              eq(notificationTemplates.organizationId, organizationId)
+            ))
+            .returning()
+        );
+        result = notificationResult?.[0];
+        break;
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid setting type' }, { status: 400 });
@@ -78,6 +181,7 @@ export async function PUT(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const membership = await requireTeamMembership();
+    const { db } = await createAuthenticatedDatabaseClient();
     const organizationId = membership.team_id;
 
     const body = await request.json();
@@ -86,25 +190,81 @@ export async function POST(request: NextRequest) {
     let result;
 
     switch (ruleType) {
-      case 'conflict_rule':
-        result = await settingsService.createConflictRule(organizationId, ruleData);
+      case 'automation_rule': {
+        const { data: automationRule } = await safeInsert(async () =>
+          db.insert(automationRules)
+            .values({
+              organizationId,
+              name: ruleData.name,
+              description: ruleData.description,
+              category: ruleData.category,
+              ruleType: ruleData.ruleType || 'trigger',
+              triggerConditions: ruleData.triggerConditions,
+              actions: ruleData.actions,
+              priority: ruleData.priority || 50,
+              isActive: ruleData.isActive ?? true
+            })
+            .returning()
+        );
+        result = automationRule?.[0];
         break;
+      }
 
-      case 'time_based_rule':
-        result = await settingsService.createEmTimeRule(organizationId, ruleData);
+      case 'business_rule': {
+        const { data: businessRule } = await safeInsert(async () =>
+          db.insert(businessRules)
+            .values({
+              organizationId,
+              name: ruleData.name,
+              description: ruleData.description,
+              category: ruleData.category,
+              triggerEvent: ruleData.triggerEvent,
+              conditions: ruleData.conditions,
+              actions: ruleData.actions,
+              priority: ruleData.priority || 50,
+              isActive: ruleData.isActive ?? true
+            })
+            .returning()
+        );
+        result = businessRule?.[0];
         break;
+      }
 
-      case 'denial_rule':
-        result = await settingsService.createDenialRule(organizationId, ruleData);
+      case 'notification_template': {
+        const { data: notificationTemplate } = await safeInsert(async () =>
+          db.insert(notificationTemplates)
+            .values({
+              organizationId,
+              name: ruleData.name,
+              description: ruleData.description,
+              type: ruleData.type,
+              subject: ruleData.subject,
+              body: ruleData.body,
+              htmlBody: ruleData.htmlBody,
+              isActive: ruleData.isActive ?? true
+            })
+            .returning()
+        );
+        result = notificationTemplate?.[0];
         break;
+      }
 
-      case 'payer_override_rule':
-        result = await settingsService.createPayerOverrideRule(organizationId, ruleData);
+      case 'system_setting': {
+        const { data: systemSetting } = await safeInsert(async () =>
+          db.insert(systemSettings)
+            .values({
+              organizationId,
+              settingKey: ruleData.settingKey,
+              settingValue: JSON.stringify(ruleData.settingValue),
+              scope: ruleData.scope || 'organization',
+              category: ruleData.category,
+              description: ruleData.description
+            })
+            .returning()
+        );
+        result = systemSetting?.[0];
         break;
-
-      case 'field_mapping':
-        result = await settingsService.createFieldMapping(organizationId, ruleData);
-        break;
+      }
 
       default:
         return NextResponse.json({ error: 'Invalid rule type' }, { status: 400 });
@@ -126,7 +286,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    await requireTeamMembership(); // Ensure user has access
+    const membership = await requireTeamMembership();
+    const { db } = await createAuthenticatedDatabaseClient();
+    const organizationId = membership.team_id;
 
     const { searchParams } = new URL(request.url);
     const ruleType = searchParams.get('ruleType');
@@ -137,24 +299,44 @@ export async function DELETE(request: NextRequest) {
     }
 
     switch (ruleType) {
-      case 'conflict_rule':
-        await settingsService.deleteConflictRule(ruleId);
+      case 'automation_rule':
+        await safeDelete(async () =>
+          db.delete(automationRules)
+            .where(and(
+              eq(automationRules.id, ruleId),
+              eq(automationRules.organizationId, organizationId)
+            ))
+        );
         break;
 
-      case 'time_based_rule':
-        await settingsService.deleteTimeBasedRule(ruleId);
+      case 'business_rule':
+        await safeDelete(async () =>
+          db.delete(businessRules)
+            .where(and(
+              eq(businessRules.id, ruleId),
+              eq(businessRules.organizationId, organizationId)
+            ))
+        );
         break;
 
-      case 'denial_rule':
-        await settingsService.deleteDenialRule(ruleId);
+      case 'notification_template':
+        await safeDelete(async () =>
+          db.delete(notificationTemplates)
+            .where(and(
+              eq(notificationTemplates.id, ruleId),
+              eq(notificationTemplates.organizationId, organizationId)
+            ))
+        );
         break;
 
-      case 'payer_override_rule':
-        await settingsService.deletePayerOverrideRule(ruleId);
-        break;
-
-      case 'field_mapping':
-        await settingsService.deleteFieldMapping(ruleId);
+      case 'system_setting':
+        await safeDelete(async () =>
+          db.delete(systemSettings)
+            .where(and(
+              eq(systemSettings.id, ruleId),
+              eq(systemSettings.organizationId, organizationId)
+            ))
+        );
         break;
 
       default:

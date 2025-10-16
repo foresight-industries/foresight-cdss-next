@@ -113,14 +113,14 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-900 dark:text-gray-100" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
           <Image
@@ -130,10 +130,10 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
             height={64}
             className="mx-auto rounded-lg"
           />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Access your Foresight RCM dashboard
           </p>
         </div>
@@ -165,12 +165,13 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
                     <div className="space-y-2">
                       <Label htmlFor="email">Email address</Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
                         <Input
                           id="email"
                           name="email"
                           type="email"
                           autoComplete="email"
+                          inputMode="email"
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -186,7 +187,7 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
                     </Button>
 
                     <div className="mt-6 text-center">
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         Don&apos;t have an account?{" "}
                         <Link
                           href="/signup"
@@ -223,7 +224,7 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
                     <div className="space-y-2">
                       <Label htmlFor="password">Password</Label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                        <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400 dark:text-gray-500" />
                         <Input
                           id="password"
                           name="password"
@@ -240,7 +241,7 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
                           disabled={isLoading}
                         >
                           {showPassword ? (
@@ -292,8 +293,8 @@ export default function LoginClient({ error: initialError }: Readonly<LoginClien
         </Card>
 
         <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2025 Foresight Industries. All rights reserved.
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            &copy; 2025 Foresight Industries. All rights reserved.
           </p>
         </div>
       </div>

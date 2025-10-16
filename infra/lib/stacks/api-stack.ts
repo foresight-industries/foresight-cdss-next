@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
@@ -72,16 +73,26 @@ export class ApiStack extends cdk.Stack {
 
     // Clerk authorizer Lambda
     const authorizerRole = createFunctionRole('ClerkAuthorizer');
-    const authorizerFn = new lambda.Function(this, 'ClerkAuthorizer', {
-      ...functionProps,
+    const authorizerFn = new lambdaNodejs.NodejsFunction(this, 'ClerkAuthorizer', {
       functionName: `rcm-clerk-authorizer-${props.stageName}`,
-      handler: 'clerk-authorizer.handler',
-      code: lambda.Code.fromAsset('../packages/functions/auth'),
+      entry: '../packages/functions/auth/clerk-authorizer.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
       role: authorizerRole,
       environment: {
         ...functionProps.environment,
         CLERK_SECRET_ARN: clerkSecret.secretArn,
       },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+      layers: [dependenciesLayer],
+      tracing: lambda.Tracing.ACTIVE,
     });
 
     // Grant read access to Clerk secret
@@ -115,14 +126,20 @@ export class ApiStack extends cdk.Stack {
       defaultAuthorizer: authorizer,
     });
 
-    // Patient API Lambda
+    // Patient API Lambda - Using NodejsFunction for better bundling
     const patientsRole = createFunctionRole('PatientsFunction');
-    const patientsFn = new lambda.Function(this, 'PatientsFunction', {
+    const patientsFn = new lambdaNodejs.NodejsFunction(this, 'PatientsFunction', {
       ...functionProps,
       functionName: `rcm-patients-${props.stageName}`,
-      handler: 'patients-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
+      entry: '../packages/functions/api/patients-api.ts',
+      handler: 'handler',
       role: patientsRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     // Grant permissions via IAM policies to avoid cross-stack issues
@@ -157,14 +174,20 @@ export class ApiStack extends cdk.Stack {
       ),
     });
 
-    // Claims API Lambda
+    // Claims API Lambda - Using NodejsFunction for better bundling
     const claimsRole = createFunctionRole('ClaimsFunction');
-    const claimsFn = new lambda.Function(this, 'ClaimsFunction', {
+    const claimsFn = new lambdaNodejs.NodejsFunction(this, 'ClaimsFunction', {
       ...functionProps,
       functionName: `rcm-claims-${props.stageName}`,
-      handler: 'claims-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
+      entry: '../packages/functions/api/claims-api.ts',
+      handler: 'handler',
       role: claimsRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     claimsRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
@@ -192,14 +215,20 @@ export class ApiStack extends cdk.Stack {
       ),
     });
 
-    // Presigned URL Lambda (for S3 uploads)
+    // Presigned URL Lambda (for S3 uploads) - Using NodejsFunction for better bundling
     const presignRole = createFunctionRole('PresignFunction');
-    const presignFn = new lambda.Function(this, 'PresignFunction', {
+    const presignFn = new lambdaNodejs.NodejsFunction(this, 'PresignFunction', {
       ...functionProps,
       functionName: `rcm-presign-${props.stageName}`,
-      handler: 'presign-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
+      entry: '../packages/functions/api/presign-api.ts',
+      handler: 'handler',
       role: presignRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     presignRole.addToPolicy(new cdk.aws_iam.PolicyStatement({
@@ -217,14 +246,20 @@ export class ApiStack extends cdk.Stack {
       ),
     });
 
-    // Document Status API Lambda
+    // Document Status API Lambda - Using NodejsFunction for TypeScript bundling
     const documentStatusRole = createFunctionRole('DocumentStatusFunction');
-    const documentStatusFn = new lambda.Function(this, 'DocumentStatusFunction', {
+    const documentStatusFn = new lambdaNodejs.NodejsFunction(this, 'DocumentStatusFunction', {
       ...functionProps,
       functionName: `rcm-document-status-${props.stageName}`,
-      handler: 'document-status-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
+      entry: '../packages/functions/api/document-status-api.ts',
+      handler: 'handler',
       role: documentStatusRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     // Grant database access to document status function
@@ -262,19 +297,25 @@ export class ApiStack extends cdk.Stack {
       ),
     });
 
-    // Medical Code Processing Lambda (for annual updates)
+    // Medical Code Processing Lambda (for annual updates) - Using NodejsFunction for TypeScript bundling
     const medicalCodesRole = createFunctionRole('MedicalCodesFunction');
-    const medicalCodesFn = new lambda.Function(this, 'MedicalCodesFunction', {
+    const medicalCodesFn = new lambdaNodejs.NodejsFunction(this, 'MedicalCodesFunction', {
       ...functionProps,
       functionName: `rcm-medical-codes-${props.stageName}`,
-      handler: 'medical-codes-api.handler',
-      code: lambda.Code.fromAsset('../packages/functions/api'),
+      entry: '../apps/foresight-cdss-next/src/lib/services/annual-code-update.service.ts',
+      handler: 'handler',
       timeout: cdk.Duration.minutes(15), // Longer timeout for code processing
       memorySize: 1024, // More memory for processing large datasets
       role: medicalCodesRole,
       environment: {
         ...functionProps.environment,
         MEDICAL_CODES_BACKUP_BUCKET: props.medicalDataStack.medicalCodesBackupBucket.bucketName,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
     });
 
@@ -324,7 +365,7 @@ export class ApiStack extends cdk.Stack {
     });
 
     // Grant common permissions to all function roles
-    const allRoles = [patientsRole, claimsRole, presignRole, authorizerRole, medicalCodesRole];
+    const allRoles = [patientsRole, claimsRole, presignRole, authorizerRole, documentStatusRole, medicalCodesRole];
 
     for (const role of allRoles) {
       // Grant cache access (connection string and CA certificate)

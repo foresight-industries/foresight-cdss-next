@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { eq, and } from 'drizzle-orm';
+import { teamMembers, organizations, organizationInvitations, userProfiles } from '@foresight-cdss-next/db';
+import { randomBytes } from 'crypto';
 
 interface TeamInvitation {
   email: string;
-  role: 'org_admin' | 'viewer';
+  role: 'admin' | 'read' | 'write';
 }
 
-// POST - Send team invitations
+// POST - Send organization invitations
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
@@ -15,42 +18,50 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body = await request.json();
 
-    const { team_id, invitations }: { team_id: string; invitations: TeamInvitation[] } = body;
+    const { organization_id, invitations }: { organization_id: string; invitations: TeamInvitation[] } = body;
 
     // Validate required fields
-    if (!team_id || !invitations || !Array.isArray(invitations)) {
+    if (!organization_id || !invitations || !Array.isArray(invitations)) {
       return NextResponse.json({
-        error: 'Team ID and invitations array are required'
+        error: 'Organization ID and invitations array are required'
       }, { status: 400 });
     }
 
-    // Verify user has permission to invite to this team
-    const { data: membership } = await supabase
-      .from('team_member')
-      .select('role')
-      .eq('team_id', team_id)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Verify user has permission to invite to this organization
+    const { data: membership } = await safeSingle(async () =>
+      db.select({
+        role: teamMembers.role,
+        id: teamMembers.id
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.organizationId, organization_id),
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!membership || !['super_admin', 'admin'].includes(membership.role)) {
+    if (!membership || !['admin', 'owner'].includes((membership as any).role)) {
       return NextResponse.json({
-        error: 'You do not have permission to invite members to this team'
+        error: 'You do not have permission to invite members to this organization'
       }, { status: 403 });
     }
 
-    // Get team info for invitation
-    const { data: team } = await supabase
-      .from('team')
-      .select('name, slug')
-      .eq('id', team_id)
-      .single();
+    // Get organization info for invitation
+    const { data: organization } = await safeSingle(async () =>
+      db.select({
+        name: organizations.name,
+        slug: organizations.slug
+      })
+      .from(organizations)
+      .where(eq(organizations.id, organization_id))
+    );
 
-    if (!team) {
-      return NextResponse.json({ error: 'Team not found' }, { status: 404 });
+    if (!organization) {
+      return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
 
     const results = [];
@@ -66,34 +77,66 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           continue;
         }
 
-        // Check if user is already a team member
-        const { data: existingMember } = await supabase
-          .from('team_member')
-          .select('id, status')
-          .eq('team_id', team_id)
-          .or(`email.eq.${invitation.email},user_id.eq.${invitation.email}`)
-          .single();
+        // Check if user is already an organization member
+        const { data: existingMember } = await safeSingle(async () =>
+          db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .innerJoin(userProfiles, eq(teamMembers.clerkUserId, userProfiles.clerkUserId))
+          .where(and(
+            eq(teamMembers.organizationId, organization_id),
+            eq(userProfiles.email, invitation.email),
+            eq(teamMembers.isActive, true)
+          ))
+        );
 
         if (existingMember) {
-          errors.push(`${invitation.email} is already a team member`);
+          errors.push(`${invitation.email} is already an organization member`);
           continue;
         }
 
-        // Create team invitation record
-        const { data: invitationRecord, error: inviteError } = await supabase
-          .from('team_member')
-          .insert({
-            team_id,
-            email: invitation.email,
-            role: invitation.role.includes('admin') ? 'org_admin' : 'viewer',
-            status: 'invited',
-            invited_by: userId,
-            invited_at: new Date().toISOString()
-          })
-          .select()
-          .single();
+        // Check if there's already a pending invitation
+        const { data: existingInvitation } = await safeSingle(async () =>
+          db.select({ id: organizationInvitations.id })
+          .from(organizationInvitations)
+          .where(and(
+            eq(organizationInvitations.organizationId, organization_id),
+            eq(organizationInvitations.email, invitation.email),
+            eq(organizationInvitations.status, 'pending')
+          ))
+        );
 
-        if (inviteError) {
+        if (existingInvitation) {
+          errors.push(`${invitation.email} already has a pending invitation`);
+          continue;
+        }
+
+        // Generate invitation token
+        const token = randomBytes(32).toString('hex');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + 7); // Expire in 7 days
+
+        // Create organization invitation record
+        const { data: invitationRecord, error: inviteError } = await safeInsert(async () =>
+          db.insert(organizationInvitations)
+            .values({
+              organizationId: organization_id,
+              email: invitation.email,
+              role: invitation.role,
+              token,
+              status: 'pending',
+              expiresAt,
+              invitedBy: (membership as any).id
+            })
+            .returning({
+              id: organizationInvitations.id,
+              email: organizationInvitations.email,
+              role: organizationInvitations.role,
+              status: organizationInvitations.status,
+              createdAt: organizationInvitations.createdAt
+            })
+        );
+
+        if (inviteError || !invitationRecord || invitationRecord.length === 0) {
           console.error('Error creating invitation:', inviteError);
           errors.push(`Failed to invite ${invitation.email}`);
           continue;
@@ -104,17 +147,18 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         results.push({
           email: invitation.email,
           role: invitation.role,
-          invitation_id: invitationRecord.id,
-          status: 'invited'
+          invitation_id: (invitationRecord[0] as any).id,
+          status: 'pending',
+          token // Include token for invitation link
         });
 
         // TODO: Send email invitation
         // await sendInvitationEmail({
         //   email: invitation.email,
-        //   teamName: team.name,
-        //   teamSlug: team.slug,
+        //   organizationName: organization.name,
+        //   organizationSlug: organization.slug,
         //   inviterName: user.fullName,
-        //   invitationId: invitationRecord.id
+        //   invitationToken: token
         // });
 
       } catch (error) {
@@ -135,7 +179,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 }
 
-// GET - List pending invitations for a team
+// GET - List pending invitations for an organization
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const { userId } = await auth();
@@ -143,50 +187,55 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
-    const teamId = searchParams.get('team_id');
+    const organizationId = searchParams.get('organization_id');
 
-    if (!teamId) {
-      return NextResponse.json({ error: 'Team ID is required' }, { status: 400 });
+    if (!organizationId) {
+      return NextResponse.json({ error: 'Organization ID is required' }, { status: 400 });
     }
 
     // Verify user has permission to view invitations
-    const { data: membership } = await supabase
-      .from('team_member')
-      .select('role')
-      .eq('team_id', teamId)
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: membership } = await safeSingle(async () =>
+      db.select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.organizationId, organizationId),
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!membership || !['super_admin', 'admin'].includes(membership.role)) {
+    if (!membership || !['admin', 'owner'].includes((membership as any).role)) {
       return NextResponse.json({
-        error: 'You do not have permission to view team invitations'
+        error: 'You do not have permission to view organization invitations'
       }, { status: 403 });
     }
 
     // Get pending invitations
-    const { data: invitations, error } = await supabase
-      .from('team_member')
-      .select(`
-        id,
-        email,
-        role,
-        invited_at,
-        invited_by,
-        status
-      `)
-      .eq('team_id', teamId)
-      .eq('status', 'invited')
-      .order('invited_at', { ascending: false });
+    const { data: invitations, error } = await safeSelect(async () =>
+      db.select({
+        id: organizationInvitations.id,
+        email: organizationInvitations.email,
+        role: organizationInvitations.role,
+        status: organizationInvitations.status,
+        createdAt: organizationInvitations.createdAt,
+        expiresAt: organizationInvitations.expiresAt,
+        invitedBy: organizationInvitations.invitedBy
+      })
+      .from(organizationInvitations)
+      .where(and(
+        eq(organizationInvitations.organizationId, organizationId),
+        eq(organizationInvitations.status, 'pending')
+      ))
+    );
 
     if (error) {
       console.error('Error fetching invitations:', error);
       return NextResponse.json({ error: 'Failed to fetch invitations' }, { status: 500 });
     }
 
-    return NextResponse.json({ invitations });
+    return NextResponse.json({ invitations: invitations || [] });
 
   } catch (error) {
     console.error('Invitations fetch error:', error);

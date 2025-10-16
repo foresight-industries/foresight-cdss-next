@@ -1,13 +1,13 @@
-exports.handler = async (event) => {
+export default async (event) => {
     console.log('Send notification workflow: type=%s claimId=%s', event.type, event.claimId);
-    
+
     try {
         // Mock notification sending logic
         const { type, recipient, claimId, patientId, message } = event;
-        
+
         // Generate notification ID
-        const notificationId = `NOTIF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        
+        const notificationId = `NOTIF-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
         // Simulate different notification types
         const notificationTypes = {
             payment: {
@@ -27,12 +27,12 @@ exports.handler = async (event) => {
                 template: 'appeal_created'
             }
         };
-        
+
         const notificationConfig = notificationTypes[type] || {
             subject: `RCM Notification - ${claimId}`,
             template: 'general'
         };
-        
+
         // Simulate sending notification
         const deliveryResult = {
             notificationId,
@@ -44,7 +44,7 @@ exports.handler = async (event) => {
             status: 'delivered',
             deliveryMethod: recipient.includes('@') ? 'email' : 'sms'
         };
-        
+
         return {
             statusCode: 200,
             body: {

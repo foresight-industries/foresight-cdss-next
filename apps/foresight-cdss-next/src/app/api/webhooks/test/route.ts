@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { eq, and } from 'drizzle-orm';
+import { teamMembers, webhookConfigs, webhookDeliveries } from '@foresight-cdss-next/db';
 
 // POST - Test webhook by sending a test event
 export async function POST(request: NextRequest) {
@@ -10,7 +12,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const { webhook_id } = await request.json();
 
     if (!webhook_id) {
@@ -19,70 +21,89 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate permissions and get webhook
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Validate permissions and get member
+    const { data: member } = await safeSingle(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || !['admin', 'owner'].includes((member as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Get webhook configuration
-    const { data: webhook, error: webhookError } = await supabase
-      .from('webhook_config')
-      .select('*')
-      .eq('id', webhook_id)
-      .eq('team_id', member.team_id ?? '')
-      .single();
+    const memberData = member as { organizationId: string; role: string };
 
-    if (webhookError || !webhook) {
+    // Get webhook configuration
+    const { data: webhook } = await safeSingle(async () =>
+      db.select()
+      .from(webhookConfigs)
+      .where(and(
+        eq(webhookConfigs.id, webhook_id),
+        eq(webhookConfigs.organizationId, memberData.organizationId)
+      ))
+    );
+
+    if (!webhook) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
+
+    const webhookData = webhook as {
+      id: string;
+      organizationId: string;
+      url: string;
+      name: string;
+    };
 
     // Create test payload
     const testPayload = {
       event_type: 'webhook.test',
-      team_id: webhook.team_id,
+      organization_id: webhookData.organizationId,
       timestamp: Math.floor(Date.now() / 1000),
       source: 'foresight_cdss',
       test: true,
       data: {
         message: 'This is a test webhook event',
-        webhook_id: webhook.id,
-        webhook_url: webhook.target_url || webhook.url,
-        environment: webhook.environment,
+        webhook_id: webhookData.id,
+        webhook_url: webhookData.url,
+        webhook_name: webhookData.name,
         triggered_by: userId,
         triggered_at: new Date().toISOString()
       }
     };
 
-    // Add to webhook queue for processing
-    const { data: queueItem, error: queueError } = await supabase
-      .from('webhook_queue')
-      .insert({
-        webhook_config_id: webhook.id,
-        event_type: 'webhook.test',
-        payload: testPayload,
-        max_attempts: 1 // Only try once for test
-      })
-      .select()
-      .single();
+    // Create webhook delivery record for test (since there's no webhook_queue table)
+    const { data: deliveryItem, error: deliveryError } = await safeInsert(async () =>
+      db.insert(webhookDeliveries)
+        .values({
+          webhookConfigId: webhookData.id,
+          eventType: 'webhook.test',
+          eventData: testPayload,
+          attemptCount: 1,
+          status: 'pending'
+        })
+        .returning({ id: webhookDeliveries.id })
+    );
 
-    if (queueError) {
-      console.error('Error queuing test webhook:', queueError);
-      return NextResponse.json({ error: 'Failed to queue test webhook' }, { status: 500 });
+    if (deliveryError || !deliveryItem || deliveryItem.length === 0) {
+      console.error('Error creating test webhook delivery:', deliveryError);
+      return NextResponse.json({ error: 'Failed to create test webhook delivery' }, { status: 500 });
     }
 
+    const deliveryId = (deliveryItem[0] as { id: string }).id;
+
     return NextResponse.json({
-      message: 'Test webhook queued successfully',
-      queue_id: queueItem.id,
-      webhook_id: webhook.id,
+      message: 'Test webhook delivery created successfully',
+      delivery_id: deliveryId,
+      webhook_id: webhookData.id,
       test_payload: testPayload
     });
 
@@ -110,14 +131,14 @@ export async function GET(request: NextRequest) {
           ],
           sample_payload: {
             event_type: 'webhook.test',
-            team_id: 'uuid',
+            organization_id: 'uuid',
             timestamp: Math.floor(Date.now() / 1000),
             source: 'foresight_cdss',
             test: true,
             data: {
               message: 'This is a test webhook event',
               webhook_id: 'uuid',
-              environment: 'production'
+              webhook_name: 'Test Webhook'
             }
           },
           headers: {
@@ -125,7 +146,7 @@ export async function GET(request: NextRequest) {
             'User-Agent': 'Foresight-CDSS-Webhook/1.0',
             'X-Foresight-Event': 'webhook.test',
             'X-Foresight-Signature': 'sha256=<hmac-signature>',
-            'X-Foresight-Team-ID': '<team-uuid>',
+            'X-Foresight-Organization-ID': '<organization-uuid>',
             'X-Foresight-Delivery': '<delivery-uuid>'
           }
         }
@@ -137,25 +158,52 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Validate user has access to this webhook
+    const { data: member } = await safeSingle(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+    );
+
+    if (!member) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const memberData = member as { organizationId: string; role: string };
+
+    // Verify webhook belongs to user's organization
+    const { data: webhook } = await safeSingle(async () =>
+      db.select({ organizationId: webhookConfigs.organizationId })
+      .from(webhookConfigs)
+      .where(and(
+        eq(webhookConfigs.id, webhookId),
+        eq(webhookConfigs.organizationId, memberData.organizationId)
+      ))
+    );
+
+    if (!webhook) {
+      return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
+    }
 
     // Get recent test deliveries for this webhook
-    const { data: deliveries, error } = await supabase
-      .from('webhook_delivery')
-      .select(`
-        *,
-        webhook_config!inner(team_id)
-      `)
-      .eq('webhook_config_id', webhookId)
-      .eq('event_type', 'webhook.test')
-      .eq('webhook_config.team_member.user_id', userId)
-      .eq('webhook_config.team_member.status', 'active')
-      .order('created_at', { ascending: false })
-      .limit(5);
-
-    if (error) {
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
-    }
+    const { data: deliveries } = await safeSelect(async () =>
+      db.select()
+      .from(webhookDeliveries)
+      .where(and(
+        eq(webhookDeliveries.webhookConfigId, webhookId),
+        eq(webhookDeliveries.eventType, 'webhook.test')
+      ))
+      .orderBy(webhookDeliveries.createdAt)
+      .limit(5)
+    );
 
     return NextResponse.json({
       webhook_id: webhookId,

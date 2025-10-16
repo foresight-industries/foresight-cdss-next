@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq, desc } from 'drizzle-orm';
+import { teamMembers, ehrConnections } from '@foresight-cdss-next/db';
 import type {
   CreateEHRConnectionRequest,
-  EHRConnection,
 } from "@/types/ehr.types";
 
 // GET - List EHR connections for current team
@@ -14,68 +15,85 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
     const environment = searchParams.get('environment');
 
-    // Get user's current team
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('current_team_id')
-      .eq('id', userId)
-      .single();
+    // Get user's team membership
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!profile?.current_team_id) {
+    if (!member || member.length === 0) {
       return NextResponse.json({ error: 'No team found' }, { status: 404 });
     }
 
-    // Build query
-    let query = supabase
-      .from('ehr_connection')
-      .select(`
-        *,
-        ehr_system (
-          id,
-          name,
-          display_name,
-          api_type,
-          auth_method,
-          fhir_version,
-          documentation_url
-        )
-      `)
-      .eq('team_id', profile.current_team_id)
-      .order('created_at', { ascending: false });
+    // Build query for connections
+    const whereConditions = [
+      eq(ehrConnections.organizationId, (member[0] as any).organizationId)
+    ];
 
     // Filter by environment if provided
-    if (environment) {
-      query = query.eq('environment', environment as 'production' | 'staging' | 'development');
+    if (environment && ['production', 'staging', 'development'].includes(environment)) {
+      // Environment filtering would need to be added to schema if needed
     }
 
-    const { data, error } = await query;
+    const { data, error } = await safeSelect(async () =>
+      db.select({
+        id: ehrConnections.id,
+        organizationId: ehrConnections.organizationId,
+        ehrSystemName: ehrConnections.ehrSystemName,
+        version: ehrConnections.version,
+        apiType: ehrConnections.apiType,
+        authMethod: ehrConnections.authMethod,
+        baseUrl: ehrConnections.baseUrl,
+        clientId: ehrConnections.clientId,
+        apiKey: ehrConnections.apiKey,
+        tokenUrl: ehrConnections.tokenUrl,
+        authorizeUrl: ehrConnections.authorizeUrl,
+        scopes: ehrConnections.scopes,
+        isActive: ehrConnections.isActive,
+        lastSyncAt: ehrConnections.lastSyncAt,
+        lastTestAt: ehrConnections.lastTestAt,
+        testStatus: ehrConnections.testStatus,
+        syncPatients: ehrConnections.syncPatients,
+        createdAt: ehrConnections.createdAt,
+        updatedAt: ehrConnections.updatedAt
+      })
+      .from(ehrConnections)
+      .where(and(...whereConditions))
+      .orderBy(desc(ehrConnections.createdAt))
+    );
 
     if (error) {
       console.error('Error fetching EHR connections:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    const connections = data as unknown as EHRConnection[];
-
     // Remove sensitive auth data from response
-    const safeConnections = connections?.map(conn => ({
-      ...conn,
-      auth_config: {
-        type: conn.auth_config?.type,
-        // Only include non-sensitive metadata
-        has_credentials: !!(
-          conn.auth_config?.client_id ||
-          conn.auth_config?.api_key ||
-          conn.auth_config?.username
-        ),
-        expires_at: conn.auth_config?.expires_at,
-        scope: conn.auth_config?.scope
-      }
-    })) || [];
+    const safeConnections = data?.map(conn => {
+      const c = conn as any;
+      return {
+        ...c,
+        auth_config: {
+          type: c.authMethod,
+          has_credentials: !!(
+            c.clientId ||
+            c.apiKey
+          ),
+          scope: c.scopes
+        }
+      };
+    }) || [];
 
     return NextResponse.json({
       connections: safeConnections
@@ -95,24 +113,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body: CreateEHRConnectionRequest = await request.json();
 
     // Validate request body
     const {
-      ehr_system_id,
+      ehr_system_name,
       connection_name,
       base_url,
-      environment = 'production',
       auth_config,
-      custom_headers,
-      sync_config,
-      metadata
-    } = body;
+      sync_config
+    } = body as any;
 
-    if (!ehr_system_id || !connection_name || !auth_config) {
+    if (!ehr_system_name || !connection_name || !auth_config) {
       return NextResponse.json({
-        error: 'Missing required fields: ehr_system_id, connection_name, auth_config'
+        error: 'Missing required fields: ehr_system_name, connection_name, auth_config'
       }, { status: 400 });
     }
 
@@ -123,98 +138,90 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user's current team and verify admin permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Get user's team and verify admin permissions
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify EHR system exists
-    const { data: ehrSystem, error: ehrError } = await supabase
-      .from('ehr_system')
-      .select('id, auth_method')
-      .eq('id', ehr_system_id)
-      .single();
-
-    if (ehrError || !ehrSystem) {
+    // Validate auth method
+    if (!['oauth2', 'api_key', 'basic'].includes(auth_config.type)) {
       return NextResponse.json({
-        error: 'Invalid EHR system ID'
+        error: 'Invalid authentication type. Must be oauth2, api_key, or basic'
       }, { status: 400 });
     }
-
-    // Validate auth config matches EHR system requirements
-    if (ehrSystem.auth_method !== auth_config.type) {
-      return NextResponse.json({
-        error: `EHR system requires ${ehrSystem.auth_method} authentication`
-      }, { status: 400 });
-    }
-
-    // Create default sync config if not provided
-    const defaultSyncConfig = {
-      enabled: false,
-      sync_frequency: 'manual',
-      sync_entities: [],
-      batch_size: 100,
-      retry_attempts: 3,
-      error_threshold: 5,
-      ...sync_config
-    };
 
     // Create EHR connection
-    const { data, error } = await supabase
-      .from('ehr_connection')
-      .insert({
-        team_id: member?.team_id ?? '',
-        ehr_system_id,
-        connection_name,
-        base_url,
-        environment,
-        status: 'inactive', // Start as inactive until tested
-        auth_config,
-        custom_headers,
-        sync_config: defaultSyncConfig,
-        metadata
-      })
-      .select(`
-        *,
-        ehr_system (
-          id,
-          name,
-          display_name,
-          api_type,
-          auth_method,
-          fhir_version
-        )
-      `)
-      .single();
+    const { data, error } = await safeInsert(async () =>
+      db.insert(ehrConnections)
+        .values({
+          organizationId: (member[0] as any).organizationId,
+          ehrSystemName: ehr_system_name,
+          version: '1.0',
+          apiType: 'fhir', // Default to FHIR
+          authMethod: auth_config.type,
+          baseUrl: base_url,
+          clientId: auth_config.client_id,
+          clientSecret: auth_config.client_secret,
+          apiKey: auth_config.api_key,
+          tokenUrl: auth_config.token_url,
+          authorizeUrl: auth_config.authorization_url,
+          scopes: auth_config.scope,
+          isActive: false, // Start as inactive until tested
+          syncPatients: (sync_config as any)?.sync_patients || false
+        })
+        .returning({
+          id: ehrConnections.id,
+          organizationId: ehrConnections.organizationId,
+          ehrSystemName: ehrConnections.ehrSystemName,
+          version: ehrConnections.version,
+          apiType: ehrConnections.apiType,
+          authMethod: ehrConnections.authMethod,
+          baseUrl: ehrConnections.baseUrl,
+          clientId: ehrConnections.clientId,
+          apiKey: ehrConnections.apiKey,
+          tokenUrl: ehrConnections.tokenUrl,
+          authorizeUrl: ehrConnections.authorizeUrl,
+          scopes: ehrConnections.scopes,
+          isActive: ehrConnections.isActive,
+          lastSyncAt: ehrConnections.lastSyncAt,
+          lastTestAt: ehrConnections.lastTestAt,
+          testStatus: ehrConnections.testStatus,
+          syncPatients: ehrConnections.syncPatients,
+          createdAt: ehrConnections.createdAt,
+          updatedAt: ehrConnections.updatedAt
+        })
+    );
 
-    if (error) {
+    if (error || !data || data.length === 0) {
       console.error('Error creating EHR connection:', error);
-      if (error.code === '23505') { // Unique constraint violation
-        return NextResponse.json({
-          error: 'Connection name already exists for this team'
-        }, { status: 409 });
-      }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    const connection = data as unknown as EHRConnection;
+    const connection = data[0];
 
     // Remove sensitive auth data from response
+    const conn = connection as any;
     const safeConnection = {
-      ...connection,
+      ...conn,
       auth_config: {
-        type: connection.auth_config?.type,
+        type: conn.authMethod,
         has_credentials: true,
-        scope: connection.auth_config?.scope
+        scope: conn.scopes
       }
     };
 

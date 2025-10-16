@@ -1,5 +1,7 @@
 import { clerkClient } from '@clerk/nextjs/server';
-import { createSupabaseMiddlewareClient } from '@/lib/supabase/server';
+import { createDatabaseAdminClient } from '@/lib/aws/database';
+import { organizations, teamMembers } from '@foresight-cdss-next/db';
+import { eq } from 'drizzle-orm';
 
 /**
  * Get the team slug for a user based on their Clerk organization membership
@@ -20,56 +22,59 @@ export async function getUserTeamSlug(userId: string): Promise<string | null> {
     const organization = organizationMemberships[0].organization;
     const organizationId = organization.id;
 
-    // Create Supabase client to look up team by organization ID
-    const supabase = await createSupabaseMiddlewareClient();
+    // Create AWS database client for administrative access
+    const { db } = createDatabaseAdminClient();
 
-    // Look up team by Clerk organization ID
-    const { data: team, error } = await supabase
-      .from('team')
-      .select('slug, id')
-      .eq('clerk_organization_id', organizationId)
-      .eq('status', 'active')
-      .single();
+    // Look up organization by Clerk organization ID
+    const orgResult = await db
+      .select({ slug: organizations.slug, id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.clerkOrgId, organizationId))
+      .limit(1);
 
-    if (error || !team) {
-      // If no team found with organization ID, try to find by organization name
-      const { data: teamByName, error: nameError } = await supabase
-        .from('team')
-        .select('slug, id')
-        .eq('name', organization.name)
-        .eq('status', 'active')
-        .single();
-
-      if (nameError || !teamByName) {
-        // As a fallback, check if user has any team membership via clerk_user_id
-        const { data: userMembership, error: memberError } = await supabase
-          .from('team_member')
-          .select('team_id, team:team_id(slug)')
-          .eq('clerk_user_id', userId)
-          .eq('status', 'active')
-          .single();
-
-        if (memberError || !userMembership || !userMembership.team) {
-          return null;
-        }
-
-        return (userMembership.team as any).slug;
-      }
-
-      // If found by name but no clerk_organization_id set, update it
-      try {
-        await supabase
-          .from('team')
-          .update({ clerk_org_id: organizationId })
-          .eq('id', teamByName.id);
-      } catch (updateError) {
-        console.error('Error updating team with clerk_organization_id:', updateError);
-      }
-
-      return teamByName.slug;
+    if (orgResult.length > 0) {
+      return orgResult[0].slug;
     }
 
-    return team.slug;
+    // If no organization found with organization ID, try to find by organization name
+    const orgByNameResult = await db
+      .select({ slug: organizations.slug, id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.name, organization.name))
+      .limit(1);
+
+    if (orgByNameResult.length > 0) {
+      const org = orgByNameResult[0];
+
+      // If found by name but no clerk_org_id set, update it
+      try {
+        await db
+          .update(organizations)
+          .set({ clerkOrgId: organizationId })
+          .where(eq(organizations.id, org.id));
+      } catch (updateError) {
+        console.error('Error updating organization with clerk_org_id:', updateError);
+      }
+
+      return org.slug;
+    }
+
+    // As a fallback, check if user has any organization membership via clerk_user_id
+    const userMembershipResult = await db
+      .select({
+        organizationId: teamMembers.organizationId,
+        slug: organizations.slug
+      })
+      .from(teamMembers)
+      .innerJoin(organizations, eq(teamMembers.organizationId, organizations.id))
+      .where(eq(teamMembers.clerkUserId, userId))
+      .limit(1);
+
+    if (userMembershipResult.length > 0) {
+      return userMembershipResult[0].slug;
+    }
+
+    return null;
 
   } catch (error) {
     console.error('Error getting user team slug:', error);

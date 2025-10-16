@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, DollarSign } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FormErrorBoundary } from '@/components/error-boundaries';
 import { formatCurrency, calculateClaimBalance, type Claim } from '@/data/claims';
 import { toast } from 'sonner';
 
@@ -120,18 +121,32 @@ export function AddPaymentForm({
   const isOverpayment = parsedAmount > claimBalance;
   const remainingAfterPayment = Math.max(0, claimBalance - parsedAmount);
 
+  const hasUnsavedData = amount.trim() !== "" || reference.trim() !== "" || note.trim() !== "";
+
   return (
-    <div className="w-full">
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <DollarSign className="h-5 w-5" />
-          Add Payment
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Record a payment for claim {claim.id}
-        </p>
-      </div>
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <FormErrorBoundary 
+      formName="payment form" 
+      hasUnsavedData={hasUnsavedData}
+      onRestore={() => {
+        // Clear form data
+        setAmount("");
+        setReference("");
+        setNote("");
+        setPayer("insurance");
+        setErrors({});
+      }}
+    >
+      <div className="w-full">
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <DollarSign className="h-5 w-5" />
+            Add Payment
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            Record a payment for claim {claim.id}
+          </p>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
         {/* Claim Balance Info */}
         <div className="p-3 bg-muted rounded-lg">
           <div className="flex justify-between items-center text-sm">
@@ -263,7 +278,8 @@ export function AddPaymentForm({
             {isSubmitting ? "Recording..." : "Record Payment"}
           </Button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+    </FormErrorBoundary>
   );
 }

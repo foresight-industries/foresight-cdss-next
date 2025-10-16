@@ -1,29 +1,22 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
-import { clerkClient, WebhookEvent } from "@clerk/nextjs/server";
-import { UserResource } from "@clerk/types";
-import { supabaseAdmin } from "@/lib/supabase/server";
+import type {
+  WebhookEvent,
+  UserWebhookEvent,
+  OrganizationWebhookEvent,
+  OrganizationMembershipWebhookEvent,
+  OrganizationInvitationWebhookEvent,
+  UserJSON,
+  DeletedObjectJSON,
+  OrganizationJSON
+} from "@clerk/nextjs/server";
+import { safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
+import { eq, and, sql } from "drizzle-orm";
+import { teamMembers, organizations, organizationInvitations, userProfiles, UserProfile, type Organization } from "@foresight-cdss-next/db";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
 }
-
-if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  throw new Error("Missing Supabase environment variables");
-}
-
-// Use service role client to bypass RLS
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
 
 export async function POST(req: Request) {
   try {
@@ -31,8 +24,6 @@ export async function POST(req: Request) {
 
     const payload = await req.json();
     const headersList = await headers();
-
-    const clerk = await clerkClient();
 
     // Get headers for verification
     const svixId = headersList.get("svix-id");
@@ -56,14 +47,32 @@ export async function POST(req: Request) {
       return new Response("Invalid signature", { status: 401 });
     }
 
+    const userEmail = async () => {
+      try {
+        // Handle user event types
+        if ('email_addresses' in evt.data) {
+          return evt.data.email_addresses?.[0]?.email_address ?? null;
+        } else if ('deleted' in evt.data) {
+          return null;
+        } else if ('public_user_data' in evt.data) {
+          return evt.data.public_user_data.identifier ?? null;
+        }
+
+        // Unhandled event
+        return null;
+      } catch (error) {
+        console.warn("Failed to fetch user email:", error);
+        return null;
+      }
+    };
+
     // Handle different event types
     let result = { success: true, message: "" };
 
     switch (evt.type) {
       case "user.created":
         result = await handleUserCreated(
-          evt.data as unknown as UserResource,
-          clerk
+          evt.data
         );
         break;
 
@@ -75,17 +84,23 @@ export async function POST(req: Request) {
         result = await handleUserDeleted(evt.data);
         break;
 
-      // case "organization.created":
-      //   result = await handleOrganizationCreated(evt.data);
-      //   break;
+      case "organization.created":
+        result = await handleOrganizationCreated(evt.data);
+        break;
 
       case "organization.updated":
         result = await handleOrganizationUpdated(evt.data);
         break;
 
-      case "organizationMembership.created":
-        result = await handleMembershipCreated(evt.data);
+      case "organization.deleted":
+        result = await handleOrganizationDeleted(evt.data);
         break;
+
+      case "organizationMembership.created": {
+        const email = await userEmail();
+        result = await handleMembershipCreated(evt.data, email);
+        break;
+      }
 
       case "organizationMembership.updated":
         result = await handleMembershipUpdated(evt.data);
@@ -95,24 +110,25 @@ export async function POST(req: Request) {
         result = await handleMembershipDeleted(evt.data);
         break;
 
+      case "organizationInvitation.created":
+        result = await handleInvitationCreated(evt.data);
+        break;
+
+      case "organizationInvitation.revoked":
+        result = await handleInvitationRevoked(evt.data);
+        break;
+
       default:
         console.log(`Unhandled webhook type: ${evt.type}`);
     }
 
-    // Log webhook event
-    const { error: logError } = await supabase
-      .from("clerk_webhook_log")
-      .insert({
-        event_type: `clerk.${evt.type}`,
-        clerk_id:
-          evt.data.id ?? evt.data.id ?? JSON.parse(evt.data.object)?.user_id,
-        payload: evt.data,
-        processed_at: new Date().toISOString(),
-      });
-
-    if (logError) {
-      console.error("Failed to log webhook:", logError);
-    }
+    // Note: Webhook logging would need to be implemented with AWS schema
+    // For now, we'll just log to console
+    console.log(`Processed webhook: ${evt.type}`, {
+      clerkId: evt.data.id,
+      success: result.success,
+      message: result.message
+    });
 
     return new Response(JSON.stringify(result), {
       status: result.success ? 200 : 500,
@@ -126,67 +142,77 @@ export async function POST(req: Request) {
   }
 }
 
+const isUserJSON = (data: UserWebhookEvent['data']): data is UserJSON => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    !('deleted' in data) &&
+    'email_addresses' in data &&
+    typeof data.email_addresses === 'object' &&
+    Array.isArray(data.email_addresses)
+    // Add other required properties as needed
+  );
+}
+
+const isDeletedObjectJSON = (data: UserWebhookEvent['data'] | OrganizationWebhookEvent['data']): data is DeletedObjectJSON => {
+  return (typeof data === 'object' &&
+    data !== null &&
+    'deleted' in data &&
+    typeof data.deleted === 'boolean' && data.deleted && (data.id === undefined || typeof data.id === 'string') && (data.slug === undefined || typeof data.slug === 'string'));
+}
+
+const isOrganizationJSON = (data: OrganizationWebhookEvent['data']): data is OrganizationJSON => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    !('deleted' in data) &&
+    typeof data.name === 'string' &&
+    (data.slug === undefined || typeof data.slug === 'string')
+  );
+}
+
 // User Management Functions
-async function handleUserCreated(data: any, clerk: any) {
+async function handleUserCreated(data: UserWebhookEvent['data']) {
   try {
-    const { data: authUser, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
-        email: data.email_addresses?.[0]?.email_address,
-        user_metadata: {
-          clerk_id: data.id,
-          first_name: data.first_name,
-          last_name: data.last_name,
-          phone_number: data.phone_numbers?.[0]?.phone_number,
-          role: "viewer",
-        },
-        email_confirm: true,
-      });
-
-    if (authError) {
-      console.error(
-        "Error creating Supabase user in Clerk webhook:",
-        authError
-      );
-      throw authError;
+    if (!isUserJSON(data)) {
+      throw new TypeError("Invalid user data");
     }
 
-    if (!authUser) {
-      console.error("No user created in Clerk webhook");
-      throw new Error("No user created in Clerk webhook");
+    const { db } = createDatabaseAdminClient();
+
+    // Check if user profile already exists
+    const { data: existingUser } = await safeSingle(async () =>
+      db.select({ id: userProfiles.id })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, data.id))
+    );
+
+    if (existingUser) {
+      return { success: true, message: `User ${data.id} already exists` };
     }
-
-    const { user } = authUser;
-
-    await clerk.users.updateUser(data.id, {
-      external_id: user.id,
-    });
 
     // Create user profile
-    const { error } = await supabase
-      .from("user_profile")
-      .insert({
-        id: user?.id,
-        email: user?.email,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone: user?.phone,
-        clerk_id: data.id,
-        created_at: data.createdAt
-          ? new Date(data.created_at).toISOString()
-          : new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    const { error } = await safeInsert(async () =>
+      db.insert(userProfiles)
+        .values({
+          clerkUserId: data.id,
+          email: data.email_addresses?.[0]?.email_address ?? '',
+          firstName: data.first_name,
+          lastName: data.last_name,
+          role: sql.raw(`'read'::access_level`),
+          isActive: true
+        })
+    );
 
-    if (error && error.code !== "23505") {
-      // Ignore duplicate key errors
+    if (error) {
       throw error;
     }
 
-    return { success: true, message: `User ${data.id} created` };
+    return { success: true, message: `User profile created for ${data.id}` };
   } catch (error) {
-    console.error("Error creating user:", error);
+    console.error("Error handling user creation:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",
@@ -194,22 +220,31 @@ async function handleUserCreated(data: any, clerk: any) {
   }
 }
 
-async function handleUserUpdated(data: any) {
+async function handleUserUpdated(data: UserWebhookEvent['data']) {
   try {
-    const { error } = await supabase
-      .from("user_profile")
-      .update({
-        email: data.email_addresses?.[0]?.email_address,
-        first_name: data.first_name,
-        last_name: data.last_name,
-        phone_number: data.phone_numbers?.[0]?.phone_number,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_id", data.id);
+    if (!isUserJSON(data)) {
+      throw new TypeError("Invalid user data");
+    }
 
-    if (error) throw error;
+    const { db } = createDatabaseAdminClient();
 
-    return { success: true, message: `User ${data.id} updated` };
+    // Update user profile
+    const { error } = await safeUpdate(async () =>
+      db.update(userProfiles)
+        .set({
+          email: data.email_addresses?.[0]?.email_address || '',
+          firstName: data.first_name,
+          lastName: data.last_name,
+          updatedAt: new Date()
+        })
+        .where(eq(userProfiles.clerkUserId, data.id))
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, message: `User profile updated for ${data.id}` };
   } catch (error) {
     console.error("Error updating user:", error);
     return {
@@ -219,20 +254,58 @@ async function handleUserUpdated(data: any) {
   }
 }
 
-async function handleUserDeleted(data: any) {
+async function handleUserDeleted(data: UserWebhookEvent['data']) {
   try {
-    // Soft delete - set status to inactive
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_user_id", data.id);
+    if (!isDeletedObjectJSON(data)) {
+      throw new TypeError("Invalid deleted object data");
+    }
 
-    if (error) throw error;
+    if (!data.id) {
+      throw new TypeError("Missing user ID in deleted object");
+    }
 
-    return { success: true, message: `User ${data.id} deactivated` };
+    const { db } = createDatabaseAdminClient();
+
+    // Get user profile to find the internal ID
+    const { data: userProfile } : { data: UserProfile | null, error: Error | null } = await safeSingle(async () =>
+      db.select({ id: userProfiles.id })
+        .from(userProfiles)
+        .where(eq(userProfiles.clerkUserId, data.id!))
+    );
+
+    // Soft delete user profile
+    const { error: profileError } = await safeUpdate(async () =>
+      db.update(userProfiles)
+        .set({
+          isActive: false,
+          deletedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(userProfiles.clerkUserId, data.id!))
+    );
+
+    if (profileError) {
+      console.warn("Failed to soft delete user profile:", profileError);
+    }
+
+    // Soft delete all team member records for this user
+    if (userProfile?.id) {
+      const { error: memberError } = await safeUpdate(async () =>
+        db.update(teamMembers)
+          .set({
+            isActive: false,
+            deletedAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(teamMembers.userProfileId, userProfile.id))
+      );
+
+      if (memberError) {
+        console.warn("Failed to soft delete team memberships:", memberError);
+      }
+    }
+
+    return { success: true, message: `User ${data.id} and all memberships deactivated` };
   } catch (error) {
     console.error("Error deleting user:", error);
     return {
@@ -243,55 +316,139 @@ async function handleUserDeleted(data: any) {
 }
 
 // Organization Management Functions
-// async function handleOrganizationCreated(data: any) {
-//   try {
-//     // Create team from organization
-//     const { error } = await supabase
-//       .from("team")
-//       .insert({
-//         // id: data.id, // Use Clerk org ID
-//         name: data.name,
-//         slug: data.slug,
-//         clerk_org_id: data.id,
-//         status: "trialing",
-//         created_at: data.created_at
-//           ? new Date(data.created_at).toISOString()
-//           : new Date().toISOString(),
-//         updated_at: new Date().toISOString(),
-//       })
-//       .select()
-//       .single();
-//
-//     if (error?.code !== "23505") {
-//       throw error;
-//     }
-//
-//     return { success: true, message: `Team ${data.id} created` };
-//   } catch (error) {
-//     console.error("Error creating team:", error);
-//     return {
-//       success: false,
-//       message: error instanceof Error ? error.message : "Unknown error",
-//     };
-//   }
-// }
-
-async function handleOrganizationUpdated(data: any) {
+async function handleOrganizationCreated(data: OrganizationWebhookEvent['data']) {
   try {
-    const { error } = await supabase
-      .from("team")
-      .update({
-        name: data.name,
-        slug: data.slug,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.id);
+    const { db } = createDatabaseAdminClient();
 
-    if (error) throw error;
+    if (!isOrganizationJSON(data)) {
+      throw new TypeError("Invalid organization data");
+    }
 
-    return { success: true, message: `Team ${data.id} updated` };
+    // Check if organization already exists
+    const { data: existingOrg } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.id))
+    );
+
+    if (existingOrg) {
+      return { success: true, message: `Organization ${data.id} already exists` };
+    }
+
+    // Create organization from Clerk organization
+    const { error } = await safeInsert(async () =>
+      db.insert(organizations)
+        .values({
+          name: data.name,
+          slug: data.slug,
+          clerkOrgId: data.id
+        })
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, message: `Organization ${data.id} created` };
   } catch (error) {
-    console.error("Error updating team:", error);
+    console.error("Error creating organization:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function handleOrganizationUpdated(data: OrganizationWebhookEvent['data']) {
+  try {
+    if (!isOrganizationJSON(data)) {
+      throw new TypeError("Invalid organization data");
+    }
+
+    const { db } = createDatabaseAdminClient();
+
+    const { error } = await safeUpdate(async () =>
+      db.update(organizations)
+        .set({
+          name: data.name,
+          slug: data.slug,
+          updatedAt: new Date()
+        })
+        .where(eq(organizations.clerkOrgId, data.id))
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return { success: true, message: `Organization ${data.id} updated` };
+  } catch (error) {
+    console.error("Error updating organization:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data']) {
+  try {
+    if (!isDeletedObjectJSON(data)) {
+      throw new TypeError("Invalid deleted object data");
+    }
+
+    if (!data.id) {
+      throw new TypeError("Missing organization ID in deleted object");
+    }
+
+    const { db } = createDatabaseAdminClient();
+
+    // Get organization by Clerk org ID to find the internal ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.id!))
+    );
+
+    if (!organization?.id) {
+      console.warn(`Organization ${data.id} not found in database`);
+      return { success: true, message: `Organization ${data.id} not found in database` };
+    }
+
+    // Update pending organization invitations to 'revoked' status
+    const { error: invitationError } = await safeUpdate(async () =>
+      db.update(organizationInvitations)
+        .set({
+          status: "revoked",
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(organizationInvitations.organizationId, organization.id),
+          eq(organizationInvitations.status, "pending")
+        ))
+    );
+
+    if (invitationError) {
+      console.warn("Failed to revoke pending invitations:", invitationError);
+    }
+
+    // Soft delete the organization - set status and deletedAt
+    const { error: orgError } = await safeUpdate(async () =>
+      db.update(organizations)
+        .set({
+          deletedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(organizations.id, organization.id))
+    );
+
+    if (orgError) {
+      throw orgError;
+    }
+
+    return { success: true, message: `Organization ${data.id} deleted and invitations revoked` };
+  } catch (error) {
+    console.error("Error deleting organization:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",
@@ -300,47 +457,143 @@ async function handleOrganizationUpdated(data: any) {
 }
 
 // Membership Management Functions
-async function handleMembershipCreated(data: any) {
+async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent['data'], email: string | null) {
   try {
-    // Map Clerk role to your role system - must match user_role enum in database
+    const { db } = createDatabaseAdminClient();
+
+    // Map Clerk role to AWS access level enum
     const roleMapping = {
-      "org:admin": "org_admin",
-      "org:member": "biller",
-      "org:viewer": "viewer",
+      "org:admin": "admin",
+      "org:member": "write",
+      "org:viewer": "read",
     };
 
-    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
-    // Add user to team
-    const { error } = await supabase.from("team_member").insert({
-      // id: `${data.organization_id}_${data.public_user_data.user_id}`,
-      clerk_org_id: data.organization_id,
-      clerk_user_id: data.public_user_data.user_id,
-      role: role,
-      permissions: getPermissionsForRole(role),
-      status: "active",
-      created_at: data.created_at
-        ? new Date(data.created_at).toISOString()
-        : new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
 
-    if (error && error.code !== "23505") {
-      throw error;
-    }
+    if (organization) {
+      // Check if membership already exists
+      const { data: existingMember } = await safeSingle(async () =>
+        db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+            eq(teamMembers.organizationId, organization.id)
+          ))
+      );
 
-    // Update user's current team if this is their first team
-    const { data: userProfile } = await supabase
-      .from("user_profile")
-      .select("current_team_id")
-      .eq("clerk_id", data.public_user_data.user_id)
-      .single();
+      if (!existingMember) {
+        // Add user to organization
+        const { error: memberError } = await safeInsert(async () =>
+          db.insert(teamMembers)
+            .values({
+              organizationId: organization.id,
+              clerkUserId: data.public_user_data.user_id,
+              email,
+              firstName: data.public_user_data.first_name,
+              lastName: data.public_user_data.last_name,
+              role: sql.raw(`'${role}'::access_level`),
+              isActive: true
+            })
+        );
 
-    if (userProfile && !userProfile.current_team_id) {
-      await supabase
-        .from("user_profile")
-        .update({ current_team_id: data.organization_id })
-        .eq("clerk_id", data.public_user_data.user_id);
+        if (memberError) {
+          throw memberError;
+        }
+
+        // Check if there's a pending invitation for this user and mark it as accepted
+        if (email) {
+          const { error: invitationError } = await safeUpdate(async () =>
+            db.update(organizationInvitations)
+              .set({
+                status: "accepted",
+                acceptedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(and(
+                eq(organizationInvitations.organizationId, organization.id),
+                eq(organizationInvitations.email, email),
+                eq(organizationInvitations.status, "pending")
+              ))
+          );
+
+          if (invitationError) {
+            console.warn("Failed to update invitation status:", invitationError);
+          }
+        }
+      }
+    } else {
+      // Create organization if it doesn't exist
+      const { data: newOrg, error: orgError } : { data: Organization[] | null, error: Error | null } = await safeInsert(async () =>
+        db.insert(organizations)
+          .values({
+            name: data.organization.name,
+            slug: data.organization.slug,
+            clerkOrgId: data.organization.id
+          })
+          .returning({ id: organizations.id })
+      );
+
+      if (orgError || !newOrg || newOrg.length === 0) {
+        throw new Error("Failed to create organization");
+      }
+
+      // Check if membership already exists
+      const { data: existingMember } = await safeSingle(async () =>
+        db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+            eq(teamMembers.organizationId, newOrg[0].id)
+          ))
+      );
+
+      if (!existingMember) {
+        // Add user to organization
+        const { error: memberError } = await safeInsert(async () =>
+          db.insert(teamMembers)
+            .values({
+              organizationId: newOrg[0].id,
+              clerkUserId: data.public_user_data.user_id,
+              email,
+              firstName: data.public_user_data.first_name,
+              lastName: data.public_user_data.last_name,
+              role: sql.raw(`'${role}'::access_level`),
+              isActive: true
+            })
+        );
+
+        if (memberError) {
+          throw memberError;
+        }
+
+        // Check if there's a pending invitation for this user and mark it as accepted
+        if (email) {
+          const { error: invitationError } = await safeUpdate(async () =>
+            db.update(organizationInvitations)
+              .set({
+                status: "accepted",
+                acceptedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(and(
+                eq(organizationInvitations.organizationId, newOrg[0].id),
+                eq(organizationInvitations.email, email),
+                eq(organizationInvitations.status, "pending")
+              ))
+          );
+
+          if (invitationError) {
+            console.warn("Failed to update invitation status:", invitationError);
+          }
+        }
+      }
     }
 
     return {
@@ -356,26 +609,41 @@ async function handleMembershipCreated(data: any) {
   }
 }
 
-async function handleMembershipUpdated(data: any) {
+async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent['data']) {
   try {
-    // Map Clerk role to your role system - must match user_role enum in database
+    const { db } = createDatabaseAdminClient();
+
+    // Map Clerk role to AWS access level enum
     const roleMapping = {
-      "org:admin": "org_admin",
-      "org:member": "coder",
-      "org:viewer": "viewer",
+      "org:admin": "admin",
+      "org:member": "write",
+      "org:viewer": "read",
     };
 
-    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "biller";
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        role: role,
-        permissions: getPermissionsForRole(role),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.organization_id)
-      .eq("clerk_id", data.public_user_data.user_id);
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          role: sql.raw(`'${role}'::access_level`),
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+          eq(teamMembers.organizationId, organization.id)
+        ))
+    );
 
     if (error) {
       throw error;
@@ -394,26 +662,37 @@ async function handleMembershipUpdated(data: any) {
   }
 }
 
-async function handleMembershipDeleted(data: any) {
+async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent['data']) {
   try {
+    const { db } = createDatabaseAdminClient();
+
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization.id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
     // Soft delete membership
-    const { error } = await supabase
-      .from("team_member")
-      .update({
-        status: "inactive",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_org_id", data.organization_id)
-      .eq("clerk_id", data.public_user_data.user_id);
+    const { error } = await safeUpdate(async () =>
+      db.update(teamMembers)
+        .set({
+          isActive: false,
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+          eq(teamMembers.organizationId, organization.id)
+        ))
+    );
 
-    if (error) throw error;
-
-    // If this was user's current team, clear it
-    await supabase
-      .from("user_profile")
-      .update({ current_team_id: null })
-      .eq("clerk_id", data.public_user_data.user_id)
-      .eq("clerk_org_id", data.organization_id);
+    if (error) {
+      throw error;
+    }
 
     return {
       success: true,
@@ -428,60 +707,102 @@ async function handleMembershipDeleted(data: any) {
   }
 }
 
-// Helper function to map role to permissions
-function getPermissionsForRole(role: string): string[] {
-  const permissionMap = {
-    super_admin: ["*"],
-    org_admin: [
-      "claims.create",
-      "claims.read",
-      "claims.update",
-      "claims.delete",
-      "prior_auth.create",
-      "prior_auth.read",
-      "prior_auth.update",
-      "prior_auth.delete",
-      "patients.create",
-      "patients.read",
-      "patients.update",
-      "patients.delete",
-      "payments.create",
-      "payments.read",
-      "payments.update",
-      "reports.view",
-      "reports.export",
-      "team.manage",
-    ],
-    biller: [
-      "claims.create",
-      "claims.read",
-      "claims.update",
-      "prior_auth.create",
-      "prior_auth.read",
-      "prior_auth.update",
-      "patients.read",
-      "payments.create",
-      "payments.read",
-      "reports.view",
-    ],
-    team_user: [
-      "claims.create",
-      "claims.read",
-      "prior_auth.create",
-      "prior_auth.read",
-      "patients.read",
-      "reports.view",
-    ],
-    read_only: [
-      "claims.read",
-      "prior_auth.read",
-      "patients.read",
-      "reports.view",
-    ],
-  };
+// Invitation Management Functions
+async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent['data']) {
+  try {
+    const { db } = createDatabaseAdminClient();
 
-  return (
-    permissionMap[role as keyof typeof permissionMap] ??
-    permissionMap["read_only"]
-  );
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization_id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
+    // Map Clerk role to AWS access level enum
+    const roleMapping = {
+      "org:admin": "admin",
+      "org:member": "write",
+      "org:viewer": "read",
+    };
+
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
+
+    // Create invitation record
+    const { error } = await safeInsert(async () =>
+      db.insert(organizationInvitations)
+        .values({
+          organizationId: organization.id,
+          email: data.email_address,
+          role: sql.raw(`'${role}'::access_level`),
+          status: "pending",
+          clerkInvitationId: data.id,
+          expiresAt: data.expires_at ? new Date(data.expires_at) : null,
+        })
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: `Invitation created for ${data.email_address}`,
+    };
+  } catch (error) {
+    console.error("Error creating invitation:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function handleInvitationRevoked(data: OrganizationInvitationWebhookEvent['data']) {
+  try {
+    const { db } = createDatabaseAdminClient();
+
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization_id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
+    // Update invitation status to revoked
+    const { error } = await safeUpdate(async () =>
+      db.update(organizationInvitations)
+        .set({
+          status: "revoked",
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(organizationInvitations.organizationId, organization.id),
+          eq(organizationInvitations.clerkInvitationId, data.id)
+        ))
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: `Invitation revoked for ${data.email_address}`,
+    };
+  } catch (error) {
+    console.error("Error revoking invitation:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }

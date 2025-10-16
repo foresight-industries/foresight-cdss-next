@@ -1,17 +1,115 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible types
+type Claim = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  payerId: string;
+  status: 'draft' | 'ready_for_submission' | 'submitted' | 'accepted' | 'rejected' | 'paid' | 'denied' | 'pending' | 'needs_review' | 'appeal_required';
+  claimNumber?: string;
+  serviceDate: Date;
+  diagnosisCode: string;
+  diagnosisDescription: string;
+  totalAmount: number;
+  paidAmount?: number;
+  adjustedAmount?: number;
+  billingProviderId: string;
+  submittedAt?: Date;
+  processedAt?: Date;
+  paidAt?: Date;
+  dueDate?: Date;
+  notes?: string;
+  assignedTo?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ClaimLine = {
+  id: string;
+  claimId: string;
+  lineNumber: number;
+  procedureCode: string;
+  procedureDescription: string;
+  units: number;
+  unitPrice: number;
+  totalAmount: number;
+  diagnosisPointer?: string;
+  modifiers?: string[];
+  placeOfService?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ClaimAttachment = {
+  id: string;
+  claimId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  fileUrl: string;
+  attachmentType: string;
+  description?: string;
+  createdAt: Date;
+};
+
+type ClaimValidation = {
+  id: string;
+  claimId: string;
+  validationType: string;
+  status: 'passed' | 'failed' | 'warning';
+  message: string;
+  details?: any;
+  createdAt: Date;
+};
+
+type ClaimStateHistory = {
+  id: string;
+  claimId: string;
+  actor: string;
+  at: Date;
+  state: string;
+  details?: any;
+  createdAt: Date;
+};
+
+type ScrubberResult = {
+  id: string;
+  claimId: string;
+  ruleId: string;
+  ruleName: string;
+  ruleType: string;
+  status: 'passed' | 'failed' | 'warning';
+  message: string;
+  suggestions?: string[];
+  details?: any;
+  createdAt: Date;
+};
+
+type DenialTracking = {
+  id: string;
+  claimId: string;
+  denialCode: string;
+  denialReason: string;
+  denialDate: Date;
+  appealDeadline?: Date;
+  appealStatus?: 'pending' | 'submitted' | 'approved' | 'denied';
+  appealSubmittedAt?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface ClaimSlice {
   // State
-  claims: Tables<"claim">[];
-  selectedClaim: Tables<"claim"> | null;
-  claimLines: Record<string, Tables<"claim_line">[]>;
-  claimAttachments: Record<string, Tables<"claim_attachment">[]>;
-  claimValidations: Record<string, Tables<"claim_validation">[]>;
-  claimStateHistory: Record<string, Tables<"claim_state_history">[]>;
-  scrubberResults: Record<string, Tables<"scrubbing_result">[]>;
-  denialTracking: Record<string, Tables<"denial_tracking">[]>;
+  claims: Claim[];
+  selectedClaim: Claim | null;
+  claimLines: Record<string, ClaimLine[]>;
+  claimAttachments: Record<string, ClaimAttachment[]>;
+  claimValidations: Record<string, ClaimValidation[]>;
+  claimStateHistory: Record<string, ClaimStateHistory[]>;
+  scrubberResults: Record<string, ScrubberResult[]>;
+  denialTracking: Record<string, DenialTracking[]>;
 
   // Loading states
   claimsLoading: boolean;
@@ -27,9 +125,9 @@ export interface ClaimSlice {
 
   // Filter state
   claimFilters: {
-    status?: Tables<"claim">["status"][];
-    payerId?: number;
-    patientId?: number;
+    status?: Claim["status"][];
+    payerId?: string;
+    patientId?: string;
     dateRange?:
       | "today"
       | "last_7_days"
@@ -44,64 +142,64 @@ export interface ClaimSlice {
   };
 
   // Actions
-  setClaims: (claims: Tables<"claim">[]) => void;
-  setSelectedClaim: (claim: Tables<"claim"> | null) => void;
-  addClaim: (claim: Tables<"claim">) => void;
-  updateClaim: (id: string, updates: Partial<Tables<"claim">>) => void;
+  setClaims: (claims: Claim[]) => void;
+  setSelectedClaim: (claim: Claim | null) => void;
+  addClaim: (claim: Claim) => void;
+  updateClaim: (id: string, updates: Partial<Claim>) => void;
   removeClaim: (id: string) => void;
 
   // Claim lines actions
-  setClaimLines: (claimId: string, lines: Tables<"claim_line">[]) => void;
-  addClaimLine: (line: Tables<"claim_line">) => void;
-  updateClaimLine: (id: string, updates: Partial<Tables<"claim_line">>) => void;
+  setClaimLines: (claimId: string, lines: ClaimLine[]) => void;
+  addClaimLine: (line: ClaimLine) => void;
+  updateClaimLine: (id: string, updates: Partial<ClaimLine>) => void;
   removeClaimLine: (id: string) => void;
 
   // Claim attachments actions
   setClaimAttachments: (
     claimId: string,
-    attachments: Tables<"claim_attachment">[]
+    attachments: ClaimAttachment[]
   ) => void;
-  addClaimAttachment: (attachment: Tables<"claim_attachment">) => void;
+  addClaimAttachment: (attachment: ClaimAttachment) => void;
   updateClaimAttachment: (
     id: string,
-    updates: Partial<Tables<"claim_attachment">>
+    updates: Partial<ClaimAttachment>
   ) => void;
   removeClaimAttachment: (id: string) => void;
 
   // Claim validations actions
   setClaimValidations: (
     claimId: string,
-    validations: Tables<"claim_validation">[]
+    validations: ClaimValidation[]
   ) => void;
-  addClaimValidation: (validation: Tables<"claim_validation">) => void;
+  addClaimValidation: (validation: ClaimValidation) => void;
   updateClaimValidation: (
     id: string,
-    updates: Partial<Tables<"claim_validation">>
+    updates: Partial<ClaimValidation>
   ) => void;
 
   // State history actions
   setClaimStateHistory: (
     claimId: string,
-    history: Tables<"claim_state_history">[]
+    history: ClaimStateHistory[]
   ) => void;
-  addClaimStateHistory: (history: Tables<"claim_state_history">) => void;
+  addClaimStateHistory: (history: ClaimStateHistory) => void;
 
   // Scrubber results actions
   setScrubberResults: (
     claimId: string,
-    results: Tables<"scrubbing_result">[]
+    results: ScrubberResult[]
   ) => void;
-  addScrubberResult: (result: Tables<"scrubbing_result">) => void;
+  addScrubberResult: (result: ScrubberResult) => void;
 
   // Denial tracking actions
   setDenialTracking: (
     claimId: string,
-    denials: Tables<"denial_tracking">[]
+    denials: DenialTracking[]
   ) => void;
-  addDenialTracking: (denial: Tables<"denial_tracking">) => void;
+  addDenialTracking: (denial: DenialTracking) => void;
   updateDenialTracking: (
     id: string,
-    updates: Partial<Tables<"denial_tracking">>
+    updates: Partial<DenialTracking>
   ) => void;
 
   // Filter actions
@@ -149,7 +247,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   // Filter state
   claimFilters: {
-    status: ["submitted", "in_review"],
+    status: ["submitted", "pending"],
     dateRange: "last_30_days",
   },
 
@@ -186,7 +284,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addClaimLine: (line) =>
     set((state) => {
-      const claimId = line.claim_id;
+      const claimId = line.claimId;
       const currentLines = state.claimLines[claimId] || [];
       return {
         claimLines: {
@@ -199,20 +297,20 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   updateClaimLine: (id, updates) =>
     set((state) => {
       const newLines = { ...state.claimLines };
-      Object.keys(newLines).forEach((claimId) => {
+      for (const claimId of Object.keys(newLines)) {
         newLines[claimId] = newLines[claimId].map((l) =>
           l.id === id ? { ...l, ...updates } : l
         );
-      });
+      }
       return { claimLines: newLines };
     }),
 
   removeClaimLine: (id) =>
     set((state) => {
       const newLines = { ...state.claimLines };
-      Object.keys(newLines).forEach((claimId) => {
+      for (const claimId of Object.keys(newLines)) {
         newLines[claimId] = newLines[claimId].filter((l) => l.id !== id);
-      });
+      }
       return { claimLines: newLines };
     }),
 
@@ -224,7 +322,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addClaimAttachment: (attachment) =>
     set((state) => {
-      const claimId = attachment.claim_id ?? "";
+      const claimId = attachment.claimId;
       const currentAttachments = state.claimAttachments[claimId] || [];
       return {
         claimAttachments: {
@@ -237,22 +335,22 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   updateClaimAttachment: (id, updates) =>
     set((state) => {
       const newAttachments = { ...state.claimAttachments };
-      Object.keys(newAttachments).forEach((claimId) => {
+      for (const claimId of Object.keys(newAttachments)) {
         newAttachments[claimId] = newAttachments[claimId].map((a) =>
           a.id === id ? { ...a, ...updates } : a
         );
-      });
+      }
       return { claimAttachments: newAttachments };
     }),
 
   removeClaimAttachment: (id) =>
     set((state) => {
       const newAttachments = { ...state.claimAttachments };
-      Object.keys(newAttachments).forEach((claimId) => {
+      for (const claimId of Object.keys(newAttachments)) {
         newAttachments[claimId] = newAttachments[claimId].filter(
           (a) => a.id !== id
         );
-      });
+      }
       return { claimAttachments: newAttachments };
     }),
 
@@ -264,7 +362,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addClaimValidation: (validation) =>
     set((state) => {
-      const claimId = validation.claim_id;
+      const claimId = validation.claimId;
       const currentValidations = state.claimValidations[claimId] || [];
       return {
         claimValidations: {
@@ -277,11 +375,11 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   updateClaimValidation: (id, updates) =>
     set((state) => {
       const newValidations = { ...state.claimValidations };
-      Object.keys(newValidations).forEach((claimId) => {
+      for (const claimId of Object.keys(newValidations)) {
         newValidations[claimId] = newValidations[claimId].map((v) =>
           v.id === id ? { ...v, ...updates } : v
         );
-      });
+      }
       return { claimValidations: newValidations };
     }),
 
@@ -293,7 +391,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addClaimStateHistory: (history) =>
     set((state) => {
-      const claimId = history.claim_id;
+      const claimId = history.claimId;
       const currentHistory = state.claimStateHistory[claimId] || [];
       return {
         claimStateHistory: {
@@ -311,7 +409,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addScrubberResult: (result) =>
     set((state) => {
-      const claimId = result.id ?? "";
+      const claimId = result.claimId;
       const currentResults = state.scrubberResults[claimId] || [];
       return {
         scrubberResults: {
@@ -329,7 +427,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   addDenialTracking: (denial) =>
     set((state) => {
-      const claimId = denial.claim_id ?? "";
+      const claimId = denial.claimId;
       const currentDenials = state.denialTracking[claimId] || [];
       return {
         denialTracking: {
@@ -342,11 +440,11 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   updateDenialTracking: (id, updates) =>
     set((state) => {
       const newDenials = { ...state.denialTracking };
-      Object.keys(newDenials).forEach((claimId) => {
+      for (const claimId of Object.keys(newDenials)) {
         newDenials[claimId] = newDenials[claimId].map((d) =>
           d.id === id ? { ...d, ...updates } : d
         );
-      });
+      }
       return { denialTracking: newDenials };
     }),
 
@@ -359,7 +457,7 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   clearClaimFilters: () =>
     set({
       claimFilters: {
-        status: ["submitted", "in_review"],
+        status: ["submitted", "pending"],
         dateRange: "last_30_days",
       },
     }),
@@ -368,13 +466,11 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   fetchClaims: async () => {
     set({ claimsLoading: true, claimsError: null });
     try {
-      const { data, error } = await supabase
-        .from("claim")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ claims: data || [], claimsLoading: false });
+      const response = await fetch('/api/claims');
+      if (!response.ok) throw new Error('Failed to fetch claims');
+      
+      const data = await response.json();
+      set({ claims: data.claims || [], claimsLoading: false });
     } catch (error) {
       set({
         claimsError:
@@ -386,22 +482,19 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   fetchClaimById: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from("claim")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        get().setSelectedClaim(data);
+      const response = await fetch(`/api/claims/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch claim');
+      
+      const data = await response.json();
+      if (data.claim) {
+        get().setSelectedClaim(data.claim);
         // Also update in claims array if it exists
         const claims = get().claims;
         const existingIndex = claims.findIndex((c) => c.id === id);
         if (existingIndex >= 0) {
-          get().updateClaim(id, data);
+          get().updateClaim(id, data.claim);
         } else {
-          get().addClaim(data);
+          get().addClaim(data.claim);
         }
       }
     } catch (error) {
@@ -412,13 +505,11 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   fetchClaimLines: async (claimId) => {
     set({ claimLinesLoading: true, claimLinesError: null });
     try {
-      const { data, error } = await supabase
-        .from("claim_line")
-        .select("*")
-        .eq("claim_id", claimId);
-
-      if (error) throw error;
-      get().setClaimLines(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/lines`);
+      if (!response.ok) throw new Error('Failed to fetch claim lines');
+      
+      const data = await response.json();
+      get().setClaimLines(claimId, data.claimLines || []);
       set({ claimLinesLoading: false });
     } catch (error) {
       set({
@@ -434,13 +525,11 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   fetchClaimAttachments: async (claimId) => {
     set({ claimAttachmentsLoading: true, claimAttachmentsError: null });
     try {
-      const { data, error } = await supabase
-        .from("claim_attachment")
-        .select("*")
-        .eq("claim_id", claimId);
-
-      if (error) throw error;
-      get().setClaimAttachments(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/attachments`);
+      if (!response.ok) throw new Error('Failed to fetch claim attachments');
+      
+      const data = await response.json();
+      get().setClaimAttachments(claimId, data.attachments || []);
       set({ claimAttachmentsLoading: false });
     } catch (error) {
       set({
@@ -456,29 +545,25 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   fetchClaimValidations: async (claimId) => {
     set({ claimValidationsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("claim_validation")
-        .select("*")
-        .eq("claim_id", claimId);
-
-      if (error) throw error;
-      get().setClaimValidations(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/validations`);
+      if (!response.ok) throw new Error('Failed to fetch claim validations');
+      
+      const data = await response.json();
+      get().setClaimValidations(claimId, data.validations || []);
       set({ claimValidationsLoading: false });
     } catch (error) {
       set({ claimValidationsLoading: false });
+      console.error("Failed to fetch claim validations:", error);
     }
   },
 
   fetchClaimStateHistory: async (claimId) => {
     try {
-      const { data, error } = await supabase
-        .from("claim_state_history")
-        .select("*")
-        .eq("claim_id", claimId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      get().setClaimStateHistory(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/history`);
+      if (!response.ok) throw new Error('Failed to fetch claim state history');
+      
+      const data = await response.json();
+      get().setClaimStateHistory(claimId, data.history || []);
     } catch (error) {
       console.error("Failed to fetch claim state history:", error);
     }
@@ -487,29 +572,25 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
   fetchScrubberResults: async (claimId) => {
     set({ scrubberResultsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("scrubbing_result")
-        .select("*")
-        .eq("claim_id", claimId);
-
-      if (error) throw error;
-      get().setScrubberResults(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/scrubber-results`);
+      if (!response.ok) throw new Error('Failed to fetch scrubber results');
+      
+      const data = await response.json();
+      get().setScrubberResults(claimId, data.results || []);
       set({ scrubberResultsLoading: false });
     } catch (error) {
       set({ scrubberResultsLoading: false });
+      console.error("Failed to fetch scrubber results:", error);
     }
   },
 
   fetchDenialTracking: async (claimId) => {
     try {
-      const { data, error } = await supabase
-        .from("denial_tracking")
-        .select("*")
-        .eq("claim_id", claimId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      get().setDenialTracking(claimId, data || []);
+      const response = await fetch(`/api/claims/${claimId}/denials`);
+      if (!response.ok) throw new Error('Failed to fetch denial tracking');
+      
+      const data = await response.json();
+      get().setDenialTracking(claimId, data.denials || []);
     } catch (error) {
       console.error("Failed to fetch denial tracking:", error);
     }
@@ -517,31 +598,31 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   submitClaim: async (claimId, userId) => {
     try {
-      const { error } = await supabase
-        .from("claim")
-        .update({
-          status: "submitted",
-          submitted_at: new Date().toISOString(),
-        })
-        .eq("id", claimId);
+      const response = await fetch(`/api/claims/${claimId}/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to submit claim');
 
       // Update local state
       get().updateClaim(claimId, {
         status: "submitted",
-        submitted_at: new Date().toISOString(),
+        submittedAt: new Date(),
       });
 
       // Add state history entry
-      const historyEntry = {
+      const historyEntry: ClaimStateHistory = {
         id: crypto.randomUUID(),
-        claim_id: claimId,
+        claimId: claimId,
         actor: userId || "system",
-        at: new Date().toISOString(),
+        at: new Date(),
         state: "submitted",
         details: { previous_status: "draft", action: "submit" },
-        created_at: new Date().toISOString(),
+        createdAt: new Date(),
       };
       get().addClaimStateHistory(historyEntry);
     } catch (error) {
@@ -552,31 +633,31 @@ export const createClaimSlice: StateCreator<ClaimSlice, [], [], ClaimSlice> = (
 
   resubmitClaim: async (claimId, userId) => {
     try {
-      const { error } = await supabase
-        .from("claim")
-        .update({
-          status: "appealing",
-          submitted_at: new Date().toISOString(),
-        })
-        .eq("id", claimId);
+      const response = await fetch(`/api/claims/${claimId}/resubmit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
 
-      if (error) throw error;
+      if (!response.ok) throw new Error('Failed to resubmit claim');
 
       // Update local state
       get().updateClaim(claimId, {
-        status: "appealing",
-        submitted_at: new Date().toISOString(),
+        status: "submitted",
+        submittedAt: new Date(),
       });
 
       // Add state history entry
-      const historyEntry = {
+      const historyEntry: ClaimStateHistory = {
         id: crypto.randomUUID(),
-        claim_id: claimId,
+        claimId: claimId,
         actor: userId || "system",
-        at: new Date().toISOString(),
+        at: new Date(),
         state: "resubmitted",
         details: { previous_status: "denied", action: "resubmit" },
-        created_at: new Date().toISOString(),
+        createdAt: new Date(),
       };
       get().addClaimStateHistory(historyEntry);
     } catch (error) {

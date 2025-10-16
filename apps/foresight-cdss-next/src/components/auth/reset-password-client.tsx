@@ -12,7 +12,7 @@ import {
   EyeOff,
   Loader2,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+// import { useClerk } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -34,24 +34,22 @@ export default function ResetPasswordClient() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [error, setError] = useState("");
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [resetToken, setResetToken] = useState<string | null>(null);
 
   const router = useRouter();
-  const supabase = createClient();
+  // const { user } = useClerk();
 
   useEffect(() => {
-    // Handle the auth callback from email
-    const handleAuthCallback = async () => {
-      const { error } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Error getting session:", error);
-        setError(
-          "Invalid or expired reset link. Please request a new password reset."
-        );
-      }
-    };
+    // Get the reset token from URL parameters
+    const urlParams = new URLSearchParams(globalThis.location.search);
+    const token = urlParams.get('token');
 
-    handleAuthCallback();
-  }, [supabase.auth]);
+    if (token) {
+      setResetToken(token);
+    } else {
+      setError("Invalid or missing reset token. Please request a new password reset.");
+    }
+  }, []);
 
   const validatePassword = (password: string): string[] => {
     const errors: string[] = [];
@@ -98,22 +96,36 @@ export default function ResetPasswordClient() {
       return;
     }
 
+    // Check if we have a reset token
+    if (!resetToken) {
+      setError("Invalid or missing reset token. Please request a new password reset.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: password,
+      // Call API to reset password with Clerk
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: resetToken,
+          password: password,
+        }),
       });
 
-      if (error) {
-        setError(error.message);
-        return;
+      if (response.ok) {
+        setIsSuccess(true);
+        // Redirect to login page after a delay
+        setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to reset password. Please try again.');
       }
-
-      setIsSuccess(true);
-
-      // Redirect to login page after a delay
-      setTimeout(() => {
-        router.push("/login");
-      }, 3000);
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       console.error("Error updating password:", err);
@@ -124,7 +136,7 @@ export default function ResetPasswordClient() {
 
   if (isSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="max-w-md w-full space-y-8 p-6">
           <div className="text-center">
             <Image
@@ -134,10 +146,10 @@ export default function ResetPasswordClient() {
               height={64}
               className="mx-auto rounded-lg"
             />
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">
+            <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
               Password updated
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
               Your password has been successfully changed
             </p>
           </div>
@@ -172,7 +184,7 @@ export default function ResetPasswordClient() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-6">
         <div className="text-center">
           <Image
@@ -182,10 +194,10 @@ export default function ResetPasswordClient() {
             height={64}
             className="mx-auto rounded-lg"
           />
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
+          <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-gray-100">
             Reset your password
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             Enter your new password below
           </p>
         </div>
@@ -243,9 +255,9 @@ export default function ResetPasswordClient() {
                     onClick={() => setShowPassword(!showPassword)}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 </div>
@@ -272,15 +284,15 @@ export default function ResetPasswordClient() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   >
                     {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400" />
+                      <EyeOff className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     ) : (
-                      <Eye className="h-4 w-4 text-gray-400" />
+                      <Eye className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                     )}
                   </button>
                 </div>
               </div>
 
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
                 <p className="font-medium mb-1">Password requirements:</p>
                 <ul className="space-y-1">
                   <li>• At least 8 characters long</li>
@@ -316,8 +328,8 @@ export default function ResetPasswordClient() {
         </Card>
 
         <div className="text-center">
-          <p className="text-xs text-gray-500">
-            © 2025 Foresight Industries. All rights reserved.
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            &copy; 2025 Foresight Industries. All rights reserved.
           </p>
         </div>
       </div>

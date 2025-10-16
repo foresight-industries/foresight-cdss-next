@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as iam from 'aws-cdk-lib/aws-iam';
@@ -104,12 +105,18 @@ export class DocumentProcessingStack extends cdk.Stack {
       ],
     });
 
-    this.documentProcessorFunction = new lambda.Function(this, 'DocumentProcessor', {
+    this.documentProcessorFunction = new lambdaNodejs.NodejsFunction(this, 'DocumentProcessor', {
       ...functionProps,
       functionName: `rcm-document-processor-${props.stageName}`,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset('../packages/functions/document-processor'),
+      entry: '../packages/functions/document-processor/index.ts',
+      handler: 'handler',
       role: documentProcessorRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     // Textract completion processor (triggered by SQS messages)
@@ -121,12 +128,18 @@ export class DocumentProcessingStack extends cdk.Stack {
       ],
     });
 
-    this.textractCompletionFunction = new lambda.Function(this, 'TextractCompletion', {
+    this.textractCompletionFunction = new lambdaNodejs.NodejsFunction(this, 'TextractCompletion', {
       ...functionProps,
       functionName: `rcm-textract-completion-${props.stageName}`,
-      handler: 'completion.handler',
-      code: lambda.Code.fromAsset('../packages/functions/document-processor'),
+      entry: '../packages/functions/document-processor/completion.ts',
+      handler: 'handler',
       role: textractCompletionRole,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
     });
 
     // Grant permissions to document processor

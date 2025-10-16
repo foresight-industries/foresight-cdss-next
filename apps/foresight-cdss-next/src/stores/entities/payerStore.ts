@@ -1,21 +1,176 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible types
+type Payer = {
+  id: string;
+  organizationId: string;
+  name: string;
+  payerType: string;
+  planType?: string;
+  payerNumber?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  isActive: boolean;
+  hasPortalAccess: boolean;
+  submissionMethod: 'electronic' | 'paper' | 'portal';
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PayerConfig = {
+  id: string;
+  payerId: string;
+  submissionFormat: string;
+  requiresPriorAuth: boolean;
+  claimSubmissionUrl?: string;
+  eligibilityUrl?: string;
+  priorAuthUrl?: string;
+  timeoutSeconds: number;
+  retryAttempts: number;
+  config: any;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PayerPortalCredential = {
+  id: string;
+  payerId: string;
+  credentialType: string;
+  username?: string;
+  password?: string;
+  apiKey?: string;
+  clientId?: string;
+  clientSecret?: string;
+  isActive: boolean;
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PayerResponseMessage = {
+  id: string;
+  payerId: string;
+  messageType: string;
+  messageCode: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error';
+  createdAt: Date;
+};
+
+type PayerSubmissionConfig = {
+  id: string;
+  payerId: string;
+  claimType: string;
+  submissionFormat: string;
+  requiredFields: string[];
+  validationRules: any;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type InsurancePolicy = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  payerId: string;
+  policyNumber: string;
+  groupNumber?: string;
+  subscriberName: string;
+  subscriberId: string;
+  relationshipToSubscriber: string;
+  effectiveDate: Date;
+  terminationDate?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type BenefitsCoverage = {
+  id: string;
+  insurancePolicyId: string;
+  benefitType: string;
+  coverageLevel: string;
+  deductible?: number;
+  copay?: number;
+  coinsurance?: number;
+  outOfPocketMax?: number;
+  lifetimeMax?: number;
+  isActive: boolean;
+  effectiveDate: Date;
+  terminationDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type EligibilityCheck = {
+  id: string;
+  organizationId: string;
+  patientId: string;
+  insurancePolicyId: string;
+  status: 'pending' | 'completed' | 'failed';
+  requestData: any;
+  responseData?: any;
+  eligibilityDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type EligibilityCache = {
+  id: string;
+  patientId: string;
+  payerId: string;
+  eligibilityData: any;
+  isActive: boolean;
+  expiresAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type DrugFormulary = {
+  id: string;
+  payerId: string;
+  drugName: string;
+  ndc: string;
+  tier: string;
+  isPreferred: boolean;
+  requiresPriorAuth: boolean;
+  isActive: boolean;
+  effectiveDate: Date;
+  terminationDate?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type FeeSchedule = {
+  id: string;
+  payerId: string;
+  procedureCode: string;
+  description: string;
+  allowedAmount: number;
+  effectiveDate: Date;
+  terminationDate?: Date;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface PayerSlice {
   // State
-  payers: Tables<"payer">[];
-  selectedPayer: Tables<"payer"> | null;
-  payerConfigs: Record<number, Tables<"payer_config">>;
-  payerPortalCredentials: Record<number, Tables<"payer_portal_credential">[]>;
-  payerResponseMessages: Record<number, Tables<"payer_response_message">[]>;
-  payerSubmissionConfigs: Record<number, Tables<"payer_submission_config">[]>;
-  insurancePolicies: Tables<"insurance_policy">[];
-  benefitsCoverage: Tables<"benefits_coverage">[];
-  eligibilityChecks: Tables<"eligibility_check">[];
-  eligibilityCache: Tables<"eligibility_cache">[];
-  drugFormulary: Tables<"drug_formulary">[];
-  feeSchedules: Tables<"fee_schedule">[];
+  payers: Payer[];
+  selectedPayer: Payer | null;
+  payerConfigs: Record<string, PayerConfig>;
+  payerPortalCredentials: Record<string, PayerPortalCredential[]>;
+  payerResponseMessages: Record<string, PayerResponseMessage[]>;
+  payerSubmissionConfigs: Record<string, PayerSubmissionConfig[]>;
+  insurancePolicies: InsurancePolicy[];
+  benefitsCoverage: BenefitsCoverage[];
+  eligibilityChecks: EligibilityCheck[];
+  eligibilityCache: EligibilityCache[];
+  drugFormulary: DrugFormulary[];
+  feeSchedules: FeeSchedule[];
 
   // Loading states
   payersLoading: boolean;
@@ -39,99 +194,61 @@ export interface PayerSlice {
   };
 
   // Actions
-  setPayers: (payers: Tables<"payer">[]) => void;
-  setSelectedPayer: (payer: Tables<"payer"> | null) => void;
-  addPayer: (payer: Tables<"payer">) => void;
-  updatePayer: (id: number, updates: Partial<Tables<"payer">>) => void;
-  removePayer: (id: number) => void;
+  setPayers: (payers: Payer[]) => void;
+  setSelectedPayer: (payer: Payer | null) => void;
+  addPayer: (payer: Payer) => void;
+  updatePayer: (id: string, updates: Partial<Payer>) => void;
+  removePayer: (id: string) => void;
 
   // Payer configs actions
-  setPayerConfigs: (payerId: number, config: Tables<"payer_config">) => void;
-  updatePayerConfig: (
-    payerId: number,
-    updates: Partial<Tables<"payer_config">>
-  ) => void;
+  setPayerConfigs: (payerId: string, config: PayerConfig) => void;
+  updatePayerConfig: (payerId: string, updates: Partial<PayerConfig>) => void;
 
   // Payer portal credentials actions
-  setPayerPortalCredentials: (
-    payerId: number,
-    credentials: Tables<"payer_portal_credential">[]
-  ) => void;
-  addPayerPortalCredential: (
-    credential: Tables<"payer_portal_credential">
-  ) => void;
-  updatePayerPortalCredential: (
-    id: string,
-    updates: Partial<Tables<"payer_portal_credential">>
-  ) => void;
+  setPayerPortalCredentials: (payerId: string, credentials: PayerPortalCredential[]) => void;
+  addPayerPortalCredential: (credential: PayerPortalCredential) => void;
+  updatePayerPortalCredential: (id: string, updates: Partial<PayerPortalCredential>) => void;
   removePayerPortalCredential: (id: string) => void;
 
   // Payer response messages actions
-  setPayerResponseMessages: (
-    payerId: number,
-    messages: Tables<"payer_response_message">[]
-  ) => void;
-  addPayerResponseMessage: (message: Tables<"payer_response_message">) => void;
+  setPayerResponseMessages: (payerId: string, messages: PayerResponseMessage[]) => void;
+  addPayerResponseMessage: (message: PayerResponseMessage) => void;
 
   // Payer submission configs actions
-  setPayerSubmissionConfigs: (
-    payerId: number,
-    configs: Tables<"payer_submission_config">[]
-  ) => void;
-  addPayerSubmissionConfig: (config: Tables<"payer_submission_config">) => void;
-  updatePayerSubmissionConfig: (
-    id: string,
-    updates: Partial<Tables<"payer_submission_config">>
-  ) => void;
+  setPayerSubmissionConfigs: (payerId: string, configs: PayerSubmissionConfig[]) => void;
+  addPayerSubmissionConfig: (config: PayerSubmissionConfig) => void;
+  updatePayerSubmissionConfig: (id: string, updates: Partial<PayerSubmissionConfig>) => void;
 
   // Insurance policies actions
-  setInsurancePolicies: (policies: Tables<"insurance_policy">[]) => void;
-  addInsurancePolicy: (policy: Tables<"insurance_policy">) => void;
-  updateInsurancePolicy: (
-    id: string,
-    updates: Partial<Tables<"insurance_policy">>
-  ) => void;
+  setInsurancePolicies: (policies: InsurancePolicy[]) => void;
+  addInsurancePolicy: (policy: InsurancePolicy) => void;
+  updateInsurancePolicy: (id: string, updates: Partial<InsurancePolicy>) => void;
   removeInsurancePolicy: (id: string) => void;
 
   // Benefits coverage actions
-  setBenefitsCoverage: (coverage: Tables<"benefits_coverage">[]) => void;
-  addBenefitsCoverage: (coverage: Tables<"benefits_coverage">) => void;
-  updateBenefitsCoverage: (
-    id: string,
-    updates: Partial<Tables<"benefits_coverage">>
-  ) => void;
+  setBenefitsCoverage: (coverage: BenefitsCoverage[]) => void;
+  addBenefitsCoverage: (coverage: BenefitsCoverage) => void;
+  updateBenefitsCoverage: (id: string, updates: Partial<BenefitsCoverage>) => void;
 
   // Eligibility checks actions
-  setEligibilityChecks: (checks: Tables<"eligibility_check">[]) => void;
-  addEligibilityCheck: (check: Tables<"eligibility_check">) => void;
-  updateEligibilityCheck: (
-    id: string,
-    updates: Partial<Tables<"eligibility_check">>
-  ) => void;
+  setEligibilityChecks: (checks: EligibilityCheck[]) => void;
+  addEligibilityCheck: (check: EligibilityCheck) => void;
+  updateEligibilityCheck: (id: string, updates: Partial<EligibilityCheck>) => void;
 
   // Eligibility cache actions
-  setEligibilityCache: (cache: Tables<"eligibility_cache">[]) => void;
-  addEligibilityCache: (cache: Tables<"eligibility_cache">) => void;
-  updateEligibilityCache: (
-    id: string,
-    updates: Partial<Tables<"eligibility_cache">>
-  ) => void;
+  setEligibilityCache: (cache: EligibilityCache[]) => void;
+  addEligibilityCache: (cache: EligibilityCache) => void;
+  updateEligibilityCache: (id: string, updates: Partial<EligibilityCache>) => void;
 
   // Drug formulary actions
-  setDrugFormulary: (formulary: Tables<"drug_formulary">[]) => void;
-  addDrugFormulary: (formulary: Tables<"drug_formulary">) => void;
-  updateDrugFormulary: (
-    id: string,
-    updates: Partial<Tables<"drug_formulary">>
-  ) => void;
+  setDrugFormulary: (formulary: DrugFormulary[]) => void;
+  addDrugFormulary: (formulary: DrugFormulary) => void;
+  updateDrugFormulary: (id: string, updates: Partial<DrugFormulary>) => void;
 
   // Fee schedules actions
-  setFeeSchedules: (schedules: Tables<"fee_schedule">[]) => void;
-  addFeeSchedule: (schedule: Tables<"fee_schedule">) => void;
-  updateFeeSchedule: (
-    id: string,
-    updates: Partial<Tables<"fee_schedule">>
-  ) => void;
+  setFeeSchedules: (schedules: FeeSchedule[]) => void;
+  addFeeSchedule: (schedule: FeeSchedule) => void;
+  updateFeeSchedule: (id: string, updates: Partial<FeeSchedule>) => void;
 
   // Filter actions
   setPayerFilters: (filters: PayerSlice["payerFilters"]) => void;
@@ -139,18 +256,18 @@ export interface PayerSlice {
 
   // Async actions
   fetchPayers: () => Promise<void>;
-  fetchPayerById: (id: number) => Promise<void>;
-  fetchPayerConfig: (payerId: number) => Promise<void>;
-  fetchPayerPortalCredentials: (payerId: number) => Promise<void>;
-  fetchPayerResponseMessages: (payerId: number) => Promise<void>;
-  fetchPayerSubmissionConfigs: (payerId: number) => Promise<void>;
+  fetchPayerById: (id: string) => Promise<void>;
+  fetchPayerConfig: (payerId: string) => Promise<void>;
+  fetchPayerPortalCredentials: (payerId: string) => Promise<void>;
+  fetchPayerResponseMessages: (payerId: string) => Promise<void>;
+  fetchPayerSubmissionConfigs: (payerId: string) => Promise<void>;
   fetchInsurancePolicies: () => Promise<void>;
   fetchBenefitsCoverage: () => Promise<void>;
   fetchEligibilityChecks: () => Promise<void>;
   fetchEligibilityCache: () => Promise<void>;
   fetchDrugFormulary: () => Promise<void>;
   fetchFeeSchedules: () => Promise<void>;
-  checkEligibility: (patientId: number, payerId: number) => Promise<void>;
+  checkEligibility: (patientId: string, payerId: string) => Promise<void>;
   verifyBenefits: (policyId: string) => Promise<void>;
 }
 
@@ -241,7 +358,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerPortalCredential: (credential) =>
     set((state) => {
-      const payerId = Number(credential.payer_id);
+      const payerId = credential.payerId;
       const currentCredentials = state.payerPortalCredentials[payerId] || [];
       return {
         payerPortalCredentials: {
@@ -254,22 +371,20 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   updatePayerPortalCredential: (id, updates) =>
     set((state) => {
       const newCredentials = { ...state.payerPortalCredentials };
-      Object.keys(newCredentials).forEach((payerId) => {
-        newCredentials[parseInt(payerId)] = newCredentials[
-          parseInt(payerId)
-        ].map((c) => (c.id === id ? { ...c, ...updates } : c));
-      });
+      for (const payerId of Object.keys(newCredentials)) {
+        newCredentials[payerId] = newCredentials[payerId].map((c) =>
+          c.id === id ? { ...c, ...updates } : c
+        );
+      }
       return { payerPortalCredentials: newCredentials };
     }),
 
   removePayerPortalCredential: (id) =>
     set((state) => {
       const newCredentials = { ...state.payerPortalCredentials };
-      Object.keys(newCredentials).forEach((payerId) => {
-        newCredentials[parseInt(payerId)] = newCredentials[
-          parseInt(payerId)
-        ].filter((c) => c.id !== id);
-      });
+      for (const payerId of Object.keys(newCredentials)) {
+        newCredentials[payerId] = newCredentials[payerId].filter((c) => c.id !== id);
+      }
       return { payerPortalCredentials: newCredentials };
     }),
 
@@ -284,7 +399,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerResponseMessage: (message) =>
     set((state) => {
-      const payerId = Number(message.id);
+      const payerId = message.payerId;
       const currentMessages = state.payerResponseMessages[payerId] || [];
       return {
         payerResponseMessages: {
@@ -305,7 +420,7 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   addPayerSubmissionConfig: (config) =>
     set((state) => {
-      const payerId = Number(config.payer_id);
+      const payerId = config.payerId;
       const currentConfigs = state.payerSubmissionConfigs[payerId] || [];
       return {
         payerSubmissionConfigs: {
@@ -318,11 +433,11 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   updatePayerSubmissionConfig: (id, updates) =>
     set((state) => {
       const newConfigs = { ...state.payerSubmissionConfigs };
-      Object.keys(newConfigs).forEach((payerId) => {
-        newConfigs[parseInt(payerId)] = newConfigs[parseInt(payerId)].map((c) =>
+      for (const payerId of Object.keys(newConfigs)) {
+        newConfigs[payerId] = newConfigs[payerId].map((c) =>
           c.id === id ? { ...c, ...updates } : c
         );
-      });
+      }
       return { payerSubmissionConfigs: newConfigs };
     }),
 
@@ -337,15 +452,13 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   updateInsurancePolicy: (id, updates) =>
     set((state) => ({
       insurancePolicies: state.insurancePolicies.map((p) =>
-        String(p.id) === id ? { ...p, ...updates } : p
+        p.id === id ? { ...p, ...updates } : p
       ),
     })),
 
   removeInsurancePolicy: (id) =>
     set((state) => ({
-      insurancePolicies: state.insurancePolicies.filter(
-        (p) => String(p.id) !== id
-      ),
+      insurancePolicies: state.insurancePolicies.filter((p) => p.id !== id),
     })),
 
   // Benefits coverage actions
@@ -440,13 +553,11 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchPayers: async () => {
     set({ payersLoading: true, payersError: null });
     try {
-      const { data, error } = await supabase
-        .from("payer")
-        .select("*")
-        .order("name", { ascending: true });
-
-      if (error) throw error;
-      set({ payers: data || [], payersLoading: false });
+      const response = await fetch('/api/payers');
+      if (!response.ok) throw new Error('Failed to fetch payers');
+      
+      const data = await response.json();
+      set({ payers: data.payers || [], payersLoading: false });
     } catch (error) {
       set({
         payersError:
@@ -458,22 +569,19 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   fetchPayerById: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from("payer")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        get().setSelectedPayer(data);
+      const response = await fetch(`/api/payers/${id}`);
+      if (!response.ok) throw new Error('Failed to fetch payer');
+      
+      const data = await response.json();
+      if (data.payer) {
+        get().setSelectedPayer(data.payer);
         // Also update in payers array if it exists
         const payers = get().payers;
         const existingIndex = payers.findIndex((p) => p.id === id);
         if (existingIndex >= 0) {
-          get().updatePayer(id, data);
+          get().updatePayer(id, data.payer);
         } else {
-          get().addPayer(data);
+          get().addPayer(data.payer);
         }
       }
     } catch (error) {
@@ -484,15 +592,12 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchPayerConfig: async (payerId) => {
     set({ payerConfigsLoading: true, payerConfigsError: null });
     try {
-      const { data, error } = await supabase
-        .from("payer_config")
-        .select("*")
-        .eq("payer_id", payerId)
-        .single();
-
-      if (error) throw error;
-      if (data) {
-        get().setPayerConfigs(payerId, data);
+      const response = await fetch(`/api/payers/${payerId}/config`);
+      if (!response.ok) throw new Error('Failed to fetch payer config');
+      
+      const data = await response.json();
+      if (data.config) {
+        get().setPayerConfigs(payerId, data.config);
       }
       set({ payerConfigsLoading: false });
     } catch (error) {
@@ -509,29 +614,25 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchPayerPortalCredentials: async (payerId) => {
     set({ payerPortalCredentialsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("payer_portal_credential")
-        .select("*")
-        .eq("payer_id", payerId);
-
-      if (error) throw error;
-      get().setPayerPortalCredentials(payerId, data || []);
+      const response = await fetch(`/api/payers/${payerId}/portal-credentials`);
+      if (!response.ok) throw new Error('Failed to fetch payer portal credentials');
+      
+      const data = await response.json();
+      get().setPayerPortalCredentials(payerId, data.credentials || []);
       set({ payerPortalCredentialsLoading: false });
     } catch (error) {
       set({ payerPortalCredentialsLoading: false });
+      console.error("Failed to fetch payer portal credentials:", error);
     }
   },
 
   fetchPayerResponseMessages: async (payerId) => {
     try {
-      const { data, error } = await supabase
-        .from("payer_response_message")
-        .select("*")
-        .eq("payer_id", payerId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      get().setPayerResponseMessages(payerId, data || []);
+      const response = await fetch(`/api/payers/${payerId}/response-messages`);
+      if (!response.ok) throw new Error('Failed to fetch payer response messages');
+      
+      const data = await response.json();
+      get().setPayerResponseMessages(payerId, data.messages || []);
     } catch (error) {
       console.error("Failed to fetch payer response messages:", error);
     }
@@ -539,13 +640,11 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   fetchPayerSubmissionConfigs: async (payerId) => {
     try {
-      const { data, error } = await supabase
-        .from("payer_submission_config")
-        .select("*")
-        .eq("payer_id", payerId);
-
-      if (error) throw error;
-      get().setPayerSubmissionConfigs(payerId, data || []);
+      const response = await fetch(`/api/payers/${payerId}/submission-configs`);
+      if (!response.ok) throw new Error('Failed to fetch payer submission configs');
+      
+      const data = await response.json();
+      get().setPayerSubmissionConfigs(payerId, data.configs || []);
     } catch (error) {
       console.error("Failed to fetch payer submission configs:", error);
     }
@@ -554,13 +653,11 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchInsurancePolicies: async () => {
     set({ insurancePoliciesLoading: true, insurancePoliciesError: null });
     try {
-      const { data, error } = await supabase
-        .from("insurance_policy")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ insurancePolicies: data || [], insurancePoliciesLoading: false });
+      const response = await fetch('/api/insurance-policies');
+      if (!response.ok) throw new Error('Failed to fetch insurance policies');
+      
+      const data = await response.json();
+      set({ insurancePolicies: data.policies || [], insurancePoliciesLoading: false });
     } catch (error) {
       set({
         insurancePoliciesError:
@@ -575,42 +672,38 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchBenefitsCoverage: async () => {
     set({ benefitsCoverageLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("benefits_coverage")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ benefitsCoverage: data || [], benefitsCoverageLoading: false });
+      const response = await fetch('/api/benefits-coverage');
+      if (!response.ok) throw new Error('Failed to fetch benefits coverage');
+      
+      const data = await response.json();
+      set({ benefitsCoverage: data.coverage || [], benefitsCoverageLoading: false });
     } catch (error) {
       set({ benefitsCoverageLoading: false });
+      console.error("Failed to fetch benefits coverage:", error);
     }
   },
 
   fetchEligibilityChecks: async () => {
     set({ eligibilityChecksLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("eligibility_check")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ eligibilityChecks: data || [], eligibilityChecksLoading: false });
+      const response = await fetch('/api/eligibility-checks');
+      if (!response.ok) throw new Error('Failed to fetch eligibility checks');
+      
+      const data = await response.json();
+      set({ eligibilityChecks: data.checks || [], eligibilityChecksLoading: false });
     } catch (error) {
       set({ eligibilityChecksLoading: false });
+      console.error("Failed to fetch eligibility checks:", error);
     }
   },
 
   fetchEligibilityCache: async () => {
     try {
-      const { data, error } = await supabase
-        .from("eligibility_cache")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ eligibilityCache: data || [] });
+      const response = await fetch('/api/eligibility-cache');
+      if (!response.ok) throw new Error('Failed to fetch eligibility cache');
+      
+      const data = await response.json();
+      set({ eligibilityCache: data.cache || [] });
     } catch (error) {
       console.error("Failed to fetch eligibility cache:", error);
     }
@@ -619,27 +712,24 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
   fetchDrugFormulary: async () => {
     set({ drugFormularyLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("drug_formulary")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ drugFormulary: data || [], drugFormularyLoading: false });
+      const response = await fetch('/api/drug-formulary');
+      if (!response.ok) throw new Error('Failed to fetch drug formulary');
+      
+      const data = await response.json();
+      set({ drugFormulary: data.formulary || [], drugFormularyLoading: false });
     } catch (error) {
       set({ drugFormularyLoading: false });
+      console.error("Failed to fetch drug formulary:", error);
     }
   },
 
   fetchFeeSchedules: async () => {
     try {
-      const { data, error } = await supabase
-        .from("fee_schedule")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      set({ feeSchedules: data || [] });
+      const response = await fetch('/api/fee-schedules');
+      if (!response.ok) throw new Error('Failed to fetch fee schedules');
+      
+      const data = await response.json();
+      set({ feeSchedules: data.schedules || [] });
     } catch (error) {
       console.error("Failed to fetch fee schedules:", error);
     }
@@ -647,23 +737,22 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   checkEligibility: async (patientId, payerId) => {
     try {
-      const { data, error } = await supabase
-        .from("eligibility_check")
-        .insert([
-          {
-            patient_id: patientId,
-            insurance_policy_id: payerId,
-            request_data: { patient_id: patientId, payer_id: payerId },
-            status: "pending",
-            team_id: "default", // TODO: Get actual team_id from context
-          },
-        ])
-        .select()
-        .single();
+      const response = await fetch('/api/eligibility-checks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          patientId,
+          payerId,
+        }),
+      });
 
-      if (error) throw error;
-      if (data) {
-        get().addEligibilityCheck(data);
+      if (!response.ok) throw new Error('Failed to check eligibility');
+      
+      const data = await response.json();
+      if (data.check) {
+        get().addEligibilityCheck(data.check);
       }
     } catch (error) {
       console.error("Failed to check eligibility:", error);
@@ -673,16 +762,13 @@ export const createPayerSlice: StateCreator<PayerSlice, [], [], PayerSlice> = (
 
   verifyBenefits: async (policyId) => {
     try {
-      const { data, error } = await supabase
-        .from("benefits_coverage")
-        .select("*")
-        .eq("insurance_policy_id", policyId);
-
-      if (error) throw error;
-
+      const response = await fetch(`/api/insurance-policies/${policyId}/benefits`);
+      if (!response.ok) throw new Error('Failed to verify benefits');
+      
+      const data = await response.json();
       // Update local state with benefits coverage data
-      if (data) {
-        get().setBenefitsCoverage(data);
+      if (data.coverage) {
+        get().setBenefitsCoverage(data.coverage);
       }
     } catch (error) {
       console.error("Failed to verify benefits:", error);

@@ -226,7 +226,7 @@ const createMainStore = create<AppStore>()(
                   if (selectedEntityType === "patient") {
                     // Bulk delete patients
                     for (const id of selectedEntityIds) {
-                      state.removePatient(id as number);
+                      state.removePatient(id as string);
                     }
                   } else if (selectedEntityType === "claim") {
                     // Bulk delete claims
@@ -288,7 +288,8 @@ const createMainStore = create<AppStore>()(
               state.selectedClinician = null;
               state.payers = [];
               state.selectedPayer = null;
-              state.teams = [];
+              state.organizations = [];
+              state.teamMembers = [];
 
               // Reset global state
               state.globalLoading = false;
@@ -464,16 +465,25 @@ export const usePayerStore = () =>
 
 export const useAdminStore = () =>
   useAppStore((state) => ({
-    teams: state.teams,
+    organizations: state.organizations,
     teamMembers: state.teamMembers,
-    userProfiles: state.userProfiles,
-    teamsLoading: state.teamsLoading,
-    teamsError: state.teamsError,
-    fetchTeams: state.fetchTeams,
+    teamInvitations: state.teamInvitations,
+    systemSettings: state.systemSettings,
+    apiKeys: state.apiKeys,
+    auditLogs: state.auditLogs,
+    organizationsLoading: state.organizationsLoading,
+    teamMembersLoading: state.teamMembersLoading,
+    organizationsError: state.organizationsError,
+    teamMembersError: state.teamMembersError,
+    fetchOrganizations: state.fetchOrganizations,
     fetchTeamMembers: state.fetchTeamMembers,
-    addTeam: state.addTeam,
-    updateTeam: state.updateTeam,
-    removeTeam: state.removeTeam,
+    fetchTeamInvitations: state.fetchTeamInvitations,
+    fetchSystemSettings: state.fetchSystemSettings,
+    fetchApiKeys: state.fetchApiKeys,
+    fetchAuditLogs: state.fetchAuditLogs,
+    inviteTeamMember: state.inviteTeamMember,
+    acceptTeamInvitation: state.acceptTeamInvitation,
+    revokeApiKey: state.revokeApiKey,
   }));
 
 // Global state selectors

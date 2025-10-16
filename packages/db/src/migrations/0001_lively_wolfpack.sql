@@ -1,1 +1,0 @@
-ALTER TABLE "modifier_code" ADD CONSTRAINT "modifier_code_unique" UNIQUE("modifier_code");

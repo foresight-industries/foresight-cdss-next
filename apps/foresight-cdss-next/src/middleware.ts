@@ -1,7 +1,9 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { createSupabaseMiddlewareClient } from "@/lib/supabase/server";
+import { createDatabaseAdminClient, safeSingle } from "@/lib/aws/database";
 import { shouldRedirectToTeam, createTeamPath } from "@/lib/team-routing";
+import { eq, and } from "drizzle-orm";
+import { organizations, teamMembers } from "@foresight-cdss-next/db";
 
 // Only match auth routes
 const isUnauthenticatedRoute = createRouteMatcher([
@@ -32,24 +34,35 @@ export default clerkMiddleware(async (auth, req) => {
     const teamSlug = pathSegments[2];
 
     try {
-      // Create Supabase client for middleware
-      const supabase = await createSupabaseMiddlewareClient();
+      // Create AWS database client for middleware
+      const { db } = createDatabaseAdminClient();
 
-      // Check if team with this slug exists
-      const { data: team, error } = await supabase
-        .from('team')
-        .select('id, slug, name, status')
-        .eq('slug', teamSlug)
-        .eq('status', 'active')
-        .single();
+      // Check if organization with this slug exists
+      const { data: organization } = await safeSingle(async () =>
+        db.select({
+          id: organizations.id,
+          slug: organizations.slug,
+          name: organizations.name,
+          deletedAt: organizations.deletedAt
+        })
+        .from(organizations)
+        .where(eq(organizations.slug, teamSlug))
+      );
 
-      if (error || !team) {
-        // Team doesn't exist - redirect to team-not-found page
+      if (!organization) {
+        // Organization doesn't exist - redirect to team-not-found page
         return NextResponse.redirect(new URL(`/team-not-found?slug=${teamSlug}`, req.url));
       }
 
-      // Team exists - continue with Clerk auth logic and verify membership
-      const response = await handleClerkAuth(auth, req, null, { team, teamSlug });
+      const organizationData = organization as { id: string; slug: string; name: string; deletedAt: Date | null };
+
+      if (organizationData.deletedAt) {
+        // Organization is deleted - redirect to team-not-found page
+        return NextResponse.redirect(new URL(`/team-not-found?slug=${teamSlug}`, req.url));
+      }
+
+      // Organization exists - continue with Clerk auth logic and verify membership
+      const response = await handleClerkAuth(auth, req, null, { organization, teamSlug });
 
       return response;
 
@@ -65,15 +78,14 @@ export default clerkMiddleware(async (auth, req) => {
 });
 
 // Extracted Clerk auth logic to reuse
-async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { team: any, teamSlug: string }) {
-  const { sessionClaims, isAuthenticated } = await auth({
+async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { organization: any, teamSlug: string }) {
+  const { sessionClaims, userId, isAuthenticated } = await auth({
     treatPendingAsSignedOut: false
   });
 
   // If user is authenticated and trying to access auth pages, redirect to their team or dashboard
   if (isAuthenticated && isUnauthenticatedRoute(req)) {
     try {
-      const { userId } = await auth();
       if (userId) {
         const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(userId, '/');
         if (shouldRedirect && teamSlug) {
@@ -98,8 +110,6 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { t
   // Check if authenticated user needs team onboarding or team redirection
   if (isAuthenticated && !isUnauthenticatedRoute(req) && !isOnboardingRoute(req)) {
     try {
-      const { userId } = await auth();
-
       if (userId) {
         // Check if user should be redirected to their team route
         const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(
@@ -113,20 +123,26 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { t
           return NextResponse.redirect(new URL(teamPath, req.url));
         }
 
-        // If not redirecting to team, check for team membership for onboarding
-        const supabase = await createSupabaseMiddlewareClient();
+        // If not redirecting to team, check for organization membership for onboarding
+        const { db } = createDatabaseAdminClient();
 
-        // Check if user has an active team membership
-        const { data: membership } = await supabase
-          .from('team_member')
-          .select('team_id, role, status')
-          .eq('clerk_user_id', userId)
-          .eq('status', 'active')
-          .single();
+        // Check if user has an active organization membership
+        const { data: membership } = await safeSingle(async () =>
+          db.select({
+            organizationId: teamMembers.organizationId,
+            role: teamMembers.role,
+            isActive: teamMembers.isActive
+          })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, userId),
+            eq(teamMembers.isActive, true)
+          ))
+        );
 
-        // If no active team membership and no Clerk org, redirect to onboarding
+        // If no active organization membership and no Clerk org, redirect to onboarding
         if (!membership && !teamSlug) {
-          console.log("Redirecting user without team to onboarding");
+          console.log("Redirecting user without organization to onboarding");
           return NextResponse.redirect(new URL("/onboard", req.url));
         }
       }
@@ -136,49 +152,55 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { t
     }
   }
 
-  // TEAM ROUTE SECURITY: Validate team membership and set headers
+  // ORGANIZATION ROUTE SECURITY: Validate organization membership and set headers
   if (teamContext && isAuthenticated) {
     try {
-      const { userId } = await auth();
-
       if (userId) {
-        const supabase = await createSupabaseMiddlewareClient();
+        const { db } = createDatabaseAdminClient();
 
-        // Verify user has active membership to this specific team
-        const { data: membership } = await supabase
-          .from('team_member')
-          .select('team_id, role, status')
-          .eq('clerk_user_id', userId)
-          .eq('team_id', teamContext.team.id)
-          .eq('status', 'active')
-          .single();
+        // Verify user has active membership to this specific organization
+        const { data: membership } = await safeSingle(async () =>
+          db.select({
+            organizationId: teamMembers.organizationId,
+            role: teamMembers.role,
+            isActive: teamMembers.isActive
+          })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, userId),
+            eq(teamMembers.organizationId, teamContext.organization.id),
+            eq(teamMembers.isActive, true)
+          ))
+        );
 
         if (!membership) {
-          // User is not a member of this team - redirect to unauthorized or onboarding
-          console.log(`User ${userId} attempted to access team ${teamContext.teamSlug} without membership`);
+          // User is not a member of this organization - redirect to unauthorized or onboarding
+          console.log(`User ${userId} attempted to access organization ${teamContext.teamSlug} without membership`);
           return NextResponse.redirect(new URL('/unauthorized', req.url));
         }
 
-        // User is authenticated and has valid team membership - set secure headers
+        const membershipData = membership as { organizationId: string; role: string; isActive: boolean };
+
+        // User is authenticated and has valid organization membership - set secure headers
         const response = NextResponse.next();
         response.headers.set('x-team-slug', teamContext.teamSlug);
-        response.headers.set('x-team-id', teamContext.team.id);
-        response.headers.set('x-team-name', teamContext.team.name);
-        response.headers.set('x-user-role', membership.role);
+        response.headers.set('x-team-id', teamContext.organization.id);
+        response.headers.set('x-team-name', teamContext.organization.name);
+        response.headers.set('x-user-role', membershipData.role);
 
         return response;
       }
     } catch (error) {
-      console.error('Error validating team membership:', error);
+      console.error('Error validating organization membership:', error);
       return NextResponse.redirect(new URL('/error', req.url));
     }
   }
 
-  // Add team context to API requests
+  // Add organization context to API requests
   if (req.url.includes("/api/") && isAuthenticated) {
     const headers = new Headers(req.headers);
-    if (sessionClaims?.team_id) {
-      headers.set("x-team-id", sessionClaims.team_id as string);
+    if (sessionClaims?.organization_id) {
+      headers.set("x-organization-id", sessionClaims.organization_id as string);
     }
 
     // If this was a rewrite request, use the rewritten URL

@@ -1,82 +1,125 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
-import crypto from 'crypto';
+import { eq, and } from 'drizzle-orm';
+import { webhookConfigs, webhookDeliveries, teamMembers } from '@foresight-cdss-next/db';
+import crypto from 'node:crypto';
 
 // Available webhook events
 const AVAILABLE_EVENTS = [
   'all',
-  'team.created',
-  'team.updated',
-  'team.deleted',
+  'organization.created',
+  'organization.updated',
+  'organization.deleted',
   'team_member.added',
   'team_member.updated',
   'team_member.removed'
-];
+] as const;
 
-// GET - List webhook configurations for current team
+// GET - List webhook configurations for current organization
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = await auth({
-      treatPendingAsSignedOut: false
-    });
+    const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
-    const environment = searchParams.get('environment') || 'production';
+    const organizationId = searchParams.get('organization_id');
 
-    // Get user's current team
-    const { data: profile } = await supabase
-      .from('user_profile')
-      .select('current_team_id')
-      .eq('clerk_id', userId)
-      .single();
+    // Verify user has access to the organization
+    const { data: membership } = await safeSingle(async () =>
+      db.select({ 
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role 
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true),
+        ...(organizationId ? [eq(teamMembers.organizationId, organizationId)] : [])
+      ))
+    );
 
-    if (!profile?.current_team_id) {
-      return NextResponse.json({ error: 'No team found' }, { status: 404 });
+    if (!membership) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get webhook configurations
-    const { data: webhooks, error } = await supabase
-      .from('webhook_config')
-      .select(`
-        *,
-        webhook_delivery (
-          id,
-          delivered_at,
-          failed_at,
-          response_status,
-          created_at
-        )
-      `)
-      .eq('team_id', profile.current_team_id)
-      .eq('environment', environment)
-      .order('created_at', { ascending: false });
+    const membershipData = membership as { organizationId: string; role: string };
 
-    if (error) {
-      console.error('Error fetching webhooks:', error);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
-    }
+    // Get webhook configurations for the organization
+    const { data: webhooks } = await safeSelect(async () =>
+      db.select({
+        id: webhookConfigs.id,
+        name: webhookConfigs.name,
+        url: webhookConfigs.url,
+        events: webhookConfigs.events,
+        isActive: webhookConfigs.isActive,
+        retryCount: webhookConfigs.retryCount,
+        timeoutSeconds: webhookConfigs.timeoutSeconds,
+        lastDelivery: webhookConfigs.lastDelivery,
+        organizationId: webhookConfigs.organizationId,
+        createdAt: webhookConfigs.createdAt,
+        updatedAt: webhookConfigs.updatedAt
+      })
+      .from(webhookConfigs)
+      .where(eq(webhookConfigs.organizationId, membershipData.organizationId))
+      .orderBy(webhookConfigs.createdAt)
+    );
 
-    // Transform data to include delivery stats
-    const webhooksWithStats = webhooks?.map(webhook => {
-      const deliveries = webhook.webhook_delivery || [];
-      const recentDeliveries = deliveries.slice(0, 10);
+    // Get delivery statistics for each webhook
+    const webhooksWithStats = await Promise.all(
+      (webhooks || []).map(async (webhook) => {
+        const webhookData = webhook as {
+          id: string;
+          name: string;
+          url: string;
+          events: string;
+          isActive: boolean;
+          retryCount: number;
+          timeoutSeconds: number;
+          lastDelivery: Date | null;
+          organizationId: string;
+          createdAt: Date;
+          updatedAt: Date;
+        };
 
-      return {
-        ...webhook,
-        webhook_delivery: undefined, // Remove the raw data
-        stats: {
-          total_deliveries: deliveries.length,
-          successful_deliveries: deliveries.filter(d => d.delivered_at).length,
-          failed_deliveries: deliveries.filter(d => d.failed_at).length,
-          recent_deliveries: recentDeliveries
-        }
-      };
-    }) || [];
+        const { data: deliveries } = await safeSelect(async () =>
+          db.select({
+            id: webhookDeliveries.id,
+            deliveredAt: webhookDeliveries.deliveredAt,
+            status: webhookDeliveries.status,
+            httpStatus: webhookDeliveries.httpStatus,
+            createdAt: webhookDeliveries.createdAt
+          })
+          .from(webhookDeliveries)
+          .where(eq(webhookDeliveries.webhookConfigId, webhookData.id))
+          .orderBy(webhookDeliveries.createdAt)
+          .limit(10)
+        );
+
+        const deliveryList = (deliveries || []) as Array<{
+          id: string;
+          deliveredAt: Date | null;
+          status: string;
+          httpStatus: number;
+          createdAt: Date;
+        }>;
+
+        const stats = {
+          total_deliveries: deliveryList.length,
+          successful_deliveries: deliveryList.filter(d => d.deliveredAt).length,
+          failed_deliveries: deliveryList.filter(d => d.status === 'failed').length,
+          recent_deliveries: deliveryList
+        };
+
+        return {
+          ...webhookData,
+          stats
+        };
+      })
+    );
 
     return NextResponse.json({
       webhooks: webhooksWithStats,
@@ -97,21 +140,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const body = await request.json();
 
     // Validate request body
     const {
+      name,
       url,
       events,
-      environment = 'production',
+      organization_id,
       retry_count = 3,
       timeout_seconds = 30
     } = body;
 
-    if (!url || !events || !Array.isArray(events)) {
+    if (!name || !url || !events || !Array.isArray(events) || !organization_id) {
       return NextResponse.json({
-        error: 'Missing required fields: url, events'
+        error: 'Missing required fields: name, url, events, organization_id'
       }, { status: 400 });
     }
 
@@ -123,22 +167,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate events
-    const invalidEvents = events.filter(event => !AVAILABLE_EVENTS.includes(event));
+    const availableEventsSet = new Set(AVAILABLE_EVENTS as readonly string[]);
+    const invalidEvents = events.filter((event: string) => !availableEventsSet.has(event));
     if (invalidEvents.length > 0) {
       return NextResponse.json({
         error: `Invalid events: ${invalidEvents.join(', ')}`
       }, { status: 400 });
     }
 
-    // Get user's current team and verify admin permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    // Verify user has admin permissions for the organization
+    const { data: member } = await safeSingle(async () =>
+      db.select({ 
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role 
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.organizationId, organization_id),
+        eq(teamMembers.isActive, true)
+      ))
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const memberData = member as { organizationId: string; role: string };
+    
+    if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
@@ -148,39 +205,46 @@ export async function POST(request: NextRequest) {
     const secret = crypto.randomBytes(32).toString('hex');
 
     // Create webhook configuration
-    const insertData = {
-      team_id: member.team_id!,
-      environment: environment || 'production',
-      target_url: url,
-      secret: secret || null,
-      events: events || [],
-      retry_count: Math.min(Math.max(retry_count || 3, 1), 10), // Clamp between 1-10
-      timeout_seconds: Math.min(Math.max(timeout_seconds || 30, 5), 300), // Clamp between 5-300
-      active: true
-    };
+    const { data: webhook, error } = await safeInsert(async () =>
+      db.insert(webhookConfigs)
+        .values({
+          organizationId: organization_id,
+          name,
+          url,
+          secret,
+          events: JSON.stringify(events),
+          retryCount: Math.min(Math.max(retry_count || 3, 1), 10),
+          timeoutSeconds: Math.min(Math.max(timeout_seconds || 30, 5), 300),
+          isActive: true
+        })
+        .returning()
+    );
 
-    const { data: webhook, error } = await supabase
-      .from('webhook_config')
-      .insert(insertData)
-      .select()
-      .single();
-
-    if (error) {
+    if (error || !webhook || webhook.length === 0) {
       console.error('Error creating webhook:', error);
-      if (error.code === '23505') { // Unique constraint violation
-        return NextResponse.json({
-          error: 'Webhook configuration already exists'
-        }, { status: 409 });
-      }
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to create webhook' }, { status: 500 });
     }
 
+    const createdWebhook = webhook[0] as {
+      id: string;
+      name: string;
+      url: string;
+      events: string;
+      isActive: boolean;
+      retryCount: number;
+      timeoutSeconds: number;
+      secret: string;
+      organizationId: string;
+      createdAt: Date;
+      updatedAt: Date;
+    };
+
     // Return webhook config without the secret for security
-    const { secret: _, ...webhookResponse } = webhook;
+    const { secret: _, ...webhookResponse } = createdWebhook;
 
     return NextResponse.json({
       webhook: webhookResponse,
-      secret_hint: `${secret.substring(0, 8)}...` // Only show first 8 chars
+      secret_hint: `${secret.substring(0, 8)}...`
     }, { status: 201 });
 
   } catch (error) {

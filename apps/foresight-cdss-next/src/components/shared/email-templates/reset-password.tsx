@@ -162,7 +162,7 @@ export const EmailTemplate: React.FC<Readonly<ResetPasswordEmailProps>> = ({
         margin: '0 0 8px 0',
         color: '#6b7280',
       }}>
-        © 2025 Foresight Industries. All rights reserved.
+        &copy; 2025 Foresight Industries. All rights reserved.
       </p>
       <p style={{
         fontSize: '12px',

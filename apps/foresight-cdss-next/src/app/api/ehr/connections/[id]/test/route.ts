@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq } from 'drizzle-orm';
+import { teamMembers, ehrConnections } from '@foresight-cdss-next/db';
 import type { EHRConnectionTestResult } from '@/types/ehr.types';
 
 // POST - Test EHR connection
@@ -14,75 +16,106 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
+    const { db } = await createAuthenticatedDatabaseClient();
     const connectionId = params.id;
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
     // Get connection with full auth config
-    const { data: connection, error: connectionError } = await supabase
-      .from('ehr_connection')
-      .select(`
-        *,
-        ehr_system (
-          id,
-          name,
-          api_type,
-          auth_method,
-          fhir_version,
-          base_urls,
-          capabilities
-        )
-      `)
-      .eq('id', connectionId)
-      .eq('team_id', member?.team_id ?? '')
-      .single();
+    const { data: connection, error: connectionError } = await safeSingle(async () =>
+      db.select({
+        id: ehrConnections.id,
+        testStatus: ehrConnections.testStatus,
+        apiType: ehrConnections.apiType,
+        baseUrl: ehrConnections.baseUrl,
+        clientId: ehrConnections.clientId,
+        clientSecret: ehrConnections.clientSecret,
+        apiKey: ehrConnections.apiKey,
+        tokenUrl: ehrConnections.tokenUrl,
+        authorizeUrl: ehrConnections.authorizeUrl,
+        scopes: ehrConnections.scopes,
+        lastSyncAt: ehrConnections.lastSyncAt,
+        updatedAt: ehrConnections.updatedAt,
+        authMethod: ehrConnections.authMethod,
+        ehrSystemName: ehrConnections.ehrSystemName,
+        version: ehrConnections.version
+      })
+      .from(ehrConnections)
+      .where(and(
+        eq(ehrConnections.id, connectionId),
+        eq(ehrConnections.organizationId, (member[0] as any).organizationId)
+      ))
+    );
 
     if (connectionError || !connection) {
       return NextResponse.json({ error: 'Connection not found' }, { status: 404 });
     }
 
     // Update connection status to testing
-    await supabase
-      .from('ehr_connection')
-      .update({
-        status: 'testing',
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', connectionId);
+    await safeUpdate(async () =>
+      db.update(ehrConnections)
+        .set({
+          testStatus: 'pending',
+          updatedAt: new Date()
+        })
+        .where(eq(ehrConnections.id, connectionId))
+        .returning({ id: ehrConnections.id })
+    );
 
-    const testResult = await testEHRConnection(connection);
+    const testResult = await testEHRConnection(connection as {
+      id: string;
+      testStatus: string | null;
+      apiType: string | null;
+      baseUrl: string | null;
+      clientId: string | null;
+      clientSecret: string | null;
+      apiKey: string | null;
+      tokenUrl: string | null;
+      authorizeUrl: string | null;
+      scopes: string | null;
+      lastSyncAt: Date | null;
+      updatedAt: Date;
+      authMethod: string | null;
+      ehrSystemName: string;
+      version: string | null;
+    });
 
     // Update connection status based on test result
-    const newStatus = testResult.success ? 'active' : 'error';
-    const updateData: any = {
-      status: newStatus,
-      updated_at: new Date().toISOString()
+    const newStatus = testResult.success ? 'success' : 'failed';
+    const updateData: Partial<typeof ehrConnections.$inferInsert> = {
+      testStatus: newStatus,
+      lastTestAt: new Date(),
+      updatedAt: new Date()
     };
 
-    if (!testResult.success && testResult.error_message) {
-      updateData.last_error = testResult.error_message;
-    } else if (testResult.success) {
-      updateData.last_error = null;
-      updateData.last_sync_at = new Date().toISOString();
+    if (testResult.success) {
+      updateData.lastSyncAt = new Date();
     }
 
-    await supabase
-      .from('ehr_connection')
-      .update(updateData)
-      .eq('id', connectionId);
+    await safeUpdate(async () =>
+      db.update(ehrConnections)
+        .set(updateData)
+        .where(eq(ehrConnections.id, connectionId))
+        .returning({ id: ehrConnections.id })
+    );
 
     return NextResponse.json({
       test_result: testResult
@@ -93,15 +126,17 @@ export async function POST(
 
     // Ensure connection status is updated on error
     try {
-      const supabase = await createSupabaseServerClient();
-      await supabase
-        .from('ehr_connection')
-        .update({
-          status: 'error',
-          last_error: error instanceof Error ? error.message : 'Test failed',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', params.id);
+      const { db } = await createAuthenticatedDatabaseClient();
+      await safeUpdate(async () =>
+        db.update(ehrConnections)
+          .set({
+            testStatus: 'failed',
+            lastTestAt: new Date(),
+            updatedAt: new Date()
+          })
+          .where(eq(ehrConnections.id, params.id))
+          .returning({ id: ehrConnections.id })
+      );
     } catch (updateError) {
       console.error('Error updating connection status:', updateError);
     }
@@ -110,46 +145,65 @@ export async function POST(
   }
 }
 
-async function testEHRConnection(connection: any): Promise<EHRConnectionTestResult> {
+async function testEHRConnection(connection: {
+  id: string;
+  testStatus: string | null;
+  apiType: string | null;
+  baseUrl: string | null;
+  clientId: string | null;
+  clientSecret: string | null;
+  apiKey: string | null;
+  tokenUrl: string | null;
+  authorizeUrl: string | null;
+  scopes: string | null;
+  lastSyncAt: Date | null;
+  updatedAt: Date;
+  authMethod: string | null;
+  ehrSystemName: string;
+  version: string | null;
+}): Promise<EHRConnectionTestResult> {
   const startTime = Date.now();
 
   try {
-    const { ehr_system, auth_config, base_url } = connection;
+    const { apiType, authMethod, baseUrl, clientId, clientSecret, apiKey, tokenUrl, authorizeUrl, scopes } = connection;
 
-    if (!auth_config || !auth_config.type) {
+    if (!authMethod) {
       return {
         success: false,
-        error_message: 'No authentication configuration found'
+        error_message: 'No authentication method configured'
       };
     }
 
-    // Determine the endpoint to test
-    const testUrl = base_url || getDefaultEndpoint(ehr_system, connection.environment);
-
-    if (!testUrl) {
+    if (!baseUrl) {
       return {
         success: false,
         error_message: 'No endpoint URL configured'
       };
     }
 
-    // const testResults: EHRConnectionTestResult = {
-    //   success: false,
-    //   endpoints_tested: [testUrl]
-    // };
+    // Build auth config from connection fields
+    const authConfig = {
+      type: authMethod,
+      client_id: clientId,
+      client_secret: clientSecret,
+      api_key: apiKey,
+      token_url: tokenUrl,
+      authorization_url: authorizeUrl,
+      scopes: scopes
+    };
 
     // Test based on API type
-    switch (ehr_system.api_type) {
+    switch (apiType) {
       case 'fhir':
-        return await testFHIRConnection(testUrl, auth_config, ehr_system, startTime);
+        return await testFHIRConnection(baseUrl, authConfig, connection, startTime);
       case 'rest':
-        return await testRESTConnection(testUrl, auth_config, ehr_system, startTime);
+        return await testRESTConnection(baseUrl, authConfig, connection, startTime);
       case 'custom':
-        return await testCustomConnection(testUrl, auth_config, ehr_system, startTime);
+        return await testCustomConnection(baseUrl, authConfig, connection, startTime);
       default:
         return {
           success: false,
-          error_message: `Unsupported API type: ${ehr_system.api_type}`
+          error_message: `Unsupported API type: ${apiType}`
         };
     }
 
@@ -164,8 +218,8 @@ async function testEHRConnection(connection: any): Promise<EHRConnectionTestResu
 
 async function testFHIRConnection(
   baseUrl: string,
-  authConfig: any,
-  ehrSystem: any,
+  authConfig: Record<string, unknown>,
+  _connection: { ehrSystemName: string; version: string | null; },
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
@@ -201,7 +255,7 @@ async function testFHIRConnection(
     // Test authentication if credentials are provided
     let authTestResult = null;
     if (authConfig.client_id || authConfig.api_key) {
-      authTestResult = await testFHIRAuth(baseUrl, authConfig);
+      authTestResult = await testFHIRAuth(authConfig);
     }
 
     return {
@@ -227,10 +281,10 @@ async function testFHIRConnection(
   }
 }
 
-async function testFHIRAuth(baseUrl: string, authConfig: any) {
+async function testFHIRAuth(authConfig: Record<string, unknown>) {
   if (authConfig.type === 'oauth2') {
     // For OAuth2, we can test if the authorization endpoint is reachable
-    if (authConfig.authorization_url) {
+    if (authConfig.authorization_url && typeof authConfig.authorization_url === 'string') {
       try {
         const response = await fetch(authConfig.authorization_url, {
           method: 'HEAD',
@@ -254,8 +308,8 @@ async function testFHIRAuth(baseUrl: string, authConfig: any) {
 
 async function testRESTConnection(
   baseUrl: string,
-  authConfig: any,
-  ehrSystem: any,
+  authConfig: Record<string, unknown>,
+  _connection: { ehrSystemName: string; version: string | null; },
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
@@ -266,8 +320,8 @@ async function testRESTConnection(
     };
 
     // Add authentication headers if available
-    if (authConfig.type === 'api_key' && authConfig.api_key) {
-      const headerName = authConfig.api_key_header || 'Authorization';
+    if (authConfig.type === 'api_key' && authConfig.api_key && typeof authConfig.api_key === 'string') {
+      const headerName = (authConfig.api_key_header as string) || 'Authorization';
       headers[headerName] = authConfig.api_key.startsWith('Bearer ')
         ? authConfig.api_key
         : `Bearer ${authConfig.api_key}`;
@@ -300,8 +354,8 @@ async function testRESTConnection(
 
 async function testCustomConnection(
   baseUrl: string,
-  authConfig: any,
-  ehrSystem: any,
+  _authConfig: Record<string, unknown>,
+  _connection: { ehrSystemName: string; version: string | null; },
   startTime: number
 ): Promise<EHRConnectionTestResult> {
   try {
@@ -330,13 +384,4 @@ async function testCustomConnection(
   }
 }
 
-function getDefaultEndpoint(ehrSystem: any, environment: string): string | null {
-  const baseUrls = ehrSystem.base_urls;
-
-  if (!baseUrls || typeof baseUrls !== 'object') {
-    return null;
-  }
-
-  // Try to find environment-specific URL
-  return baseUrls[environment] || baseUrls.production || baseUrls.sandbox || null;
-}
+// This function is no longer needed since we're using the baseUrl directly from the connection

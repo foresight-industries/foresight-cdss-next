@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeUpdate, safeDelete } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
+import { and, eq, ne } from 'drizzle-orm';
+import { teamMembers, customFieldMappings } from '@foresight-cdss-next/db';
 import type { UpdateFieldMappingRequest } from '@/types/field-mapping.types';
 
 // GET - Get specific field mapping
@@ -14,36 +16,41 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
-    const mappingId = params.id;
+    const { db } = await createAuthenticatedDatabaseClient();
+    const mappingId = Number.parseInt(params.id);
 
     // Verify user has access to this mapping
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member) {
+    if (!member || member.length === 0) {
       return NextResponse.json({ error: 'Team access required' }, { status: 403 });
     }
 
     // Get field mapping with related data
-    const { data: mapping, error } = await supabase
-      .from('custom_field_mapping')
-      .select(`
-        *,
-        ehr_connection:ehr_connection_id (
-          id,
-          name,
-          system_type,
-          environment
-        )
-      `)
-      .eq('id', mappingId)
-      .eq('team_id', member?.team_id ?? '')
-      .single();
+    const { data: mapping, error } = await safeSingle(async () =>
+      db.select({
+        id: customFieldMappings.id,
+        customFieldId: customFieldMappings.customFieldId,
+        ehrSystem: customFieldMappings.ehrSystem,
+        ehrFieldPath: customFieldMappings.ehrFieldPath,
+        transformationRules: customFieldMappings.transformationRules,
+        isActive: customFieldMappings.isActive,
+        createdAt: customFieldMappings.createdAt,
+        updatedAt: customFieldMappings.updatedAt
+      })
+      .from(customFieldMappings)
+      .where(eq(customFieldMappings.id, mappingId))
+    );
 
     if (error || !mapping) {
       return NextResponse.json({ error: 'Field mapping not found' }, { status: 404 });
@@ -70,96 +77,110 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
-    const mappingId = params.id;
+    const { db } = await createAuthenticatedDatabaseClient();
+    const mappingId = Number.parseInt(params.id);
     const body: UpdateFieldMappingRequest = await request.json();
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify mapping exists and belongs to user's team
-    const { data: existingMapping } = await supabase
-      .from('custom_field_mapping')
-      .select('id, team_id, source_path, entity_type')
-      .eq('id', mappingId)
-      .eq('team_id', member?.team_id ?? '')
-      .single();
+    // Verify mapping exists
+    const { data: existingMapping } = await safeSingle(async () =>
+      db.select({
+        id: customFieldMappings.id,
+        ehrSystem: customFieldMappings.ehrSystem,
+        ehrFieldPath: customFieldMappings.ehrFieldPath
+      })
+      .from(customFieldMappings)
+      .where(eq(customFieldMappings.id, mappingId))
+    );
 
     if (!existingMapping) {
       return NextResponse.json({ error: 'Field mapping not found' }, { status: 404 });
     }
 
-    // Validate update fields
-    const allowedFields = [
-      'source_path', 'target_table', 'target_column',
-      'transformation_rules', 'validation_rules', 'is_active'
-    ];
-    const updates: Record<string, any> = {};
+    // Validate update fields and map to database columns
+    const updates: Partial<typeof customFieldMappings.$inferInsert> = {};
+    const bodyAny = body as any;
 
-    for (const [key, value] of Object.entries(body)) {
-      if (allowedFields.includes(key) && value !== undefined) {
-        updates[key] = value;
-      }
+    if (bodyAny.ehr_field_path !== undefined) {
+      updates.ehrFieldPath = bodyAny.ehr_field_path;
+    }
+    if (bodyAny.transformation_rules !== undefined) {
+      updates.transformationRules = bodyAny.transformation_rules;
+    }
+    if (bodyAny.is_active !== undefined) {
+      updates.isActive = bodyAny.is_active;
     }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
-    // Check for conflicts if updating source_path
-    if (updates.source_path && updates.source_path !== existingMapping.source_path) {
-      const { data: conflictMapping } = await supabase
-        .from('custom_field_mapping')
-        .select('id')
-        .eq('team_id', member?.team_id ?? '')
-        .eq('entity_type', existingMapping.entity_type)
-        .eq('source_path', updates.source_path)
-        .neq('id', mappingId)
-        .single();
+    // Check for conflicts if updating ehr_field_path
+    const existingMappingAny = existingMapping as any;
+    if (updates.ehrFieldPath && updates.ehrFieldPath !== existingMappingAny.ehrFieldPath) {
+      const { data: conflictMapping } = await safeSingle(async () =>
+        db.select({ id: customFieldMappings.id })
+          .from(customFieldMappings)
+          .where(and(
+            eq(customFieldMappings.ehrSystem, existingMappingAny.ehrSystem),
+            eq(customFieldMappings.ehrFieldPath, updates.ehrFieldPath as string),
+            ne(customFieldMappings.id, mappingId)
+          ))
+      );
 
       if (conflictMapping) {
         return NextResponse.json({
-          error: 'Another mapping already exists for this source path'
+          error: 'Another mapping already exists for this field path'
         }, { status: 409 });
       }
     }
 
     // Add updated_at timestamp
-    updates.updated_at = new Date().toISOString();
+    updates.updatedAt = new Date();
 
     // Update field mapping
-    const { data: mapping, error } = await supabase
-      .from('custom_field_mapping')
-      .update(updates)
-      .eq('id', mappingId)
-      .select(`
-        *,
-        ehr_connection:ehr_connection_id (
-          id,
-          name,
-          system_type
-        )
-      `)
-      .single();
+    const { data: mapping, error } = await safeUpdate(async () =>
+      db.update(customFieldMappings)
+        .set(updates)
+        .where(eq(customFieldMappings.id, mappingId))
+        .returning({
+          id: customFieldMappings.id,
+          customFieldId: customFieldMappings.customFieldId,
+          ehrSystem: customFieldMappings.ehrSystem,
+          ehrFieldPath: customFieldMappings.ehrFieldPath,
+          transformationRules: customFieldMappings.transformationRules,
+          isActive: customFieldMappings.isActive,
+          createdAt: customFieldMappings.createdAt,
+          updatedAt: customFieldMappings.updatedAt
+        })
+    );
 
-    if (error) {
+    if (error || !mapping || mapping.length === 0) {
       console.error('Error updating field mapping:', error);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
     return NextResponse.json({
-      mapping
+      mapping: mapping[0]
     });
 
   } catch (error) {
@@ -179,33 +200,41 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const supabase = await createSupabaseServerClient();
-    const mappingId = params.id;
+    const { db } = await createAuthenticatedDatabaseClient();
+    const mappingId = Number.parseInt(params.id);
 
     // Validate permissions
-    const { data: member } = await supabase
-      .from('team_member')
-      .select('team_id, role')
-      .eq('user_id', userId)
-      .eq('status', 'active')
-      .single();
+    const { data: member } = await safeSelect(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.isActive, true)
+      ))
+      .limit(1)
+    );
 
-    if (!member || !['super_admin', 'admin'].includes(member.role)) {
+    if (!member || member.length === 0 || !['super_admin', 'admin'].includes((member[0] as any).role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
       }, { status: 403 });
     }
 
-    // Verify mapping belongs to user's team and delete
-    const { data: mapping, error } = await supabase
-      .from('custom_field_mapping')
-      .delete()
-      .eq('id', mappingId)
-      .eq('team_id', member?.team_id ?? '')
-      .select('id, source_path, entity_type')
-      .single();
+    // Delete field mapping
+    const { data: mapping, error } = await safeDelete(async () =>
+      db.delete(customFieldMappings)
+        .where(eq(customFieldMappings.id, mappingId))
+        .returning({
+          id: customFieldMappings.id,
+          ehrSystem: customFieldMappings.ehrSystem,
+          ehrFieldPath: customFieldMappings.ehrFieldPath
+        })
+    );
 
-    if (error || !mapping) {
+    if (error || !mapping || mapping.length === 0) {
       return NextResponse.json({ error: 'Field mapping not found' }, { status: 404 });
     }
 

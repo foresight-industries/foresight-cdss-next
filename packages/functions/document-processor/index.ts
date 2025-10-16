@@ -14,10 +14,22 @@ import { eq } from 'drizzle-orm';
 const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
+if (!process.env.DATABASE_NAME) {
+  throw new Error('DATABASE_NAME is not defined');
+}
+
+if (!process.env.DATABASE_SECRET_ARN) {
+  throw new Error('DATABASE_SECRET_ARN is not defined');
+}
+
+if (!process.env.DATABASE_CLUSTER_ARN) {
+  throw new Error('DATABASE_CLUSTER_ARN is not defined');
+}
+
 const db = drizzle(rdsClient, {
-  database: process.env.DATABASE_NAME!,
-  secretArn: process.env.DATABASE_SECRET_ARN!,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN!,
+  database: process.env.DATABASE_NAME,
+  secretArn: process.env.DATABASE_SECRET_ARN,
+  resourceArn: process.env.DATABASE_CLUSTER_ARN,
 });
 
 /**

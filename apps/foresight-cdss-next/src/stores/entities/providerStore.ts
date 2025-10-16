@@ -1,18 +1,126 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible provider types
+type Clinician = {
+  id: string;
+  organizationId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  npi?: string;
+  specialty?: string;
+  licenseNumber?: string;
+  licenseState?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ProviderCredentialing = {
+  id: string;
+  clinicianId: string;
+  payerId: string;
+  credentialingStatus: string;
+  applicationDate?: Date;
+  approvalDate?: Date;
+  expirationDate?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ProviderEnrollment = {
+  id: string;
+  clinicianId: string;
+  payerId: string;
+  enrollmentStatus: string;
+  applicationDate?: Date;
+  effectiveDate?: Date;
+  terminationDate?: Date;
+  providerId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ProviderSchedule = {
+  id: string;
+  clinicianId: string;
+  dayOfWeek: number;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+  locationId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type ServiceLocation = {
+  id: string;
+  organizationId: string;
+  name: string;
+  address: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  phone?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Encounter = {
+  id: string;
+  patientId: string;
+  clinicianId: string;
+  encounterDate: Date;
+  encounterType: string;
+  chiefComplaint?: string;
+  diagnosis?: string;
+  treatment?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Appointment = {
+  id: string;
+  patientId: string;
+  clinicianId: string;
+  scheduledAt: Date;
+  duration: number;
+  status: string;
+  appointmentType: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Referral = {
+  id: string;
+  patientId: string;
+  referringClinicianId: string;
+  referredToClinicianId?: string;
+  specialty: string;
+  reason: string;
+  urgency: string;
+  status: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface ProviderSlice {
   // State
-  clinicians: Tables<"clinician">[];
-  selectedClinician: Tables<"clinician"> | null;
-  providerCredentialing: Record<number, Tables<"provider_credentialing">[]>;
-  providerEnrollment: Record<number, Tables<"provider_enrollment">[]>;
-  providerSchedules: Record<number, Tables<"provider_schedule">[]>;
-  serviceLocations: Tables<"service_location">[];
-  encounters: Tables<"encounter">[];
-  appointments: Tables<"appointment">[];
-  referrals: Tables<"referral">[];
+  clinicians: Clinician[];
+  selectedClinician: Clinician | null;
+  providerCredentialing: Record<string, ProviderCredentialing[]>;
+  providerEnrollment: Record<string, ProviderEnrollment[]>;
+  providerSchedules: Record<string, ProviderSchedule[]>;
+  serviceLocations: ServiceLocation[];
+  encounters: Encounter[];
+  appointments: Appointment[];
+  referrals: Referral[];
 
   // Loading states
   cliniciansLoading: boolean;
@@ -38,78 +146,76 @@ export interface ProviderSlice {
   };
 
   // Actions
-  setClinicians: (clinicians: Tables<"clinician">[]) => void;
-  setSelectedClinician: (clinician: Tables<"clinician"> | null) => void;
-  addClinician: (clinician: Tables<"clinician">) => void;
-  updateClinician: (id: number, updates: Partial<Tables<"clinician">>) => void;
-  removeClinician: (id: number) => void;
+  setClinicians: (clinicians: Clinician[]) => void;
+  setSelectedClinician: (clinician: Clinician | null) => void;
+  addClinician: (clinician: Clinician) => void;
+  updateClinician: (id: string, updates: Partial<Clinician>) => void;
+  removeClinician: (id: string) => void;
 
   // Provider credentialing actions
   setProviderCredentialing: (
-    clinicianId: number,
-    credentialing: Tables<"provider_credentialing">[]
+    clinicianId: string,
+    credentialing: ProviderCredentialing[]
   ) => void;
-  addProviderCredentialing: (
-    credentialing: Tables<"provider_credentialing">
-  ) => void;
+  addProviderCredentialing: (credentialing: ProviderCredentialing) => void;
   updateProviderCredentialing: (
     id: string,
-    updates: Partial<Tables<"provider_credentialing">>
+    updates: Partial<ProviderCredentialing>
   ) => void;
   removeProviderCredentialing: (id: string) => void;
 
   // Provider enrollment actions
   setProviderEnrollment: (
-    clinicianId: number,
-    enrollment: Tables<"provider_enrollment">[]
+    clinicianId: string,
+    enrollment: ProviderEnrollment[]
   ) => void;
-  addProviderEnrollment: (enrollment: Tables<"provider_enrollment">) => void;
+  addProviderEnrollment: (enrollment: ProviderEnrollment) => void;
   updateProviderEnrollment: (
     id: string,
-    updates: Partial<Tables<"provider_enrollment">>
+    updates: Partial<ProviderEnrollment>
   ) => void;
   removeProviderEnrollment: (id: string) => void;
 
   // Provider schedules actions
   setProviderSchedules: (
-    clinicianId: number,
-    schedules: Tables<"provider_schedule">[]
+    clinicianId: string,
+    schedules: ProviderSchedule[]
   ) => void;
-  addProviderSchedule: (schedule: Tables<"provider_schedule">) => void;
+  addProviderSchedule: (schedule: ProviderSchedule) => void;
   updateProviderSchedule: (
     id: string,
-    updates: Partial<Tables<"provider_schedule">>
+    updates: Partial<ProviderSchedule>
   ) => void;
   removeProviderSchedule: (id: string) => void;
 
   // Service locations actions
-  setServiceLocations: (locations: Tables<"service_location">[]) => void;
-  addServiceLocation: (location: Tables<"service_location">) => void;
+  setServiceLocations: (locations: ServiceLocation[]) => void;
+  addServiceLocation: (location: ServiceLocation) => void;
   updateServiceLocation: (
     id: string,
-    updates: Partial<Tables<"service_location">>
+    updates: Partial<ServiceLocation>
   ) => void;
   removeServiceLocation: (id: string) => void;
 
   // Encounters actions
-  setEncounters: (encounters: Tables<"encounter">[]) => void;
-  addEncounter: (encounter: Tables<"encounter">) => void;
-  updateEncounter: (id: string, updates: Partial<Tables<"encounter">>) => void;
+  setEncounters: (encounters: Encounter[]) => void;
+  addEncounter: (encounter: Encounter) => void;
+  updateEncounter: (id: string, updates: Partial<Encounter>) => void;
   removeEncounter: (id: string) => void;
 
   // Appointments actions
-  setAppointments: (appointments: Tables<"appointment">[]) => void;
-  addAppointment: (appointment: Tables<"appointment">) => void;
+  setAppointments: (appointments: Appointment[]) => void;
+  addAppointment: (appointment: Appointment) => void;
   updateAppointment: (
     id: string,
-    updates: Partial<Tables<"appointment">>
+    updates: Partial<Appointment>
   ) => void;
   removeAppointment: (id: string) => void;
 
   // Referrals actions
-  setReferrals: (referrals: Tables<"referral">[]) => void;
-  addReferral: (referral: Tables<"referral">) => void;
-  updateReferral: (id: string, updates: Partial<Tables<"referral">>) => void;
+  setReferrals: (referrals: Referral[]) => void;
+  addReferral: (referral: Referral) => void;
+  updateReferral: (id: string, updates: Partial<Referral>) => void;
   removeReferral: (id: string) => void;
 
   // Filter actions
@@ -118,16 +224,16 @@ export interface ProviderSlice {
 
   // Async actions
   fetchClinicians: () => Promise<void>;
-  fetchClinicianById: (id: number) => Promise<void>;
-  fetchProviderCredentialing: (clinicianId: number) => Promise<void>;
-  fetchProviderEnrollment: (clinicianId: number) => Promise<void>;
-  fetchProviderSchedules: (clinicianId: number) => Promise<void>;
+  fetchClinicianById: (id: string) => Promise<void>;
+  fetchProviderCredentialing: (clinicianId: string) => Promise<void>;
+  fetchProviderEnrollment: (clinicianId: string) => Promise<void>;
+  fetchProviderSchedules: (clinicianId: string) => Promise<void>;
   fetchServiceLocations: () => Promise<void>;
   fetchEncounters: () => Promise<void>;
   fetchAppointments: () => Promise<void>;
   fetchReferrals: () => Promise<void>;
-  createEncounter: (encounterData: any) => Promise<void>;
-  scheduleAppointment: (appointmentData: any) => Promise<void>;
+  createEncounter: (encounterData: Partial<Encounter>) => Promise<void>;
+  scheduleAppointment: (appointmentData: Partial<Appointment>) => Promise<void>;
 }
 
 export const createProviderSlice: StateCreator<
@@ -204,7 +310,7 @@ export const createProviderSlice: StateCreator<
 
   addProviderCredentialing: (credentialing) =>
     set((state) => {
-      const clinicianId = credentialing.clinician_id;
+      const clinicianId = credentialing.clinicianId;
       const currentCredentialing =
         state.providerCredentialing[clinicianId] || [];
       return {
@@ -248,7 +354,7 @@ export const createProviderSlice: StateCreator<
 
   addProviderEnrollment: (enrollment) =>
     set((state) => {
-      const clinicianId = Number(enrollment.clinician_id);
+      const clinicianId = enrollment.clinicianId;
       const currentEnrollment = state.providerEnrollment[clinicianId] || [];
       return {
         providerEnrollment: {
@@ -291,7 +397,7 @@ export const createProviderSlice: StateCreator<
 
   addProviderSchedule: (schedule) =>
     set((state) => {
-      const clinicianId = Number(schedule.provider_id);
+      const clinicianId = schedule.clinicianId;
       const currentSchedules = state.providerSchedules[clinicianId] || [];
       return {
         providerSchedules: {
@@ -416,16 +522,15 @@ export const createProviderSlice: StateCreator<
       },
     }),
 
-  // Async actions
+  // Async actions - converted to API-based fetching
   fetchClinicians: async () => {
     set({ cliniciansLoading: true, cliniciansError: null });
     try {
-      const { data, error } = await supabase
-        .from("clinician")
-        .select("*")
-        .order("last_name", { ascending: true });
-
-      if (error) throw error;
+      const response = await fetch('/api/clinicians');
+      if (!response.ok) {
+        throw new Error('Failed to fetch clinicians');
+      }
+      const data = await response.json();
       set({ clinicians: data || [], cliniciansLoading: false });
     } catch (error) {
       set({
@@ -438,13 +543,11 @@ export const createProviderSlice: StateCreator<
 
   fetchClinicianById: async (id) => {
     try {
-      const { data, error } = await supabase
-        .from("clinician")
-        .select("*")
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
+      const response = await fetch(`/api/clinicians/${id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch clinician');
+      }
+      const data = await response.json();
       if (data) {
         get().setSelectedClinician(data);
         // Also update in clinicians array if it exists
@@ -467,12 +570,11 @@ export const createProviderSlice: StateCreator<
       providerCredentialingError: null,
     });
     try {
-      const { data, error } = await supabase
-        .from("provider_credentialing")
-        .select("*")
-        .eq("clinician_id", clinicianId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/clinicians/${clinicianId}/credentialing`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch provider credentialing');
+      }
+      const data = await response.json();
       get().setProviderCredentialing(clinicianId, data || []);
       set({ providerCredentialingLoading: false });
     } catch (error) {
@@ -489,12 +591,11 @@ export const createProviderSlice: StateCreator<
   fetchProviderEnrollment: async (clinicianId) => {
     set({ providerEnrollmentLoading: true, providerEnrollmentError: null });
     try {
-      const { data, error } = await supabase
-        .from("provider_enrollment")
-        .select("*")
-        .eq("clinician_id", clinicianId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/clinicians/${clinicianId}/enrollment`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch provider enrollment');
+      }
+      const data = await response.json();
       get().setProviderEnrollment(clinicianId, data || []);
       set({ providerEnrollmentLoading: false });
     } catch (error) {
@@ -511,15 +612,14 @@ export const createProviderSlice: StateCreator<
   fetchProviderSchedules: async (clinicianId) => {
     set({ providerSchedulesLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("provider_schedule")
-        .select("*")
-        .eq("clinician_id", clinicianId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/clinicians/${clinicianId}/schedules`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch provider schedules');
+      }
+      const data = await response.json();
       get().setProviderSchedules(clinicianId, data || []);
       set({ providerSchedulesLoading: false });
-    } catch (error) {
+    } catch {
       set({ providerSchedulesLoading: false });
     }
   },
@@ -527,14 +627,13 @@ export const createProviderSlice: StateCreator<
   fetchServiceLocations: async () => {
     set({ serviceLocationsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("service_location")
-        .select("*")
-        .order("name", { ascending: true });
-
-      if (error) throw error;
+      const response = await fetch('/api/service-locations');
+      if (!response.ok) {
+        throw new Error('Failed to fetch service locations');
+      }
+      const data = await response.json();
       set({ serviceLocations: data || [], serviceLocationsLoading: false });
-    } catch (error) {
+    } catch {
       set({ serviceLocationsLoading: false });
     }
   },
@@ -542,14 +641,13 @@ export const createProviderSlice: StateCreator<
   fetchEncounters: async () => {
     set({ encountersLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("encounter")
-        .select("*")
-        .order("encounter_date", { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/encounters');
+      if (!response.ok) {
+        throw new Error('Failed to fetch encounters');
+      }
+      const data = await response.json();
       set({ encounters: data || [], encountersLoading: false });
-    } catch (error) {
+    } catch {
       set({ encountersLoading: false });
     }
   },
@@ -557,26 +655,24 @@ export const createProviderSlice: StateCreator<
   fetchAppointments: async () => {
     set({ appointmentsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("appointment")
-        .select("*")
-        .order("scheduled_at", { ascending: true });
-
-      if (error) throw error;
+      const response = await fetch('/api/appointments');
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments');
+      }
+      const data = await response.json();
       set({ appointments: data || [], appointmentsLoading: false });
-    } catch (error) {
+    } catch {
       set({ appointmentsLoading: false });
     }
   },
 
   fetchReferrals: async () => {
     try {
-      const { data, error } = await supabase
-        .from("referral")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/referrals');
+      if (!response.ok) {
+        throw new Error('Failed to fetch referrals');
+      }
+      const data = await response.json();
       set({ referrals: data || [] });
     } catch (error) {
       console.error("Failed to fetch referrals:", error);
@@ -585,13 +681,19 @@ export const createProviderSlice: StateCreator<
 
   createEncounter: async (encounterData) => {
     try {
-      const { data, error } = await supabase
-        .from("encounter")
-        .insert([encounterData])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const response = await fetch('/api/encounters', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(encounterData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to create encounter');
+      }
+      
+      const data = await response.json();
       if (data) {
         get().addEncounter(data);
       }
@@ -603,13 +705,19 @@ export const createProviderSlice: StateCreator<
 
   scheduleAppointment: async (appointmentData) => {
     try {
-      const { data, error } = await supabase
-        .from("appointment")
-        .insert([appointmentData])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const response = await fetch('/api/appointments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(appointmentData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to schedule appointment');
+      }
+      
+      const data = await response.json();
       if (data) {
         get().addAppointment(data);
       }

@@ -2,7 +2,9 @@ import { Stack, StackProps, Tags, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { CacheStack } from './stacks/cache-stack';
 import { MedicalDataStack } from './stacks/medical-data-stack';
+import { ComprehendMedicalStack } from './stacks/comprehend-medical-stack';
 import { MedicalCodeCache } from './constructs/medical-code-cache';
+import * as cdk from 'aws-cdk-lib';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 
@@ -20,6 +22,7 @@ export interface MedicalInfrastructureProps extends StackProps {
 export class MedicalInfrastructure extends Stack {
   public readonly cacheStack: CacheStack;
   public readonly medicalDataStack: MedicalDataStack;
+  public readonly comprehendMedicalStack: ComprehendMedicalStack;
   public readonly medicalCodeCache: MedicalCodeCache;
 
   constructor(scope: Construct, id: string, props: MedicalInfrastructureProps) {
@@ -34,6 +37,17 @@ export class MedicalInfrastructure extends Stack {
     // Create medical data storage infrastructure
     this.medicalDataStack = new MedicalDataStack(this, 'MedicalDataStack', {
       environment: props.environment,
+    });
+
+    // Import database cluster ARN and secret ARN from database stack
+    const databaseClusterArn = cdk.Fn.importValue(`RCM-ClusterArn-${props.environment}`);
+    const databaseSecretArn = cdk.Fn.importValue(`RCM-SecretArn-${props.environment}`);
+
+    // Create Comprehend Medical processing infrastructure
+    this.comprehendMedicalStack = new ComprehendMedicalStack(this, 'ComprehendMedicalStack', {
+      environment: props.environment,
+      databaseClusterArn,
+      databaseSecretArn,
     });
 
     // Create reusable medical code cache construct
@@ -117,6 +131,19 @@ export class MedicalInfrastructure extends Stack {
       description: 'ARN of the medical code processing role',
       exportName: `${this.stackName}-processing-role-arn`,
     });
+
+    // Comprehend Medical outputs
+    new CfnOutput(this, 'ComprehendMedicalFunctionArn', {
+      value: this.comprehendMedicalStack.medicalEntityExtractionFunction.functionArn,
+      description: 'ARN of the Comprehend Medical entity extraction function',
+      exportName: `${this.stackName}-comprehend-medical-function-arn`,
+    });
+
+    new CfnOutput(this, 'ComprehendMedicalFunctionName', {
+      value: this.comprehendMedicalStack.medicalEntityExtractionFunction.functionName,
+      description: 'Name of the Comprehend Medical entity extraction function',
+      exportName: `${this.stackName}-comprehend-medical-function-name`,
+    });
   }
 
   /**
@@ -126,6 +153,7 @@ export class MedicalInfrastructure extends Stack {
   public getIntegrationEnvironmentVariables(): Record<string, string> {
     return {
       ...this.medicalCodeCache.getCacheEnvironmentVariables(),
+      ...this.comprehendMedicalStack.getIntegrationEnvironmentVariables(),
       MEDICAL_CODES_BUCKET: this.medicalDataStack.medicalCodesBucket.bucketName,
       MEDICAL_CODES_BACKUP_BUCKET: this.medicalDataStack.medicalCodesBackupBucket.bucketName,
       REDIS_SECRET_ARN: this.cacheStack.redisConnectionStringSecret.secretArn,
@@ -140,6 +168,7 @@ export class MedicalInfrastructure extends Stack {
     return [
       ...this.cacheStack.getCacheAccessPolicyStatements(),
       ...this.medicalDataStack.getS3AccessPolicyStatements(),
+      ...this.comprehendMedicalStack.getTriggerPolicyStatements(),
     ];
   }
 }

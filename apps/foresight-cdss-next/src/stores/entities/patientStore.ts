@@ -1,20 +1,149 @@
 import { StateCreator } from "zustand";
-import type { Tables } from "@/types/database.types";
-import { supabase } from "@/lib/supabase";
+
+// AWS-compatible patient types
+type Patient = {
+  id: string;
+  organizationId: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: Date;
+  gender: string;
+  phone?: string;
+  email?: string;
+  ssn?: string;
+  mrn: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientProfile = {
+  id: string;
+  patientId: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  preferredLanguage?: string;
+  ethnicity?: string;
+  race?: string;
+  maritalStatus?: string;
+  occupation?: string;
+  employer?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientDiagnosis = {
+  id: string;
+  patientId: string;
+  diagnosisCode: string;
+  diagnosisDescription: string;
+  diagnosisDate: Date;
+  isPrimary: boolean;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Document = {
+  id: string;
+  patientId: string;
+  organizationId: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  storageUrl: string;
+  category: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientPayment = {
+  id: string;
+  patientId: string;
+  amount: number;
+  paymentDate: Date;
+  paymentMethod: string;
+  paymentStatus: string;
+  referenceNumber?: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientStatement = {
+  id: string;
+  patientId: string;
+  statementDate: Date;
+  balance: number;
+  dueDate: Date;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type Address = {
+  id: string;
+  patientId: string;
+  addressLine1: string;
+  addressLine2?: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+  addressType: string;
+  isPrimary: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type MedicalHistory = {
+  id: string;
+  patientId: string;
+  condition: string;
+  diagnosisDate?: Date;
+  status: string;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientPharmacy = {
+  id: string;
+  patientId: string;
+  pharmacyName: string;
+  pharmacyPhone?: string;
+  pharmacyAddress?: string;
+  isPrimary: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type PatientQualityMeasure = {
+  id: string;
+  patientId: string;
+  measureCode: string;
+  measureName: string;
+  measureValue: string;
+  measureDate: Date;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 export interface PatientSlice {
   // State
-  patients: Tables<"patient">[];
-  selectedPatient: Tables<"patient"> | null;
-  patientProfiles: Record<number, Tables<"patient_profile">>;
-  patientDiagnoses: Record<number, Tables<"patient_diagnosis">[]>;
-  patientDocuments: Record<number, Tables<"document">[]>;
-  patientPayments: Record<number, Tables<"patient_payment">[]>;
-  patientStatements: Record<number, Tables<"patient_statement">[]>;
-  addresses: Record<number, Tables<"address">>;
-  medicalHistory: Record<number, Tables<"medical_history">[]>;
-  patientPharmacies: Record<number, Tables<"patient_pharmacy">[]>;
-  patientQualityMeasures: Record<number, Tables<"patient_quality_measure">[]>;
+  patients: Patient[];
+  selectedPatient: Patient | null;
+  patientProfiles: Record<string, PatientProfile>;
+  patientDiagnoses: Record<string, PatientDiagnosis[]>;
+  patientDocuments: Record<string, Document[]>;
+  patientPayments: Record<string, PatientPayment[]>;
+  patientStatements: Record<string, PatientStatement[]>;
+  addresses: Record<string, Address>;
+  medicalHistory: Record<string, MedicalHistory[]>;
+  patientPharmacies: Record<string, PatientPharmacy[]>;
+  patientQualityMeasures: Record<string, PatientQualityMeasure[]>;
 
   // Loading states
   patientsLoading: boolean;
@@ -28,109 +157,107 @@ export interface PatientSlice {
   patientProfileError: string | null;
 
   // Actions
-  setPatients: (patients: Tables<"patient">[]) => void;
-  setSelectedPatient: (patient: Tables<"patient"> | null) => void;
-  addPatient: (patient: Tables<"patient">) => void;
-  updatePatient: (id: number, updates: Partial<Tables<"patient">>) => void;
-  removePatient: (id: number) => void;
+  setPatients: (patients: Patient[]) => void;
+  setSelectedPatient: (patient: Patient | null) => void;
+  addPatient: (patient: Patient) => void;
+  updatePatient: (id: string, updates: Partial<Patient>) => void;
+  removePatient: (id: string) => void;
 
   // Patient profile actions
   setPatientProfile: (
-    patientId: number,
-    profile: Tables<"patient_profile">
+    patientId: string,
+    profile: PatientProfile
   ) => void;
   updatePatientProfile: (
-    patientId: number,
-    updates: Partial<Tables<"patient_profile">>
+    patientId: string,
+    updates: Partial<PatientProfile>
   ) => void;
 
   // Patient diagnoses actions
   setPatientDiagnoses: (
-    patientId: number,
-    diagnoses: Tables<"patient_diagnosis">[]
+    patientId: string,
+    diagnoses: PatientDiagnosis[]
   ) => void;
-  addPatientDiagnosis: (diagnosis: Tables<"patient_diagnosis">) => void;
+  addPatientDiagnosis: (diagnosis: PatientDiagnosis) => void;
   updatePatientDiagnosis: (
-    id: number,
-    updates: Partial<Tables<"patient_diagnosis">>
+    id: string,
+    updates: Partial<PatientDiagnosis>
   ) => void;
-  removePatientDiagnosis: (id: number) => void;
+  removePatientDiagnosis: (id: string) => void;
 
   // Patient documents actions
   setPatientDocuments: (
-    patientId: number,
-    documents: Tables<"document">[]
+    patientId: string,
+    documents: Document[]
   ) => void;
-  addPatientDocument: (document: Tables<"document">) => void;
+  addPatientDocument: (document: Document) => void;
   updatePatientDocument: (
-    id: number,
-    updates: Partial<Tables<"document">>
+    id: string,
+    updates: Partial<Document>
   ) => void;
-  removePatientDocument: (id: number) => void;
+  removePatientDocument: (id: string) => void;
 
   // Patient payments actions
   setPatientPayments: (
-    patientId: number,
-    payments: Tables<"patient_payment">[]
+    patientId: string,
+    payments: PatientPayment[]
   ) => void;
-  addPatientPayment: (payment: Tables<"patient_payment">) => void;
+  addPatientPayment: (payment: PatientPayment) => void;
   updatePatientPayment: (
-    id: number,
-    updates: Partial<Tables<"patient_payment">>
+    id: string,
+    updates: Partial<PatientPayment>
   ) => void;
 
   // Address actions
-  setPatientAddress: (patientId: number, address: Tables<"address">) => void;
+  setPatientAddress: (patientId: string, address: Address) => void;
   updatePatientAddress: (
-    patientId: number,
-    updates: Partial<Tables<"address">>
+    patientId: string,
+    updates: Partial<Address>
   ) => void;
 
   // Medical history actions
   setMedicalHistory: (
-    patientId: number,
-    history: Tables<"medical_history">[]
+    patientId: string,
+    history: MedicalHistory[]
   ) => void;
-  addMedicalHistory: (history: Tables<"medical_history">) => void;
+  addMedicalHistory: (history: MedicalHistory) => void;
   updateMedicalHistory: (
-    id: number,
-    updates: Partial<Tables<"medical_history">>
+    id: string,
+    updates: Partial<MedicalHistory>
   ) => void;
 
   // Patient pharmacy actions
   setPatientPharmacies: (
-    patientId: number,
-    pharmacies: Tables<"patient_pharmacy">[]
+    patientId: string,
+    pharmacies: PatientPharmacy[]
   ) => void;
-  addPatientPharmacy: (pharmacy: Tables<"patient_pharmacy">) => void;
+  addPatientPharmacy: (pharmacy: PatientPharmacy) => void;
   updatePatientPharmacy: (
-    id: number,
-    updates: Partial<Tables<"patient_pharmacy">>
+    id: string,
+    updates: Partial<PatientPharmacy>
   ) => void;
 
   // Quality measures actions
   setPatientQualityMeasures: (
-    patientId: number,
-    measures: Tables<"patient_quality_measure">[]
+    patientId: string,
+    measures: PatientQualityMeasure[]
   ) => void;
-  addPatientQualityMeasure: (
-    measure: Tables<"patient_quality_measure">
-  ) => void;
+  addPatientQualityMeasure: (measure: PatientQualityMeasure) => void;
   updatePatientQualityMeasure: (
-    id: number,
-    updates: Partial<Tables<"patient_quality_measure">>
+    id: string,
+    updates: Partial<PatientQualityMeasure>
   ) => void;
 
   // Async actions
   fetchPatients: () => Promise<void>;
-  fetchPatientProfile: (patientId: number) => Promise<void>;
-  fetchPatientDiagnoses: (patientId: number) => Promise<void>;
-  fetchPatientDocuments: (patientId: number) => Promise<void>;
-  fetchPatientPayments: (patientId: number) => Promise<void>;
-  fetchPatientAddress: (patientId: number) => Promise<void>;
-  fetchMedicalHistory: (patientId: number) => Promise<void>;
-  fetchPatientPharmacies: (patientId: number) => Promise<void>;
-  fetchPatientQualityMeasures: (patientId: number) => Promise<void>;
+  fetchPatientProfile: (patientId: string) => Promise<void>;
+  fetchPatientDiagnoses: (patientId: string) => Promise<void>;
+  fetchPatientDocuments: (patientId: string) => Promise<void>;
+  fetchPatientPayments: (patientId: string) => Promise<void>;
+  fetchPatientAddress: (patientId: string) => Promise<void>;
+  fetchMedicalHistory: (patientId: string) => Promise<void>;
+  fetchPatientPharmacies: (patientId: string) => Promise<void>;
+  fetchPatientQualityMeasures: (patientId: string) => Promise<void>;
 }
 
 export const createPatientSlice: StateCreator<
@@ -212,7 +339,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientDiagnosis: (diagnosis) =>
     set((state) => {
-      const patientId = Number(diagnosis.patient_id);
+      const patientId = diagnosis.patientId;
       const currentDiagnoses = state.patientDiagnoses[patientId] || [];
       return {
         patientDiagnoses: {
@@ -252,7 +379,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientDocument: (document) =>
     set((state) => {
-      const patientId = Number(document.patient_id);
+      const patientId = document.patientId;
       const currentDocuments = state.patientDocuments[patientId] || [];
       return {
         patientDocuments: {
@@ -292,7 +419,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientPayment: (payment) =>
     set((state) => {
-      const patientId = Number(payment.patient_id);
+      const patientId = payment.patientId;
       const currentPayments = state.patientPayments[patientId] || [];
       return {
         patientPayments: {
@@ -335,7 +462,7 @@ export const createPatientSlice: StateCreator<
 
   addMedicalHistory: (history) =>
     set((state) => {
-      const patientId = history.patient_id;
+      const patientId = history.patientId;
       const currentHistory = state.medicalHistory[patientId] || [];
       return {
         medicalHistory: {
@@ -349,8 +476,8 @@ export const createPatientSlice: StateCreator<
     set((state) => {
       const newHistory = { ...state.medicalHistory };
       Object.keys(newHistory).forEach((patientId) => {
-        newHistory[parseInt(patientId)] = newHistory[parseInt(patientId)].map(
-          (h) => (Number(h.patient_id) === id ? { ...h, ...updates } : h)
+        newHistory[patientId] = newHistory[patientId].map(
+          (h) => (h.id === id ? { ...h, ...updates } : h)
         );
       });
       return { medicalHistory: newHistory };
@@ -367,7 +494,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientPharmacy: (pharmacy) =>
     set((state) => {
-      const patientId = pharmacy.patient_id;
+      const patientId = pharmacy.patientId;
       const currentPharmacies = state.patientPharmacies[patientId] || [];
       return {
         patientPharmacies: {
@@ -381,9 +508,9 @@ export const createPatientSlice: StateCreator<
     set((state) => {
       const newPharmacies = { ...state.patientPharmacies };
       Object.keys(newPharmacies).forEach((patientId) => {
-        newPharmacies[parseInt(patientId)] = newPharmacies[
-          parseInt(patientId)
-        ].map((p) => (Number(p.patient_id) === id ? { ...p, ...updates } : p));
+        newPharmacies[patientId] = newPharmacies[patientId].map(
+          (p) => (p.id === id ? { ...p, ...updates } : p)
+        );
       });
       return { patientPharmacies: newPharmacies };
     }),
@@ -399,7 +526,7 @@ export const createPatientSlice: StateCreator<
 
   addPatientQualityMeasure: (measure) =>
     set((state) => {
-      const patientId = Number(measure.patient_id);
+      const patientId = measure.patientId;
       const currentMeasures = state.patientQualityMeasures[patientId] || [];
       return {
         patientQualityMeasures: {
@@ -413,23 +540,22 @@ export const createPatientSlice: StateCreator<
     set((state) => {
       const newMeasures = { ...state.patientQualityMeasures };
       Object.keys(newMeasures).forEach((patientId) => {
-        newMeasures[parseInt(patientId)] = newMeasures[parseInt(patientId)].map(
-          (m) => (Number(m.id) === id ? { ...m, ...updates } : m)
+        newMeasures[patientId] = newMeasures[patientId].map(
+          (m) => (m.id === id ? { ...m, ...updates } : m)
         );
       });
       return { patientQualityMeasures: newMeasures };
     }),
 
-  // Async actions
+  // Async actions - converted to API-based fetching
   fetchPatients: async () => {
     set({ patientsLoading: true, patientsError: null });
     try {
-      const { data, error } = await supabase
-        .from("patient")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
+      const response = await fetch('/api/patients');
+      if (!response.ok) {
+        throw new Error('Failed to fetch patients');
+      }
+      const data = await response.json();
       set({ patients: data || [], patientsLoading: false });
     } catch (error) {
       set({
@@ -443,13 +569,11 @@ export const createPatientSlice: StateCreator<
   fetchPatientProfile: async (patientId) => {
     set({ patientProfileLoading: true, patientProfileError: null });
     try {
-      const { data, error } = await supabase
-        .from("patient_profile")
-        .select("*")
-        .eq("patient_id", patientId)
-        .single();
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/profile`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient profile');
+      }
+      const data = await response.json();
       if (data) {
         get().setPatientProfile(patientId, data);
       }
@@ -468,12 +592,11 @@ export const createPatientSlice: StateCreator<
   fetchPatientDiagnoses: async (patientId) => {
     set({ patientDiagnosesLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("patient_diagnosis")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/diagnoses`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient diagnoses');
+      }
+      const data = await response.json();
       get().setPatientDiagnoses(patientId, data || []);
       set({ patientDiagnosesLoading: false });
     } catch (error) {
@@ -485,12 +608,11 @@ export const createPatientSlice: StateCreator<
   fetchPatientDocuments: async (patientId) => {
     set({ patientDocumentsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("document")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/documents`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient documents');
+      }
+      const data = await response.json();
       get().setPatientDocuments(patientId, data || []);
       set({ patientDocumentsLoading: false });
     } catch (error) {
@@ -502,12 +624,11 @@ export const createPatientSlice: StateCreator<
   fetchPatientPayments: async (patientId) => {
     set({ patientPaymentsLoading: true });
     try {
-      const { data, error } = await supabase
-        .from("patient_payment")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/payments`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient payments');
+      }
+      const data = await response.json();
       get().setPatientPayments(patientId, data || []);
       set({ patientPaymentsLoading: false });
     } catch (error) {
@@ -518,13 +639,11 @@ export const createPatientSlice: StateCreator<
 
   fetchPatientAddress: async (patientId) => {
     try {
-      const { data, error } = await supabase
-        .from("address")
-        .select("*")
-        .eq("patient_id", patientId)
-        .single();
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/address`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient address');
+      }
+      const data = await response.json();
       if (data) {
         get().setPatientAddress(patientId, data);
       }
@@ -535,12 +654,11 @@ export const createPatientSlice: StateCreator<
 
   fetchMedicalHistory: async (patientId) => {
     try {
-      const { data, error } = await supabase
-        .from("medical_history")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/medical-history`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch medical history');
+      }
+      const data = await response.json();
       get().setMedicalHistory(patientId, data || []);
     } catch (error) {
       console.error("Failed to fetch medical history:", error);
@@ -549,12 +667,11 @@ export const createPatientSlice: StateCreator<
 
   fetchPatientPharmacies: async (patientId) => {
     try {
-      const { data, error } = await supabase
-        .from("patient_pharmacy")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/pharmacies`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient pharmacies');
+      }
+      const data = await response.json();
       get().setPatientPharmacies(patientId, data || []);
     } catch (error) {
       console.error("Failed to fetch patient pharmacies:", error);
@@ -563,12 +680,11 @@ export const createPatientSlice: StateCreator<
 
   fetchPatientQualityMeasures: async (patientId) => {
     try {
-      const { data, error } = await supabase
-        .from("patient_quality_measure")
-        .select("*")
-        .eq("patient_id", patientId);
-
-      if (error) throw error;
+      const response = await fetch(`/api/patients/${patientId}/quality-measures`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch patient quality measures');
+      }
+      const data = await response.json();
       get().setPatientQualityMeasures(patientId, data || []);
     } catch (error) {
       console.error("Failed to fetch patient quality measures:", error);

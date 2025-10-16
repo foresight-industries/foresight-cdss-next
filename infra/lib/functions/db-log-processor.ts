@@ -1,6 +1,6 @@
 import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
 import { CloudWatchLogsEvent } from 'aws-lambda';
-import { gunzipSync } from 'zlib';
+import { gunzipSync } from 'node:zlib';
 
 const cloudWatch = new CloudWatchClient({});
 
@@ -39,7 +39,7 @@ export const handler = async (event: CloudWatchLogsEvent) => {
       // Process each log event
       for (const logEvent of logData.logEvents) {
         const parsedEvent = parsePostgreSQLLog(logEvent.message);
-        
+
         if (!parsedEvent) continue;
 
         // Count slow queries (duration > 1000ms)
@@ -61,20 +61,20 @@ export const handler = async (event: CloudWatchLogsEvent) => {
         }
 
         // Count authentication events
-        if (parsedEvent.message.includes('connection authorized') || 
+        if (parsedEvent.message.includes('connection authorized') ||
             parsedEvent.message.includes('connection received')) {
           successfulLogins++;
         }
 
-        if (parsedEvent.message.includes('authentication failed') || 
+        if (parsedEvent.message.includes('authentication failed') ||
             parsedEvent.message.includes('password authentication failed')) {
           failedLogins++;
           console.log(`Failed login attempt: ${parsedEvent.message}`);
         }
 
         // Count lock waits
-        if (parsedEvent.message.includes('process') && 
-            (parsedEvent.message.includes('still waiting for') || 
+        if (parsedEvent.message.includes('process') &&
+            (parsedEvent.message.includes('still waiting for') ||
              parsedEvent.message.includes('acquired'))) {
           lockWaitCount++;
         }
@@ -156,10 +156,10 @@ function parsePostgreSQLLog(message: string): ParsedLogEvent | null {
   try {
     // Parse PostgreSQL log format: timestamp:remote_host:user@database:[pid]: level: message
     // Example: 2024-01-01 12:00:00.000 UTC:192.168.1.1(12345):user@database:[12345]: LOG: statement: SELECT ...
-    
+
     const logPattern = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} UTC):([^:]*):([^@]*)@([^:]*):(\[[^\]]*\]):\s*(\w+):\s*(.*)$/;
     const match = logPattern.exec(message);
-    
+
     if (!match) {
       // Try simpler pattern for basic logs
       const simplePattern = /^.*?\s+(\w+):\s*(.*)$/;

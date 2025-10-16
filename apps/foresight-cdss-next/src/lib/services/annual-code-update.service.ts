@@ -1,6 +1,3 @@
-// Annual Medical Code Update Service for AWS
-// Handles the annual ICD-10 (October) and CPT (January) code updates
-
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -10,8 +7,8 @@ import {
   cptCodeStaging,
   icd10CodeStaging,
   annualCodeUpdates
-} from '@foresight-cdss-next/db/src/schema';
-import { eq, inArray, sql } from "drizzle-orm";
+} from '@foresight-cdss-next/db/schema';
+import { eq, inArray, count, gt } from "drizzle-orm";
 import { getMedicalCodeCache } from './medical-code-cache.service';
 import * as XLSX from 'xlsx';
 
@@ -331,20 +328,26 @@ export class AnnualCodeUpdateService {
       // Check for duplicates, invalid formats, etc.
       if (codeType === 'cpt') {
         const duplicates = await this.db
-          .select({ code: (cptCodeStaging as any).cptCode })
+          .select({
+            code: (cptCodeStaging as any).cptCode,
+            count: count()
+          })
           .from(cptCodeStaging as any)
           .groupBy((cptCodeStaging as any).cptCode)
-          .having(sql`count(*) > 1`);
+          .having(gt(count(), 1));
 
         if (duplicates.length > 0) {
           errors.push(`Found ${duplicates.length} duplicate CPT codes in staging`);
         }
       } else {
         const duplicates = await this.db
-          .select({ code: (icd10CodeStaging as any).icd10Code })
+          .select({
+            code: (icd10CodeStaging as any).icd10Code,
+            count: count()
+          })
           .from(icd10CodeStaging as any)
           .groupBy((icd10CodeStaging as any).icd10Code)
-          .having(sql`count(*) > 1`);
+          .having(gt(count(), 1));
 
         if (duplicates.length > 0) {
           errors.push(`Found ${duplicates.length} duplicate ICD-10 codes in staging`);

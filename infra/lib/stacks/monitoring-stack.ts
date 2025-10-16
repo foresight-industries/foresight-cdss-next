@@ -7,6 +7,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Construct } from 'constructs';
 
 interface MonitoringStackProps extends cdk.StackProps {
@@ -54,48 +55,22 @@ export class MonitoringStack extends cdk.Stack {
 
       // Add Slack webhook if configured
       if (process.env.SLACK_WEBHOOK_URL) {
-        const slackFunction = new lambda.Function(this, 'SlackNotifier', {
+        const slackFunction = new lambdaNodejs.NodejsFunction(this, 'SlackNotifier', {
+          functionName: `rcm-slack-notifier-${props.stageName}`,
+          entry: '../packages/functions/notifications/slack-notifier.ts',
+          handler: 'handler',
           runtime: lambda.Runtime.NODEJS_22_X,
-          handler: 'index.handler',
-          code: lambda.Code.fromInline(`
-            const https = require('https');
-            const util = require('util');
-
-            exports.handler = async (event) => {
-              const message = JSON.parse(event.Records[0].Sns.Message);
-              const color = message.NewStateValue === 'ALARM' ? 'danger' : 'good';
-
-              const payload = {
-                attachments: [{
-                  color: color,
-                  title: message.AlarmName,
-                  text: message.AlarmDescription,
-                  fields: [
-                    { title: 'State', value: message.NewStateValue, short: true },
-                    { title: 'Reason', value: message.NewStateReason, short: false },
-                    { title: 'Time', value: message.StateChangeTime, short: true },
-                  ],
-                }],
-              };
-
-              return new Promise((resolve, reject) => {
-                const options = {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                };
-
-                const req = https.request(process.env.SLACK_WEBHOOK_URL, options, (res) => {
-                  resolve({ statusCode: res.statusCode });
-                });
-
-                req.on('error', reject);
-                req.write(JSON.stringify(payload));
-                req.end();
-              });
-            };
-          `),
+          timeout: cdk.Duration.seconds(30),
+          memorySize: 256,
           environment: {
+            NODE_ENV: props.stageName,
             SLACK_WEBHOOK_URL: process.env.SLACK_WEBHOOK_URL,
+          },
+          bundling: {
+            minify: true,
+            sourceMap: false,
+            target: 'node22',
+            externalModules: ['@aws-sdk/*'],
           },
         });
 

@@ -14,7 +14,10 @@ export default [
         'error',
         {
           enforceBuildableLibDependency: true,
-          allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
+          allow: [
+            '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
+            '^@foresight-cdss-next/db/schema$'
+          ],
           depConstraints: [
             {
               sourceTag: '*',

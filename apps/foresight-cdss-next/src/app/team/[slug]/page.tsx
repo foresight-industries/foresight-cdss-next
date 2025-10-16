@@ -1,5 +1,6 @@
-import { Tables } from '@/lib/supabase';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createDatabaseClient, safeSelect } from '@/lib/aws/database';
+import { eq } from 'drizzle-orm';
+import { auditLogs, teamMembers, userProfiles } from '@foresight-cdss-next/db';
 import DashboardClient from '@/components/dashboard/dashboard-client';
 import { epaQueueItems } from '@/data/epa-queue';
 import { initialClaims } from '@/data/claims';
@@ -7,10 +8,10 @@ import { demoAuditEntries } from '@/data/audit-trail';
 import { combineStatusDistribution } from '@/utils/dashboard';
 import { headers } from 'next/headers';
 
-const formatAuditMessage = (operation: string, tableName: string, recordId: string | null) => {
-  const friendlyOperation = operation.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
-  const base = `${friendlyOperation} · ${tableName}`;
-  return recordId ? `${base} (${recordId})` : base;
+const formatAuditMessage = (action: string, entityType: string, entityId: string | null) => {
+  const friendlyAction = action.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+  const base = `${friendlyAction} · ${entityType}`;
+  return entityId ? `${base} (${entityId})` : base;
 };
 
 const formatAuditTimestamp = (value: string | null) => {
@@ -23,34 +24,36 @@ const formatAuditTimestamp = (value: string | null) => {
   });
 };
 
-async function loadDashboardData(teamId: string) {
+async function loadDashboardData(organizationId: string) {
   try {
-    const supabase = await createSupabaseServerClient();
-    // Get audit logs for the team (temporarily removing auth_uid to avoid UUID casting error)
-    const { data: auditLogData, error: auditError } = await supabase
-      .from(Tables.AUDIT_LOG)
-      .select(`
-        id, 
-        table_name, 
-        operation, 
-        record_id, 
-        created_at, 
-        team_id
-      `)
-      .eq('team_id', teamId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    if (auditError) {
-      console.error('Error fetching audit log:', auditError);
-    }
+    const { db } = await createDatabaseClient();
+    
+    // Get audit logs for the organization with user details
+    const { data: auditLogData } = await safeSelect(async () =>
+      db.select({
+        id: auditLogs.id,
+        entityType: auditLogs.entityType,
+        action: auditLogs.action,
+        entityId: auditLogs.entityId,
+        createdAt: auditLogs.createdAt,
+        userId: auditLogs.userId,
+        // Get user details if available
+        userEmail: userProfiles.email
+      })
+      .from(auditLogs)
+      .leftJoin(teamMembers, eq(auditLogs.userId, teamMembers.id))
+      .leftJoin(userProfiles, eq(teamMembers.clerkUserId, userProfiles.clerkUserId))
+      .where(eq(auditLogs.organizationId, organizationId))
+      .orderBy(auditLogs.createdAt)
+      .limit(10)
+    );
 
     const auditEntries = auditLogData && auditLogData.length > 0
-      ? auditLogData.map((entry) => ({
+      ? auditLogData.map((entry: any) => ({
           id: entry.id,
-          message: formatAuditMessage(entry.operation, entry.table_name, entry.record_id),
-          actor: 'Team Member', // Temporary placeholder since auth_uid has UUID casting issues
-          timestamp: formatAuditTimestamp(entry.created_at),
+          message: formatAuditMessage(entry.action, entry.entityType, entry.entityId),
+          actor: entry.userEmail || 'System', // Use email or fallback to System
+          timestamp: formatAuditTimestamp(entry.createdAt),
         }))
       : demoAuditEntries;
 
@@ -72,13 +75,13 @@ async function loadDashboardData(teamId: string) {
 }
 
 export default async function DashboardPage() {
-  // Get team ID from middleware headers
+  // Get organization ID from middleware headers
   const headersList = await headers();
-  const teamId = headersList.get('x-team-id');
+  const organizationId = headersList.get('x-team-id'); // Still using x-team-id header for backward compatibility
 
-  if (!teamId) {
-    console.error('Team ID not found in headers');
-    // Fallback to demo data if no team ID
+  if (!organizationId) {
+    console.error('Organization ID not found in headers');
+    // Fallback to demo data if no organization ID
     const dashboardData = {
       epaItems: epaQueueItems,
       claimItems: initialClaims,
@@ -96,7 +99,7 @@ export default async function DashboardPage() {
     );
   }
 
-  const dashboardData = await loadDashboardData(teamId);
+  const dashboardData = await loadDashboardData(organizationId);
 
   return (
     <DashboardClient

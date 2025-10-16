@@ -5,6 +5,7 @@ import * as schema from './schema';
 
 // Enhanced RDS Data Client with logging
 class LoggedRDSDataClient extends RDSDataClient {
+  // private connectionCount = 0;
   private activeConnections = 0;
   private readonly poolName: string;
 
@@ -74,31 +75,49 @@ class LoggedRDSDataClient extends RDSDataClient {
       }
     }
   }
+
+  // Public getters for monitoring (optional)
+  public getActiveConnections(): number {
+    return this.activeConnections;
+  }
+
+  public getPoolName(): string {
+    return this.poolName;
+  }
 }
 
-// Database configuration
-const dbConfig = {
-  database: process.env.DATABASE_NAME!,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN!,
-  secretArn: process.env.DATABASE_SECRET_ARN!,
-};
+// Validate and extract required environment variables
+const databaseName = process.env.DATABASE_NAME;
+const clusterArn = process.env.DATABASE_CLUSTER_ARN;
+const secretArn = process.env.DATABASE_SECRET_ARN;
 
-// Validate required environment variables
-if (!process.env.DATABASE_NAME) {
+if (!databaseName) {
   throw new Error('DATABASE_NAME is not defined');
 }
 
-if (!process.env.DATABASE_CLUSTER_ARN) {
+if (!clusterArn) {
   throw new Error('DATABASE_CLUSTER_ARN is not defined');
 }
 
-if (!process.env.DATABASE_SECRET_ARN) {
+if (!secretArn) {
   throw new Error('DATABASE_SECRET_ARN is not defined');
 }
 
-// Create logged RDS client
+// Database configuration with validated environment variables
+const dbConfig = {
+  database: databaseName,
+  resourceArn: clusterArn,
+  secretArn: secretArn,
+};
+
+// Create logged RDS client with credentials
 const rdsClient = new LoggedRDSDataClient({
   region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+    ...(process.env.AWS_SESSION_TOKEN && { sessionToken: process.env.AWS_SESSION_TOKEN })
+  }
 }, 'main-pool');
 
 // Create Drizzle database instance with schema
