@@ -531,6 +531,17 @@ class MedicalCodeCacheService {
     }
   }
 
+  // ===================================
+  // PREDICTION CACHING
+  // ===================================
+  async getPredictionFromCache<T>(key: string): Promise<T | null> {
+    return this.getFromCache<T>(key);
+  }
+
+  async setPredictionCache<T>(key: string, data: T, ttl: number = this.DEFAULT_TTL): Promise<void> {
+    return this.setCache(key, data, ttl);
+  }
+
   // Health check
   async healthCheck(): Promise<{ redis: boolean; fallback: boolean; mode: string }> {
     let redisHealth = false;
