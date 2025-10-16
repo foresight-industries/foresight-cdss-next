@@ -11,15 +11,12 @@ import type {
   OrganizationJSON
 } from "@clerk/nextjs/server";
 import { safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
-import { eq, and } from "drizzle-orm";
-import { z } from 'zod';
-import { teamMembers, organizations, organizationInvitations, userProfiles, UserProfile, accessLevelEnum, type Organization } from "@foresight-cdss-next/db";
+import { eq, and, sql } from "drizzle-orm";
+import { teamMembers, organizations, organizationInvitations, userProfiles, UserProfile, type Organization } from "@foresight-cdss-next/db";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
 }
-
-const { enum: accessLevel } = z.enum(accessLevelEnum.enumValues);
 
 export async function POST(req: Request) {
   try {
@@ -204,7 +201,7 @@ async function handleUserCreated(data: UserWebhookEvent['data']) {
           email: data.email_addresses?.[0]?.email_address ?? '',
           firstName: data.first_name,
           lastName: data.last_name,
-          role: accessLevel.read,
+          role: sql.raw(`'read'::access_level`),
           isActive: true
         })
     );
@@ -501,7 +498,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
               email,
               firstName: data.public_user_data.first_name,
               lastName: data.public_user_data.last_name,
-              role,
+              role: sql.raw(`'${role}'::access_level`),
               isActive: true
             })
         );
@@ -567,7 +564,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
               email,
               firstName: data.public_user_data.first_name,
               lastName: data.public_user_data.last_name,
-              role,
+              role: sql.raw(`'${role}'::access_level`),
               isActive: true
             })
         );
@@ -639,7 +636,7 @@ async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent[
     const { error } = await safeUpdate(async () =>
       db.update(teamMembers)
         .set({
-          role,
+          role: sql.raw(`'${role}'::access_level`),
           updatedAt: new Date()
         })
         .where(and(
@@ -741,7 +738,7 @@ async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent[
         .values({
           organizationId: organization.id,
           email: data.email_address,
-          role,
+          role: sql.raw(`'${role}'::access_level`),
           status: "pending",
           clerkInvitationId: data.id,
           expiresAt: data.expires_at ? new Date(data.expires_at) : null,
