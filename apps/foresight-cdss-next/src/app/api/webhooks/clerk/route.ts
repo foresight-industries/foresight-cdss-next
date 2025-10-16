@@ -10,7 +10,7 @@ import type {
   DeletedObjectJSON,
   OrganizationJSON
 } from "@clerk/nextjs/server";
-import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
+import { safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
 import { eq, and } from "drizzle-orm";
 import { teamMembers, organizations, organizationInvitations, userProfiles, type Organization, UserProfile } from "@foresight-cdss-next/db";
 
@@ -180,7 +180,7 @@ async function handleUserCreated(data: UserWebhookEvent['data']) {
       throw new TypeError("Invalid user data");
     }
 
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Check if user profile already exists
     const { data: existingUser } = await safeSingle(async () =>
@@ -226,7 +226,7 @@ async function handleUserUpdated(data: UserWebhookEvent['data']) {
       throw new TypeError("Invalid user data");
     }
 
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Update user profile
     const { error } = await safeUpdate(async () =>
@@ -318,7 +318,7 @@ async function handleUserDeleted(data: UserWebhookEvent['data']) {
 // Organization Management Functions
 async function handleOrganizationCreated(data: OrganizationWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     if (!isOrganizationJSON(data)) {
       throw new TypeError("Invalid organization data");
@@ -365,7 +365,7 @@ async function handleOrganizationUpdated(data: OrganizationWebhookEvent['data'])
       throw new TypeError("Invalid organization data");
     }
 
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     const { error } = await safeUpdate(async () =>
       db.update(organizations)
@@ -401,7 +401,7 @@ async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data'])
       throw new TypeError("Missing organization ID in deleted object");
     }
 
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID to find the internal ID
     const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
@@ -459,7 +459,7 @@ async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data'])
 // Membership Management Functions
 async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent['data'], email: string | null) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Map Clerk role to AWS access level enum
     const roleMapping = {
@@ -611,7 +611,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
 
 async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Map Clerk role to AWS access level enum
     const roleMapping = {
@@ -664,7 +664,7 @@ async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent[
 
 async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
     const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
@@ -710,7 +710,7 @@ async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent[
 // Invitation Management Functions
 async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
     const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
@@ -764,7 +764,7 @@ async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent[
 
 async function handleInvitationRevoked(data: OrganizationInvitationWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
     const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
