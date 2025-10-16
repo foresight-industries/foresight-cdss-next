@@ -16,6 +16,7 @@ import {
   jsonb,
   serial,
   bigint,
+  uniqueIndex,
   type PgTableWithColumns
 } from 'drizzle-orm/pg-core';
 import { InferSelectModel, InferInsertModel, sql } from 'drizzle-orm';
@@ -1243,6 +1244,65 @@ export const apiKeys = pgTable('api_key', {
   keyPrefixIdx: index('api_key_key_prefix_idx').on(table.keyPrefix),
   activeIdx: index('api_key_active_idx').on(table.isActive),
   expiresAtIdx: index('api_key_expires_at_idx').on(table.expiresAt),
+}));
+
+// External service credentials (HIPAA-compliant storage)
+export const externalServiceCredentials = pgTable('external_service_credential', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Service identification
+  serviceName: varchar('service_name', { length: 50 }).notNull(), // 'dosespot', 'surescripts', etc.
+  serviceType: varchar('service_type', { length: 20 }).notNull(), // 'erx', 'epa', 'clearinghouse'
+  environment: varchar('environment', { length: 10 }).default('production').notNull(), // 'production', 'sandbox'
+
+  // AWS Secrets Manager reference (NOT the actual credentials)
+  secretArn: text('secret_arn').notNull(), // ARN of the secret in AWS Secrets Manager
+  secretRegion: varchar('secret_region', { length: 20 }).default('us-east-1').notNull(),
+
+  // Credential metadata (non-sensitive)
+  credentialName: text('credential_name').notNull(), // User-friendly name
+  description: text('description'),
+
+  // Status and validation
+  isActive: boolean('is_active').default(true),
+  isValid: boolean('is_valid').default(false), // Set to true after successful validation
+  lastValidated: timestamp('last_validated'),
+  lastValidationError: text('last_validation_error'),
+  validationAttempts: integer('validation_attempts').default(0),
+
+  // Usage tracking
+  lastUsed: timestamp('last_used'),
+  usageCount: integer('usage_count').default(0),
+
+  // Feature enablement
+  enabledFeatures: jsonb('enabled_features').notNull(), // ['erx', 'epa', 'formulary_check']
+
+  // Connection settings
+  connectionSettings: jsonb('connection_settings'), // Non-sensitive config like timeout, retry settings
+
+  // Auto-renewal and expiration
+  expiresAt: timestamp('expires_at'),
+  autoRenew: boolean('auto_renew').default(false),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  createdBy: uuid('created_by').references(() => teamMembers.id).notNull(),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  orgServiceIdx: index('external_service_credential_org_service_idx').on(table.organizationId, table.serviceName),
+  serviceTypeIdx: index('external_service_credential_service_type_idx').on(table.serviceType),
+  activeIdx: index('external_service_credential_active_idx').on(table.isActive),
+  validIdx: index('external_service_credential_valid_idx').on(table.isValid),
+  secretArnIdx: index('external_service_credential_secret_arn_idx').on(table.secretArn),
+  lastValidatedIdx: index('external_service_credential_last_validated_idx').on(table.lastValidated),
+  expiresAtIdx: index('external_service_credential_expires_at_idx').on(table.expiresAt),
+  // Ensure one active credential per organization per service
+  orgServiceUniqueIdx: uniqueIndex('external_service_credential_org_service_unique_idx')
+    .on(table.organizationId, table.serviceName, table.environment)
+    .where(sql`${table.isActive} = true AND ${table.deletedAt} IS NULL`),
 }));
 
 // Webhook configurations
@@ -5104,7 +5164,7 @@ export const hcpcsCodeMaster = pgTable('hcpcs_code_master', {
   // Classification
   category: varchar('category', { length: 100 }), // Transportation Services, Enteral and Parenteral Therapy, etc.
   level: varchar('level', { length: 10 }).default('II'), // Level I (CPT) or Level II (National)
-  
+
   // Administrative codes
   actionCode: varchar('action_code', { length: 50 }), // A=Add, C=Change, D=Discontinued, etc.
   coverageStatus: varchar('coverage_status', { length: 50 }),
@@ -5114,7 +5174,7 @@ export const hcpcsCodeMaster = pgTable('hcpcs_code_master', {
   // Billing and payment
   aSCPaymentIndicator: varchar('asc_payment_indicator', { length: 10 }),
   aSCGroupPaymentWeight: decimal('asc_group_payment_weight', { precision: 10, scale: 4 }),
-  
+
   // Status and tracking
   isActive: boolean('is_active').default(true),
   effectiveDate: date('effective_date'),
@@ -5131,10 +5191,10 @@ export const hcpcsCodeMaster = pgTable('hcpcs_code_master', {
   categoryIdx: index('hcpcs_code_master_category_idx').on(table.category),
   activeIdx: index('hcpcs_code_master_active_idx').on(table.isActive),
   actionCodeIdx: index('hcpcs_code_master_action_code_idx').on(table.actionCode),
-  
+
   // Date-based indexes
   effectiveDateIdx: index('hcpcs_code_master_effective_date_idx').on(table.effectiveDate),
-  
+
   // Performance indexes
   activeCodesIdx: index('hcpcs_code_master_active_codes_idx').on(
     table.hcpcsCode,
@@ -5337,7 +5397,7 @@ export const hcpcsCodeStaging = pgTable('hcpcs_code_staging', {
   // Classification
   category: varchar('category', { length: 100 }), // Transportation Services, Enteral and Parenteral Therapy, etc.
   level: varchar('level', { length: 10 }).default('II'), // Level I (CPT) or Level II (National)
-  
+
   // Administrative codes
   actionCode: varchar('action_code', { length: 50 }), // A=Add, C=Change, D=Discontinued, etc.
   coverageStatus: varchar('coverage_status', { length: 50 }),
@@ -5347,7 +5407,7 @@ export const hcpcsCodeStaging = pgTable('hcpcs_code_staging', {
   // Billing and payment
   aSCPaymentIndicator: varchar('asc_payment_indicator', { length: 10 }),
   aSCGroupPaymentWeight: decimal('asc_group_payment_weight', { precision: 10, scale: 4 }),
-  
+
   // Status and dates
   isActive: boolean('is_active').default(true),
   effectiveDate: date('effective_date'),

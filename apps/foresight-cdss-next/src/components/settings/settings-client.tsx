@@ -61,6 +61,24 @@ interface SettingsSection {
   description: string;
 }
 
+interface DosespotCredential {
+  id: string;
+  serviceName: string;
+  serviceType: string;
+  environment: string;
+  credentialName: string;
+  description?: string;
+  isActive: boolean;
+  isValid: boolean;
+  lastValidated?: string;
+  lastValidationError?: string;
+  enabledFeatures: string[];
+  connectionSettings: any;
+  autoRenew: boolean;
+  expiresAt?: string;
+  createdAt: string;
+}
+
 interface SettingsProps {
   initialAutomationSettings: {
     autoApprovalThreshold: number;
@@ -571,6 +589,34 @@ function SettingsPageContent({
     batchProcessingMedicare: true,
   });
 
+  // DoseSpot Credentials State
+  const [dosespotCredentials, setDosespotCredentials] = useState<DosespotCredential[]>([]);
+  const [showDosespotModal, setShowDosespotModal] = useState(false);
+  const [validatingCredentialId, setValidatingCredentialId] = useState<string | null>(null);
+  const [dosespotFormData, setDosespotFormData] = useState({
+    credentialName: '',
+    description: '',
+    serviceName: 'dosespot',
+    serviceType: 'erx',
+    environment: 'sandbox',
+    enabledFeatures: ['erx'],
+    connectionSettings: {
+      timeout: 30000,
+      retryAttempts: 3,
+      retryDelay: 1000,
+    },
+    autoRenew: false,
+    expiresAt: '',
+    credentials: {
+      apiKey: '',
+      clinicKey: '',
+      clinicId: '',
+      userId: '',
+      subscriptionKey: '',
+    },
+  });
+  const [editingDosespotIndex, setEditingDosespotIndex] = useState<number | null>(null);
+
   // Handle URL parameters to navigate to specific sections
   useEffect(() => {
     const section = searchParams.get("section");
@@ -1065,7 +1111,7 @@ function SettingsPageContent({
       enabled: fieldMappingForm.enabled,
     };
 
-    if (editingFieldMappingIndex !== null) {
+    if (editingFieldMappingIndex) {
       // Update existing mapping
       setFieldMappings((prev) =>
         prev.map((mapping, i) =>
@@ -1150,6 +1196,168 @@ function SettingsPageContent({
     setSpecialHandlingRules((prev) => ({ ...prev, [rule]: enabled }));
   };
 
+  // DoseSpot Credential Handlers
+  const handleValidateDosespotCredential = async (credentialId: string) => {
+    setValidatingCredentialId(credentialId);
+    try {
+      const response = await fetch(`/api/external-credentials/${credentialId}/validate`, {
+        method: 'POST',
+      });
+      const result = await response.json();
+
+      if (result.isValid) {
+        // Update local state
+        setDosespotCredentials(prev =>
+          prev.map(cred =>
+            cred.id === credentialId
+              ? { ...cred, isValid: true, lastValidated: result.lastValidated }
+              : cred
+          )
+        );
+      } else {
+        setDosespotCredentials(prev =>
+          prev.map(cred =>
+            cred.id === credentialId
+              ? { ...cred, isValid: false, lastValidationError: result.error }
+              : cred
+          )
+        );
+      }
+    } catch (error) {
+      console.error('Error validating credential:', error);
+    } finally {
+      setValidatingCredentialId(null);
+    }
+  };
+
+  const handleEditDosespotCredential = (index: number) => {
+    const credential = dosespotCredentials[index];
+    setEditingDosespotIndex(index);
+    setDosespotFormData({
+      credentialName: credential.credentialName,
+      description: credential.description ?? '',
+      serviceName: credential.serviceName,
+      serviceType: credential.serviceType,
+      environment: credential.environment,
+      enabledFeatures: credential.enabledFeatures,
+      connectionSettings: credential.connectionSettings ?? {
+        timeout: 30000,
+        retryAttempts: 3,
+        retryDelay: 1000,
+      },
+      autoRenew: credential.autoRenew,
+      expiresAt: credential.expiresAt ?? '',
+      credentials: {
+        apiKey: '',
+        clinicKey: '',
+        clinicId: '',
+        userId: '',
+        subscriptionKey: '',
+      },
+    });
+    setShowDosespotModal(true);
+  };
+
+  const handleDeleteDosespotCredential = async (index: number) => {
+    const credential = dosespotCredentials[index];
+    if (confirm(`Are you sure you want to delete "${credential.credentialName}"?`)) {
+      try {
+        const response = await fetch(`/api/external-credentials/${credential.id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          setDosespotCredentials(prev => prev.filter((_, i) => i !== index));
+        } else {
+          console.error('Failed to delete credential');
+        }
+      } catch (error) {
+        console.error('Error deleting credential:', error);
+      }
+    }
+  };
+
+  const handleSaveDosespotCredential = async () => {
+    try {
+      const endpoint = editingDosespotIndex !== null
+        ? `/api/external-credentials/${dosespotCredentials[editingDosespotIndex].id}`
+        : '/api/external-credentials';
+
+      const method = editingDosespotIndex !== null ? 'PUT' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dosespotFormData),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        if (editingDosespotIndex !== null) {
+          // Update existing credential
+          setDosespotCredentials(prev =>
+            prev.map((cred, i) =>
+              i === editingDosespotIndex ? result.data.credential : cred
+            )
+          );
+        } else {
+          // Add new credential
+          setDosespotCredentials(prev => [...prev, result.data.credential]);
+        }
+
+        setShowDosespotModal(false);
+        setEditingDosespotIndex(null);
+        setDosespotFormData({
+          credentialName: '',
+          description: '',
+          serviceName: 'dosespot',
+          serviceType: 'erx',
+          environment: 'sandbox',
+          enabledFeatures: ['erx'],
+          connectionSettings: {
+            timeout: 30000,
+            retryAttempts: 3,
+            retryDelay: 1000,
+          },
+          autoRenew: false,
+          expiresAt: '',
+          credentials: {
+            apiKey: '',
+            clinicKey: '',
+            clinicId: '',
+            userId: '',
+            subscriptionKey: '',
+          },
+        });
+      } else {
+        console.error('Failed to save credential:', result.error);
+      }
+    } catch (error) {
+      console.error('Error saving credential:', error);
+    }
+  };
+
+  // Load DoseSpot credentials on component mount
+  useEffect(() => {
+    const loadDosespotCredentials = async () => {
+      try {
+        const response = await fetch('/api/external-credentials');
+        const result = await response.json();
+
+        if (result.success) {
+          setDosespotCredentials(result.data.credentials || []);
+        }
+      } catch (error) {
+        console.error('Error loading DoseSpot credentials:', error);
+      }
+    };
+
+    loadDosespotCredentials();
+  }, []);
+
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
       <Card className="p-6">
@@ -1211,6 +1419,118 @@ function SettingsPageContent({
               </div>
             ))}
         </div>
+      </Card>
+
+      {/* DoseSpot Credentials Section */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              DoseSpot Credentials
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Manage API credentials for eRx and ePA processing
+            </p>
+          </div>
+          <Button onClick={() => setShowDosespotModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Add Credentials
+          </Button>
+        </div>
+
+        {dosespotCredentials.length === 0 ? (
+          <div className="text-center py-8">
+            <Stethoscope className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              No DoseSpot credentials configured
+            </h4>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              Add your DoseSpot API credentials to enable eRx and ePA processing.
+            </p>
+            <Button onClick={() => setShowDosespotModal(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Credentials
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {dosespotCredentials.map((credential, index) => (
+              <div
+                key={credential.id}
+                className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg"
+              >
+                <div className="flex items-center space-x-3">
+                  <div
+                    className={`w-3 h-3 rounded-full ${
+                      credential.isValid ? "bg-green-500" : "bg-red-500"
+                    }`}
+                  ></div>
+                  <div>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {credential.credentialName}
+                    </p>
+                    <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+                      <span className="capitalize">{credential.environment}</span>
+                      <span>•</span>
+                      <span>{credential.enabledFeatures.join(', ')}</span>
+                    </div>
+                    {credential.lastValidationError && (
+                      <p className="text-xs text-red-600 mt-1">{credential.lastValidationError}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Badge
+                    variant={credential.isValid ? "default" : "destructive"}
+                    className={
+                      credential.isValid
+                        ? "bg-green-100 text-green-800"
+                        : "bg-red-100 text-red-800"
+                    }
+                  >
+                    {credential.isValid ? (
+                      <>
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Valid
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Invalid
+                      </>
+                    )}
+                  </Badge>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleValidateDosespotCredential(credential.id)}
+                    disabled={validatingCredentialId === credential.id}
+                  >
+                    {validatingCredentialId === credential.id ? (
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                    ) : (
+                      "Test"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEditDosespotCredential(index)}
+                  >
+                    <Edit className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDeleteDosespotCredential(index)}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -2950,6 +3270,207 @@ function SettingsPageContent({
             <Button variant="destructive" onClick={confirmRemoveUser}>
               <Trash2 className="w-4 h-4 mr-2" />
               Remove User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DoseSpot Credential Modal */}
+      <Dialog open={showDosespotModal} onOpenChange={setShowDosespotModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center">
+              <Stethoscope className="w-5 h-5 mr-2 text-primary" />
+              {editingDosespotIndex !== null ? "Edit DoseSpot Credentials" : "Add DoseSpot Credentials"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingDosespotIndex !== null
+                ? "Update your DoseSpot API credentials for eRx and ePA processing."
+                : "Enter your DoseSpot API credentials to enable eRx and ePA processing features."
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-name">Configuration Name</Label>
+              <Input
+                id="dosespot-name"
+                type="text"
+                value={dosespotFormData.credentialName}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({ ...prev, credentialName: e.target.value }))
+                }
+                placeholder="e.g., Production DoseSpot"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-environment">Environment</Label>
+              <Select
+                value={dosespotFormData.environment}
+                onValueChange={(value) =>
+                  setDosespotFormData(prev => ({ ...prev, environment: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select environment" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="production">Production</SelectItem>
+                  <SelectItem value="staging">Staging</SelectItem>
+                  <SelectItem value="sandbox">Sandbox</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-apikey">API Key</Label>
+              <Input
+                id="dosespot-apikey"
+                type="password"
+                value={dosespotFormData.credentials.apiKey}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({
+                    ...prev,
+                    credentials: { ...prev.credentials, apiKey: e.target.value }
+                  }))
+                }
+                placeholder="Enter your DoseSpot API key"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-clinickey">Clinic Key</Label>
+              <Input
+                id="dosespot-clinickey"
+                type="password"
+                value={dosespotFormData.credentials.clinicKey}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({
+                    ...prev,
+                    credentials: { ...prev.credentials, clinicKey: e.target.value }
+                  }))
+                }
+                placeholder="Enter your clinic key"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-clinicid">Clinic ID</Label>
+              <Input
+                id="dosespot-clinicid"
+                type="text"
+                value={dosespotFormData.credentials.clinicId}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({
+                    ...prev,
+                    credentials: { ...prev.credentials, clinicId: e.target.value }
+                  }))
+                }
+                placeholder="Enter your clinic ID"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-userid">User ID</Label>
+              <Input
+                id="dosespot-userid"
+                type="text"
+                value={dosespotFormData.credentials.userId}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({
+                    ...prev,
+                    credentials: { ...prev.credentials, userId: e.target.value }
+                  }))
+                }
+                placeholder="Enter your user ID"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dosespot-subscriptionkey">Subscription Key</Label>
+              <Input
+                id="dosespot-subscriptionkey"
+                type="password"
+                value={dosespotFormData.credentials.subscriptionKey}
+                onChange={(e) =>
+                  setDosespotFormData(prev => ({
+                    ...prev,
+                    credentials: { ...prev.credentials, subscriptionKey: e.target.value }
+                  }))
+                }
+                placeholder="Enter your subscription key"
+                required
+              />
+            </div>
+
+            <div className="p-3 bg-amber-50 dark:bg-amber-950 rounded-lg border border-amber-200 dark:border-amber-800">
+              <div className="flex items-start space-x-2">
+                <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5" />
+                <div>
+                  <p className="text-sm text-amber-800 dark:text-amber-200 font-medium">
+                    HIPAA Compliance
+                  </p>
+                  <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                    Credentials are encrypted and stored securely in AWS Secrets Manager.
+                    All operations are logged for audit compliance.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDosespotModal(false);
+                setEditingDosespotIndex(null);
+                setDosespotFormData({
+                  credentialName: '',
+                  description: '',
+                  serviceName: 'dosespot',
+                  serviceType: 'erx',
+                  environment: 'sandbox',
+                  enabledFeatures: ['erx'],
+                  connectionSettings: {
+                    timeout: 30000,
+                    retryAttempts: 3,
+                    retryDelay: 1000,
+                  },
+                  autoRenew: false,
+                  expiresAt: '',
+                  credentials: {
+                    apiKey: '',
+                    clinicKey: '',
+                    clinicId: '',
+                    userId: '',
+                    subscriptionKey: '',
+                  },
+                });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveDosespotCredential}
+              disabled={
+                !dosespotFormData.credentialName ||
+                !dosespotFormData.credentials.apiKey ||
+                !dosespotFormData.credentials.clinicKey ||
+                !dosespotFormData.credentials.clinicId ||
+                !dosespotFormData.credentials.userId ||
+                !dosespotFormData.credentials.subscriptionKey
+              }
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {editingDosespotIndex !== null ? "Update Credentials" : "Save Credentials"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -4,6 +4,8 @@ import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as kinesisfirehose from 'aws-cdk-lib/aws-kinesisfirehose';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 interface SecurityStackProps extends cdk.StackProps {
@@ -12,6 +14,10 @@ interface SecurityStackProps extends cdk.StackProps {
 }
 
 export class SecurityStack extends cdk.Stack {
+  public readonly credentialEncryptionKey: kms.Key;
+  public readonly credentialManagementRole: iam.Role;
+  public readonly credentialAuditLogGroup: logs.LogGroup;
+
   constructor(scope: Construct, id: string, props: SecurityStackProps) {
     super(scope, id, props);
 
@@ -287,6 +293,167 @@ export class SecurityStack extends cdk.Stack {
       },
     });
 
+    // HIPAA-Compliant Credential Management Infrastructure
+
+    // KMS Key for encrypting external service credentials
+    const credentialEncryptionKey = new kms.Key(this, 'CredentialEncryptionKey', {
+      description: `KMS key for encrypting external service credentials - ${props.stageName}`,
+      enableKeyRotation: true,
+      rotationPeriod: cdk.Duration.days(365),
+      policy: new iam.PolicyDocument({
+        statements: [
+          // Allow root account to manage the key
+          new iam.PolicyStatement({
+            sid: 'EnableRootPermissions',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.AccountRootPrincipal()],
+            actions: ['kms:*'],
+            resources: ['*'],
+          }),
+          // Allow application roles to use the key for encryption/decryption
+          new iam.PolicyStatement({
+            sid: 'AllowApplicationAccess',
+            effect: iam.Effect.ALLOW,
+            principals: [
+              new iam.ServicePrincipal('lambda.amazonaws.com'),
+              new iam.ServicePrincipal('ecs-tasks.amazonaws.com'),
+            ],
+            actions: [
+              'kms:Decrypt',
+              'kms:DescribeKey',
+              'kms:Encrypt',
+              'kms:GenerateDataKey',
+              'kms:ReEncrypt*',
+            ],
+            resources: ['*'],
+            conditions: {
+              StringEquals: {
+                'kms:ViaService': [
+                  `secretsmanager.${this.region}.amazonaws.com`,
+                ],
+              },
+            },
+          }),
+          // Allow CloudWatch Logs to use the key for log group encryption
+          new iam.PolicyStatement({
+            sid: 'AllowCloudWatchLogsAccess',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.ServicePrincipal(`logs.${this.region}.amazonaws.com`)],
+            actions: [
+              'kms:Encrypt',
+              'kms:Decrypt',
+              'kms:ReEncrypt*',
+              'kms:GenerateDataKey*',
+              'kms:DescribeKey',
+            ],
+            resources: ['*'],
+            conditions: {
+              ArnEquals: {
+                'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/credential-operations`,
+              },
+            },
+          }),
+        ],
+      }),
+    });
+
+    // Alias for the KMS key
+    new kms.Alias(this, 'CredentialEncryptionKeyAlias', {
+      aliasName: `alias/rcm-credential-encryption-${props.stageName}`,
+      targetKey: credentialEncryptionKey,
+    });
+
+    // IAM Role for Credential Management Lambda Functions
+    const credentialManagementRole = new iam.Role(this, 'CredentialManagementRole', {
+      roleName: `RCM-CredentialManagement-${props.stageName}`,
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal('lambda.amazonaws.com'),
+        new iam.ServicePrincipal('ecs-tasks.amazonaws.com')
+      ),
+      description: 'Role for managing external service credentials',
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
+    // Grant the role access to manage secrets
+    credentialManagementRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'secretsmanager:CreateSecret',
+        'secretsmanager:UpdateSecret',
+        'secretsmanager:GetSecretValue',
+        'secretsmanager:DeleteSecret',
+        'secretsmanager:DescribeSecret',
+        'secretsmanager:ListSecrets',
+        'secretsmanager:TagResource',
+        'secretsmanager:UntagResource',
+        'secretsmanager:RestoreSecret',
+      ],
+      resources: [
+        `arn:aws:secretsmanager:${this.region}:${this.account}:secret:rcm/${props.stageName}/credentials/*`,
+      ],
+    }));
+
+    // Grant the role access to use the KMS key
+    credentialEncryptionKey.grantDecrypt(credentialManagementRole);
+    credentialEncryptionKey.grantEncrypt(credentialManagementRole);
+
+    // CloudWatch Log Group for credential operations (HIPAA audit trail)
+    const credentialAuditLogGroup = new logs.LogGroup(this, 'CredentialAuditLogGroup', {
+      logGroupName: `/aws/rcm/${props.stageName}/credential-operations`,
+      retention: logs.RetentionDays.TEN_YEARS, // HIPAA requires long retention
+      encryptionKey: credentialEncryptionKey,
+    });
+
+    // Ensure KMS key is created before the log group
+    credentialAuditLogGroup.node.addDependency(credentialEncryptionKey);
+
+    // Grant the credential management role access to write to audit logs
+    credentialAuditLogGroup.grantWrite(credentialManagementRole);
+
+    // Assign class properties for external access
+    this.credentialEncryptionKey = credentialEncryptionKey;
+    this.credentialManagementRole = credentialManagementRole;
+    this.credentialAuditLogGroup = credentialAuditLogGroup;
+
+    // CloudWatch Dashboard for credential management monitoring
+    const credentialDashboard = new cdk.aws_cloudwatch.Dashboard(this, 'CredentialManagementDashboard', {
+      dashboardName: `rcm-credentials-${props.stageName}`,
+    });
+
+    credentialDashboard.addWidgets(
+      new cdk.aws_cloudwatch.GraphWidget({
+        title: 'Credential Operations',
+        left: [
+          new cdk.aws_cloudwatch.Metric({
+            namespace: 'AWS/Logs',
+            metricName: 'IncomingLogEvents',
+            dimensionsMap: {
+              LogGroupName: credentialAuditLogGroup.logGroupName,
+            },
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
+      new cdk.aws_cloudwatch.SingleValueWidget({
+        title: 'Active Credentials',
+        metrics: [
+          new cdk.aws_cloudwatch.Metric({
+            namespace: 'AWS/SecretsManager',
+            metricName: 'SuccessfulRequestLatency',
+            statistic: 'SampleCount',
+            period: cdk.Duration.hours(24),
+          }),
+        ],
+        width: 6,
+        height: 6,
+      }),
+    );
+
     // TODO: Associate WAF with API Gateway - currently disabled due to ARN format issues
     // The correct ARN format for HTTP API Gateway v2 is proving difficult to determine
     // This can be associated manually in the AWS console if needed
@@ -341,7 +508,7 @@ export class SecurityStack extends cdk.Stack {
 
     // GitHub Actions OIDC Identity Provider (only create once per account)
     let githubOidcProvider: iam.IOpenIdConnectProvider;
-    
+
     if (props.stageName === 'staging') {
       githubOidcProvider = new iam.OpenIdConnectProvider(this, 'GitHubOIDCProvider', {
         url: 'https://token.actions.githubusercontent.com',
@@ -408,6 +575,31 @@ export class SecurityStack extends cdk.Stack {
       value: githubOidcProvider.openIdConnectProviderArn,
       exportName: `RCM-GitHubOIDCProviderArn-${props.stageName}`,
       description: 'ARN of the GitHub OIDC provider',
+    });
+
+    // Output Credential Management Infrastructure
+    new cdk.CfnOutput(this, 'CredentialEncryptionKeyId', {
+      value: credentialEncryptionKey.keyId,
+      exportName: `RCM-CredentialEncryptionKeyId-${props.stageName}`,
+      description: 'ID of the KMS key for credential encryption',
+    });
+
+    new cdk.CfnOutput(this, 'CredentialEncryptionKeyArn', {
+      value: credentialEncryptionKey.keyArn,
+      exportName: `RCM-CredentialEncryptionKeyArn-${props.stageName}`,
+      description: 'ARN of the KMS key for credential encryption',
+    });
+
+    new cdk.CfnOutput(this, 'CredentialManagementRoleArn', {
+      value: credentialManagementRole.roleArn,
+      exportName: `RCM-CredentialManagementRoleArn-${props.stageName}`,
+      description: 'ARN of the IAM role for credential management',
+    });
+
+    new cdk.CfnOutput(this, 'CredentialAuditLogGroupArn', {
+      value: credentialAuditLogGroup.logGroupArn,
+      exportName: `RCM-CredentialAuditLogGroupArn-${props.stageName}`,
+      description: 'ARN of the CloudWatch log group for credential audit trail',
     });
   }
 }
