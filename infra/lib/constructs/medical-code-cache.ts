@@ -59,7 +59,9 @@ export class MedicalCodeCache extends Construct {
                 'secretsmanager:DescribeSecret',
               ],
               resources: [
-                `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret:rcm-db-rds-credential-${props.environment}-*`,
+                props.environment === 'staging'
+                  ? 'arn:aws:secretsmanager:us-east-1:914689160411:secret:rcm-db-rds-credential-staging-p9wOrd'
+                  : 'arn:aws:secretsmanager:us-east-1:914689160411:secret:rcm-db-rds-credential-prod-2cvOnl',
                 props.redisSecret.secretArn,
               ],
             }),
@@ -143,7 +145,9 @@ export class MedicalCodeCache extends Construct {
       environment: {
         NODE_ENV: props.environment,
         // Database configuration
-        DATABASE_SECRET_ARN: `arn:aws:secretsmanager:${Stack.of(this).region}:${Stack.of(this).account}:secret:rcm-db-rds-credential-${props.environment}`,
+        DATABASE_SECRET_ARN: props.environment === 'staging'
+          ? 'arn:aws:secretsmanager:us-east-1:914689160411:secret:rcm-db-rds-credential-staging-p9wOrd'
+          : 'arn:aws:secretsmanager:us-east-1:914689160411:secret:rcm-db-rds-credential-prod-2cvOnl',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
         // Cache configuration

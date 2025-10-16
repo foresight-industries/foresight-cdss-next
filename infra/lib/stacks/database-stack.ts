@@ -272,7 +272,7 @@ export class DatabaseStack extends cdk.Stack {
     });
 
     new cdk.CfnOutput(this, 'SecretArn', {
-      value: this.cluster.secret?.secretArn || '',
+      value: this.cluster.secret?.secretArn ?? '',
       exportName: `RCM-SecretArn-${props.stageName}`,
     });
 

@@ -32,9 +32,9 @@ export class MedicalDataStack extends Stack {
       `foresight-${props.environment}-medical-codes-backup`
     );
 
-    // Create new backup bucket for Comprehend Medical (v2 with unique name to avoid conflicts)
+    // Create new backup bucket for Comprehend Medical
     this.medicalCodesBackupBucket = new s3.Bucket(this, 'MedicalCodesBackupBucket', {
-      bucketName: `foresight-${props.environment}-medical-codes-backup-v2`,
+      bucketName: `foresight-${props.environment}-medical-codes-backup-comprehendmedical`,
       versioned: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
       publicReadAccess: false,
@@ -56,6 +56,7 @@ export class MedicalDataStack extends Stack {
         },
       ],
       removalPolicy: RemovalPolicy.RETAIN, // Always retain backups
+      autoDeleteObjects: false, // Never auto-delete objects to prevent data loss
     });
 
     // Add official Redis.io backup access policy as per Redis documentation
@@ -189,9 +190,9 @@ export class MedicalDataStack extends Stack {
     });
 
     new ssm.StringParameter(this, 'RedisBackupBucketParameter', {
-      parameterName: `/foresight/${props.environment}/storage/redis-backup-bucket`,
+      parameterName: `/foresight/${props.environment}/storage/redis-backup-bucket-v2`,
       stringValue: this.medicalCodesBucket.bucketName,
-      description: 'S3 bucket for Redis backup files from Redis.io',
+      description: 'S3 bucket for Redis backup files from Redis.io (v2)',
     });
 
     new ssm.StringParameter(this, 'RedisBackupFullPath', {
