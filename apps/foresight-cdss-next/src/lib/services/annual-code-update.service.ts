@@ -7,7 +7,7 @@ import {
   cptCodeStaging,
   icd10CodeStaging,
   annualCodeUpdates
-} from '@foresight-cdss-next/db/src/schema';
+} from '@foresight-cdss-next/db/schema';
 import { eq, inArray, count, gt } from "drizzle-orm";
 import { getMedicalCodeCache } from './medical-code-cache.service';
 import * as XLSX from 'xlsx';

@@ -18,7 +18,7 @@ function initializeDatabase() {
   config({ path: './.env.local' });
 
   const client = new RDSDataClient({
-    region: process.env.AWS_REGION || 'us-east-1',
+    region: process.env.AWS_REGION ?? 'us-east-1',
   });
 
   if (

@@ -12,9 +12,10 @@
     "db:reset": "tsx scripts/reset-db.ts",
     "db:reset:force": "tsx scripts/reset-db.ts --force",
     "db:seed": "tsx scripts/seed.ts",
-    "db:populate-codes": "tsx scripts/populate-codes-simple.ts",
+    "db:populate-codes": "tsx scripts/populate-medical-codes.ts",
     "db:populate-carc-rarc": "tsx scripts/populate-carc-rarc-simple.ts",
-    "db:populate-modifier-codes": "tsx scripts/populate-modifier-codes-simple.ts"
+    "db:populate-modifier-codes": "tsx scripts/populate-modifier-codes-simple.ts",
+    "db:populate-pos-codes": "tsx scripts/populate-pos-codes.ts"
   },
   "type": "module",
   "dependencies": {

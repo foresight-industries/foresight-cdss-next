@@ -1,6 +1,6 @@
 {
-  "id": "abd80e5a-d261-4315-ab1c-a13960521492",
-  "prevId": "ad49a23a-ff6a-46d0-9a76-af59f0f4a889",
+  "id": "c60a3944-16fa-4485-98a1-8acfe1702f6c",
+  "prevId": "abd80e5a-d261-4315-ab1c-a13960521492",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -27832,12 +27832,6 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "pos_code": {
           "name": "pos_code",
           "type": "varchar(5)",
@@ -27903,21 +27897,6 @@
         }
       },
       "indexes": {
-        "place_of_service_org_idx": {
-          "name": "place_of_service_org_idx",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "place_of_service_pos_code_idx": {
           "name": "place_of_service_pos_code_idx",
           "columns": [
@@ -27949,21 +27928,7 @@
           "with": {}
         }
       },
-      "foreignKeys": {
-        "place_of_service_organization_id_organization_id_fk": {
-          "name": "place_of_service_organization_id_organization_id_fk",
-          "tableFrom": "place_of_service",
-          "tableTo": "organization",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

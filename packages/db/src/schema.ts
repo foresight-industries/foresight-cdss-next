@@ -5092,6 +5092,60 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   usageTrackingIdx: index('icd10_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),
 }));
 
+// HCPCS Level II Code Master - Healthcare Common Procedure Coding System Level II
+export const hcpcsCodeMaster = pgTable('hcpcs_code_master', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // HCPCS code details
+  hcpcsCode: varchar('hcpcs_code', { length: 10 }).notNull().unique(),
+  shortDescription: varchar('short_description', { length: 100 }),
+  longDescription: text('long_description'),
+
+  // Classification
+  category: varchar('category', { length: 100 }), // Transportation Services, Enteral and Parenteral Therapy, etc.
+  level: varchar('level', { length: 10 }).default('II'), // Level I (CPT) or Level II (National)
+  
+  // Administrative codes
+  actionCode: varchar('action_code', { length: 50 }), // A=Add, C=Change, D=Discontinued, etc.
+  coverageStatus: varchar('coverage_status', { length: 50 }),
+  pricingIndicator: varchar('pricing_indicator', { length: 50 }),
+  multiplePricingIndicator: varchar('multiple_pricing_indicator', { length: 50 }),
+
+  // Billing and payment
+  aSCPaymentIndicator: varchar('asc_payment_indicator', { length: 10 }),
+  aSCGroupPaymentWeight: decimal('asc_group_payment_weight', { precision: 10, scale: 4 }),
+  
+  // Status and tracking
+  isActive: boolean('is_active').default(true),
+  effectiveDate: date('effective_date'),
+  terminationDate: date('termination_date'),
+  usageCount: integer('usage_count').default(0),
+  lastUsedDate: timestamp('last_used_date'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  // Primary indexes
+  hcpcsCodeIdx: index('hcpcs_code_master_code_idx').on(table.hcpcsCode),
+  categoryIdx: index('hcpcs_code_master_category_idx').on(table.category),
+  activeIdx: index('hcpcs_code_master_active_idx').on(table.isActive),
+  actionCodeIdx: index('hcpcs_code_master_action_code_idx').on(table.actionCode),
+  
+  // Date-based indexes
+  effectiveDateIdx: index('hcpcs_code_master_effective_date_idx').on(table.effectiveDate),
+  
+  // Performance indexes
+  activeCodesIdx: index('hcpcs_code_master_active_codes_idx').on(
+    table.hcpcsCode,
+    table.shortDescription,
+    table.category
+  ).where(sql`${table.isActive} = true`),
+
+  // Usage tracking
+  usageTrackingIdx: index('hcpcs_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),
+}));
+
 // Cross-reference table for code relationships
 export const codeCrosswalk = pgTable('code_crosswalk', {
   id: serial('id').primaryKey(),
@@ -5272,6 +5326,49 @@ export const icd10CodeStaging = pgTable('icd10_code_staging', {
   validationIdx: index('icd10_code_staging_validation_idx').on(table.validationStatus),
 }));
 
+export const hcpcsCodeStaging = pgTable('hcpcs_code_staging', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // HCPCS code details (same structure as hcpcsCodeMaster)
+  hcpcsCode: varchar('hcpcs_code', { length: 10 }).notNull(),
+  shortDescription: varchar('short_description', { length: 100 }),
+  longDescription: text('long_description'),
+
+  // Classification
+  category: varchar('category', { length: 100 }), // Transportation Services, Enteral and Parenteral Therapy, etc.
+  level: varchar('level', { length: 10 }).default('II'), // Level I (CPT) or Level II (National)
+  
+  // Administrative codes
+  actionCode: varchar('action_code', { length: 50 }), // A=Add, C=Change, D=Discontinued, etc.
+  coverageStatus: varchar('coverage_status', { length: 50 }),
+  pricingIndicator: varchar('pricing_indicator', { length: 50 }),
+  multiplePricingIndicator: varchar('multiple_pricing_indicator', { length: 50 }),
+
+  // Billing and payment
+  aSCPaymentIndicator: varchar('asc_payment_indicator', { length: 10 }),
+  aSCGroupPaymentWeight: decimal('asc_group_payment_weight', { precision: 10, scale: 4 }),
+  
+  // Status and dates
+  isActive: boolean('is_active').default(true),
+  effectiveDate: date('effective_date'),
+  terminationDate: date('termination_date'),
+
+  // Staging metadata
+  updateYear: integer('update_year').notNull(),
+  importBatch: varchar('import_batch', { length: 50 }),
+  validationStatus: varchar('validation_status', { length: 20 }).default('pending'),
+  validationErrors: jsonb('validation_errors'),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  hcpcsCodeIdx: index('hcpcs_code_staging_hcpcs_code_idx').on(table.hcpcsCode),
+  updateYearIdx: index('hcpcs_code_staging_update_year_idx').on(table.updateYear),
+  batchIdx: index('hcpcs_code_staging_batch_idx').on(table.importBatch),
+  validationIdx: index('hcpcs_code_staging_validation_idx').on(table.validationStatus),
+}));
+
 // Annual update tracking
 export const annualCodeUpdates = pgTable('annual_code_update', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -5319,7 +5416,6 @@ export const annualCodeUpdates = pgTable('annual_code_update', {
 // Place of Service - Service location codes
 export const placeOfService = pgTable('place_of_service', {
   id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
   // POS details
   posCode: varchar('pos_code', { length: 5 }).notNull(),
@@ -5339,7 +5435,6 @@ export const placeOfService = pgTable('place_of_service', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  orgIdx: index('place_of_service_org_idx').on(table.organizationId),
   posCodeIdx: index('place_of_service_pos_code_idx').on(table.posCode),
   activeIdx: index('place_of_service_active_idx').on(table.isActive),
 }));
