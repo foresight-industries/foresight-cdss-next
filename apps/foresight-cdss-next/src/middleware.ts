@@ -1,6 +1,6 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
-import { createDatabaseClient, safeSingle } from "@/lib/aws/database";
+import { createDatabaseAdminClient, safeSingle } from "@/lib/aws/database";
 import { shouldRedirectToTeam, createTeamPath } from "@/lib/team-routing";
 import { eq, and } from "drizzle-orm";
 import { organizations, teamMembers } from "@foresight-cdss-next/db";
@@ -35,7 +35,7 @@ export default clerkMiddleware(async (auth, req) => {
 
     try {
       // Create AWS database client for middleware
-      const { db } = await createDatabaseClient();
+      const { db } = createDatabaseAdminClient();
 
       // Check if organization with this slug exists
       const { data: organization } = await safeSingle(async () =>
@@ -79,14 +79,13 @@ export default clerkMiddleware(async (auth, req) => {
 
 // Extracted Clerk auth logic to reuse
 async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { organization: any, teamSlug: string }) {
-  const { sessionClaims, isAuthenticated } = await auth({
+  const { sessionClaims, userId, isAuthenticated } = await auth({
     treatPendingAsSignedOut: false
   });
 
   // If user is authenticated and trying to access auth pages, redirect to their team or dashboard
   if (isAuthenticated && isUnauthenticatedRoute(req)) {
     try {
-      const { userId } = await auth();
       if (userId) {
         const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(userId, '/');
         if (shouldRedirect && teamSlug) {
@@ -111,8 +110,6 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { o
   // Check if authenticated user needs team onboarding or team redirection
   if (isAuthenticated && !isUnauthenticatedRoute(req) && !isOnboardingRoute(req)) {
     try {
-      const { userId } = await auth();
-
       if (userId) {
         // Check if user should be redirected to their team route
         const { shouldRedirect, teamSlug } = await shouldRedirectToTeam(
@@ -127,7 +124,7 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { o
         }
 
         // If not redirecting to team, check for organization membership for onboarding
-        const { db } = await createDatabaseClient();
+        const { db } = createDatabaseAdminClient();
 
         // Check if user has an active organization membership
         const { data: membership } = await safeSingle(async () =>
@@ -158,10 +155,8 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { o
   // ORGANIZATION ROUTE SECURITY: Validate organization membership and set headers
   if (teamContext && isAuthenticated) {
     try {
-      const { userId } = await auth();
-
       if (userId) {
-        const { db } = await createDatabaseClient();
+        const { db } = createDatabaseAdminClient();
 
         // Verify user has active membership to this specific organization
         const { data: membership } = await safeSingle(async () =>

@@ -110,9 +110,14 @@ const dbConfig = {
   secretArn: secretArn,
 };
 
-// Create logged RDS client
+// Create logged RDS client with credentials
 const rdsClient = new LoggedRDSDataClient({
   region: process.env.AWS_REGION || 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY ?? '',
+    ...(process.env.AWS_SESSION_TOKEN && { sessionToken: process.env.AWS_SESSION_TOKEN })
+  }
 }, 'main-pool');
 
 // Create Drizzle database instance with schema
