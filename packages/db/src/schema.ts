@@ -5950,6 +5950,7 @@ export const organizationInvitations = pgTable('organization_invitation', {
   email: varchar('email', { length: 255 }).notNull(),
   role: varchar('role', { length: 50 }).notNull(),
   token: varchar('token', { length: 255 }).notNull(),
+  clerkInvitationId: varchar('clerk_invitation_id', { length: 255 }), // Links to Clerk invitation events
 
   // Status
   status: varchar('status', { length: 20 }).default('pending'), // pending, accepted, expired, cancelled

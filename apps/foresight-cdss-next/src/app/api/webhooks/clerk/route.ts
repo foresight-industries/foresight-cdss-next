@@ -1,10 +1,18 @@
 import { Webhook } from "svix";
 import { headers } from "next/headers";
-import { clerkClient, WebhookEvent } from "@clerk/nextjs/server";
-import { UserResource } from "@clerk/types";
-import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from "@/lib/aws/database";
+import type {
+  WebhookEvent,
+  UserWebhookEvent,
+  OrganizationWebhookEvent,
+  OrganizationMembershipWebhookEvent,
+  OrganizationInvitationWebhookEvent,
+  UserJSON,
+  DeletedObjectJSON,
+  OrganizationJSON
+} from "@clerk/nextjs/server";
+import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
 import { eq, and } from "drizzle-orm";
-import { teamMembers, organizations } from "@foresight-cdss-next/db";
+import { teamMembers, organizations, organizationInvitations, type Organization } from "@foresight-cdss-next/db";
 
 if (!process.env.CLERK_WEBHOOK_SECRET) {
   throw new Error("Missing CLERK_WEBHOOK_SECRET");
@@ -16,8 +24,6 @@ export async function POST(req: Request) {
 
     const payload = await req.json();
     const headersList = await headers();
-
-    const clerk = await clerkClient();
 
     // Get headers for verification
     const svixId = headersList.get("svix-id");
@@ -41,14 +47,32 @@ export async function POST(req: Request) {
       return new Response("Invalid signature", { status: 401 });
     }
 
+    const userEmail = async () => {
+      try {
+        // Handle user event types
+        if ('email_addresses' in evt.data) {
+          return evt.data.email_addresses?.[0]?.email_address ?? null;
+        } else if ('deleted' in evt.data) {
+          return null;
+        } else if ('public_user_data' in evt.data) {
+          return evt.data.public_user_data.identifier ?? null;
+        }
+
+        // Unhandled event
+        return null;
+      } catch (error) {
+        console.warn("Failed to fetch user email:", error);
+        return null;
+      }
+    };
+
     // Handle different event types
     let result = { success: true, message: "" };
 
     switch (evt.type) {
       case "user.created":
         result = await handleUserCreated(
-          evt.data as unknown as UserResource,
-          clerk
+          evt.data
         );
         break;
 
@@ -68,9 +92,15 @@ export async function POST(req: Request) {
         result = await handleOrganizationUpdated(evt.data);
         break;
 
-      case "organizationMembership.created":
-        result = await handleMembershipCreated(evt.data);
+      case "organization.deleted":
+        result = await handleOrganizationDeleted(evt.data);
         break;
+
+      case "organizationMembership.created": {
+        const email = await userEmail();
+        result = await handleMembershipCreated(evt.data, email);
+        break;
+      }
 
       case "organizationMembership.updated":
         result = await handleMembershipUpdated(evt.data);
@@ -78,6 +108,14 @@ export async function POST(req: Request) {
 
       case "organizationMembership.deleted":
         result = await handleMembershipDeleted(evt.data);
+        break;
+
+      case "organizationInvitation.created":
+        result = await handleInvitationCreated(evt.data);
+        break;
+
+      case "organizationInvitation.revoked":
+        result = await handleInvitationRevoked(evt.data);
         break;
 
       default:
@@ -104,9 +142,44 @@ export async function POST(req: Request) {
   }
 }
 
+const isUserJSON = (data: UserWebhookEvent['data']): data is UserJSON => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    !('deleted' in data) &&
+    'email_addresses' in data &&
+    typeof data.email_addresses === 'object' &&
+    Array.isArray(data.email_addresses)
+    // Add other required properties as needed
+  );
+}
+
+const isDeletedObjectJSON = (data: UserWebhookEvent['data'] | OrganizationWebhookEvent['data']): data is DeletedObjectJSON => {
+  return (typeof data === 'object' &&
+    data !== null &&
+    'deleted' in data &&
+    typeof data.deleted === 'boolean' && data.deleted && (data.id === undefined || typeof data.id === 'string') && (data.slug === undefined || typeof data.slug === 'string'));
+}
+
+const isOrganizationJSON = (data: OrganizationWebhookEvent['data']): data is OrganizationJSON => {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    typeof data.id === 'string' &&
+    !('deleted' in data) &&
+    typeof data.name === 'string' &&
+    (data.slug === undefined || typeof data.slug === 'string')
+  );
+}
+
 // User Management Functions
-async function handleUserCreated(data: any, clerk: any) {
+async function handleUserCreated(data: UserWebhookEvent['data']) {
   try {
+    if (!isUserJSON(data)) {
+      throw new TypeError("Invalid user data");
+    }
+
     // Note: Since we don't have a separate user_profile table in AWS schema,
     // user data will be managed through team membership when they join an organization
     console.log(`User created in Clerk: ${data.id}`, {
@@ -125,8 +198,12 @@ async function handleUserCreated(data: any, clerk: any) {
   }
 }
 
-async function handleUserUpdated(data: any) {
+async function handleUserUpdated(data: UserWebhookEvent['data']) {
   try {
+    if (!isUserJSON(data)) {
+      throw new TypeError("Invalid user data");
+    }
+
     const { db } = await createAuthenticatedDatabaseClient();
 
     // Update user info in team members table where this user exists
@@ -141,7 +218,9 @@ async function handleUserUpdated(data: any) {
         .where(eq(teamMembers.clerkUserId, data.id))
     );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return { success: true, message: `User ${data.id} updated in team memberships` };
   } catch (error) {
@@ -153,18 +232,27 @@ async function handleUserUpdated(data: any) {
   }
 }
 
-async function handleUserDeleted(data: any) {
+async function handleUserDeleted(data: UserWebhookEvent['data']) {
   try {
-    const { db } = await createAuthenticatedDatabaseClient();
+    if (!isDeletedObjectJSON(data)) {
+      throw new TypeError("Invalid deleted object data");
+    }
+
+    if (!data.id) {
+      throw new TypeError("Missing user ID in deleted object");
+    }
+
+    const { db } = createDatabaseAdminClient();
 
     // Soft delete - set status to inactive
     const { error } = await safeUpdate(async () =>
       db.update(teamMembers)
         .set({
           isActive: false,
+          deletedAt: new Date(),
           updatedAt: new Date()
         })
-        .where(eq(teamMembers.clerkUserId, data.id))
+        .where(eq(teamMembers.clerkUserId, data.id!))
     );
 
     if (error) throw error;
@@ -180,9 +268,13 @@ async function handleUserDeleted(data: any) {
 }
 
 // Organization Management Functions
-async function handleOrganizationCreated(data: any) {
+async function handleOrganizationCreated(data: OrganizationWebhookEvent['data']) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
+
+    if (!isOrganizationJSON(data)) {
+      throw new TypeError("Invalid organization data");
+    }
 
     // Check if organization already exists
     const { data: existingOrg } = await safeSingle(async () =>
@@ -205,7 +297,9 @@ async function handleOrganizationCreated(data: any) {
         })
     );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return { success: true, message: `Organization ${data.id} created` };
   } catch (error) {
@@ -217,8 +311,12 @@ async function handleOrganizationCreated(data: any) {
   }
 }
 
-async function handleOrganizationUpdated(data: any) {
+async function handleOrganizationUpdated(data: OrganizationWebhookEvent['data']) {
   try {
+    if (!isOrganizationJSON(data)) {
+      throw new TypeError("Invalid organization data");
+    }
+
     const { db } = await createAuthenticatedDatabaseClient();
 
     const { error } = await safeUpdate(async () =>
@@ -231,7 +329,9 @@ async function handleOrganizationUpdated(data: any) {
         .where(eq(organizations.clerkOrgId, data.id))
     );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return { success: true, message: `Organization ${data.id} updated` };
   } catch (error) {
@@ -243,30 +343,146 @@ async function handleOrganizationUpdated(data: any) {
   }
 }
 
+async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data']) {
+  try {
+    if (!isDeletedObjectJSON(data)) {
+      throw new TypeError("Invalid deleted object data");
+    }
+
+    if (!data.id) {
+      throw new TypeError("Missing organization ID in deleted object");
+    }
+
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Get organization by Clerk org ID to find the internal ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.id!))
+    );
+
+    if (!organization?.id) {
+      console.warn(`Organization ${data.id} not found in database`);
+      return { success: true, message: `Organization ${data.id} not found in database` };
+    }
+
+    // Update pending organization invitations to 'revoked' status
+    const { error: invitationError } = await safeUpdate(async () =>
+      db.update(organizationInvitations)
+        .set({
+          status: "revoked",
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(organizationInvitations.organizationId, organization.id),
+          eq(organizationInvitations.status, "pending")
+        ))
+    );
+
+    if (invitationError) {
+      console.warn("Failed to revoke pending invitations:", invitationError);
+    }
+
+    // Soft delete the organization - set status and deletedAt
+    const { error: orgError } = await safeUpdate(async () =>
+      db.update(organizations)
+        .set({
+          deletedAt: new Date(),
+          updatedAt: new Date()
+        })
+        .where(eq(organizations.id, organization.id))
+    );
+
+    if (orgError) {
+      throw orgError;
+    }
+
+    return { success: true, message: `Organization ${data.id} deleted and invitations revoked` };
+  } catch (error) {
+    console.error("Error deleting organization:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
 // Membership Management Functions
-async function handleMembershipCreated(data: any) {
+async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent['data'], email: string | null) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
 
     // Map Clerk role to AWS access level enum
     const roleMapping = {
       "org:admin": "admin",
-      "org:member": "write", 
+      "org:member": "write",
       "org:viewer": "read",
     };
 
     const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
     // Get organization by Clerk org ID
-    const { data: organization } = await safeSingle(async () =>
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
     );
 
-    if (!organization) {
+    if (organization) {
+      // Check if membership already exists
+      const { data: existingMember } = await safeSingle(async () =>
+        db.select({ id: teamMembers.id })
+          .from(teamMembers)
+          .where(and(
+            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
+            eq(teamMembers.organizationId, organization.id)
+          ))
+      );
+
+      if (!existingMember) {
+        // Add user to organization
+        const { error: memberError } = await safeInsert(async () =>
+          db.insert(teamMembers)
+            .values({
+              organizationId: organization.id,
+              clerkUserId: data.public_user_data.user_id,
+              email,
+              firstName: data.public_user_data.first_name,
+              lastName: data.public_user_data.last_name,
+              role: role,
+              isActive: true
+            })
+        );
+
+        if (memberError) {
+          throw memberError;
+        }
+
+        // Check if there's a pending invitation for this user and mark it as accepted
+        if (email) {
+          const { error: invitationError } = await safeUpdate(async () =>
+            db.update(organizationInvitations)
+              .set({
+                status: "accepted",
+                acceptedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(and(
+                eq(organizationInvitations.organizationId, organization.id),
+                eq(organizationInvitations.email, email),
+                eq(organizationInvitations.status, "pending")
+              ))
+          );
+
+          if (invitationError) {
+            console.warn("Failed to update invitation status:", invitationError);
+          }
+        }
+      }
+    } else {
       // Create organization if it doesn't exist
-      const { data: newOrg, error: orgError } = await safeInsert(async () =>
+      const { data: newOrg, error: orgError } : { data: Organization[] | null, error: Error | null } = await safeInsert(async () =>
         db.insert(organizations)
           .values({
             name: data.organization.name,
@@ -286,7 +502,7 @@ async function handleMembershipCreated(data: any) {
           .from(teamMembers)
           .where(and(
             eq(teamMembers.clerkUserId, data.public_user_data.user_id),
-            eq(teamMembers.organizationId, (newOrg[0] as any).id)
+            eq(teamMembers.organizationId, newOrg[0].id)
           ))
       );
 
@@ -295,9 +511,9 @@ async function handleMembershipCreated(data: any) {
         const { error: memberError } = await safeInsert(async () =>
           db.insert(teamMembers)
             .values({
-              organizationId: (newOrg[0] as any).id,
+              organizationId: newOrg[0].id,
               clerkUserId: data.public_user_data.user_id,
-              email: data.public_user_data.email_address,
+              email,
               firstName: data.public_user_data.first_name,
               lastName: data.public_user_data.last_name,
               role: role,
@@ -305,35 +521,30 @@ async function handleMembershipCreated(data: any) {
             })
         );
 
-        if (memberError) throw memberError;
-      }
-    } else {
-      // Check if membership already exists
-      const { data: existingMember } = await safeSingle(async () =>
-        db.select({ id: teamMembers.id })
-          .from(teamMembers)
-          .where(and(
-            eq(teamMembers.clerkUserId, data.public_user_data.user_id),
-            eq(teamMembers.organizationId, (organization as any).id)
-          ))
-      );
+        if (memberError) {
+          throw memberError;
+        }
 
-      if (!existingMember) {
-        // Add user to organization
-        const { error: memberError } = await safeInsert(async () =>
-          db.insert(teamMembers)
-            .values({
-              organizationId: (organization as any).id,
-              clerkUserId: data.public_user_data.user_id,
-              email: data.public_user_data.email_address,
-              firstName: data.public_user_data.first_name,
-              lastName: data.public_user_data.last_name,
-              role: role,
-              isActive: true
-            })
-        );
+        // Check if there's a pending invitation for this user and mark it as accepted
+        if (email) {
+          const { error: invitationError } = await safeUpdate(async () =>
+            db.update(organizationInvitations)
+              .set({
+                status: "accepted",
+                acceptedAt: new Date(),
+                updatedAt: new Date()
+              })
+              .where(and(
+                eq(organizationInvitations.organizationId, newOrg[0].id),
+                eq(organizationInvitations.email, email),
+                eq(organizationInvitations.status, "pending")
+              ))
+          );
 
-        if (memberError) throw memberError;
+          if (invitationError) {
+            console.warn("Failed to update invitation status:", invitationError);
+          }
+        }
       }
     }
 
@@ -350,7 +561,7 @@ async function handleMembershipCreated(data: any) {
   }
 }
 
-async function handleMembershipUpdated(data: any) {
+async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent['data']) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
 
@@ -364,13 +575,13 @@ async function handleMembershipUpdated(data: any) {
     const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
     // Get organization by Clerk org ID
-    const { data: organization } = await safeSingle(async () =>
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
     );
 
-    if (!organization) {
+    if (!organization?.id) {
       throw new Error("Organization not found");
     }
 
@@ -382,11 +593,13 @@ async function handleMembershipUpdated(data: any) {
         })
         .where(and(
           eq(teamMembers.clerkUserId, data.public_user_data.user_id),
-          eq(teamMembers.organizationId, (organization as any).id)
+          eq(teamMembers.organizationId, organization.id)
         ))
     );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return {
       success: true,
@@ -401,18 +614,18 @@ async function handleMembershipUpdated(data: any) {
   }
 }
 
-async function handleMembershipDeleted(data: any) {
+async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent['data']) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
 
     // Get organization by Clerk org ID
-    const { data: organization } = await safeSingle(async () =>
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
     );
 
-    if (!organization) {
+    if (!organization?.id) {
       throw new Error("Organization not found");
     }
 
@@ -425,11 +638,13 @@ async function handleMembershipDeleted(data: any) {
         })
         .where(and(
           eq(teamMembers.clerkUserId, data.public_user_data.user_id),
-          eq(teamMembers.organizationId, (organization as any).id)
+          eq(teamMembers.organizationId, organization.id)
         ))
     );
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     return {
       success: true,
@@ -437,6 +652,106 @@ async function handleMembershipDeleted(data: any) {
     };
   } catch (error) {
     console.error("Error deleting membership:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+// Invitation Management Functions
+async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent['data']) {
+  try {
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization_id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
+    // Map Clerk role to AWS access level enum
+    const roleMapping = {
+      "org:admin": "admin",
+      "org:member": "write",
+      "org:viewer": "read",
+    };
+
+    const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
+
+    // Create invitation record
+    const { error } = await safeInsert(async () =>
+      db.insert(organizationInvitations)
+        .values({
+          organizationId: organization.id,
+          email: data.email_address,
+          role: role,
+          status: "pending",
+          clerkInvitationId: data.id,
+          expiresAt: data.expires_at ? new Date(data.expires_at) : null,
+        })
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: `Invitation created for ${data.email_address}`,
+    };
+  } catch (error) {
+    console.error("Error creating invitation:", error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
+}
+
+async function handleInvitationRevoked(data: OrganizationInvitationWebhookEvent['data']) {
+  try {
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Get organization by Clerk org ID
+    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+      db.select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.clerkOrgId, data.organization_id))
+    );
+
+    if (!organization?.id) {
+      throw new Error("Organization not found");
+    }
+
+    // Update invitation status to revoked
+    const { error } = await safeUpdate(async () =>
+      db.update(organizationInvitations)
+        .set({
+          status: "revoked",
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(organizationInvitations.organizationId, organization.id),
+          eq(organizationInvitations.clerkInvitationId, data.id)
+        ))
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    return {
+      success: true,
+      message: `Invitation revoked for ${data.email_address}`,
+    };
+  } catch (error) {
+    console.error("Error revoking invitation:", error);
     return {
       success: false,
       message: error instanceof Error ? error.message : "Unknown error",

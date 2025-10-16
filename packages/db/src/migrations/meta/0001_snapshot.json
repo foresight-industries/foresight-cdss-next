@@ -1,6 +1,6 @@
 {
-  "id": "a5ebaa34-3dbd-4e15-87e7-c188b5f1b6a5",
-  "prevId": "c60a3944-16fa-4485-98a1-8acfe1702f6c",
+  "id": "1cfe2044-5ff9-4f7f-bf6d-a8029721d715",
+  "prevId": "a5ebaa34-3dbd-4e15-87e7-c188b5f1b6a5",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -21827,6 +21827,12 @@
           "type": "varchar(255)",
           "primaryKey": false,
           "notNull": true
+        },
+        "clerk_invitation_id": {
+          "name": "clerk_invitation_id",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
         },
         "status": {
           "name": "status",
