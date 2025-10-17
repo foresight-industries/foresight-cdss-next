@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeSingle } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
-import { eq, and, desc, gte, lte, ilike, or } from 'drizzle-orm';
-import { teamMembers, organizations, webhookConfigs, webhookDeliveries, webhookEventSubscriptions } from '@foresight-cdss-next/db';
+import { eq, and, desc, gte, ilike, or } from 'drizzle-orm';
+import { teamMembers, organizations, webhookConfigs, webhookDeliveries } from '@foresight-cdss-next/db';
 
 // GET - Fetch webhook events for a specific webhook
 export async function GET(request: NextRequest) {
@@ -14,15 +14,15 @@ export async function GET(request: NextRequest) {
 
     const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
-    
+
     const webhookId = searchParams.get('webhook_id');
     const teamSlug = searchParams.get('team_slug');
     const status = searchParams.get('status');
     const eventType = searchParams.get('event_type');
     const dateRange = searchParams.get('date_range');
     const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const limit = Number.parseInt(searchParams.get('limit') || '50');
+    const offset = Number.parseInt(searchParams.get('offset') || '0');
 
     if (!webhookId) {
       return NextResponse.json({ error: 'webhook_id is required' }, { status: 400 });
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
     if (dateRange && dateRange !== 'all') {
       const now = new Date();
       let startDate: Date;
-      
+
       switch (dateRange) {
         case '1h':
           startDate = new Date(now.getTime() - 60 * 60 * 1000);
@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
         default:
           startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000); // Default to 24h
       }
-      
+
       dateFilter = gte(webhookDeliveries.createdAt, startDate);
     }
 
@@ -117,13 +117,14 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      whereConditions.push(
-        or(
-          ilike(webhookDeliveries.eventType, `%${search}%`),
-          ilike(webhookDeliveries.id, `%${search}%`),
-          ilike(webhookDeliveries.errorMessage, `%${search}%`)
-        )
+      const searchCondition = or(
+        ilike(webhookDeliveries.eventType, `%${search}%`),
+        ilike(webhookDeliveries.id, `%${search}%`), 
+        ilike(webhookDeliveries.status, `%${search}%`)
       );
+      if (searchCondition) {
+        whereConditions.push(searchCondition);
+      }
     }
 
     // Fetch webhook deliveries with details
@@ -131,21 +132,19 @@ export async function GET(request: NextRequest) {
       db.select({
         id: webhookDeliveries.id,
         eventType: webhookDeliveries.eventType,
+        eventData: webhookDeliveries.eventData,
         status: webhookDeliveries.status,
         createdAt: webhookDeliveries.createdAt,
         updatedAt: webhookDeliveries.updatedAt,
         attemptCount: webhookDeliveries.attemptCount,
-        maxRetries: webhookDeliveries.maxRetries,
         nextRetryAt: webhookDeliveries.nextRetryAt,
         httpStatus: webhookDeliveries.httpStatus,
         deliveryLatencyMs: webhookDeliveries.deliveryLatencyMs,
-        requestPayload: webhookDeliveries.requestPayload,
         responseBody: webhookDeliveries.responseBody,
         responseHeaders: webhookDeliveries.responseHeaders,
         requestHeaders: webhookDeliveries.requestHeaders,
-        requestUrl: webhookDeliveries.requestUrl,
-        errorMessage: webhookDeliveries.errorMessage,
-        webhookConfigId: webhookDeliveries.webhookConfigId
+        webhookConfigId: webhookDeliveries.webhookConfigId,
+        correlationId: webhookDeliveries.correlationId
       })
       .from(webhookDeliveries)
       .where(and(...whereConditions))
@@ -158,11 +157,11 @@ export async function GET(request: NextRequest) {
     const events = (deliveries || []).map((delivery: any) => {
       // Parse JSON fields safely
       let payload, responseHeaders, requestHeaders;
-      
+
       try {
-        payload = delivery.requestPayload ? JSON.parse(delivery.requestPayload) : {};
+        payload = delivery.eventData || {};
       } catch {
-        payload = { raw: delivery.requestPayload };
+        payload = { raw: delivery.eventData };
       }
 
       try {
@@ -184,7 +183,7 @@ export async function GET(request: NextRequest) {
         created_at: delivery.createdAt.toISOString(),
         updated_at: delivery.updatedAt.toISOString(),
         attempt_count: delivery.attemptCount || 1,
-        max_attempts: delivery.maxRetries || 3,
+        max_attempts: 3, // Default max retries since not available in delivery record
         next_retry_at: delivery.nextRetryAt?.toISOString(),
         last_http_status: delivery.httpStatus,
         last_response_time_ms: delivery.deliveryLatencyMs,
@@ -196,13 +195,13 @@ export async function GET(request: NextRequest) {
           timestamp: delivery.updatedAt.toISOString()
         } : undefined,
         request: {
-          url: delivery.requestUrl || '',
+          url: '', // URL is in webhook config, not delivery record
           method: 'POST',
           headers: requestHeaders,
           body: JSON.stringify(payload),
           timestamp: delivery.createdAt.toISOString()
         },
-        error_message: delivery.errorMessage,
+        error_message: null, // Error messages are in delivery attempts table
         delivery_attempts: [
           {
             id: delivery.id,
@@ -210,7 +209,7 @@ export async function GET(request: NextRequest) {
             timestamp: delivery.updatedAt.toISOString(),
             http_status: delivery.httpStatus,
             response_time_ms: delivery.deliveryLatencyMs,
-            error_message: delivery.errorMessage,
+            error_message: null, // Would need to join with delivery attempts table
             request_headers: requestHeaders,
             response_headers: responseHeaders,
             response_body: delivery.responseBody
@@ -230,6 +229,8 @@ export async function GET(request: NextRequest) {
 
     const totalCount = countResult?.length || 0;
 
+    const webhookData = webhook as { id: string; name: string; organizationId: string };
+
     return NextResponse.json({
       events,
       pagination: {
@@ -239,8 +240,8 @@ export async function GET(request: NextRequest) {
         has_more: totalCount > offset + limit
       },
       webhook: {
-        id: webhook.id,
-        name: webhook.name
+        id: webhookData.id,
+        name: webhookData.name
       }
     });
 

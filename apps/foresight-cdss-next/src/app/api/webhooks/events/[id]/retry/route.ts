@@ -3,6 +3,7 @@ import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
 import { teamMembers, organizations, webhookConfigs, webhookDeliveries } from '@foresight-cdss-next/db';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 
 // POST - Retry a failed webhook event
 export async function POST(
@@ -52,10 +53,10 @@ export async function POST(
         webhookConfigId: webhookDeliveries.webhookConfigId,
         status: webhookDeliveries.status,
         attemptCount: webhookDeliveries.attemptCount,
-        maxRetries: webhookDeliveries.maxRetries,
         eventType: webhookDeliveries.eventType,
-        requestPayload: webhookDeliveries.requestPayload,
-        requestUrl: webhookDeliveries.requestUrl,
+        eventData: webhookDeliveries.eventData,
+        maxRetries: webhookConfigs.maxRetries,
+        url: webhookConfigs.url,
         organizationId: webhookConfigs.organizationId
       })
       .from(webhookDeliveries)
@@ -77,8 +78,8 @@ export async function POST(
       attemptCount: number;
       maxRetries: number;
       eventType: string;
-      requestPayload: string;
-      requestUrl: string;
+      eventData: any;
+      url: string;
       organizationId: string;
     };
 
@@ -103,7 +104,6 @@ export async function POST(
           attemptCount: deliveryData.attemptCount + 1,
           updatedAt: new Date(),
           nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // Retry in 5 minutes
-          errorMessage: null // Clear previous error
         })
         .where(eq(webhookDeliveries.id, eventId))
     );
@@ -113,85 +113,88 @@ export async function POST(
       return NextResponse.json({ error: 'Failed to schedule retry' }, { status: 500 });
     }
 
-    // In a real implementation, you would also queue the webhook for actual delivery
-    // This could be done through AWS SQS, Redis Queue, or your preferred queuing system
-    // For now, we'll just update the database status
-
-    // Simulate immediate retry attempt (in production, this would be handled by a background worker)
+    // Queue the webhook delivery for processing by a background worker
     try {
-      // Parse the original payload
-      let payload;
-      try {
-        payload = JSON.parse(deliveryData.requestPayload);
-      } catch {
-        payload = deliveryData.requestPayload;
-      }
+      const sqsClient = new SQSClient({ 
+        region: process.env.AWS_REGION || 'us-east-1' 
+      });
 
-      // Make the HTTP request to the webhook endpoint
-      const webhookResponse = await fetch(deliveryData.requestUrl, {
-        method: 'POST',
+      // Create webhook delivery message for SQS
+      const webhookMessage = {
+        deliveryId: deliveryData.id,
+        webhookConfigId: deliveryData.webhookConfigId,
+        url: deliveryData.url,
+        eventType: deliveryData.eventType,
+        eventData: deliveryData.eventData,
+        attemptNumber: deliveryData.attemptCount,
+        maxRetries: deliveryData.maxRetries,
+        organizationId: deliveryData.organizationId,
+        retryTimestamp: new Date().toISOString(),
         headers: {
           'Content-Type': 'application/json',
           'User-Agent': 'Foresight-Webhook/1.0',
           'X-Webhook-Event': deliveryData.eventType,
           'X-Webhook-Delivery': deliveryData.id
-        },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(30000) // 30 second timeout
+        }
+      };
+
+      // Calculate delay for exponential backoff (SQS supports up to 15 minutes delay)
+      const delaySeconds = Math.min(900, Math.pow(2, deliveryData.attemptCount) * 60);
+
+      const sqsCommand = new SendMessageCommand({
+        QueueUrl: process.env.WEBHOOK_DELIVERY_QUEUE_URL || process.env.SQS_WEBHOOK_QUEUE_URL,
+        MessageBody: JSON.stringify(webhookMessage),
+        DelaySeconds: delaySeconds,
+        MessageAttributes: {
+          'deliveryId': {
+            DataType: 'String',
+            StringValue: deliveryData.id
+          },
+          'eventType': {
+            DataType: 'String',
+            StringValue: deliveryData.eventType
+          },
+          'attemptNumber': {
+            DataType: 'Number',
+            StringValue: deliveryData.attemptCount.toString()
+          },
+          'organizationId': {
+            DataType: 'String',
+            StringValue: deliveryData.organizationId
+          }
+        }
       });
 
-      const responseText = await webhookResponse.text();
-      const deliveryLatencyMs = Date.now() - new Date().getTime();
-
-      // Update with the retry result
-      await safeUpdate(async () =>
-        db.update(webhookDeliveries)
-          .set({
-            status: webhookResponse.ok ? 'completed' : 'failed',
-            httpStatus: webhookResponse.status,
-            responseBody: responseText,
-            responseHeaders: JSON.stringify(Object.fromEntries(webhookResponse.headers.entries())),
-            deliveryLatencyMs,
-            updatedAt: new Date(),
-            errorMessage: webhookResponse.ok ? null : `HTTP ${webhookResponse.status}: ${responseText}`,
-            nextRetryAt: webhookResponse.ok ? null : 
-              (deliveryData.attemptCount + 1 < deliveryData.maxRetries ? 
-                new Date(Date.now() + Math.pow(2, deliveryData.attemptCount + 1) * 60 * 1000) : // Exponential backoff
-                null)
-          })
-          .where(eq(webhookDeliveries.id, eventId))
-      );
+      const sqsResult = await sqsClient.send(sqsCommand);
 
       return NextResponse.json({
         success: true,
-        message: webhookResponse.ok ? 'Webhook retry successful' : 'Webhook retry failed',
-        status: webhookResponse.status,
+        message: 'Webhook retry queued for delivery',
+        queue_message_id: sqsResult.MessageId,
+        delay_seconds: delaySeconds,
         attempt_count: deliveryData.attemptCount + 1
       });
 
-    } catch (retryError) {
-      console.error('Webhook retry failed:', retryError);
+    } catch (queueError) {
+      console.error('Failed to queue webhook delivery:', queueError);
       
-      // Update with the retry error
+      // If queueing fails, revert the status update
       await safeUpdate(async () =>
         db.update(webhookDeliveries)
           .set({
             status: 'failed',
-            errorMessage: retryError instanceof Error ? retryError.message : 'Network error during retry',
             updatedAt: new Date(),
-            nextRetryAt: deliveryData.attemptCount + 1 < deliveryData.maxRetries ? 
-              new Date(Date.now() + Math.pow(2, deliveryData.attemptCount + 1) * 60 * 1000) : // Exponential backoff
-              null
+            nextRetryAt: null
           })
           .where(eq(webhookDeliveries.id, eventId))
       );
 
       return NextResponse.json({
         success: false,
-        message: 'Webhook retry failed due to network error',
-        error: retryError instanceof Error ? retryError.message : 'Unknown error',
-        attempt_count: deliveryData.attemptCount + 1
-      });
+        message: 'Failed to queue webhook for retry',
+        error: queueError instanceof Error ? queueError.message : 'Unknown queue error',
+        attempt_count: deliveryData.attemptCount
+      }, { status: 500 });
     }
 
   } catch (error) {

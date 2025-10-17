@@ -20,7 +20,6 @@ import {
   AlertTriangle,
   Eye,
   RotateCcw,
-  Download,
   Calendar,
   ChevronDown,
   ChevronRight,
@@ -87,13 +86,13 @@ export default function WebhookEventsPage() {
   const params = useParams();
   const pathname = usePathname();
   const webhookId = params.id as string;
-  
+
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<WebhookEvent | null>(null);
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
-  
+
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
@@ -118,7 +117,7 @@ export default function WebhookEventsPage() {
         ...(dateRange !== 'all' && { date_range: dateRange }),
         ...(searchQuery && { search: searchQuery })
       });
-      
+
       const response = await fetch(`/api/webhooks/events?${params}`);
       const data = await response.json();
 
@@ -229,7 +228,7 @@ export default function WebhookEventsPage() {
               />
             </div>
           </div>
-          
+
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]">
               <Filter className="w-4 h-4 mr-2" />
@@ -306,7 +305,7 @@ export default function WebhookEventsPage() {
             {filteredEvents.map((event) => {
               const isExpanded = expandedEvents.has(event.id);
               const StatusIcon = STATUS_ICONS[event.status];
-              
+
               return (
                 <div
                   key={event.id}
@@ -323,14 +322,14 @@ export default function WebhookEventsPage() {
                         >
                           {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                         </Button>
-                        
+
                         <div className="flex items-center gap-2">
                           <StatusIcon className="h-4 w-4" />
                           <Badge className={STATUS_COLORS[event.status]}>
                             {event.status}
                           </Badge>
                         </div>
-                        
+
                         <div>
                           <p className="font-medium text-slate-900 dark:text-slate-100">
                             {event.event_type}
@@ -340,7 +339,7 @@ export default function WebhookEventsPage() {
                           </p>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-2">
                         <div className="text-right">
                           <p className="text-sm font-medium">
@@ -353,7 +352,7 @@ export default function WebhookEventsPage() {
                             </p>
                           )}
                         </div>
-                        
+
                         <div className="flex gap-2">
                           <Button
                             variant="outline"
@@ -363,7 +362,7 @@ export default function WebhookEventsPage() {
                             <Eye className="w-4 h-4 mr-1" />
                             View
                           </Button>
-                          
+
                           {event.status === 'failed' && event.attempt_count < event.max_attempts && (
                             <Button
                               variant="outline"
@@ -378,7 +377,7 @@ export default function WebhookEventsPage() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Expanded Content */}
                   {isExpanded && (
                     <div className="p-4 border-t border-slate-200 dark:border-slate-700">
@@ -401,7 +400,7 @@ export default function WebhookEventsPage() {
                             </div>
                           </div>
                         </div>
-                        
+
                         {/* Response Details */}
                         <div>
                           <h4 className="font-medium mb-3">Response</h4>
@@ -421,7 +420,7 @@ export default function WebhookEventsPage() {
                           ) : (
                             <p className="text-slate-500 text-sm">No response received</p>
                           )}
-                          
+
                           {event.error_message && (
                             <div className="mt-3">
                               <p className="text-slate-500 mb-1">Error</p>
@@ -451,7 +450,7 @@ export default function WebhookEventsPage() {
                 Event Details: {selectedEvent.event_type}
               </DialogTitle>
             </DialogHeader>
-            
+
             <div className="space-y-6">
               {/* Event Overview */}
               <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
@@ -474,7 +473,7 @@ export default function WebhookEventsPage() {
                   <p className="text-sm">{selectedEvent.attempt_count}/{selectedEvent.max_attempts}</p>
                 </div>
               </div>
-              
+
               {/* Delivery Attempts */}
               <div>
                 <h4 className="font-medium mb-3">Delivery Attempts</h4>
@@ -491,13 +490,13 @@ export default function WebhookEventsPage() {
                           </span>
                         </div>
                         {attempt.http_status && (
-                          <Badge className={attempt.http_status >= 200 && attempt.http_status < 300 ? 
+                          <Badge className={attempt.http_status >= 200 && attempt.http_status < 300 ?
                             'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
                             HTTP {attempt.http_status}
                           </Badge>
                         )}
                       </div>
-                      
+
                       {attempt.response_body && (
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -516,7 +515,7 @@ export default function WebhookEventsPage() {
                           </pre>
                         </div>
                       )}
-                      
+
                       {attempt.error_message && (
                         <div className="mt-3">
                           <p className="text-sm font-medium mb-1">Error</p>
@@ -529,7 +528,7 @@ export default function WebhookEventsPage() {
                   ))}
                 </div>
               </div>
-              
+
               {/* Raw Payload */}
               <div>
                 <div className="flex items-center justify-between mb-3">

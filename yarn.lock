@@ -4447,6 +4447,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/source@workspace:."
   dependencies:
+    "@aws-sdk/client-comprehendmedical": "npm:^3.911.0"
     "@aws-sdk/client-sqs": "npm:^3.911.0"
     "@dotenvx/dotenvx": "npm:^1.51.0"
     "@eslint/compat": "npm:^1.1.1"
