@@ -1,271 +1,265 @@
-import { SQSEvent, SQSRecord, Handler } from 'aws-lambda';
-import { RDSDataClient, ExecuteStatementCommand, BeginTransactionCommand, CommitTransactionCommand } from '@aws-sdk/client-rds-data';
-import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
-import { createHmac } from 'crypto';
-
-interface WebhookDeliveryPayload {
-  webhookConfigId: string;
-  organizationId: string;
-  environment: 'staging' | 'production';
-  url: string;
-  secretId: string;
-  eventType: string;
-  eventData: Record<string, any>;
-  timestamp: string;
-  userId?: string;
-  attempt: number;
-  maxAttempts: number;
-}
-
-interface WebhookSecret {
-  key: string;
-  algorithm: string;
-}
-
-const rdsClient = new RDSDataClient({});
-const secretsClient = new SecretsManagerClient({});
-
-const DB_SECRET_ARN = process.env.DATABASE_SECRET_ARN!;
-const DB_CLUSTER_ARN = process.env.DATABASE_CLUSTER_ARN!;
-const DB_NAME = process.env.DATABASE_NAME!;
+import { SQSEvent, SQSRecord, Context } from 'aws-lambda';
+import { HipaaWebhookProcessor } from '@foresight-cdss-next/webhooks';
+import { createAuthenticatedDatabaseClient } from '@foresight-cdss-next/web/src/lib/aws/database';
+import { 
+  webhookConfigs, 
+  webhookDeliveries, 
+  webhookSecrets, 
+  webhookHipaaAuditLog,
+  webhookDeliveryAttempts 
+} from '@foresight-cdss-next/db';
 
 /**
- * Webhook Delivery Lambda
- * 
- * Processes queued webhook deliveries:
- * 1. Retrieves webhook signing secret
- * 2. Constructs and signs webhook payload
- * 3. Attempts HTTP delivery with retries
- * 4. Records delivery attempt in database
+ * AWS Lambda function that processes webhook delivery messages from SQS
+ * and performs the actual HTTP delivery with HIPAA compliance checks
  */
-export const handler: Handler<SQSEvent> = async (event) => {
-  console.log(`Processing ${event.Records.length} webhook delivery messages`);
 
-  const results = await Promise.allSettled(
-    event.Records.map(record => processWebhookDelivery(record))
-  );
-
-  const successful = results.filter(r => r.status === 'fulfilled').length;
-  const failed = results.filter(r => r.status === 'rejected').length;
-
-  console.log(`Webhook delivery results: ${successful} successful, ${failed} failed`);
-
-  // Return information about failed messages for SQS batch item failure reporting
-  const failedMessageIds = event.Records
-    .filter((_, index) => results[index].status === 'rejected')
-    .map(record => ({ itemIdentifier: record.messageId }));
-
-  return {
-    batchItemFailures: failedMessageIds,
+interface WebhookDeliveryMessage {
+  webhookConfigId: string;
+  eventData: {
+    organizationId: string;
+    eventType: string;
+    environment: 'staging' | 'production';
+    data: Record<string, any>;
+    userId?: string;
+    metadata?: Record<string, any>;
   };
-};
+  deliveryId: string;
+  timestamp: string;
+  attemptNumber?: number;
+}
 
-async function processWebhookDelivery(record: SQSRecord): Promise<void> {
-  const deliveryId = generateDeliveryId();
-  
-  try {
-    const payload: WebhookDeliveryPayload = JSON.parse(record.body);
-    console.log(`Processing webhook delivery ${deliveryId} for config ${payload.webhookConfigId}`);
+interface LambdaResponse {
+  batchItemFailures: Array<{ itemIdentifier: string }>;
+}
 
-    // Record delivery attempt start
-    await recordDeliveryAttempt(deliveryId, payload, 'pending');
+// Environment variables
+const PHI_ENCRYPTION_KEY_ID = process.env.PHI_ENCRYPTION_KEY_ID!;
+const HIPAA_ALERTS_TOPIC_ARN = process.env.HIPAA_ALERTS_TOPIC_ARN!;
+const AUDIT_LOG_GROUP_NAME = process.env.AUDIT_LOG_GROUP_NAME!;
 
-    // Get webhook secret
-    const webhookSecret = await getWebhookSecret(payload.secretId);
+/**
+ * Database wrapper implementation for AWS RDS Data API
+ */
+class AwsDatabaseWrapper {
+  private db: any;
 
-    // Construct webhook payload
-    const webhookPayload = constructWebhookPayload(payload);
-    const signature = signWebhookPayload(webhookPayload, webhookSecret);
+  constructor(db: any) {
+    this.db = db;
+  }
 
-    // Attempt delivery
-    const deliveryResult = await attemptWebhookDelivery(
-      payload.url,
-      webhookPayload,
-      signature,
-      webhookSecret.algorithm
-    );
+  async createAuthenticatedDatabaseClient() {
+    return createAuthenticatedDatabaseClient();
+  }
 
-    // Record delivery result
-    await recordDeliveryAttempt(deliveryId, payload, 'completed', deliveryResult);
-
-    console.log(`Webhook delivery ${deliveryId} completed successfully`);
-
-  } catch (error) {
-    console.error(`Webhook delivery ${deliveryId} failed:`, error);
-    
+  async safeSelect(callback: () => any) {
     try {
-      const payload: WebhookDeliveryPayload = JSON.parse(record.body);
-      await recordDeliveryAttempt(deliveryId, payload, 'failed', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        statusCode: 0,
-      });
-    } catch (recordError) {
-      console.error('Failed to record delivery failure:', recordError);
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database select error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
     }
+  }
 
-    throw error;
+  async safeInsert(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database insert error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeUpdate(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database update error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeDelete(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database delete error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeSingle(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result?.[0] || null, error: null };
+    } catch (error) {
+      console.error('Database single select error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  get schemas() {
+    return {
+      webhookConfigs,
+      webhookDeliveries,
+      webhookSecrets,
+      webhookHipaaAuditLog,
+      webhookDeliveryAttempts,
+    };
   }
 }
 
-async function getWebhookSecret(secretId: string): Promise<WebhookSecret> {
-  try {
-    const result = await secretsClient.send(new GetSecretValueCommand({
-      SecretId: secretId,
-    }));
-
-    if (!result.SecretString) {
-      throw new Error('Secret value is empty');
-    }
-
-    return JSON.parse(result.SecretString);
-  } catch (error) {
-    console.error(`Error retrieving webhook secret ${secretId}:`, error);
-    throw error;
-  }
-}
-
-function constructWebhookPayload(delivery: WebhookDeliveryPayload): string {
-  const payload = {
-    id: generateEventId(),
-    event: delivery.eventType,
-    created_at: delivery.timestamp,
-    data: delivery.eventData,
-    organization_id: delivery.organizationId,
-    environment: delivery.environment,
-    ...(delivery.userId && { user_id: delivery.userId }),
-  };
-
-  return JSON.stringify(payload);
-}
-
-function signWebhookPayload(payload: string, secret: WebhookSecret): string {
-  const hmac = createHmac(secret.algorithm, secret.key);
-  hmac.update(payload);
-  return hmac.digest('hex');
-}
-
-async function attemptWebhookDelivery(
-  url: string,
-  payload: string,
-  signature: string,
-  algorithm: string
-): Promise<{ statusCode: number; responseBody?: string; duration: number }> {
-  const startTime = Date.now();
+/**
+ * Process a single webhook delivery message
+ */
+async function processWebhookDelivery(
+  message: WebhookDeliveryMessage,
+  databaseWrapper: AwsDatabaseWrapper
+): Promise<{ success: boolean; error?: string }> {
+  const { webhookConfigId, eventData, deliveryId } = message;
   
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': 'Foresight-Webhooks/1.0',
-        'X-Foresight-Signature': `${algorithm}=${signature}`,
-        'X-Foresight-Delivery': generateDeliveryId(),
-        'X-Foresight-Event': 'webhook',
-      },
-      body: payload,
-      signal: AbortSignal.timeout(30000), // 30 second timeout
+    console.log(`Processing webhook delivery:`, {
+      webhookConfigId,
+      deliveryId,
+      eventType: eventData.eventType,
+      organizationId: eventData.organizationId,
     });
 
-    const responseBody = await response.text();
-    const duration = Date.now() - startTime;
+    // Initialize HIPAA webhook processor
+    const processor = new HipaaWebhookProcessor(
+      eventData.organizationId,
+      databaseWrapper,
+      eventData.userId
+    );
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${responseBody}`);
+    // Perform the webhook delivery with HIPAA compliance
+    const result = await processor.processWebhookDelivery(
+      webhookConfigId,
+      eventData
+    );
+
+    if (result.success) {
+      console.log(`Webhook delivery successful:`, {
+        webhookConfigId,
+        deliveryId,
+        complianceStatus: result.complianceStatus,
+      });
+      return { success: true };
+    } else {
+      console.error(`Webhook delivery failed:`, {
+        webhookConfigId,
+        deliveryId,
+        issues: result.issues,
+      });
+      return { 
+        success: false, 
+        error: `Delivery failed: ${result.issues.join(', ')}` 
+      };
     }
 
-    return {
-      statusCode: response.status,
-      responseBody: responseBody.slice(0, 1000), // Limit response body length
-      duration,
+  } catch (error) {
+    console.error(`Error processing webhook delivery ${deliveryId}:`, error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Unknown error' 
     };
-
-  } catch (error) {
-    const duration = Date.now() - startTime;
-    
-    if (error instanceof Error) {
-      throw new Error(`Delivery failed after ${duration}ms: ${error.message}`);
-    }
-    
-    throw new Error(`Delivery failed after ${duration}ms: Unknown error`);
   }
 }
 
-async function recordDeliveryAttempt(
-  deliveryId: string,
-  payload: WebhookDeliveryPayload,
-  status: 'pending' | 'completed' | 'failed',
-  result?: { statusCode?: number; responseBody?: string; duration?: number; error?: string }
-): Promise<void> {
-  const sql = `
-    INSERT INTO webhook_deliveries (
-      id,
-      webhook_config_id,
-      event_type,
-      payload,
-      status,
-      attempt_number,
-      http_status_code,
-      response_body,
-      error_message,
-      duration_ms,
-      created_at,
-      updated_at
-    ) VALUES (
-      :deliveryId,
-      :webhookConfigId,
-      :eventType,
-      :payload,
-      :status,
-      :attemptNumber,
-      :httpStatusCode,
-      :responseBody,
-      :errorMessage,
-      :durationMs,
-      NOW(),
-      NOW()
-    )
-    ON DUPLICATE KEY UPDATE
-      status = VALUES(status),
-      http_status_code = VALUES(http_status_code),
-      response_body = VALUES(response_body),
-      error_message = VALUES(error_message),
-      duration_ms = VALUES(duration_ms),
-      updated_at = NOW()
-  `;
-
-  const parameters = [
-    { name: 'deliveryId', value: { stringValue: deliveryId } },
-    { name: 'webhookConfigId', value: { stringValue: payload.webhookConfigId } },
-    { name: 'eventType', value: { stringValue: payload.eventType } },
-    { name: 'payload', value: { stringValue: JSON.stringify(payload.eventData) } },
-    { name: 'status', value: { stringValue: status } },
-    { name: 'attemptNumber', value: { longValue: payload.attempt } },
-    { name: 'httpStatusCode', value: result?.statusCode ? { longValue: result.statusCode } : { isNull: true } },
-    { name: 'responseBody', value: result?.responseBody ? { stringValue: result.responseBody } : { isNull: true } },
-    { name: 'errorMessage', value: result?.error ? { stringValue: result.error } : { isNull: true } },
-    { name: 'durationMs', value: result?.duration ? { longValue: result.duration } : { isNull: true } },
-  ];
-
+/**
+ * Parse SQS message body
+ */
+function parseMessage(record: SQSRecord): WebhookDeliveryMessage | null {
   try {
-    await rdsClient.send(new ExecuteStatementCommand({
-      resourceArn: DB_CLUSTER_ARN,
-      secretArn: DB_SECRET_ARN,
-      database: DB_NAME,
-      sql,
-      parameters,
-    }));
+    const message = JSON.parse(record.body) as WebhookDeliveryMessage;
+    
+    // Validate required fields
+    if (!message.webhookConfigId || !message.eventData || !message.deliveryId) {
+      console.error('Invalid message format:', { 
+        hasWebhookConfigId: !!message.webhookConfigId,
+        hasEventData: !!message.eventData,
+        hasDeliveryId: !!message.deliveryId,
+      });
+      return null;
+    }
 
-    console.log(`Recorded delivery attempt ${deliveryId} with status ${status}`);
+    return message;
   } catch (error) {
-    console.error(`Error recording delivery attempt ${deliveryId}:`, error);
-    // Don't throw here to avoid failing the webhook delivery
+    console.error('Failed to parse SQS message:', error);
+    return null;
   }
 }
 
-function generateDeliveryId(): string {
-  return `del_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
+/**
+ * Main Lambda handler
+ */
+export const handler = async (
+  event: SQSEvent,
+  context: Context
+): Promise<LambdaResponse> => {
+  const startTime = Date.now();
+  const batchItemFailures: Array<{ itemIdentifier: string }> = [];
+  
+  try {
+    console.log(`Processing ${event.Records.length} webhook delivery messages`);
 
-function generateEventId(): string {
-  return `evt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-}
+    // Create database wrapper
+    const { db } = await createAuthenticatedDatabaseClient();
+    const databaseWrapper = new AwsDatabaseWrapper(db);
+
+    // Process each message
+    for (const record of event.Records) {
+      try {
+        const message = parseMessage(record);
+        
+        if (!message) {
+          console.error(`Invalid message format for messageId: ${record.messageId}`);
+          batchItemFailures.push({ itemIdentifier: record.messageId });
+          continue;
+        }
+
+        // Process the webhook delivery
+        const result = await processWebhookDelivery(message, databaseWrapper);
+        
+        if (!result.success) {
+          console.error(`Failed to process delivery for messageId: ${record.messageId}:`, result.error);
+          batchItemFailures.push({ itemIdentifier: record.messageId });
+        } else {
+          console.log(`Successfully processed delivery for messageId: ${record.messageId}`);
+        }
+
+      } catch (error) {
+        console.error(`Error processing message ${record.messageId}:`, error);
+        batchItemFailures.push({ itemIdentifier: record.messageId });
+      }
+    }
+
+    const processingTime = Date.now() - startTime;
+    const successfulDeliveries = event.Records.length - batchItemFailures.length;
+
+    console.log(`Webhook delivery processing completed:`, {
+      totalMessages: event.Records.length,
+      successfulDeliveries,
+      failedDeliveries: batchItemFailures.length,
+      processingTimeMs: processingTime,
+    });
+
+    return { batchItemFailures };
+
+  } catch (error) {
+    console.error('Critical error in webhook delivery processor:', error);
+    
+    // If there's a critical error, mark all messages as failed
+    // so they can be retried or sent to DLQ
+    return {
+      batchItemFailures: event.Records.map(record => ({
+        itemIdentifier: record.messageId
+      }))
+    };
+  }
+};

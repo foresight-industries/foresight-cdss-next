@@ -21,6 +21,19 @@ import { organizations } from './schema';
 
 export const webhookEnvironmentEnum = pgEnum('webhook_environment', ['staging', 'production']);
 
+// HIPAA compliance enums
+export const phiDataClassificationEnum = pgEnum('phi_data_classification', [
+  'none',        // No PHI data
+  'limited',     // Contains some PHI (dates, zip codes)
+  'full'         // Contains full PHI (names, SSN, detailed medical data)
+]);
+
+export const hipaaComplianceStatusEnum = pgEnum('hipaa_compliance_status', [
+  'compliant',   // BAA signed, HIPAA compliant endpoint
+  'pending',     // BAA pending review
+  'non_compliant' // No BAA or non-compliant endpoint
+]);
+
 export const webhookEventTypeEnum = pgEnum('webhook_event_type', [
   'organization.created',
   'organization.updated',
@@ -71,6 +84,16 @@ export const webhookConfigs = pgTable('webhook_config', {
   // Security configuration
   signatureVersion: varchar('signature_version', { length: 10 }).default('v1'),
   primarySecretId: uuid('primary_secret_id'), // Will reference webhook_secrets.id
+  
+  // HIPAA compliance configuration
+  phiDataClassification: phiDataClassificationEnum('phi_data_classification').default('none').notNull(),
+  hipaaComplianceStatus: hipaaComplianceStatusEnum('hipaa_compliance_status').default('non_compliant').notNull(),
+  baaSignedDate: timestamp('baa_signed_date'),
+  baaExpiryDate: timestamp('baa_expiry_date'),
+  vendorName: varchar('vendor_name', { length: 255 }),
+  vendorContact: varchar('vendor_contact', { length: 255 }),
+  dataRetentionDays: integer('data_retention_days').default(30),
+  requiresEncryption: boolean('requires_encryption').default(true).notNull(),
   
   // Status and metadata
   isActive: boolean('is_active').default(true).notNull(),
@@ -243,6 +266,47 @@ export const webhookDeliveryAttempts = pgTable('webhook_delivery_attempts', {
   startedIdx: index('webhook_delivery_attempts_started_idx').on(table.startedAt),
 }));
 
+// HIPAA audit logging table
+export const webhookHipaaAuditLog = pgTable('webhook_hipaa_audit_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id).notNull(),
+  webhookDeliveryId: uuid('webhook_delivery_id').references(() => webhookDeliveries.id),
+  
+  // Audit event details
+  auditEventType: varchar('audit_event_type', { length: 50 }).notNull(), // 'phi_accessed', 'baa_verified', 'data_transmitted', 'retention_policy_applied'
+  userId: varchar('user_id', { length: 255 }),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  
+  // PHI-specific details
+  phiDataTypes: jsonb('phi_data_types'), // Array of PHI data types involved
+  entityIds: jsonb('entity_ids'), // IDs of patients/entities whose PHI was accessed
+  dataClassification: phiDataClassificationEnum('data_classification').notNull(),
+  
+  // Compliance verification
+  baaVerified: boolean('baa_verified').default(false),
+  encryptionVerified: boolean('encryption_verified').default(false),
+  retentionPolicyApplied: boolean('retention_policy_applied').default(false),
+  
+  // Audit metadata
+  ipAddress: varchar('ip_address', { length: 45 }),
+  userAgent: varchar('user_agent', { length: 500 }),
+  requestHeaders: jsonb('request_headers'),
+  
+  // Risk assessment
+  riskLevel: varchar('risk_level', { length: 20 }).default('low'), // low, medium, high, critical
+  complianceStatus: varchar('compliance_status', { length: 20 }).default('compliant'), // compliant, violation, under_review
+  
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  webhookConfigIdx: index('webhook_hipaa_audit_config_idx').on(table.webhookConfigId),
+  auditEventTypeIdx: index('webhook_hipaa_audit_event_type_idx').on(table.auditEventType),
+  organizationIdx: index('webhook_hipaa_audit_org_idx').on(table.organizationId),
+  createdAtIdx: index('webhook_hipaa_audit_created_at_idx').on(table.createdAt),
+  riskLevelIdx: index('webhook_hipaa_audit_risk_level_idx').on(table.riskLevel),
+  complianceStatusIdx: index('webhook_hipaa_audit_compliance_status_idx').on(table.complianceStatus),
+}));
+
 // ============================================================================
 // WEBHOOK TYPE EXPORTS
 // ============================================================================
@@ -265,6 +329,11 @@ export type NewWebhookDelivery = InferInsertModel<typeof webhookDeliveries>;
 export type WebhookDeliveryAttempt = InferSelectModel<typeof webhookDeliveryAttempts>;
 export type NewWebhookDeliveryAttempt = InferInsertModel<typeof webhookDeliveryAttempts>;
 
+export type WebhookHipaaAuditLog = InferSelectModel<typeof webhookHipaaAuditLog>;
+export type NewWebhookHipaaAuditLog = InferInsertModel<typeof webhookHipaaAuditLog>;
+
 // Enum value types
 export type WebhookEnvironment = typeof webhookEnvironmentEnum.enumValues[number];
 export type WebhookEventType = typeof webhookEventTypeEnum.enumValues[number];
+export type PhiDataClassification = typeof phiDataClassificationEnum.enumValues[number];
+export type HipaaComplianceStatus = typeof hipaaComplianceStatusEnum.enumValues[number];

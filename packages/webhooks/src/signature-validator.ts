@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from 'crypto';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface WebhookValidationOptions {
   toleranceInSeconds?: number;
@@ -15,7 +15,7 @@ export interface WebhookHeaders {
 
 /**
  * Webhook Signature Validator
- * 
+ *
  * Validates incoming webhook signatures to ensure authenticity
  */
 export class WebhookSignatureValidator {
@@ -56,10 +56,10 @@ export class WebhookSignatureValidator {
 
       // Validate timestamp
       const timestampValidation = this.validateTimestamp(
-        timestamp, 
+        timestamp,
         options?.toleranceInSeconds || this.defaultTolerance
       );
-      
+
       if (!timestampValidation.valid) {
         return timestampValidation;
       }
@@ -93,15 +93,15 @@ export class WebhookSignatureValidator {
 
       const isValid = timingSafeEqual(receivedBuffer, expectedBuffer);
 
-      return { 
-        valid: isValid, 
-        error: isValid ? undefined : 'Signature verification failed' 
+      return {
+        valid: isValid,
+        error: isValid ? undefined : 'Signature verification failed'
       };
 
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        valid: false,
+        error: `Validation error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
@@ -110,12 +110,12 @@ export class WebhookSignatureValidator {
    * Validate timestamp to prevent replay attacks
    */
   private validateTimestamp(
-    timestamp: string, 
+    timestamp: string,
     toleranceInSeconds: number
   ): { valid: boolean; error?: string } {
     try {
       const webhookTime = parseInt(timestamp);
-      
+
       if (isNaN(webhookTime)) {
         return { valid: false, error: 'Invalid timestamp format' };
       }
@@ -124,17 +124,17 @@ export class WebhookSignatureValidator {
       const timeDifference = Math.abs(currentTime - webhookTime);
 
       if (timeDifference > toleranceInSeconds) {
-        return { 
-          valid: false, 
-          error: `Timestamp too old. Difference: ${timeDifference}s, tolerance: ${toleranceInSeconds}s` 
+        return {
+          valid: false,
+          error: `Timestamp too old. Difference: ${timeDifference}s, tolerance: ${toleranceInSeconds}s`
         };
       }
 
       return { valid: true };
     } catch (error) {
-      return { 
-        valid: false, 
-        error: `Timestamp validation error: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      return {
+        valid: false,
+        error: `Timestamp validation error: ${error instanceof Error ? error.message : 'Unknown error'}`
       };
     }
   }
@@ -152,14 +152,14 @@ export class WebhookSignatureValidator {
    * Generate signature for outgoing webhooks (for testing)
    */
   generateSignature(
-    payload: string | Buffer, 
-    secret: string, 
-    algorithm: string = 'sha256'
+    payload: string | Buffer,
+    secret: string,
+    algorithm = 'sha256'
   ): { signature: string; timestamp: string } {
     const timestamp = Math.floor(Date.now() / 1000).toString();
     const signedPayload = `${timestamp}.${payload}`;
     const signature = this.computeSignature(signedPayload, secret, algorithm);
-    
+
     return {
       signature: `${algorithm}=${signature}`,
       timestamp
@@ -190,25 +190,25 @@ export function createWebhookValidationMiddleware(
   const validator = new WebhookSignatureValidator(options);
 
   return async (
-    req: any, 
-    res: any, 
+    req: any,
+    res: any,
     next: () => void
   ) => {
     try {
       const headers = req.headers as WebhookHeaders;
       const payload = req.body || req.rawBody || '';
-      
+
       const secret = await getSecret(headers);
       if (!secret) {
         return res.status(401).json({ error: 'Unable to retrieve webhook secret' });
       }
 
       const validation = validator.validateSignature(payload, secret, headers);
-      
+
       if (!validation.valid) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           error: 'Webhook signature validation failed',
-          details: validation.error 
+          details: validation.error
         });
       }
 

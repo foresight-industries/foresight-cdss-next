@@ -7,40 +7,62 @@ export {
   publishClaimEvent,
   publishDocumentEvent,
   publishTeamMemberEvent,
-} from './event-publisher';
+} from './event-publisher.js';
 
 // Signature Validation
 export {
   WebhookSignatureValidator,
   validateWebhookSignature,
   createWebhookValidationMiddleware,
-} from './signature-validator';
+} from './signature-validator.js';
 
 // Secret Rotation
 export {
   WebhookSecretRotationManager,
   handleSecretRotation,
-} from './secret-rotation';
+} from './secret-rotation.js';
 
-// Types
-export interface WebhookEventData {
-  organizationId: string;
-  environment: 'staging' | 'production';
-  eventType: string;
-  data: Record<string, any>;
-  userId?: string;
-  metadata?: Record<string, any>;
-}
+// HIPAA Compliance
+export {
+  WebhookHipaaComplianceManager,
+  PhiDataClassifier,
+} from './hipaa-compliance.js';
 
-export interface WebhookHeaders {
-  'x-foresight-signature'?: string;
-  'x-foresight-timestamp'?: string;
-  'x-foresight-delivery'?: string;
-  'content-type'?: string;
-  [key: string]: string | undefined;
-}
+// PHI Encryption
+export {
+  PhiEncryptionManager,
+  PhiFieldDetector,
+} from './phi-encryption.js';
 
-export interface WebhookValidationOptions {
-  toleranceInSeconds?: number;
-  requiredHeaders?: string[];
-}
+// Data Retention
+export {
+  WebhookDataRetentionManager,
+  RetentionPolicyScheduler,
+} from './data-retention.js';
+
+// HIPAA Webhook Processing
+export {
+  HipaaWebhookProcessor,
+  HipaaWebhookEventRouter,
+} from './hipaa-webhook-processor.js';
+
+// Types - re-export from types file
+export type {
+  DatabaseClient,
+  DatabaseWrapper,
+  PhiDataClassification,
+  HipaaComplianceStatus,
+  WebhookEventData,
+  WebhookHeaders,
+  WebhookValidationOptions,
+  HipaaComplianceValidationResult,
+  HipaaAuditEventData,
+  WebhookComplianceCheckResult,
+  PhiClassificationResult,
+  EncryptionMetadata,
+  FieldEncryptionInfo,
+  PhiEncryptionConfig,
+  WebhookDeliveryResult,
+  RetentionPolicyResult,
+  RetentionStatus,
+} from './types.js';

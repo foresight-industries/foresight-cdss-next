@@ -1,225 +1,409 @@
-import { EventBridgeEvent, Handler } from 'aws-lambda';
+import { EventBridgeEvent, Context } from 'aws-lambda';
+import { HipaaWebhookEventRouter } from '@foresight-cdss-next/webhooks';
+import { createAuthenticatedDatabaseClient } from '@foresight-cdss-next/web/src/lib/aws/database';
+import {
+  webhookConfigs,
+  webhookDeliveries,
+  webhookSecrets,
+  webhookHipaaAuditLog,
+  webhookDeliveryAttempts
+} from '@foresight-cdss-next/db';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import { RDSDataClient, ExecuteStatementCommand, BeginTransactionCommand, CommitTransactionCommand } from '@aws-sdk/client-rds-data';
-import { GetSecretValueCommand, SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import {
+  CloudWatchClient,
+  PutMetricDataCommand,
+  StandardUnit,
+} from '@aws-sdk/client-cloudwatch';
+import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
+
+/**
+ * AWS Lambda function that processes webhook events from EventBridge
+ * and determines which webhooks should receive deliveries based on HIPAA compliance
+ */
 
 interface WebhookEventDetail {
   organizationId: string;
-  environment: 'staging' | 'production';
   eventType: string;
+  environment: 'staging' | 'production';
+  entityId?: string;
+  entityType?: string;
   data: Record<string, any>;
-  timestamp: string;
   userId?: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
 }
 
-interface WebhookConfig {
-  id: string;
-  organizationId: string;
-  environment: 'staging' | 'production';
-  url: string;
-  isActive: boolean;
-  secretId: string;
+interface LambdaResponse {
+  statusCode: number;
+  body: string;
+  headers?: Record<string, string>;
 }
 
-interface WebhookEventSubscription {
-  webhookConfigId: string;
-  eventType: string;
-  isActive: boolean;
-}
+// Initialize AWS clients
+const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
+const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION });
+const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
-const sqsClient = new SQSClient({});
-const rdsClient = new RDSDataClient({});
-const secretsClient = new SecretsManagerClient({});
-
-const DB_SECRET_ARN = process.env.DATABASE_SECRET_ARN!;
-const DB_CLUSTER_ARN = process.env.DATABASE_CLUSTER_ARN!;
-const DB_NAME = process.env.DATABASE_NAME!;
+// Environment variables
 const WEBHOOK_QUEUE_URL = process.env.WEBHOOK_QUEUE_URL!;
+const HIPAA_ALERTS_TOPIC_ARN = process.env.HIPAA_ALERTS_TOPIC_ARN!;
+const PHI_ENCRYPTION_KEY_ID = process.env.PHI_ENCRYPTION_KEY_ID!;
+const AUDIT_LOG_GROUP_NAME = process.env.AUDIT_LOG_GROUP_NAME!;
 
 /**
- * Webhook Processor Lambda
- * 
- * Receives events from EventBridge and:
- * 1. Queries database for active webhook configurations
- * 2. Filters by event subscriptions
- * 3. Queues webhook deliveries for processing
+ * Database wrapper implementation for AWS RDS Data API
  */
-export const handler: Handler<EventBridgeEvent<string, WebhookEventDetail>> = async (event) => {
-  console.log('Processing webhook event:', JSON.stringify(event, null, 2));
+class AwsDatabaseWrapper {
+  private db: any;
+
+  constructor(db: any) {
+    this.db = db;
+  }
+
+  async createAuthenticatedDatabaseClient() {
+    return createAuthenticatedDatabaseClient();
+  }
+
+  async safeSelect(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database select error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeInsert(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database insert error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeUpdate(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database update error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeDelete(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result, error: null };
+    } catch (error) {
+      console.error('Database delete error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  async safeSingle(callback: () => any) {
+    try {
+      const result = await callback();
+      return { data: result?.[0] || null, error: null };
+    } catch (error) {
+      console.error('Database single select error:', error);
+      return { data: null, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  get schemas() {
+    return {
+      webhookConfigs,
+      webhookDeliveries,
+      webhookSecrets,
+      webhookHipaaAuditLog,
+      webhookDeliveryAttempts,
+    };
+  }
+}
+
+/**
+ * Send webhook delivery job to SQS queue
+ */
+async function queueWebhookDelivery(
+  webhookConfigId: string,
+  eventData: WebhookEventDetail,
+  deliveryId: string
+): Promise<void> {
+  const messageBody = {
+    webhookConfigId,
+    eventData,
+    deliveryId,
+    timestamp: new Date().toISOString(),
+  };
+
+  const command = new SendMessageCommand({
+    QueueUrl: WEBHOOK_QUEUE_URL,
+    MessageBody: JSON.stringify(messageBody),
+    MessageAttributes: {
+      EventType: {
+        DataType: 'String',
+        StringValue: eventData.eventType,
+      },
+      OrganizationId: {
+        DataType: 'String',
+        StringValue: eventData.organizationId,
+      },
+      Environment: {
+        DataType: 'String',
+        StringValue: eventData.environment,
+      },
+    },
+  });
+
+  await sqsClient.send(command);
+}
+
+/**
+ * Send CloudWatch metrics for monitoring
+ */
+async function putMetric(
+  metricName: string,
+  value: number,
+  unit: StandardUnit = StandardUnit.Count,
+  dimensions: Record<string, string> = {}
+): Promise<void> {
+  const command = new PutMetricDataCommand({
+    Namespace: 'Foresight/Webhooks',
+    MetricData: [
+      {
+        MetricName: metricName,
+        Value: value,
+        Unit: unit,
+        Dimensions: Object.entries(dimensions).map(([Name, Value]) => ({ Name, Value })),
+        Timestamp: new Date(),
+      },
+    ],
+  });
+
+  await cloudWatchClient.send(command);
+}
+
+/**
+ * Send HIPAA compliance alert
+ */
+async function sendComplianceAlert(
+  subject: string,
+  message: string,
+  severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'WARNING'
+): Promise<void> {
+  const alertMessage = {
+    severity,
+    subject,
+    message,
+    timestamp: new Date().toISOString(),
+    service: 'webhook-processor',
+    environment: process.env.NODE_ENV,
+  };
+
+  const command = new PublishCommand({
+    TopicArn: HIPAA_ALERTS_TOPIC_ARN,
+    Subject: `[${severity}] Webhook HIPAA Alert: ${subject}`,
+    Message: JSON.stringify(alertMessage, null, 2),
+  });
+
+  await snsClient.send(command);
+}
+
+/**
+ * Main Lambda handler
+ */
+export const handler = async (
+  event: EventBridgeEvent<string, WebhookEventDetail>,
+  context: Context
+): Promise<LambdaResponse> => {
+  const startTime = Date.now();
 
   try {
-    const { detail } = event;
-    const { organizationId, environment, eventType } = detail;
+    console.log('Processing webhook event:', JSON.stringify(event, null, 2));
 
-    // Get active webhook configurations for the organization and environment
-    const webhookConfigs = await getActiveWebhookConfigs(organizationId, environment);
-    
-    if (webhookConfigs.length === 0) {
-      console.log(`No active webhook configurations found for org ${organizationId} in ${environment}`);
-      return { processedWebhooks: 0 };
+    // Extract event details
+    const eventDetail = event.detail;
+    const { organizationId, eventType, environment, data, userId } = eventDetail;
+
+    // Validate required fields
+    if (!organizationId || !eventType || !environment) {
+      console.error('Missing required event fields:', { organizationId, eventType, environment });
+      await putMetric('ProcessingErrors', 1, 'Count', {
+        ErrorType: 'MissingFields',
+        Environment: environment || 'unknown'
+      });
+
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: 'Missing required event fields' }),
+      };
     }
 
-    // Get event subscriptions for these webhook configs
-    const subscribedConfigs = await getSubscribedWebhookConfigs(webhookConfigs, eventType);
-    
-    if (subscribedConfigs.length === 0) {
-      console.log(`No webhook configurations subscribed to event type ${eventType}`);
-      return { processedWebhooks: 0 };
-    }
+    // Create database wrapper
+    const { db } = await createAuthenticatedDatabaseClient();
+    const databaseWrapper = new AwsDatabaseWrapper(db);
+
+    // Initialize webhook event router
+    const eventRouter = new HipaaWebhookEventRouter(organizationId, databaseWrapper);
+
+    // Transform EventBridge event to webhook event data format
+    const webhookEventData = {
+      organizationId,
+      environment: environment as 'staging' | 'production',
+      eventType,
+      data,
+      userId,
+      metadata: {
+        source: event.source,
+        eventBridgeId: event.id,
+        lambdaRequestId: context.awsRequestId,
+        ...eventDetail.metadata,
+      },
+    };
+
+    console.log('Processing webhook event data:', {
+      organizationId,
+      eventType,
+      environment,
+      dataKeys: Object.keys(data || {}),
+    });
+
+    // Process the event and determine webhook deliveries
+    const result = await eventRouter.routeEvent({
+      eventType,
+      environment,
+      payload: webhookEventData,
+      sourceUserId: userId,
+    });
+
+    console.log('Webhook processing result:', {
+      success: result.success,
+      routedWebhooks: result.routedWebhooks,
+      results: result.results.length,
+    });
 
     // Queue webhook deliveries
-    const deliveryPromises = subscribedConfigs.map(config => 
-      queueWebhookDelivery(config, detail)
-    );
+    let queuedDeliveries = 0;
+    let failedQueues = 0;
 
-    await Promise.all(deliveryPromises);
+    for (const webhookResult of result.results) {
+      if (webhookResult.success) {
+        try {
+          const deliveryId = crypto.randomUUID();
+          await queueWebhookDelivery(
+            webhookResult.webhookId,
+            eventDetail,
+            deliveryId
+          );
+          queuedDeliveries++;
 
-    console.log(`Queued ${subscribedConfigs.length} webhook deliveries for event ${eventType}`);
-    
+          console.log(`Queued delivery for webhook ${webhookResult.webhookName}:`, {
+            webhookId: webhookResult.webhookId,
+          });
+        } catch (error) {
+          console.error(`Failed to queue delivery for webhook ${webhookResult.webhookId}:`, error);
+          failedQueues++;
+        }
+      } else if (!webhookResult.success) {
+        console.warn(`Webhook ${webhookResult.webhookName} failed processing:`, {
+          issues: webhookResult.issues,
+          complianceStatus: webhookResult.complianceStatus,
+        });
+
+        // Send compliance alert for blocked webhooks
+        if (webhookResult.complianceStatus === 'blocked') {
+          await sendComplianceAlert(
+            'Webhook Blocked Due to Compliance Issues',
+            `Webhook "${webhookResult.webhookName}" was blocked due to HIPAA compliance issues: ${webhookResult.issues.join(', ')}`,
+            'WARNING'
+          );
+        }
+      }
+    }
+
+    // Send metrics to CloudWatch
+    await putMetric('EventsProcessed', 1, 'Count', {
+      EventType: eventType,
+      Environment: environment,
+      OrganizationId: organizationId,
+    });
+
+    await putMetric('WebhooksProcessed', result.routedWebhooks, 'Count', {
+      Environment: environment,
+      OrganizationId: organizationId,
+    });
+
+    await putMetric('DeliveriesQueued', queuedDeliveries, 'Count', {
+      Environment: environment,
+      OrganizationId: organizationId,
+    });
+
+    if (failedQueues > 0) {
+      await putMetric('QueueFailures', failedQueues, 'Count', {
+        Environment: environment,
+        OrganizationId: organizationId,
+      });
+    }
+
+    const complianceIssues = result.results.filter(r => r.complianceStatus === 'blocked').length;
+    if (complianceIssues > 0) {
+      await putMetric('ComplianceIssues', complianceIssues, 'Count', {
+        Environment: environment,
+        OrganizationId: organizationId,
+      });
+    }
+
+    // Processing time metric
+    const processingTime = Date.now() - startTime;
+    await putMetric('ProcessingTime', processingTime, 'Milliseconds', {
+      Environment: environment,
+    });
+
+    console.log(`Webhook processing completed in ${processingTime}ms:`, {
+      routedWebhooks: result.routedWebhooks,
+      queuedDeliveries,
+      failedQueues,
+      complianceIssues,
+    });
+
     return {
-      processedWebhooks: subscribedConfigs.length,
-      eventType,
-      organizationId,
-      environment,
+      statusCode: 200,
+      body: JSON.stringify({
+        success: true,
+        routedWebhooks: result.routedWebhooks,
+        queuedDeliveries,
+        failedQueues,
+        complianceIssues,
+        processingTimeMs: processingTime,
+      }),
     };
 
   } catch (error) {
-    console.error('Error processing webhook event:', error);
-    throw error;
-  }
-};
+    console.error('Webhook processor error:', error);
 
-async function getActiveWebhookConfigs(
-  organizationId: string, 
-  environment: 'staging' | 'production'
-): Promise<WebhookConfig[]> {
-  const sql = `
-    SELECT 
-      id,
-      organization_id,
-      environment,
-      url,
-      is_active,
-      secret_id
-    FROM webhook_configs
-    WHERE organization_id = :organizationId
-      AND environment = :environment
-      AND is_active = true
-      AND deleted_at IS NULL
-  `;
+    // Send error metrics
+    await putMetric('ProcessingErrors', 1, 'Count', {
+      ErrorType: 'UnexpectedError',
+      Environment: event.detail?.environment || 'unknown',
+    });
 
-  try {
-    const result = await rdsClient.send(new ExecuteStatementCommand({
-      resourceArn: DB_CLUSTER_ARN,
-      secretArn: DB_SECRET_ARN,
-      database: DB_NAME,
-      sql,
-      parameters: [
-        { name: 'organizationId', value: { stringValue: organizationId } },
-        { name: 'environment', value: { stringValue: environment } },
-      ],
-    }));
-
-    return (result.records || []).map(record => ({
-      id: record[0]?.stringValue || '',
-      organizationId: record[1]?.stringValue || '',
-      environment: record[2]?.stringValue as 'staging' | 'production',
-      url: record[3]?.stringValue || '',
-      isActive: record[4]?.booleanValue || false,
-      secretId: record[5]?.stringValue || '',
-    }));
-  } catch (error) {
-    console.error('Error fetching webhook configs:', error);
-    throw error;
-  }
-}
-
-async function getSubscribedWebhookConfigs(
-  webhookConfigs: WebhookConfig[],
-  eventType: string
-): Promise<WebhookConfig[]> {
-  if (webhookConfigs.length === 0) return [];
-
-  const configIds = webhookConfigs.map(config => config.id);
-  const placeholders = configIds.map((_, index) => `:configId${index}`).join(',');
-  
-  const sql = `
-    SELECT DISTINCT webhook_config_id
-    FROM webhook_event_subscriptions
-    WHERE webhook_config_id IN (${placeholders})
-      AND event_type = :eventType
-      AND is_active = true
-  `;
-
-  const parameters = [
-    { name: 'eventType', value: { stringValue: eventType } },
-    ...configIds.map((id, index) => ({
-      name: `configId${index}`,
-      value: { stringValue: id },
-    })),
-  ];
-
-  try {
-    const result = await rdsClient.send(new ExecuteStatementCommand({
-      resourceArn: DB_CLUSTER_ARN,
-      secretArn: DB_SECRET_ARN,
-      database: DB_NAME,
-      sql,
-      parameters,
-    }));
-
-    const subscribedConfigIds = new Set(
-      (result.records || []).map(record => record[0]?.stringValue || '')
+    // Send critical alert for unexpected errors
+    await sendComplianceAlert(
+      'Webhook Processor Critical Error',
+      `Unexpected error in webhook processor: ${error instanceof Error ? error.message : 'Unknown error'}. Event ID: ${event.id}`,
+      'CRITICAL'
     );
 
-    return webhookConfigs.filter(config => subscribedConfigIds.has(config.id));
-  } catch (error) {
-    console.error('Error fetching event subscriptions:', error);
-    throw error;
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Internal server error',
+        requestId: context.awsRequestId,
+      }),
+    };
   }
-}
-
-async function queueWebhookDelivery(
-  webhookConfig: WebhookConfig,
-  eventDetail: WebhookEventDetail
-): Promise<void> {
-  const deliveryPayload = {
-    webhookConfigId: webhookConfig.id,
-    organizationId: webhookConfig.organizationId,
-    environment: webhookConfig.environment,
-    url: webhookConfig.url,
-    secretId: webhookConfig.secretId,
-    eventType: eventDetail.eventType,
-    eventData: eventDetail.data,
-    timestamp: eventDetail.timestamp,
-    userId: eventDetail.userId,
-    attempt: 1,
-    maxAttempts: 5,
-  };
-
-  try {
-    await sqsClient.send(new SendMessageCommand({
-      QueueUrl: WEBHOOK_QUEUE_URL,
-      MessageBody: JSON.stringify(deliveryPayload),
-      MessageAttributes: {
-        eventType: {
-          DataType: 'String',
-          StringValue: eventDetail.eventType,
-        },
-        organizationId: {
-          DataType: 'String',
-          StringValue: webhookConfig.organizationId,
-        },
-        environment: {
-          DataType: 'String',
-          StringValue: webhookConfig.environment,
-        },
-      },
-    }));
-
-    console.log(`Queued webhook delivery for config ${webhookConfig.id}`);
-  } catch (error) {
-    console.error(`Error queueing webhook delivery for config ${webhookConfig.id}:`, error);
-    throw error;
-  }
-}
+};

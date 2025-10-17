@@ -8,16 +8,22 @@ import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as sns from 'aws-cdk-lib/aws-sns';
+import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
 
 interface WebhookStackProps extends cdk.StackProps {
   environment: 'staging' | 'prod';
   database: rds.DatabaseCluster;
   eventBus?: events.EventBus;
+  hipaaComplianceEmail?: string; // Email for HIPAA compliance alerts
 }
 
 /**
- * Enhanced webhook system with EventBridge integration for near-instant delivery
+ * Enhanced HIPAA-compliant webhook system with EventBridge integration for near-instant delivery
  */
 export class WebhookStack extends cdk.Stack {
   public readonly eventBus: events.EventBus;
@@ -25,6 +31,12 @@ export class WebhookStack extends cdk.Stack {
   public readonly webhookDeliveryFunction: lambda.Function;
   public readonly webhookQueue: sqs.Queue;
   public readonly webhookDlq: sqs.Queue;
+  
+  // HIPAA Compliance components
+  public readonly phiEncryptionKey: kms.Key;
+  public readonly hipaaComplianceAlertsTopic: sns.Topic;
+  public readonly dataRetentionFunction: lambda.Function;
+  public readonly hipaaAuditLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: WebhookStackProps) {
     super(scope, id, props);
@@ -105,6 +117,9 @@ export class WebhookStack extends cdk.Stack {
 
     // Grant permissions to webhook delivery function
     this.grantWebhookDeliveryPermissions();
+
+    // Create HIPAA compliance infrastructure
+    this.createHipaaComplianceInfrastructure(props);
 
     // Connect SQS to webhook delivery Lambda
     this.webhookDeliveryFunction.addEventSource(
@@ -357,6 +372,229 @@ export class WebhookStack extends cdk.Stack {
     );
   }
 
+  private createHipaaComplianceInfrastructure(props: WebhookStackProps): void {
+    // Create KMS key for PHI encryption
+    this.phiEncryptionKey = new kms.Key(this, 'PhiEncryptionKey', {
+      description: `PHI encryption key for webhooks - ${props.environment}`,
+      keyRotation: true, // Automatic annual rotation for HIPAA compliance
+      removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Create alias for easier reference
+    new kms.Alias(this, 'PhiEncryptionKeyAlias', {
+      aliasName: `alias/foresight-webhook-phi-${props.environment}`,
+      targetKey: this.phiEncryptionKey,
+    });
+
+    // Create SNS topic for HIPAA compliance alerts
+    this.hipaaComplianceAlertsTopic = new sns.Topic(this, 'HipaaComplianceAlerts', {
+      topicName: `foresight-webhook-hipaa-alerts-${props.environment}`,
+      displayName: 'HIPAA Compliance Alerts',
+      fifo: false,
+    });
+
+    // Subscribe email to alerts if provided
+    if (props.hipaaComplianceEmail) {
+      this.hipaaComplianceAlertsTopic.addSubscription(
+        new subscriptions.EmailSubscription(props.hipaaComplianceEmail)
+      );
+    }
+
+    // Create CloudWatch Log Group for HIPAA audit logs
+    this.hipaaAuditLogGroup = new logs.LogGroup(this, 'HipaaAuditLogGroup', {
+      logGroupName: `/aws/lambda/foresight-webhook-hipaa-audit-${props.environment}`,
+      retention: props.environment === 'prod' ? logs.RetentionDays.SEVEN_YEARS : logs.RetentionDays.ONE_YEAR,
+      removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Create data retention Lambda function
+    this.dataRetentionFunction = new lambdaNodejs.NodejsFunction(this, 'DataRetentionFunction', {
+      functionName: `foresight-webhook-data-retention-${props.environment}`,
+      entry: '../packages/functions/webhooks/data-retention-scheduler.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(15), // Longer timeout for batch operations
+      memorySize: 1024,
+      environment: {
+        NODE_ENV: props.environment,
+        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_CLUSTER_ARN: props.database.clusterArn,
+        DATABASE_NAME: 'rcm',
+        PHI_ENCRYPTION_KEY_ID: this.phiEncryptionKey.keyId,
+        HIPAA_ALERTS_TOPIC_ARN: this.hipaaComplianceAlertsTopic.topicArn,
+        AUDIT_LOG_GROUP_NAME: this.hipaaAuditLogGroup.logGroupName,
+      },
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+      tracing: lambda.Tracing.ACTIVE,
+    });
+
+    // Schedule data retention to run daily at 2 AM UTC
+    const retentionScheduleRule = new events.Rule(this, 'DataRetentionSchedule', {
+      ruleName: `foresight-webhook-retention-schedule-${props.environment}`,
+      schedule: events.Schedule.cron({ hour: '2', minute: '0' }),
+      description: 'Daily execution of HIPAA data retention policies',
+    });
+
+    retentionScheduleRule.addTarget(new targets.LambdaFunction(this.dataRetentionFunction));
+
+    // Grant permissions for HIPAA compliance functions
+    this.grantHipaaCompliancePermissions();
+
+    // Update Lambda function environment variables with HIPAA keys
+    this.updateLambdaEnvironmentForHipaa();
+
+    // Create CloudWatch alarms for HIPAA compliance monitoring
+    this.createHipaaComplianceAlarms();
+  }
+
+  private grantHipaaCompliancePermissions(): void {
+    // Grant KMS permissions to all Lambda functions
+    const lambdaFunctions = [
+      this.webhookProcessorFunction,
+      this.webhookDeliveryFunction,
+      this.dataRetentionFunction,
+    ];
+
+    lambdaFunctions.forEach(func => {
+      this.phiEncryptionKey.grantEncryptDecrypt(func);
+      
+      // Grant database access
+      func.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'rds-data:BeginTransaction',
+            'rds-data:CommitTransaction',
+            'rds-data:ExecuteStatement',
+            'rds-data:RollbackTransaction',
+          ],
+          resources: [this.node.tryGetContext('database')?.clusterArn || '*'],
+        })
+      );
+
+      // Grant Secrets Manager access
+      func.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['secretsmanager:GetSecretValue', 'secretsmanager:CreateSecret', 'secretsmanager:UpdateSecret'],
+          resources: ['*'], // Webhook secrets can be created dynamically
+        })
+      );
+
+      // Grant CloudWatch Logs access for audit logging
+      func.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'logs:CreateLogStream',
+            'logs:PutLogEvents',
+            'logs:DescribeLogGroups',
+            'logs:DescribeLogStreams',
+          ],
+          resources: [this.hipaaAuditLogGroup.logGroupArn + ':*'],
+        })
+      );
+
+      // Grant SNS publish for compliance alerts
+      this.hipaaComplianceAlertsTopic.grantPublish(func);
+
+      // Grant CloudWatch metrics for monitoring
+      func.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['cloudwatch:PutMetricData'],
+          resources: ['*'],
+        })
+      );
+    });
+  }
+
+  private updateLambdaEnvironmentForHipaa(): void {
+    const hipaaEnvironmentVars = {
+      PHI_ENCRYPTION_KEY_ID: this.phiEncryptionKey.keyId,
+      HIPAA_ALERTS_TOPIC_ARN: this.hipaaComplianceAlertsTopic.topicArn,
+      AUDIT_LOG_GROUP_NAME: this.hipaaAuditLogGroup.logGroupName,
+    };
+
+    // Update processor function environment
+    const processorEnv = this.webhookProcessorFunction.environment;
+    Object.entries(hipaaEnvironmentVars).forEach(([key, value]) => {
+      processorEnv[key] = value;
+    });
+
+    // Update delivery function environment
+    const deliveryEnv = this.webhookDeliveryFunction.environment;
+    Object.entries(hipaaEnvironmentVars).forEach(([key, value]) => {
+      deliveryEnv[key] = value;
+    });
+  }
+
+  private createHipaaComplianceAlarms(): void {
+    // Alarm for failed webhook deliveries (potential compliance issue)
+    new cloudwatch.Alarm(this, 'FailedWebhookDeliveriesAlarm', {
+      alarmName: `foresight-webhook-failed-deliveries-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmDescription: 'High number of failed webhook deliveries - potential HIPAA compliance issue',
+      metric: new cloudwatch.Metric({
+        namespace: 'AWS/SQS',
+        metricName: 'ApproximateNumberOfMessagesVisible',
+        dimensionsMap: {
+          QueueName: this.webhookDlq.queueName,
+        },
+        statistic: 'Average',
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+
+    // Alarm for PHI encryption failures
+    new cloudwatch.Alarm(this, 'PhiEncryptionFailuresAlarm', {
+      alarmName: `foresight-webhook-phi-encryption-failures-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmDescription: 'PHI encryption failures detected - immediate attention required',
+      metric: new cloudwatch.Metric({
+        namespace: 'Foresight/Webhooks',
+        metricName: 'PHIEncryptionFailures',
+        statistic: 'Sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+
+    // Alarm for BAA violations
+    new cloudwatch.Alarm(this, 'BaaViolationsAlarm', {
+      alarmName: `foresight-webhook-baa-violations-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmDescription: 'BAA violations detected - immediate compliance review required',
+      metric: new cloudwatch.Metric({
+        namespace: 'Foresight/Webhooks',
+        metricName: 'BAAViolations',
+        statistic: 'Sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+
+    // Alarm for data retention policy violations
+    new cloudwatch.Alarm(this, 'DataRetentionViolationsAlarm', {
+      alarmName: `foresight-webhook-retention-violations-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmDescription: 'Data retention policy violations detected',
+      metric: new cloudwatch.Metric({
+        namespace: 'Foresight/Webhooks',
+        metricName: 'DataRetentionViolations',
+        statistic: 'Sum',
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+  }
+
   private applyTags(environment: string): void {
     cdk.Tags.of(this).add('Project', 'Foresight-CDSS');
     cdk.Tags.of(this).add('Environment', environment);
@@ -398,6 +636,37 @@ export class WebhookStack extends cdk.Stack {
       value: this.webhookDeliveryFunction.functionName,
       description: 'Name of the webhook delivery function',
       exportName: `${this.stackName}-delivery-function-name`,
+    });
+
+    // HIPAA Compliance outputs
+    new cdk.CfnOutput(this, 'PhiEncryptionKeyId', {
+      value: this.phiEncryptionKey.keyId,
+      description: 'KMS Key ID for PHI encryption',
+      exportName: `${this.stackName}-phi-encryption-key-id`,
+    });
+
+    new cdk.CfnOutput(this, 'PhiEncryptionKeyArn', {
+      value: this.phiEncryptionKey.keyArn,
+      description: 'KMS Key ARN for PHI encryption',
+      exportName: `${this.stackName}-phi-encryption-key-arn`,
+    });
+
+    new cdk.CfnOutput(this, 'HipaaComplianceAlertsTopicArn', {
+      value: this.hipaaComplianceAlertsTopic.topicArn,
+      description: 'SNS Topic ARN for HIPAA compliance alerts',
+      exportName: `${this.stackName}-hipaa-alerts-topic-arn`,
+    });
+
+    new cdk.CfnOutput(this, 'DataRetentionFunctionName', {
+      value: this.dataRetentionFunction.functionName,
+      description: 'Name of the data retention function',
+      exportName: `${this.stackName}-data-retention-function-name`,
+    });
+
+    new cdk.CfnOutput(this, 'HipaaAuditLogGroupName', {
+      value: this.hipaaAuditLogGroup.logGroupName,
+      description: 'CloudWatch Log Group for HIPAA audit logs',
+      exportName: `${this.stackName}-hipaa-audit-log-group-name`,
     });
   }
 

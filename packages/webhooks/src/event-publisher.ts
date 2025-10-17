@@ -1,13 +1,5 @@
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
-
-interface WebhookEventData {
-  organizationId: string;
-  environment: 'staging' | 'production';
-  eventType: string;
-  data: Record<string, any>;
-  userId?: string;
-  metadata?: Record<string, any>;
-}
+import type { WebhookEventData } from './types';
 
 interface PublishEventOptions {
   eventBusName?: string;
@@ -17,7 +9,7 @@ interface PublishEventOptions {
 
 /**
  * Event Publisher for Webhook System
- * 
+ *
  * Publishes events to EventBridge which triggers webhook deliveries
  */
 export class WebhookEventPublisher {
@@ -29,11 +21,11 @@ export class WebhookEventPublisher {
     this.eventBridgeClient = new EventBridgeClient({
       region: options.region || process.env.AWS_REGION || 'us-east-1',
     });
-    
-    this.defaultEventBusName = options.eventBusName || 
-      process.env.WEBHOOK_EVENT_BUS_NAME || 
+
+    this.defaultEventBusName = options.eventBusName ||
+      process.env.WEBHOOK_EVENT_BUS_NAME ||
       'foresight-webhooks-staging';
-    
+
     this.defaultSource = options.source || 'foresight';
   }
 
@@ -45,7 +37,7 @@ export class WebhookEventPublisher {
 
     // Determine event source based on event type
     const source = this.getEventSource(eventType);
-    
+
     // Create EventBridge event
     const event = {
       Source: source,
@@ -79,7 +71,7 @@ export class WebhookEventPublisher {
    */
   async publishEvents(events: WebhookEventData[]): Promise<void> {
     if (events.length === 0) return;
-    
+
     if (events.length > 10) {
       // EventBridge has a limit of 10 events per batch
       const batches = this.chunkArray(events, 10);
