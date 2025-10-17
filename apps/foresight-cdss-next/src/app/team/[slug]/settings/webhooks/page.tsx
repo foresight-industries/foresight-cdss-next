@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Activity,
-  Zap
+  Zap,
+  Eye
 } from 'lucide-react';
 import { type WebhookConfig, type WebhookStats, WEBHOOK_EVENTS } from '@/types/webhook.types';
 
@@ -55,7 +56,9 @@ export default function WebhooksPage() {
   const fetchWebhooks = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/webhooks/config?environment=${environment}`);
+      // Extract team slug from pathname: /team/[slug]/settings/webhooks
+      const teamSlug = pathname.split('/')[2];
+      const response = await fetch(`/api/webhooks/config?environment=${environment}&team_slug=${teamSlug}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -299,6 +302,14 @@ export default function WebhooksPage() {
                     >
                       <TestTube className="w-4 h-4 mr-1" />
                       Test
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`${pathname}/${webhook.id}/events`)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Events
                     </Button>
                     <Button
                       variant="outline"

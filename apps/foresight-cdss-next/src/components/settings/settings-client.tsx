@@ -80,6 +80,7 @@ interface DosespotCredential {
 }
 
 interface SettingsProps {
+  teamSlug?: string;
   initialAutomationSettings: {
     autoApprovalThreshold: number;
     requireReviewThreshold: number;
@@ -286,6 +287,7 @@ const settingsSections: SettingsSection[] = [
 ];
 
 function SettingsPageContent({
+  teamSlug,
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
@@ -1340,23 +1342,25 @@ function SettingsPageContent({
     }
   };
 
-  // Load DoseSpot credentials on component mount
+  // Load DoseSpot credentials only when on integrations tab
   useEffect(() => {
-    const loadDosespotCredentials = async () => {
-      try {
-        const response = await fetch('/api/external-credentials');
-        const result = await response.json();
+    if (activeSection === 'integrations') {
+      const loadDosespotCredentials = async () => {
+        try {
+          const response = await fetch('/api/external-credentials');
+          const result = await response.json();
 
-        if (result.success) {
-          setDosespotCredentials(result.data.credentials || []);
+          if (result.success) {
+            setDosespotCredentials(result.data.credentials || []);
+          }
+        } catch (error) {
+          console.error('Error loading DoseSpot credentials:', error);
         }
-      } catch (error) {
-        console.error('Error loading DoseSpot credentials:', error);
-      }
-    };
+      };
 
-    loadDosespotCredentials();
-  }, []);
+      loadDosespotCredentials();
+    }
+  }, [activeSection]);
 
   const renderIntegrationSettings = () => (
     <div className="space-y-6">
@@ -1659,7 +1663,7 @@ function SettingsPageContent({
       case "ehr":
         return <EHRTab />;
       case "webhooks":
-        return <WebhooksTab />;
+        return <WebhooksTab teamSlug={teamSlug} />;
       case "field-mappings":
         return <FieldMappingsTab />;
       case "integrations":
@@ -3514,6 +3518,7 @@ function SettingsLoading() {
 
 // Main exported component with Suspense boundary
 export default function SettingsClient({
+  teamSlug,
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
@@ -3521,6 +3526,7 @@ export default function SettingsClient({
   return (
     <Suspense fallback={<SettingsLoading />}>
       <SettingsPageContent
+        teamSlug={teamSlug}
         initialAutomationSettings={initialAutomationSettings}
         initialNotificationSettings={initialNotificationSettings}
         initialValidationSettings={initialValidationSettings}
