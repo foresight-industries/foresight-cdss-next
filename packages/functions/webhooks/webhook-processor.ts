@@ -1,4 +1,4 @@
-import { EventBridgeEvent, Context } from 'aws-lambda';
+import type { EventBridgeEvent, Context } from 'aws-lambda';
 import { HipaaWebhookEventRouter } from '@foresight-cdss-next/webhooks';
 import { createAuthenticatedDatabaseClient } from '@foresight-cdss-next/web/src/lib/aws/database';
 import {

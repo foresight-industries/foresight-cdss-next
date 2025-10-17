@@ -11,6 +11,7 @@ import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
@@ -31,12 +32,12 @@ export class WebhookStack extends cdk.Stack {
   public readonly webhookDeliveryFunction: lambda.Function;
   public readonly webhookQueue: sqs.Queue;
   public readonly webhookDlq: sqs.Queue;
-  
+
   // HIPAA Compliance components
-  public readonly phiEncryptionKey: kms.Key;
-  public readonly hipaaComplianceAlertsTopic: sns.Topic;
-  public readonly dataRetentionFunction: lambda.Function;
-  public readonly hipaaAuditLogGroup: logs.LogGroup;
+  public phiEncryptionKey: kms.Key;
+  public hipaaComplianceAlertsTopic: sns.Topic;
+  public dataRetentionFunction: lambda.Function;
+  public hipaaAuditLogGroup: logs.LogGroup;
 
   constructor(scope: Construct, id: string, props: WebhookStackProps) {
     super(scope, id, props);
@@ -228,7 +229,7 @@ export class WebhookStack extends cdk.Stack {
         source: ['foresight.organizations'],
         detailType: [
           'Organization Created',
-          'Organization Updated', 
+          'Organization Updated',
           'Organization Deleted',
           'Organization Settings Changed',
         ],
@@ -376,7 +377,7 @@ export class WebhookStack extends cdk.Stack {
     // Create KMS key for PHI encryption
     this.phiEncryptionKey = new kms.Key(this, 'PhiEncryptionKey', {
       description: `PHI encryption key for webhooks - ${props.environment}`,
-      keyRotation: true, // Automatic annual rotation for HIPAA compliance
+      enableKeyRotation: true, // Automatic annual rotation for HIPAA compliance
       removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
@@ -462,7 +463,7 @@ export class WebhookStack extends cdk.Stack {
 
     lambdaFunctions.forEach(func => {
       this.phiEncryptionKey.grantEncryptDecrypt(func);
-      
+
       // Grant database access
       func.addToRolePolicy(
         new iam.PolicyStatement({
@@ -521,16 +522,14 @@ export class WebhookStack extends cdk.Stack {
       AUDIT_LOG_GROUP_NAME: this.hipaaAuditLogGroup.logGroupName,
     };
 
-    // Update processor function environment
-    const processorEnv = this.webhookProcessorFunction.environment;
+    // Add environment variables to processor function
     Object.entries(hipaaEnvironmentVars).forEach(([key, value]) => {
-      processorEnv[key] = value;
+      this.webhookProcessorFunction.addEnvironment(key, value);
     });
 
-    // Update delivery function environment
-    const deliveryEnv = this.webhookDeliveryFunction.environment;
+    // Add environment variables to delivery function
     Object.entries(hipaaEnvironmentVars).forEach(([key, value]) => {
-      deliveryEnv[key] = value;
+      this.webhookDeliveryFunction.addEnvironment(key, value);
     });
   }
 
@@ -550,7 +549,7 @@ export class WebhookStack extends cdk.Stack {
       threshold: 10,
       evaluationPeriods: 2,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+    }).addAlarmAction(new cloudwatchActions.SnsAction(this.hipaaComplianceAlertsTopic));
 
     // Alarm for PHI encryption failures
     new cloudwatch.Alarm(this, 'PhiEncryptionFailuresAlarm', {
@@ -564,7 +563,7 @@ export class WebhookStack extends cdk.Stack {
       threshold: 1,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+    }).addAlarmAction(new cloudwatchActions.SnsAction(this.hipaaComplianceAlertsTopic));
 
     // Alarm for BAA violations
     new cloudwatch.Alarm(this, 'BaaViolationsAlarm', {
@@ -578,7 +577,7 @@ export class WebhookStack extends cdk.Stack {
       threshold: 1,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+    }).addAlarmAction(new cloudwatchActions.SnsAction(this.hipaaComplianceAlertsTopic));
 
     // Alarm for data retention policy violations
     new cloudwatch.Alarm(this, 'DataRetentionViolationsAlarm', {
@@ -592,7 +591,7 @@ export class WebhookStack extends cdk.Stack {
       threshold: 1,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
-    }).addAlarmAction(new cloudwatch.SnsAction(this.hipaaComplianceAlertsTopic));
+    }).addAlarmAction(new cloudwatchActions.SnsAction(this.hipaaComplianceAlertsTopic));
   }
 
   private applyTags(environment: string): void {
