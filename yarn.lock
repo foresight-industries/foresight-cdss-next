@@ -4522,6 +4522,7 @@ __metadata:
     "@clerk/elements": "npm:^0.23.68"
     "@clerk/nextjs": "npm:^6.33.2"
     "@dotenvx/dotenvx": "npm:*"
+    "@foresight-cdss-next/webhooks": "workspace:*"
     "@google/genai": "npm:^1.16.0"
     "@hookform/resolvers": "npm:^5.2.2"
     "@radix-ui/react-accordion": "npm:^1.2.12"
@@ -4611,7 +4612,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@foresight-cdss-next/webhooks@workspace:packages/webhooks":
+"@foresight-cdss-next/webhooks@workspace:*, @foresight-cdss-next/webhooks@workspace:packages/webhooks":
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/webhooks@workspace:packages/webhooks"
   dependencies:
