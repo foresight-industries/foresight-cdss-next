@@ -25,7 +25,7 @@ const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION }
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
 
 const HIPAA_ALERTS_TOPIC_ARN = process.env.HIPAA_ALERTS_TOPIC_ARN!;
-const EXECUTION_TIME_LIMIT = parseInt(process.env.EXECUTION_TIME_LIMIT || '840000');
+const EXECUTION_TIME_LIMIT = Number.parseInt(process.env.EXECUTION_TIME_LIMIT || '840000');
 
 class AwsDatabaseWrapper {
   private db: any;
@@ -151,7 +151,7 @@ async function logRetentionAuditEvent(
   details: string
 ): Promise<void> {
   const { db } = await databaseWrapper.createAuthenticatedDatabaseClient();
-  
+
   await databaseWrapper.safeInsert(() =>
     db.insert(webhookHipaaAuditLog).values({
       id: crypto.randomUUID(),
@@ -228,7 +228,7 @@ async function runDataRetentionForOrganization(
         'WARNING'
       );
 
-      await putMetric('RetentionPolicyFailures', 1, 'Count', {
+      await putMetric('RetentionPolicyFailures', 1, StandardUnit.Count, {
         OrganizationId: organizationId,
       });
 
@@ -249,7 +249,7 @@ async function runDataRetentionForOrganization(
       'CRITICAL'
     );
 
-    await putMetric('RetentionErrors', 1, 'Count', {
+    await putMetric('RetentionErrors', 1, StandardUnit.Count, {
       OrganizationId: organizationId,
     });
 
@@ -303,7 +303,7 @@ export const handler = async (
     if (organizations.length === 0) {
       console.log('No organizations with active webhooks found');
 
-      await putMetric('ProcessedOrganizations', 0, 'Count');
+      await putMetric('ProcessedOrganizations', 0, StandardUnit.Count);
 
       return {
         statusCode: 200,
@@ -317,7 +317,7 @@ export const handler = async (
 
     console.log(`Found ${organizations.length} organizations with active webhooks`);
 
-    await putMetric('OrganizationsToProcess', organizations.length, 'Count');
+    await putMetric('OrganizationsToProcess', organizations.length, StandardUnit.Count);
 
     for (const organizationId of organizations) {
       if (Date.now() - startTime > EXECUTION_TIME_LIMIT) {
@@ -347,12 +347,12 @@ export const handler = async (
 
     const processingTime = Date.now() - startTime;
 
-    await putMetric('ProcessingTime', processingTime, 'Milliseconds');
-    await putMetric('ProcessedOrganizations', processedOrganizations, 'Count');
-    await putMetric('TotalDeletedRecords', totalDeletedRecords, 'Count');
+    await putMetric('ProcessingTime', processingTime, StandardUnit.Milliseconds);
+    await putMetric('ProcessedOrganizations', processedOrganizations, StandardUnit.Count);
+    await putMetric('TotalDeletedRecords', totalDeletedRecords, StandardUnit.Count);
 
     if (failedOrganizations > 0) {
-      await putMetric('FailedOrganizations', failedOrganizations, 'Count');
+      await putMetric('FailedOrganizations', failedOrganizations, StandardUnit.Count);
     }
 
     const summary = {
@@ -390,8 +390,8 @@ export const handler = async (
       'CRITICAL'
     );
 
-    await putMetric('CriticalErrors', 1, 'Count');
-    await putMetric('ProcessingTime', processingTime, 'Milliseconds');
+    await putMetric('CriticalErrors', 1, StandardUnit.Count);
+    await putMetric('ProcessingTime', processingTime, StandardUnit.Milliseconds);
 
     return {
       statusCode: 500,

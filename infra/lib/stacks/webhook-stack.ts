@@ -17,7 +17,7 @@ import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import { Construct } from 'constructs';
 
 interface WebhookStackProps extends cdk.StackProps {
-  environment: 'staging' | 'prod';
+  stageName: 'staging' | 'prod';
   database: rds.DatabaseCluster;
   eventBus?: events.EventBus;
   hipaaComplianceEmail?: string; // Email for HIPAA compliance alerts
@@ -38,25 +38,30 @@ export class WebhookStack extends cdk.Stack {
   public hipaaComplianceAlertsTopic: sns.Topic;
   public dataRetentionFunction: lambda.Function;
   public hipaaAuditLogGroup: logs.LogGroup;
+  public webhookSigningKeySecret: secretsManager.Secret;
+
+  private readonly stageName: string;
 
   constructor(scope: Construct, id: string, props: WebhookStackProps) {
     super(scope, id, props);
 
+    this.stageName = props.stageName;
+
     // Create custom EventBridge bus or use provided one
     this.eventBus = props.eventBus ?? new events.EventBus(this, 'WebhookEventBus', {
-      eventBusName: `foresight-webhooks-${props.environment}`,
+      eventBusName: `foresight-webhooks-${props.stageName}`,
     });
 
     // Create DLQ for failed webhook deliveries
     this.webhookDlq = new sqs.Queue(this, 'WebhookDeadLetterQueue', {
-      queueName: `foresight-webhook-dlq-${props.environment}`,
+      queueName: `foresight-webhook-dlq-${props.stageName}`,
       retentionPeriod: cdk.Duration.days(14),
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
     // Create webhook delivery queue with retry mechanism
     this.webhookQueue = new sqs.Queue(this, 'WebhookDeliveryQueue', {
-      queueName: `foresight-webhook-delivery-${props.environment}`,
+      queueName: `foresight-webhook-delivery-${props.stageName}`,
       visibilityTimeout: cdk.Duration.seconds(90), // 3x Lambda timeout
       deadLetterQueue: {
         queue: this.webhookDlq,
@@ -67,14 +72,14 @@ export class WebhookStack extends cdk.Stack {
 
     // Create webhook processor Lambda (processes events and determines deliveries)
     this.webhookProcessorFunction = new lambdaNodejs.NodejsFunction(this, 'WebhookProcessor', {
-      functionName: `foresight-webhook-processor-${props.environment}`,
+      functionName: `foresight-webhook-processor-${props.stageName}`,
       entry: '../packages/functions/webhooks/webhook-processor.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
-        NODE_ENV: props.environment,
+        NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
@@ -92,14 +97,14 @@ export class WebhookStack extends cdk.Stack {
 
     // Create webhook delivery Lambda (handles actual HTTP deliveries)
     this.webhookDeliveryFunction = new lambdaNodejs.NodejsFunction(this, 'WebhookDelivery', {
-      functionName: `foresight-webhook-delivery-${props.environment}`,
+      functionName: `foresight-webhook-delivery-${props.stageName}`,
       entry: '../packages/functions/webhooks/webhook-delivery.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
-        NODE_ENV: props.environment,
+        NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
@@ -138,7 +143,7 @@ export class WebhookStack extends cdk.Stack {
     this.createDlqMonitoring();
 
     // Apply tags
-    this.applyTags(props.environment);
+    this.applyTags(props.stageName);
 
     // Create outputs
     this.createOutputs();
@@ -223,7 +228,7 @@ export class WebhookStack extends cdk.Stack {
   private createEventBridgeRules(): void {
     // Organization events rule
     const organizationRule = new events.Rule(this, 'OrganizationEventsRule', {
-      ruleName: `foresight-organization-events-${this.node.tryGetContext('environment') || 'dev'}`,
+      ruleName: `foresight-organization-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
         source: ['foresight.organizations'],
@@ -240,7 +245,7 @@ export class WebhookStack extends cdk.Stack {
 
     // User events rule
     const userRule = new events.Rule(this, 'UserEventsRule', {
-      ruleName: `foresight-user-events-${this.node.tryGetContext('environment') || 'dev'}`,
+      ruleName: `foresight-user-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
         source: ['foresight.users'],
@@ -257,7 +262,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Patient events rule
     const patientRule = new events.Rule(this, 'PatientEventsRule', {
-      ruleName: `foresight-patient-events-${this.node.tryGetContext('environment') || 'dev'}`,
+      ruleName: `foresight-patient-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
         source: ['foresight.patients'],
@@ -273,7 +278,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Claims events rule
     const claimsRule = new events.Rule(this, 'ClaimsEventsRule', {
-      ruleName: `foresight-claims-events-${this.node.tryGetContext('environment') || 'dev'}`,
+      ruleName: `foresight-claims-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
         source: ['foresight.claims'],
@@ -293,7 +298,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Document events rule
     const documentRule = new events.Rule(this, 'DocumentEventsRule', {
-      ruleName: `foresight-document-events-${this.node.tryGetContext('environment') || 'dev'}`,
+      ruleName: `foresight-document-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
         source: ['foresight.documents'],
@@ -312,14 +317,14 @@ export class WebhookStack extends cdk.Stack {
   private createDlqMonitoring(): void {
     // Create Lambda for DLQ processing and alerting
     const dlqProcessor = new lambdaNodejs.NodejsFunction(this, 'WebhookDlqProcessor', {
-      functionName: `foresight-webhook-dlq-processor-${this.node.tryGetContext('environment') || 'dev'}`,
+      functionName: `foresight-webhook-dlq-processor-${this.stageName}`,
       entry: '../packages/functions/webhooks/webhook-dlq-processor.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.seconds(30),
       memorySize: 256,
       environment: {
-        NODE_ENV: this.node.tryGetContext('environment') || 'dev',
+        NODE_ENV: this.stageName,
         DATABASE_SECRET_ARN: this.node.tryGetContext('database')?.secretArn || '',
         DATABASE_CLUSTER_ARN: this.node.tryGetContext('database')?.clusterArn || '',
         DATABASE_NAME: 'rcm',
@@ -376,20 +381,20 @@ export class WebhookStack extends cdk.Stack {
   private createHipaaComplianceInfrastructure(props: WebhookStackProps): void {
     // Create KMS key for PHI encryption
     this.phiEncryptionKey = new kms.Key(this, 'PhiEncryptionKey', {
-      description: `PHI encryption key for webhooks - ${props.environment}`,
+      description: `PHI encryption key for webhooks - ${props.stageName}`,
       enableKeyRotation: true, // Automatic annual rotation for HIPAA compliance
-      removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // Create alias for easier reference
     new kms.Alias(this, 'PhiEncryptionKeyAlias', {
-      aliasName: `alias/foresight-webhook-phi-${props.environment}`,
+      aliasName: `alias/foresight-webhook-phi-${props.stageName}`,
       targetKey: this.phiEncryptionKey,
     });
 
     // Create SNS topic for HIPAA compliance alerts
     this.hipaaComplianceAlertsTopic = new sns.Topic(this, 'HipaaComplianceAlerts', {
-      topicName: `foresight-webhook-hipaa-alerts-${props.environment}`,
+      topicName: `foresight-webhook-hipaa-alerts-${props.stageName}`,
       displayName: 'HIPAA Compliance Alerts',
       fifo: false,
     });
@@ -403,21 +408,38 @@ export class WebhookStack extends cdk.Stack {
 
     // Create CloudWatch Log Group for HIPAA audit logs
     this.hipaaAuditLogGroup = new logs.LogGroup(this, 'HipaaAuditLogGroup', {
-      logGroupName: `/aws/lambda/foresight-webhook-hipaa-audit-${props.environment}`,
-      retention: props.environment === 'prod' ? logs.RetentionDays.SEVEN_YEARS : logs.RetentionDays.ONE_YEAR,
-      removalPolicy: props.environment === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      logGroupName: `/aws/lambda/foresight-webhook-hipaa-audit-${props.stageName}`,
+      retention: props.stageName === 'prod' ? logs.RetentionDays.SEVEN_YEARS : logs.RetentionDays.ONE_YEAR,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Create webhook signing secret template for organizations
+    this.webhookSigningKeySecret = new secretsManager.Secret(this, 'WebhookSigningKeySecret', {
+      secretName: `rcm-webhook-signing-keys-${props.stageName}`,
+      description: 'Template webhook signing secret for HMAC verification - organizations will create specific secrets',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          description: 'Webhook signing keys for Foresight CDSS',
+          template: true,
+        }),
+        generateStringKey: 'example_signing_key',
+        excludeCharacters: '"\\/',
+        includeSpace: false,
+        passwordLength: 64,
+      },
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
     // Create data retention Lambda function
     this.dataRetentionFunction = new lambdaNodejs.NodejsFunction(this, 'DataRetentionFunction', {
-      functionName: `foresight-webhook-data-retention-${props.environment}`,
+      functionName: `foresight-webhook-data-retention-${props.stageName}`,
       entry: '../packages/functions/webhooks/data-retention-scheduler.ts',
       handler: 'handler',
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.minutes(15), // Longer timeout for batch operations
       memorySize: 1024,
       environment: {
-        NODE_ENV: props.environment,
+        NODE_ENV: props.stageName,
         DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
@@ -436,7 +458,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Schedule data retention to run daily at 2 AM UTC
     const retentionScheduleRule = new events.Rule(this, 'DataRetentionSchedule', {
-      ruleName: `foresight-webhook-retention-schedule-${props.environment}`,
+      ruleName: `foresight-webhook-retention-schedule-${props.stageName}`,
       schedule: events.Schedule.cron({ hour: '2', minute: '0' }),
       description: 'Daily execution of HIPAA data retention policies',
     });
@@ -536,7 +558,7 @@ export class WebhookStack extends cdk.Stack {
   private createHipaaComplianceAlarms(): void {
     // Alarm for failed webhook deliveries (potential compliance issue)
     new cloudwatch.Alarm(this, 'FailedWebhookDeliveriesAlarm', {
-      alarmName: `foresight-webhook-failed-deliveries-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmName: `foresight-webhook-failed-deliveries-${this.stageName}`,
       alarmDescription: 'High number of failed webhook deliveries - potential HIPAA compliance issue',
       metric: new cloudwatch.Metric({
         namespace: 'AWS/SQS',
@@ -553,7 +575,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Alarm for PHI encryption failures
     new cloudwatch.Alarm(this, 'PhiEncryptionFailuresAlarm', {
-      alarmName: `foresight-webhook-phi-encryption-failures-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmName: `foresight-webhook-phi-encryption-failures-${this.stageName}`,
       alarmDescription: 'PHI encryption failures detected - immediate attention required',
       metric: new cloudwatch.Metric({
         namespace: 'Foresight/Webhooks',
@@ -567,7 +589,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Alarm for BAA violations
     new cloudwatch.Alarm(this, 'BaaViolationsAlarm', {
-      alarmName: `foresight-webhook-baa-violations-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmName: `foresight-webhook-baa-violations-${this.stageName}`,
       alarmDescription: 'BAA violations detected - immediate compliance review required',
       metric: new cloudwatch.Metric({
         namespace: 'Foresight/Webhooks',
@@ -581,7 +603,7 @@ export class WebhookStack extends cdk.Stack {
 
     // Alarm for data retention policy violations
     new cloudwatch.Alarm(this, 'DataRetentionViolationsAlarm', {
-      alarmName: `foresight-webhook-retention-violations-${this.node.tryGetContext('environment') || 'dev'}`,
+      alarmName: `foresight-webhook-retention-violations-${this.stageName}`,
       alarmDescription: 'Data retention policy violations detected',
       metric: new cloudwatch.Metric({
         namespace: 'Foresight/Webhooks',
@@ -666,6 +688,12 @@ export class WebhookStack extends cdk.Stack {
       value: this.hipaaAuditLogGroup.logGroupName,
       description: 'CloudWatch Log Group for HIPAA audit logs',
       exportName: `${this.stackName}-hipaa-audit-log-group-name`,
+    });
+
+    new cdk.CfnOutput(this, 'WebhookSigningKeySecretArn', {
+      value: this.webhookSigningKeySecret.secretArn,
+      description: 'ARN of the webhook signing secret template',
+      exportName: `${this.stackName}-webhook-signing-secret-arn`,
     });
   }
 

@@ -2,6 +2,8 @@ import { eq, and } from 'drizzle-orm';
 import { WebhookHipaaComplianceManager, PhiDataClassifier } from './hipaa-compliance';
 import { PhiEncryptionManager, PhiFieldDetector } from './phi-encryption';
 import type { DatabaseWrapper, HipaaComplianceStatus, PhiDataClassification } from './types';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { createHmac } from 'node:crypto';
 
 /**
  * HIPAA-Compliant Webhook Processor
@@ -11,6 +13,7 @@ export class HipaaWebhookProcessor {
   private readonly complianceManager: WebhookHipaaComplianceManager;
   private readonly encryptionManager?: PhiEncryptionManager;
   private readonly databaseWrapper: DatabaseWrapper;
+  private readonly secretsClient: SecretsManagerClient;
 
   constructor(
     organizationId: string,
@@ -20,6 +23,7 @@ export class HipaaWebhookProcessor {
   ) {
     this.databaseWrapper = databaseWrapper;
     this.complianceManager = new WebhookHipaaComplianceManager(organizationId, databaseWrapper, userId);
+    this.secretsClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
     if (kmsKeyId) {
       this.encryptionManager = new PhiEncryptionManager(kmsKeyId);
@@ -321,9 +325,32 @@ export class HipaaWebhookProcessor {
 
       // Create HMAC signature if secret is available
       if (secretId) {
-        // TODO: Fetch actual secret from AWS Secrets Manager using secretId
-        // For now, skip signature creation
-        headers['X-Foresight-Signature-Method'] = 'HMAC-SHA256';
+        try {
+          const secretResult = await this.fetchWebhookSecret(secretId);
+          
+          if (secretResult.error) {
+            console.warn(`Failed to fetch webhook secret for signing: ${secretResult.error}`);
+            // Continue without signature - this is logged for monitoring
+            headers['X-Foresight-Signature-Method'] = 'HMAC-SHA256';
+            headers['X-Foresight-Signature-Status'] = 'secret-fetch-failed';
+          } else {
+            const payloadString = JSON.stringify(payload);
+            const timestamp = headers['X-Foresight-Timestamp'];
+            
+            // Create signature payload: timestamp + payload (standard webhook security practice)
+            const signaturePayload = `${timestamp}.${payloadString}`;
+            const signature = this.createWebhookSignature(signaturePayload, secretResult.secret);
+            
+            headers['X-Foresight-Signature-Method'] = 'HMAC-SHA256';
+            headers['X-Foresight-Signature'] = `sha256=${signature}`;
+            headers['X-Foresight-Signature-Status'] = 'signed';
+          }
+        } catch (error) {
+          console.error('Error during webhook signature creation:', error);
+          // Continue without signature - this is logged for monitoring
+          headers['X-Foresight-Signature-Method'] = 'HMAC-SHA256';
+          headers['X-Foresight-Signature-Status'] = 'signature-failed';
+        }
       }
 
       // Execute request with timeout
@@ -375,6 +402,49 @@ export class HipaaWebhookProcessor {
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
+  }
+
+  /**
+   * Fetch webhook secret from AWS Secrets Manager
+   */
+  private async fetchWebhookSecret(secretId: string): Promise<{ secret: string; error?: string }> {
+    try {
+      const command = new GetSecretValueCommand({ SecretId: secretId });
+      const response = await this.secretsClient.send(command);
+      
+      if (!response.SecretString) {
+        return { secret: '', error: 'Secret value is empty' };
+      }
+      
+      // Secrets Manager can store either plain text or JSON
+      try {
+        const parsed = JSON.parse(response.SecretString);
+        // If it's JSON, look for common webhook secret keys
+        const secret = parsed.secret || parsed.webhook_secret || parsed.key || parsed.value;
+        if (typeof secret === 'string') {
+          return { secret };
+        }
+        return { secret: '', error: 'Secret JSON does not contain a valid secret field' };
+      } catch {
+        // If it's not JSON, treat it as plain text
+        return { secret: response.SecretString };
+      }
+    } catch (error) {
+      console.error('Failed to fetch webhook secret:', error);
+      return { 
+        secret: '', 
+        error: `Failed to fetch secret: ${error instanceof Error ? error.message : 'Unknown error'}` 
+      };
+    }
+  }
+
+  /**
+   * Create HMAC signature for webhook payload
+   */
+  private createWebhookSignature(payload: string, secret: string, algorithm = 'sha256'): string {
+    const hmac = createHmac(algorithm, secret);
+    hmac.update(payload);
+    return hmac.digest('hex');
   }
 
   /**

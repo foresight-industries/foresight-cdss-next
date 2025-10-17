@@ -101,7 +101,7 @@ for (const envName of ['staging', 'prod']) {
   // Enhanced webhook system
   const webhooks = new WebhookStack(app, `RCM-Webhooks-${envName}`, {
     env,
-    environment: envName as 'staging' | 'prod',
+    stageName: envName as 'staging' | 'prod',
     database: database.cluster,
   });
 
