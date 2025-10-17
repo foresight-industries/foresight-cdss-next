@@ -217,5 +217,10 @@ export class QueueStack extends cdk.Stack {
       value: this.webhookQueue.queueUrl,
       exportName: `RCM-WebhookQueueUrl-${props.stageName}`,
     });
+
+    new cdk.CfnOutput(this, 'DLQArn', {
+      value: this.dlq.queueArn,
+      exportName: `RCM-DLQArn-${props.stageName}`,
+    });
   }
 }

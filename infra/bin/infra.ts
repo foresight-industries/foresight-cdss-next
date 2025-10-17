@@ -81,7 +81,6 @@ for (const envName of ['staging', 'prod']) {
     env,
     stageName: envName,
     database: database.cluster,
-    queues,
   });
 
   const security = new SecurityStack(app, `RCM-Security-${envName}`, {

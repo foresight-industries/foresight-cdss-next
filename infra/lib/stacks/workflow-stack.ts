@@ -5,17 +5,21 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 interface WorkflowStackProps extends cdk.StackProps {
   stageName: string;
   database: any;
-  queues: any;
 }
 
 export class WorkflowStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WorkflowStackProps) {
     super(scope, id, props);
+
+    // Import DLQ from the queue stack using CloudFormation import
+    const dlqArn = cdk.Fn.importValue(`RCM-DLQArn-${props.stageName}`);
+    const dlq = sqs.Queue.fromQueueArn(this, 'ImportedDLQ', dlqArn);
 
     // Lambda functions for workflow steps
     const checkEligibility = new lambdaNodejs.NodejsFunction(this, 'CheckEligibilityFn', {
@@ -121,6 +125,7 @@ export class WorkflowStack extends cdk.Stack {
         target: 'node22',
         externalModules: ['@aws-sdk/*'],
       },
+      logRetention: logs.RetentionDays.ONE_WEEK, // This will prevent log group conflicts
     });
 
     // Prior Authorization Lambda Functions with AWS Comprehend Medical Integration
@@ -304,6 +309,60 @@ export class WorkflowStack extends cdk.Stack {
       removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
+    // Create the main workflow states that will be reused
+    const parallelValidation = new stepfunctions.Parallel(this, 'ParallelValidation', {
+      comment: 'Run eligibility and medical necessity checks in parallel'
+    })
+    .branch(
+      // Branch 1: Eligibility Check
+      new stepfunctionsTasks.LambdaInvoke(this, 'CheckEligibilityParallel', {
+        lambdaFunction: checkEligibility,
+        outputPath: '$.Payload',
+        comment: 'Verify patient eligibility and coverage'
+      })
+    )
+    .branch(
+      // Branch 2: Medical Necessity Validation
+      new stepfunctionsTasks.LambdaInvoke(this, 'ValidateMedicalNecessityStep', {
+        lambdaFunction: validateMedicalNecessity,
+        outputPath: '$.Payload',
+        comment: 'Use AWS Comprehend Medical to validate medical necessity'
+      })
+    );
+
+    // Step 4: Evaluate results and decide on submission
+    const submissionChoice = new stepfunctions.Choice(this, 'ReadyForSubmission?')
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.stringEquals('$[0].eligible', 'true'),
+          stepfunctions.Condition.numberGreaterThan('$[1].medical_necessity_confidence', 85),
+          stepfunctions.Condition.stringEquals('$[1].recommendation', 'approve')
+        ),
+        // Auto-submit PA
+        new stepfunctionsTasks.LambdaInvoke(this, 'SubmitPriorAuthStep', {
+          lambdaFunction: submitPriorAuth,
+          inputPath: '$',
+          outputPath: '$.Payload',
+          comment: 'Auto-submit PA to payer',
+        })
+        .next(
+          new stepfunctions.Choice(this, 'SubmissionSuccessful?')
+            .when(
+              stepfunctions.Condition.stringEquals('$.submission_status', 'success'),
+              new stepfunctions.Succeed(this, 'PASubmitted')
+            )
+            .otherwise(
+              new stepfunctions.Succeed(this, 'SubmissionFailed')
+            )
+        )
+      )
+      .otherwise(
+        // Not ready for submission
+        new stepfunctions.Succeed(this, 'NotReadyForSubmission')
+      );
+
+    const mainWorkflowChain = stepfunctions.Chain.start(parallelValidation).next(submissionChoice);
+
     // Enhanced Prior Authorization Workflow with AWS Comprehend Medical
     const priorAuthWorkflow = new stepfunctions.StateMachine(this, 'PriorAuthWorkflow', {
       stateMachineName: `rcm-prior-auth-${props.stageName}`,
@@ -344,7 +403,7 @@ export class WorkflowStack extends cdk.Stack {
                     ),
                     // Send to manual review
                     new stepfunctionsTasks.SqsSendMessage(this, 'SendToManualReviewQueue', {
-                      queue: props.queues.dlq,
+                      queue: dlq,
                       messageBody: stepfunctions.TaskInput.fromObject({
                         'priorAuthId.$': '$.priorAuthId',
                         'issues.$': '$.remaining_issues',
@@ -358,6 +417,7 @@ export class WorkflowStack extends cdk.Stack {
                     new stepfunctions.Pass(this, 'ValidationCorrected', {
                       comment: 'All validation issues auto-corrected'
                     })
+                    .next(mainWorkflowChain)
                   )
               )
             )
@@ -365,189 +425,7 @@ export class WorkflowStack extends cdk.Stack {
               new stepfunctions.Pass(this, 'NoValidationIssues', {
                 comment: 'PA passed initial validation'
               })
-            )
-        )
-        .next(
-          // Step 3: Parallel eligibility and medical necessity validation
-          new stepfunctions.Parallel(this, 'ParallelValidation', {
-            comment: 'Run eligibility and medical necessity checks in parallel'
-          })
-          .branch(
-            // Branch 1: Eligibility Check
-            new stepfunctionsTasks.LambdaInvoke(this, 'CheckEligibilityParallel', {
-              lambdaFunction: checkEligibility,
-              outputPath: '$.Payload',
-              comment: 'Verify patient eligibility and coverage'
-            })
-          )
-          .branch(
-            // Branch 2: Medical Necessity Validation
-            new stepfunctionsTasks.LambdaInvoke(this, 'ValidateMedicalNecessityStep', {
-              lambdaFunction: validateMedicalNecessity,
-              outputPath: '$.Payload',
-              comment: 'Use AWS Comprehend Medical to validate medical necessity'
-            })
-          )
-        )
-        .next(
-          // Step 4: Evaluate results and decide on submission
-          new stepfunctions.Choice(this, 'ReadyForSubmission?')
-            .when(
-              stepfunctions.Condition.and(
-                stepfunctions.Condition.stringEquals('$[0].eligible', 'true'),
-                stepfunctions.Condition.numberGreaterThan('$[1].medical_necessity_confidence', 85),
-                stepfunctions.Condition.stringEquals('$[1].recommendation', 'approve')
-              ),
-              // Auto-submit PA
-              new stepfunctionsTasks.LambdaInvoke(this, 'SubmitPriorAuthStep', {
-                lambdaFunction: submitPriorAuth,
-                inputPath: '$',
-                outputPath: '$.Payload',
-                comment: 'Auto-submit PA to payer',
-              })
-              .next(
-                new stepfunctions.Choice(this, 'SubmissionSuccessful?')
-                  .when(
-                    stepfunctions.Condition.stringEquals('$.submission_status', 'success'),
-                    // Wait for payer response
-                    new stepfunctions.Wait(this, 'WaitForPayerResponse', {
-                      time: stepfunctions.WaitTime.duration(cdk.Duration.hours(24)),
-                    })
-                    .next(
-                      new stepfunctionsTasks.LambdaInvoke(this, 'CheckPAStatus', {
-                        lambdaFunction: checkClaimStatus,
-                        outputPath: '$.Payload',
-                        comment: 'Check PA status with payer'
-                      })
-                      .next(
-                        new stepfunctions.Choice(this, 'PAResponseReceived?')
-                          .when(
-                            stepfunctions.Condition.stringEquals('$.status', 'approved'),
-                            // PA Approved - Success
-                            new stepfunctionsTasks.LambdaInvoke(this, 'NotifyApproval', {
-                              lambdaFunction: sendNotification,
-                              inputPath: '$',
-                            })
-                            .next(new stepfunctions.Succeed(this, 'PAApproved'))
-                          )
-                          .when(
-                            stepfunctions.Condition.stringEquals('$.status', 'denied'),
-                            // PA Denied - Analyze and potentially retry
-                            new stepfunctionsTasks.LambdaInvoke(this, 'AnalyzeDenialStep', {
-                              lambdaFunction: analyzeDenialReason,
-                              outputPath: '$.Payload',
-                              comment: 'Analyze denial reason using AWS Comprehend Medical'
-                            })
-                            .next(
-                              new stepfunctions.Choice(this, 'CanAutoRetry?')
-                                .when(
-                                  stepfunctions.Condition.and(
-                                    stepfunctions.Condition.booleanEquals('$.auto_retry_possible', true),
-                                    stepfunctions.Condition.numberLessThan('$.retry_count', 3)
-                                  ),
-                                  // Auto-retry with corrections
-                                  new stepfunctionsTasks.LambdaInvoke(this, 'AutoRetryDenialStep', {
-                                    lambdaFunction: autoRetryDenial,
-                                    outputPath: '$.Payload',
-                                    comment: 'Auto-retry PA with corrections based on denial reason'
-                                  })
-                                  .next(
-                                    new stepfunctions.Wait(this, 'WaitBeforeRetry', {
-                                      time: stepfunctions.WaitTime.duration(cdk.Duration.hours(2)),
-                                    })
-                                    .next(
-                                      new stepfunctionsTasks.LambdaInvoke(this, 'ResubmitPriorAuth', {
-                                        lambdaFunction: submitPriorAuth,
-                                        outputPath: '$.Payload',
-                                        comment: 'Resubmit corrected PA'
-                                      })
-                                      .next(
-                                        new stepfunctions.Choice(this, 'RetrySubmissionSuccessful?')
-                                          .when(
-                                            stepfunctions.Condition.stringEquals('$.submission_status', 'success'),
-                                            new stepfunctions.Wait(this, 'WaitForRetryResponse', {
-                                              time: stepfunctions.WaitTime.duration(cdk.Duration.hours(24)),
-                                            })
-                                            .next(
-                                              new stepfunctionsTasks.LambdaInvoke(this, 'CheckRetryStatus', {
-                                                lambdaFunction: checkClaimStatus,
-                                                outputPath: '$.Payload',
-                                              })
-                                              .next(
-                                                new stepfunctions.Choice(this, 'RetryApproved?')
-                                                  .when(
-                                                    stepfunctions.Condition.stringEquals('$.status', 'approved'),
-                                                    new stepfunctionsTasks.LambdaInvoke(this, 'NotifyRetrySuccess', {
-                                                      lambdaFunction: sendNotification,
-                                                    })
-                                                    .next(new stepfunctions.Succeed(this, 'PAApprovedOnRetry'))
-                                                  )
-                                                  .otherwise(
-                                                    // Send to manual review after failed retry
-                                                    new stepfunctionsTasks.SqsSendMessage(this, 'SendFailedRetryToReview', {
-                                                      queue: props.queues.dlq,
-                                                      messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-                                                    })
-                                                    .next(new stepfunctions.Succeed(this, 'SentToManualReviewAfterRetry'))
-                                                  )
-                                              )
-                                            )
-                                          )
-                                          .otherwise(
-                                            new stepfunctionsTasks.SqsSendMessage(this, 'SendRetryFailureToReview', {
-                                              queue: props.queues.dlq,
-                                              messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-                                            })
-                                            .next(new stepfunctions.Succeed(this, 'RetrySubmissionFailed'))
-                                          )
-                                      )
-                                    )
-                                  )
-                                )
-                                .otherwise(
-                                  // Send to manual review
-                                  new stepfunctionsTasks.SqsSendMessage(this, 'SendDenialToReview', {
-                                    queue: props.queues.dlq,
-                                    messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-                                  })
-                                  .next(new stepfunctions.Succeed(this, 'DenialSentToManualReview'))
-                                )
-                            )
-                          )
-                          .otherwise(
-                            // Still pending - could implement additional wait/retry logic here
-                            new stepfunctionsTasks.SqsSendMessage(this, 'SendPendingToReview', {
-                              queue: props.queues.dlq,
-                              messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-                            })
-                            .next(new stepfunctions.Succeed(this, 'PendingResponse'))
-                          )
-                      )
-                    )
-                  )
-                  .otherwise(
-                    // Submission failed
-                    new stepfunctionsTasks.SqsSendMessage(this, 'SendSubmissionFailureToReview', {
-                      queue: props.queues.dlq,
-                      messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-                    })
-                    .next(new stepfunctions.Succeed(this, 'SubmissionFailed'))
-                  )
-              )
-            )
-            .otherwise(
-              // Not ready for auto-submission - send to manual review
-              new stepfunctionsTasks.SqsSendMessage(this, 'SendToManualReviewFinal', {
-                queue: props.queues.dlq,
-                messageBody: stepfunctions.TaskInput.fromObject({
-                  'priorAuthId.$': '$.priorAuthId',
-                  'eligibility.$': '$[0]',
-                  'medicalNecessity.$': '$[1]',
-                  'reason': 'PA requires manual review before submission',
-                  'timestamp.$': '$$.State.EnteredTime'
-                }),
-              })
-              .next(new stepfunctions.Succeed(this, 'SentToManualReviewNotReady'))
+              .next(mainWorkflowChain)
             )
         ),
       tracingEnabled: true,
@@ -616,7 +494,7 @@ export class WorkflowStack extends cdk.Stack {
             )
             .otherwise(
               new stepfunctionsTasks.SqsSendMessage(this, 'SendToManualReview', {
-                queue: props.queues.dlq,
+                queue: dlq,
                 messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
               })
             )
@@ -646,7 +524,7 @@ export class WorkflowStack extends cdk.Stack {
           )
           .otherwise(
             new stepfunctionsTasks.SqsSendMessage(this, 'ManualReconciliation', {
-              queue: props.queues.dlq,
+              queue: dlq,
               messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
             })
           )
