@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Card, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,19 +56,32 @@ export default function WebhooksPage() {
   const fetchWebhooks = async () => {
     try {
       setLoading(true);
-      // Extract team slug from pathname: /team/[slug]/settings/webhooks
+      // Map frontend environment to backend environment
+      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+      
+      // Get organization_id from the current team
       const teamSlug = pathname.split('/')[2];
-      const response = await fetch(`/api/webhooks/config?environment=${environment}&team_slug=${teamSlug}`);
+      const orgResponse = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+      const orgData = await orgResponse.json();
+      
+      if (!orgResponse.ok || !orgData.organization?.id) {
+        setError('Failed to get organization information');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await fetch(`/api/webhooks/config?environment=${backendEnvironment}&organization_id=${orgData.organization.id}`);
       const data = await response.json();
 
       if (response.ok) {
-        setWebhooks(data.webhooks || []);
+        setWebhooks(data.webhooks ?? []);
         setError(null);
       } else {
-        setError(data.error || 'Failed to fetch webhooks');
+        setError(data.error ?? 'Failed to fetch webhooks');
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -76,10 +89,27 @@ export default function WebhooksPage() {
 
   const handleCreateWebhook = async (formData: any) => {
     try {
+      // Map frontend environment to backend environment
+      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+
+      // Get organization_id from the current team
+      const teamSlug = pathname.split('/')[2];
+      const orgResponse = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+      const orgData = await orgResponse.json();
+
+      if (!orgResponse.ok || !orgData.organization?.id) {
+        setError('Failed to get organization information');
+        return;
+      }
+
       const response = await fetch('/api/webhooks/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, environment })
+        body: JSON.stringify({
+          ...formData,
+          environment: backendEnvironment,
+          organization_id: orgData.organization.id
+        })
       });
 
       const data = await response.json();
@@ -94,6 +124,7 @@ export default function WebhooksPage() {
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     }
   };
 
@@ -114,6 +145,7 @@ export default function WebhooksPage() {
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     }
   };
 
@@ -133,11 +165,12 @@ export default function WebhooksPage() {
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     }
   };
 
   const totalWebhooks = webhooks.length;
-  const activeWebhooks = webhooks.filter(w => w.active).length;
+  const activeWebhooks = webhooks.filter(w => w.is_active).length;
   const totalDeliveries = webhooks.reduce((sum, w) => sum + w.stats.total_deliveries, 0);
   const successfulDeliveries = webhooks.reduce((sum, w) => sum + w.stats.successful_deliveries, 0);
   const overallSuccessRate = totalDeliveries > 0 ? Math.round((successfulDeliveries / totalDeliveries) * 100) : 0;
@@ -264,14 +297,14 @@ export default function WebhooksPage() {
                   className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${webhook.active ? "bg-green-500" : "bg-gray-400"}`} />
+                    <div className={`w-3 h-3 rounded-full ${webhook.is_active ? "bg-green-500" : "bg-gray-400"}`} />
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-slate-900 dark:text-slate-100">
                           {webhook.name}
                         </p>
-                        <Badge variant={webhook.active ? "default" : "secondary"}>
-                          {webhook.active ? "Active" : "Inactive"}
+                        <Badge variant={webhook.is_active ? "default" : "secondary"}>
+                          {webhook.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
@@ -283,7 +316,7 @@ export default function WebhooksPage() {
                           <Clock className="h-4 w-4" />
                           {webhook.timeout_seconds}s timeout
                         </span>
-                        <span>{webhook.events.length} events</span>
+                        <span>{webhook.events?.length} events</span>
                         <span>{successRate}% success rate</span>
                       </div>
                       {webhook.last_error && (
@@ -355,7 +388,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
     timeout_seconds: 30
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
   };
@@ -432,7 +465,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
               min="1"
               max="10"
               value={formData.retry_count}
-              onChange={(e) => setFormData(prev => ({ ...prev, retry_count: parseInt(e.target.value) }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, retry_count: Number.parseInt(e.target.value) }))}
             />
           </div>
           <div>
@@ -443,7 +476,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
               min="5"
               max="300"
               value={formData.timeout_seconds}
-              onChange={(e) => setFormData(prev => ({ ...prev, timeout_seconds: parseInt(e.target.value) }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, timeout_seconds: Number.parseInt(e.target.value) }))}
             />
           </div>
         </div>

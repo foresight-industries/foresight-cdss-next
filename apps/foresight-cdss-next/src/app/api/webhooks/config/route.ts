@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
-import { eq, and, isNull } from 'drizzle-orm';
-import { teamMembers, webhookConfigs, webhookSecrets, webhookEventSubscriptions, webhookDeliveries } from '@foresight-cdss-next/db';
+import { eq, and, isNull, sql } from 'drizzle-orm';
+import { teamMembers, webhookConfigs, webhookSecrets, webhookEventSubscriptions, webhookDeliveries, WebhookEnvironment } from '@foresight-cdss-next/db';
 import { SecretsManagerClient, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
 import crypto from 'node:crypto';
 
@@ -46,13 +46,13 @@ export async function GET(request: NextRequest) {
     const { db } = await createAuthenticatedDatabaseClient();
     const { searchParams } = new URL(request.url);
     const organizationId = searchParams.get('organization_id');
-    const environment = searchParams.get('environment') as 'staging' | 'production' || 'staging';
+    const environment = (searchParams.get('environment') as WebhookEnvironment) || 'staging';
 
     // Verify user has access to the organization
     const { data: membership } = await safeSingle(async () =>
-      db.select({ 
+      db.select({
         organizationId: teamMembers.organizationId,
-        role: teamMembers.role 
+        role: teamMembers.role
       })
       .from(teamMembers)
       .where(and(
@@ -73,7 +73,6 @@ export async function GET(request: NextRequest) {
       db.select({
         id: webhookConfigs.id,
         name: webhookConfigs.name,
-        description: webhookConfigs.description,
         url: webhookConfigs.url,
         environment: webhookConfigs.environment,
         isActive: webhookConfigs.isActive,
@@ -90,7 +89,7 @@ export async function GET(request: NextRequest) {
       .from(webhookConfigs)
       .where(and(
         eq(webhookConfigs.organizationId, membershipData.organizationId),
-        eq(webhookConfigs.environment, environment),
+        eq(webhookConfigs.environment, sql`CAST(${environment} AS webhook_environment)`),
         isNull(webhookConfigs.deletedAt)
       ))
       .orderBy(webhookConfigs.createdAt)
@@ -104,7 +103,7 @@ export async function GET(request: NextRequest) {
           name: string;
           description: string | null;
           url: string;
-          environment: 'staging' | 'production';
+          environment: WebhookEnvironment;
           isActive: boolean;
           apiVersion: string | null;
           retryCount: number | null;
@@ -165,7 +164,7 @@ export async function GET(request: NextRequest) {
           pending_deliveries: deliveryList.filter(d => d.status === 'pending').length,
           average_response_time: deliveryList
             .filter(d => d.deliveryLatencyMs !== null)
-            .reduce((sum, d) => sum + (d.deliveryLatencyMs || 0), 0) / 
+            .reduce((sum, d) => sum + (d.deliveryLatencyMs || 0), 0) /
             deliveryList.filter(d => d.deliveryLatencyMs !== null).length || 0,
           recent_deliveries: deliveryList.slice(0, 10)
         };
@@ -204,11 +203,10 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const {
       name,
-      description,
       url,
       events,
       organization_id,
-      environment = 'staging'
+      environment: rawEnvironment = 'staging'
     } = body;
 
     if (!name || !url || !events || !Array.isArray(events) || !organization_id) {
@@ -217,9 +215,12 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    if (!['staging', 'production'].includes(environment)) {
+    // Validate and cast environment to proper enum type
+    const validEnvironments: WebhookEnvironment[] = ['staging', 'production'];
+    if (!validEnvironments.includes(rawEnvironment as WebhookEnvironment)) {
       return NextResponse.json({ error: 'Invalid environment. Must be staging or production' }, { status: 400 });
     }
+    const environment: WebhookEnvironment = rawEnvironment as WebhookEnvironment;
 
     // Validate URL
     try {
@@ -239,9 +240,9 @@ export async function POST(request: NextRequest) {
 
     // Verify user has admin permissions for the organization
     const { data: member } = await safeSingle(async () =>
-      db.select({ 
+      db.select({
         organizationId: teamMembers.organizationId,
-        role: teamMembers.role 
+        role: teamMembers.role
       })
       .from(teamMembers)
       .where(and(
@@ -256,7 +257,7 @@ export async function POST(request: NextRequest) {
     }
 
     const memberData = member as { organizationId: string; role: string };
-    
+
     if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
@@ -269,9 +270,9 @@ export async function POST(request: NextRequest) {
         .values({
           organizationId: organization_id,
           name,
-          description: description || null,
+          events,
           url,
-          environment: environment as 'staging' | 'production',
+          environment: sql`CAST(${environment} AS webhook_environment)`,
           isActive: true
         })
         .returning()
@@ -285,11 +286,13 @@ export async function POST(request: NextRequest) {
     const createdWebhook = webhook[0] as {
       id: string;
       name: string;
-      description: string | null;
       url: string;
-      environment: 'staging' | 'production';
+      events: string[];
+      environment: WebhookEnvironment;
       isActive: boolean;
       organizationId: string;
+      retryCount: number;
+      timeoutSeconds: number;
       createdAt: Date;
       updatedAt: Date;
     };
@@ -357,12 +360,12 @@ export async function POST(request: NextRequest) {
 
     } catch (secretError) {
       console.error('Error creating webhook secret:', secretError);
-      
+
       // Clean up the webhook config if secret creation failed
       await db.delete(webhookConfigs).where(eq(webhookConfigs.id, createdWebhook.id));
-      
-      return NextResponse.json({ 
-        error: 'Failed to create webhook secret. Webhook configuration has been rolled back.' 
+
+      return NextResponse.json({
+        error: 'Failed to create webhook secret. Webhook configuration has been rolled back.'
       }, { status: 500 });
     }
 

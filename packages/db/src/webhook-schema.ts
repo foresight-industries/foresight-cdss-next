@@ -51,7 +51,8 @@ export const webhookEventTypeEnum = pgEnum('webhook_event_type', [
   'claim.updated',
   'claim.submitted',
   'payment.received',
-  'eligibility.checked'
+  'eligibility.checked',
+  'user.deleted'
 ]);
 
 // ============================================================================
@@ -62,29 +63,29 @@ export const webhookEventTypeEnum = pgEnum('webhook_event_type', [
 export const webhookConfigs = pgTable('webhook_config', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  
+
   // Basic webhook details
   name: text('name').notNull(),
   url: text('url').notNull(),
-  description: text('description'),
   environment: webhookEnvironmentEnum('environment').notNull().default('production'),
-  
+  events: webhookEventTypeEnum('events').array().notNull().default([]),
+
   // API configuration
   apiVersion: varchar('api_version', { length: 10 }).default('v1'),
   contentType: varchar('content_type', { length: 50 }).default('application/json'),
   customHeaders: jsonb('custom_headers').default('{}'),
   userAgent: varchar('user_agent', { length: 255 }).default('Foresight-Webhooks/1.0'),
-  
+
   // Retry and timeout configuration
   retryCount: integer('retry_count').default(3),
   maxRetries: integer('max_retries').default(5),
   timeoutSeconds: integer('timeout_seconds').default(30),
   retryBackoffMultiplier: decimal('retry_backoff_multiplier', { precision: 3, scale: 2 }).default('2.0'),
-  
+
   // Security configuration
   signatureVersion: varchar('signature_version', { length: 10 }).default('v1'),
   primarySecretId: uuid('primary_secret_id'), // Will reference webhook_secrets.id
-  
+
   // HIPAA compliance configuration
   phiDataClassification: phiDataClassificationEnum('phi_data_classification').default('none').notNull(),
   hipaaComplianceStatus: hipaaComplianceStatusEnum('hipaa_compliance_status').default('non_compliant').notNull(),
@@ -94,12 +95,12 @@ export const webhookConfigs = pgTable('webhook_config', {
   vendorContact: varchar('vendor_contact', { length: 255 }),
   dataRetentionDays: integer('data_retention_days').default(30),
   requiresEncryption: boolean('requires_encryption').default(true).notNull(),
-  
+
   // Status and metadata
   isActive: boolean('is_active').default(true).notNull(),
   lastDelivery: timestamp('last_delivery'),
   lastSuccessfulDelivery: timestamp('last_successful_delivery'),
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -107,7 +108,6 @@ export const webhookConfigs = pgTable('webhook_config', {
 }, (table) => ({
   orgIdx: index('webhook_config_org_idx').on(table.organizationId),
   activeIdx: index('webhook_config_active_idx').on(table.isActive),
-  urlIdx: index('webhook_config_url_idx').on(table.url),
   environmentIdx: index('webhook_config_environment_idx').on(table.environment),
   uniqueWebhookPerOrgEnv: unique('unique_webhook_per_org_env').on(table.organizationId, table.environment, table.name),
 }));
@@ -116,14 +116,14 @@ export const webhookConfigs = pgTable('webhook_config', {
 export const webhookSecrets = pgTable('webhook_secrets', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id, { onDelete: 'cascade' }).notNull(),
-  
+
   // Secret details - stores AWS Secrets Manager reference
   secretId: text('secret_id').notNull(), // AWS Secrets Manager ARN
   algorithm: varchar('algorithm', { length: 20 }).default('sha256').notNull(),
   isActive: boolean('is_active').default(true).notNull(),
   expiresAt: timestamp('expires_at'),
   rotationToken: text('rotation_token'), // For secret rotation process
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -144,12 +144,12 @@ export const webhookConfigsWithSecretRef = pgTable('webhook_config', {
 export const webhookEventSubscriptions = pgTable('webhook_event_subscriptions', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id, { onDelete: 'cascade' }).notNull(),
-  
+
   // Event configuration
   eventType: webhookEventTypeEnum('event_type').notNull(),
   isEnabled: boolean('is_enabled').default(true).notNull(),
   eventFilter: jsonb('event_filter'), // Optional filters for the event
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -164,20 +164,20 @@ export const webhookEventSubscriptions = pgTable('webhook_event_subscriptions', 
 export const webhookEvents = pgTable('webhook_events', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  
+
   // Event details
   eventType: webhookEventTypeEnum('event_type').notNull(),
   environment: webhookEnvironmentEnum('environment').notNull().default('production'),
   entityId: uuid('entity_id'), // ID of the entity that changed
   entityType: varchar('entity_type', { length: 50 }), // Type of entity
-  
+
   // Event data
   eventData: jsonb('event_data').notNull(),
   metadata: jsonb('metadata').default('{}'),
-  
+
   // Processing status
   processedAt: timestamp('processed_at'),
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
@@ -194,35 +194,35 @@ export const webhookDeliveries = pgTable('webhook_delivery', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id).notNull(),
   webhookSecretId: uuid('webhook_secret_id').references(() => webhookSecrets.id),
-  
+
   // Event tracking
   eventType: varchar('event_type', { length: 50 }).notNull(),
   eventData: jsonb('event_data').notNull(),
   environment: webhookEnvironmentEnum('environment').notNull().default('production'),
   correlationId: uuid('correlation_id').defaultRandom(),
   sourceEventId: uuid('source_event_id').references(() => webhookEvents.id),
-  
+
   // Request details
   requestHeaders: jsonb('request_headers'),
   requestBodySize: integer('request_body_size'),
   signatureHeader: text('signature_header'),
   userAgent: varchar('user_agent', { length: 255 }).default('Foresight-Webhooks/1.0'),
-  
+
   // Response details
   httpStatus: integer('http_status'),
   responseBody: text('response_body'),
   responseHeaders: jsonb('response_headers'),
   responseBodySize: integer('response_body_size'),
   deliveryLatencyMs: integer('delivery_latency_ms'),
-  
+
   // Retry logic
   attemptCount: integer('attempt_count').default(1),
   deliveredAt: timestamp('delivered_at'),
   nextRetryAt: timestamp('next_retry_at'),
-  
+
   // Status
   status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, delivered, failed, retrying
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -242,20 +242,20 @@ export const webhookDeliveries = pgTable('webhook_delivery', {
 export const webhookDeliveryAttempts = pgTable('webhook_delivery_attempts', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookDeliveryId: uuid('webhook_delivery_id').references(() => webhookDeliveries.id, { onDelete: 'cascade' }).notNull(),
-  
+
   // Attempt details
   attemptNumber: integer('attempt_number').notNull(),
   startedAt: timestamp('started_at').defaultNow().notNull(),
   completedAt: timestamp('completed_at'),
-  
+
   // Response details
   httpStatus: integer('http_status'),
   responseTimeMs: integer('response_time_ms'),
-  
+
   // Error details
   errorMessage: text('error_message'),
   errorType: varchar('error_type', { length: 50 }), // 'timeout', 'connection', 'http_error', 'dns', etc.
-  
+
   // Request/Response data
   requestHeaders: jsonb('request_headers'),
   responseHeaders: jsonb('response_headers'),
@@ -271,31 +271,31 @@ export const webhookHipaaAuditLog = pgTable('webhook_hipaa_audit_log', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id).notNull(),
   webhookDeliveryId: uuid('webhook_delivery_id').references(() => webhookDeliveries.id),
-  
+
   // Audit event details
   auditEventType: varchar('audit_event_type', { length: 50 }).notNull(), // 'phi_accessed', 'baa_verified', 'data_transmitted', 'retention_policy_applied'
   userId: varchar('user_id', { length: 255 }),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  
+
   // PHI-specific details
   phiDataTypes: jsonb('phi_data_types'), // Array of PHI data types involved
   entityIds: jsonb('entity_ids'), // IDs of patients/entities whose PHI was accessed
   dataClassification: phiDataClassificationEnum('data_classification').notNull(),
-  
+
   // Compliance verification
   baaVerified: boolean('baa_verified').default(false),
   encryptionVerified: boolean('encryption_verified').default(false),
   retentionPolicyApplied: boolean('retention_policy_applied').default(false),
-  
+
   // Audit metadata
   ipAddress: varchar('ip_address', { length: 45 }),
   userAgent: varchar('user_agent', { length: 500 }),
   requestHeaders: jsonb('request_headers'),
-  
+
   // Risk assessment
   riskLevel: varchar('risk_level', { length: 20 }).default('low'), // low, medium, high, critical
   complianceStatus: varchar('compliance_status', { length: 20 }).default('compliant'), // compliant, violation, under_review
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({

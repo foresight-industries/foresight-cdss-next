@@ -30,7 +30,7 @@ const AVAILABLE_EVENTS = [
     category: 'General',
     phiLevel: 'full' as const
   },
-  
+
   // Organization Events
   {
     value: WEBHOOK_EVENTS.ORGANIZATION_CREATED,
@@ -224,6 +224,7 @@ const EVENT_CATEGORIES = [...new Set(AVAILABLE_EVENTS.map(event => event.categor
 export default function NewWebhookPage() {
   const router = useRouter();
   const params = useParams();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -233,7 +234,7 @@ export default function NewWebhookPage() {
     events: [] as WebhookEventType[],
     retry_count: 3,
     timeout_seconds: 30,
-    environment: 'production' as 'development' | 'production',
+    environment: 'production' as 'staging' | 'production',
     active: true,
     // HIPAA Compliance fields
     phi_data_classification: 'none' as 'none' | 'limited' | 'full',
@@ -255,10 +256,21 @@ export default function NewWebhookPage() {
       setLoading(true);
       setError(null);
 
+      // Get organization ID from database using team slug
+      const orgResponse = await fetch(`/api/organizations/by-slug/${params.slug}`);
+      if (!orgResponse.ok) {
+        setError('Unable to find organization');
+        return;
+      }
+      const orgData = await orgResponse.json();
+
       const response = await fetch('/api/webhooks/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          organization_id: orgData.organization.id
+        })
       });
 
       const data = await response.json();
@@ -282,9 +294,9 @@ export default function NewWebhookPage() {
         const allOtherEvents = AVAILABLE_EVENTS
           .filter(e => e.value !== WEBHOOK_EVENTS.ALL)
           .map(e => e.value) as WebhookEventType[];
-        
+
         const isAllCurrentlySelected = prev.events.includes(WEBHOOK_EVENTS.ALL);
-        
+
         if (isAllCurrentlySelected) {
           // Deselect all events
           return { ...prev, events: [] };
@@ -293,25 +305,25 @@ export default function NewWebhookPage() {
           return { ...prev, events: [WEBHOOK_EVENTS.ALL, ...allOtherEvents] };
         }
       }
-      
+
       // For regular events, normal toggle logic
       const newEvents = prev.events.includes(eventValue)
         ? prev.events.filter(e => e !== eventValue)
         : [...prev.events, eventValue];
-      
+
       // Check if all non-"All Events" are selected, and if so, also include "All Events"
       const allOtherEvents = AVAILABLE_EVENTS
         .filter(e => e.value !== WEBHOOK_EVENTS.ALL)
         .map(e => e.value) as WebhookEventType[];
-      
+
       const allOtherEventsSelected = allOtherEvents.every(event => newEvents.includes(event));
-      
+
       if (allOtherEventsSelected && !newEvents.includes(WEBHOOK_EVENTS.ALL)) {
         return { ...prev, events: [WEBHOOK_EVENTS.ALL, ...newEvents] };
       } else if (!allOtherEventsSelected && newEvents.includes(WEBHOOK_EVENTS.ALL)) {
         return { ...prev, events: newEvents.filter(e => e !== WEBHOOK_EVENTS.ALL) };
       }
-      
+
       return { ...prev, events: newEvents };
     });
   };
@@ -322,7 +334,7 @@ export default function NewWebhookPage() {
 
     setFormData(prev => {
       let newEvents: WebhookEventType[];
-      
+
       if (allSelected) {
         // Deselect all events in this category
         newEvents = prev.events.filter(e => !categoryEvents.includes(e));
@@ -330,20 +342,20 @@ export default function NewWebhookPage() {
         // Select all events in this category
         newEvents = [...new Set([...prev.events, ...categoryEvents])];
       }
-      
+
       // Update "All Events" checkbox based on whether all non-"All Events" are selected
       const allOtherEvents = AVAILABLE_EVENTS
         .filter(e => e.value !== WEBHOOK_EVENTS.ALL)
         .map(e => e.value) as WebhookEventType[];
-      
+
       const allOtherEventsSelected = allOtherEvents.every(event => newEvents.includes(event));
-      
+
       if (allOtherEventsSelected && !newEvents.includes(WEBHOOK_EVENTS.ALL)) {
         return { ...prev, events: [WEBHOOK_EVENTS.ALL, ...newEvents] };
       } else if (!allOtherEventsSelected && newEvents.includes(WEBHOOK_EVENTS.ALL)) {
         return { ...prev, events: newEvents.filter(e => e !== WEBHOOK_EVENTS.ALL) };
       }
-      
+
       return { ...prev, events: newEvents };
     });
   };
@@ -410,7 +422,7 @@ export default function NewWebhookPage() {
                 <Label htmlFor="environment">Environment</Label>
                 <Select
                   value={formData.environment}
-                  onValueChange={(value: 'development' | 'production') =>
+                  onValueChange={(value: 'staging' | 'production') =>
                     setFormData(prev => ({ ...prev, environment: value }))
                   }
                 >
@@ -496,17 +508,17 @@ export default function NewWebhookPage() {
 
                   <div className="ml-6 space-y-3">
                     {categoryEvents.map((event) => {
-                      const phiBadgeColor = event.phiLevel === 'full' 
-                        ? 'destructive' 
-                        : event.phiLevel === 'limited' 
-                          ? 'secondary' 
+                      const phiBadgeColor = event.phiLevel === 'full'
+                        ? 'destructive'
+                        : event.phiLevel === 'limited'
+                          ? 'secondary'
                           : 'outline';
-                      const phiLabel = event.phiLevel === 'full' 
-                        ? 'PHI: Full' 
-                        : event.phiLevel === 'limited' 
-                          ? 'PHI: Limited' 
+                      const phiLabel = event.phiLevel === 'full'
+                        ? 'PHI: Full'
+                        : event.phiLevel === 'limited'
+                          ? 'PHI: Limited'
                           : 'PHI: None';
-                      
+
                       return (
                         <div key={event.value} className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 dark:border-slate-700">
                           <Checkbox
@@ -564,7 +576,7 @@ export default function NewWebhookPage() {
                 </h4>
               </div>
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                Ensure your webhook endpoint is HIPAA compliant if you plan to receive PHI data. 
+                Ensure your webhook endpoint is HIPAA compliant if you plan to receive PHI data.
                 This includes proper encryption, access controls, and data retention policies.
               </p>
             </div>

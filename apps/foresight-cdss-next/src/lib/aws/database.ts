@@ -4,6 +4,9 @@ import { auth } from '@clerk/nextjs/server';
 import { and, eq, sql } from 'drizzle-orm';
 import { teamMembers, db } from '@foresight-cdss-next/db';
 
+// Type for database instance that avoids TS4094 errors with private/protected properties
+type SafeDatabase = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete' | 'execute' | 'transaction' | 'query' | '$client'>;
+
 /**
  * AWS RDS Database Client
  * Replaces Supabase with AWS Aurora PostgreSQL + Data API
@@ -59,7 +62,7 @@ export async function createDatabaseClient() {
     if (!userId) {
       // Return unauthenticated client for SSR operations
       return {
-        db: db as any, // Cast to avoid TS4094 error
+        db: db as SafeDatabase,
         userId: null,
         teamId: null,
         isAuthenticated: false as const
@@ -70,7 +73,7 @@ export async function createDatabaseClient() {
     const teamId = await getUserTeamId(userId);
 
     return {
-      db: db as any, // Cast to avoid TS4094 error
+      db: db as SafeDatabase,
       userId,
       teamId,
       isAuthenticated: true as const
@@ -79,7 +82,7 @@ export async function createDatabaseClient() {
     console.error('Error creating database client:', error);
     // Fallback to unauthenticated client
     return {
-      db: db as any, // Cast to avoid TS4094 error
+      db: db as SafeDatabase,
       userId: null,
       teamId: null,
       isAuthenticated: false as const
@@ -101,7 +104,7 @@ export async function createAuthenticatedDatabaseClient() {
   const teamId = await getUserTeamId(userId);
 
   return {
-    db: db as any, // Cast to avoid TS4094 error
+    db: db as SafeDatabase,
     userId,
     teamId,
     isAuthenticated: true as const
@@ -114,7 +117,7 @@ export async function createAuthenticatedDatabaseClient() {
  */
 export function createDatabaseAdminClient() {
   return {
-    db: db as any, // Cast to avoid TS4094 error
+    db: db as SafeDatabase,
     userId: null,
     teamId: null,
     isAdmin: true as const
@@ -218,10 +221,12 @@ export async function safeSingle<T>(
   try {
     const results = await queryFn();
 
+    console.log("SINGLE RESULTS", results)
+
     if (results.length === 0) {
       return {
         data: null,
-        error: new Error('No rows found')
+        error: null // "No results" is not an error, it's a valid state
       };
     }
 
@@ -246,7 +251,7 @@ export async function safeSingle<T>(
  * Supabase-compatible insert wrapper
  */
 export async function safeInsert<T>(
-  queryFn: () => Promise<T[]>
+  queryFn: () => Promise<T[] | any>
 ): Promise<{ data: T[] | null; error: Error | null }> {
   try {
     const data = await queryFn();
