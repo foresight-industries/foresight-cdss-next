@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { createDatabaseClient, safeSingle } from '@/lib/aws/database';
@@ -6,7 +7,7 @@ import { organizations } from '@foresight-cdss-next/db';
 import { redirect } from 'next/navigation';
 
 interface TeamLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
   params: { slug: string };
 }
 

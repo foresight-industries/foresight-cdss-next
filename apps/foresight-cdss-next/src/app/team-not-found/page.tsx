@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface TeamNotFoundProps {
-  searchParams?: { slug?: string };
+  searchParams?: Promise<{ slug?: string }>;
 }
 
-export default function TeamNotFound({ searchParams }: Readonly<TeamNotFoundProps>) {
-  const attemptedSlug = searchParams?.slug;
+export default async function TeamNotFound({ searchParams }: Readonly<TeamNotFoundProps>) {
+  const params = await searchParams;
+  const attemptedSlug = params?.slug;
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">

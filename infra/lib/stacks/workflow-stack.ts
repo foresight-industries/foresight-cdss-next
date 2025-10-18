@@ -4,17 +4,22 @@ import * as stepfunctionsTasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import { Construct } from 'constructs';
 
 interface WorkflowStackProps extends cdk.StackProps {
   stageName: string;
   database: any;
-  queues: any;
 }
 
 export class WorkflowStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: WorkflowStackProps) {
     super(scope, id, props);
+
+    // Import DLQ from the queue stack using CloudFormation import
+    const dlqArn = cdk.Fn.importValue(`RCM-DLQArn-${props.stageName}`);
+    const dlq = sqs.Queue.fromQueueArn(this, 'ImportedDLQ', dlqArn);
 
     // Lambda functions for workflow steps
     const checkEligibility = new lambdaNodejs.NodejsFunction(this, 'CheckEligibilityFn', {
@@ -120,6 +125,169 @@ export class WorkflowStack extends cdk.Stack {
         target: 'node22',
         externalModules: ['@aws-sdk/*'],
       },
+      logRetention: logs.RetentionDays.ONE_WEEK, // This will prevent log group conflicts
+    });
+
+    // Prior Authorization Lambda Functions with AWS Comprehend Medical Integration
+    
+    // Common environment variables for PA functions
+    const paEnvironment = {
+      NODE_ENV: props.stageName,
+      DATABASE_CLUSTER_ARN: props.database.clusterArn,
+      DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+      DATABASE_NAME: 'rcm',
+      COMPREHEND_MEDICAL_REGION: this.region,
+    };
+
+    const validatePriorAuth = new lambdaNodejs.NodejsFunction(this, 'ValidatePriorAuthFn', {
+      functionName: `rcm-validate-prior-auth-${props.stageName}`,
+      entry: '../packages/functions/workflows/validate-prior-auth.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 1024,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const extractMedicalEntities = new lambdaNodejs.NodejsFunction(this, 'ExtractMedicalEntitiesFn', {
+      functionName: `rcm-extract-medical-entities-${props.stageName}`,
+      entry: '../packages/functions/workflows/extract-medical-entities.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(15),
+      memorySize: 1536,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const validateMedicalNecessity = new lambdaNodejs.NodejsFunction(this, 'ValidateMedicalNecessityFn', {
+      functionName: `rcm-validate-medical-necessity-${props.stageName}`,
+      entry: '../packages/functions/workflows/validate-medical-necessity.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 1024,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const autoCorrectPriorAuth = new lambdaNodejs.NodejsFunction(this, 'AutoCorrectPriorAuthFn', {
+      functionName: `rcm-auto-correct-prior-auth-${props.stageName}`,
+      entry: '../packages/functions/workflows/auto-correct-prior-auth.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const submitPriorAuth = new lambdaNodejs.NodejsFunction(this, 'SubmitPriorAuthFn', {
+      functionName: `rcm-submit-prior-auth-${props.stageName}`,
+      entry: '../packages/functions/workflows/submit-prior-auth.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 1024,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const analyzeDenialReason = new lambdaNodejs.NodejsFunction(this, 'AnalyzeDenialReasonFn', {
+      functionName: `rcm-analyze-denial-reason-${props.stageName}`,
+      entry: '../packages/functions/workflows/analyze-denial-reason.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    const autoRetryDenial = new lambdaNodejs.NodejsFunction(this, 'AutoRetryDenialFn', {
+      functionName: `rcm-auto-retry-denial-${props.stageName}`,
+      entry: '../packages/functions/workflows/auto-retry-denial.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(10),
+      memorySize: 1024,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
+    // IAM permissions for AWS Comprehend Medical
+    const comprehendMedicalPolicy = new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'comprehendmedical:DetectEntitiesV2',
+        'comprehendmedical:DetectPHI',
+        'comprehendmedical:InferICD10CM',
+        'comprehendmedical:InferRxNorm',
+        'comprehendmedical:InferSNOMEDCT',
+        'comprehendmedical:DescribeEntitiesDetectionV2Job',
+        'comprehendmedical:DescribePHIDetectionJob',
+        'comprehendmedical:DescribeICD10CMInferenceJob',
+        'comprehendmedical:DescribeRxNormInferenceJob',
+        'comprehendmedical:DescribeSNOMEDCTInferenceJob',
+        'comprehendmedical:ListEntitiesDetectionV2Jobs',
+        'comprehendmedical:ListPHIDetectionJobs',
+        'comprehendmedical:ListICD10CMInferenceJobs',
+        'comprehendmedical:ListRxNormInferenceJobs',
+        'comprehendmedical:ListSNOMEDCTInferenceJobs',
+        'comprehendmedical:StartEntitiesDetectionV2Job',
+        'comprehendmedical:StartPHIDetectionJob',
+        'comprehendmedical:StartICD10CMInferenceJob',
+        'comprehendmedical:StartRxNormInferenceJob',
+        'comprehendmedical:StartSNOMEDCTInferenceJob',
+        'comprehendmedical:StopEntitiesDetectionV2Job',
+        'comprehendmedical:StopPHIDetectionJob',
+        'comprehendmedical:StopICD10CMInferenceJob',
+        'comprehendmedical:StopRxNormInferenceJob',
+        'comprehendmedical:StopSNOMEDCTInferenceJob'
+      ],
+      resources: ['*'],
+    });
+
+    // Grant AWS Comprehend Medical permissions to PA functions
+    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
+     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial].forEach(fn => {
+      fn.addToRolePolicy(comprehendMedicalPolicy);
     });
 
     // CloudWatch Log Groups for Step Functions
@@ -141,37 +309,124 @@ export class WorkflowStack extends cdk.Stack {
       removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
     });
 
-    // Prior Authorization Workflow
+    // Create the main workflow states that will be reused
+    const parallelValidation = new stepfunctions.Parallel(this, 'ParallelValidation', {
+      comment: 'Run eligibility and medical necessity checks in parallel'
+    })
+    .branch(
+      // Branch 1: Eligibility Check
+      new stepfunctionsTasks.LambdaInvoke(this, 'CheckEligibilityParallel', {
+        lambdaFunction: checkEligibility,
+        outputPath: '$.Payload',
+        comment: 'Verify patient eligibility and coverage'
+      })
+    )
+    .branch(
+      // Branch 2: Medical Necessity Validation
+      new stepfunctionsTasks.LambdaInvoke(this, 'ValidateMedicalNecessityStep', {
+        lambdaFunction: validateMedicalNecessity,
+        outputPath: '$.Payload',
+        comment: 'Use AWS Comprehend Medical to validate medical necessity'
+      })
+    );
+
+    // Step 4: Evaluate results and decide on submission
+    const submissionChoice = new stepfunctions.Choice(this, 'ReadyForSubmission?')
+      .when(
+        stepfunctions.Condition.and(
+          stepfunctions.Condition.stringEquals('$[0].eligible', 'true'),
+          stepfunctions.Condition.numberGreaterThan('$[1].medical_necessity_confidence', 85),
+          stepfunctions.Condition.stringEquals('$[1].recommendation', 'approve')
+        ),
+        // Auto-submit PA
+        new stepfunctionsTasks.LambdaInvoke(this, 'SubmitPriorAuthStep', {
+          lambdaFunction: submitPriorAuth,
+          inputPath: '$',
+          outputPath: '$.Payload',
+          comment: 'Auto-submit PA to payer',
+        })
+        .next(
+          new stepfunctions.Choice(this, 'SubmissionSuccessful?')
+            .when(
+              stepfunctions.Condition.stringEquals('$.submission_status', 'success'),
+              new stepfunctions.Succeed(this, 'PASubmitted')
+            )
+            .otherwise(
+              new stepfunctions.Succeed(this, 'SubmissionFailed')
+            )
+        )
+      )
+      .otherwise(
+        // Not ready for submission
+        new stepfunctions.Succeed(this, 'NotReadyForSubmission')
+      );
+
+    const mainWorkflowChain = stepfunctions.Chain.start(parallelValidation).next(submissionChoice);
+
+    // Enhanced Prior Authorization Workflow with AWS Comprehend Medical
     const priorAuthWorkflow = new stepfunctions.StateMachine(this, 'PriorAuthWorkflow', {
       stateMachineName: `rcm-prior-auth-${props.stageName}`,
-      definition: new stepfunctions.Parallel(this, 'CheckRequirements')
-        .branch(
-          // Check eligibility
-          new stepfunctionsTasks.LambdaInvoke(this, 'CheckEligibility', {
-            lambdaFunction: checkEligibility,
+      definition: 
+        // Step 1: Initial Validation and Medical Entity Extraction
+        new stepfunctionsTasks.LambdaInvoke(this, 'ValidatePriorAuthStep', {
+          lambdaFunction: validatePriorAuth,
+          outputPath: '$.Payload',
+          comment: 'Validate basic PA structure and extract document text',
+        })
+        .next(
+          new stepfunctionsTasks.LambdaInvoke(this, 'ExtractMedicalEntitiesStep', {
+            lambdaFunction: extractMedicalEntities,
             outputPath: '$.Payload',
+            comment: 'Use AWS Comprehend Medical to extract medical entities and validate codes',
           })
-        )
-        .branch(
-          // Check medical necessity
-          new stepfunctions.Wait(this, 'WaitForMedicalReview', {
-            time: stepfunctions.WaitTime.duration(cdk.Duration.hours(1)),
-          }).next(
-            new stepfunctions.Choice(this, 'MedicalNecessityApproved?')
-              .when(
-                stepfunctions.Condition.stringEquals('$.status', 'approved'),
-                new stepfunctions.Succeed(this, 'AuthorizationApproved')
-              )
-              .otherwise(
-                new stepfunctions.Fail(this, 'AuthorizationDenied')
-              )
-          )
         )
         .next(
-          new stepfunctionsTasks.SqsSendMessage(this, 'NotifyProvider', {
-            queue: props.queues.webhookQueue,
-            messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
-          })
+          // Step 2: Check for validation issues and auto-correct if possible
+          new stepfunctions.Choice(this, 'HasValidationIssues?')
+            .when(
+              stepfunctions.Condition.and(
+                stepfunctions.Condition.isPresent('$.validation_issues'),
+                stepfunctions.Condition.numberGreaterThan('$.validation_issues_count', 0)
+              ),
+              // Auto-correct high confidence issues, flag others for manual review
+              new stepfunctionsTasks.LambdaInvoke(this, 'AutoCorrectStep', {
+                lambdaFunction: autoCorrectPriorAuth,
+                outputPath: '$.Payload',
+                comment: 'Auto-correct high confidence validation issues',
+              })
+              .next(
+                new stepfunctions.Choice(this, 'HasRemainingIssues?')
+                  .when(
+                    stepfunctions.Condition.and(
+                      stepfunctions.Condition.isPresent('$.remaining_issues'),
+                      stepfunctions.Condition.numberGreaterThan('$.remaining_issues_count', 0)
+                    ),
+                    // Send to manual review
+                    new stepfunctionsTasks.SqsSendMessage(this, 'SendToManualReviewQueue', {
+                      queue: dlq,
+                      messageBody: stepfunctions.TaskInput.fromObject({
+                        'priorAuthId.$': '$.priorAuthId',
+                        'issues.$': '$.remaining_issues',
+                        'reason': 'Validation issues require manual review',
+                        'timestamp.$': '$$.State.EnteredTime'
+                      }),
+                    })
+                    .next(new stepfunctions.Succeed(this, 'SentToManualReview'))
+                  )
+                  .otherwise(
+                    new stepfunctions.Pass(this, 'ValidationCorrected', {
+                      comment: 'All validation issues auto-corrected'
+                    })
+                    .next(mainWorkflowChain)
+                  )
+              )
+            )
+            .otherwise(
+              new stepfunctions.Pass(this, 'NoValidationIssues', {
+                comment: 'PA passed initial validation'
+              })
+              .next(mainWorkflowChain)
+            )
         ),
       tracingEnabled: true,
       logs: {
@@ -239,7 +494,7 @@ export class WorkflowStack extends cdk.Stack {
             )
             .otherwise(
               new stepfunctionsTasks.SqsSendMessage(this, 'SendToManualReview', {
-                queue: props.queues.dlq,
+                queue: dlq,
                 messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
               })
             )
@@ -269,7 +524,7 @@ export class WorkflowStack extends cdk.Stack {
           )
           .otherwise(
             new stepfunctionsTasks.SqsSendMessage(this, 'ManualReconciliation', {
-              queue: props.queues.dlq,
+              queue: dlq,
               messageBody: stepfunctions.TaskInput.fromJsonPathAt('$'),
             })
           )
@@ -311,5 +566,11 @@ export class WorkflowStack extends cdk.Stack {
     props.database.grantDataApiAccess(submitClaim);
     props.database.grantDataApiAccess(checkClaimStatus);
     props.database.grantDataApiAccess(processPayment);
+    
+    // Grant database access to PA functions
+    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
+     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial].forEach(fn => {
+      props.database.grantDataApiAccess(fn);
+    });
   }
 }

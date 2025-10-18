@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           organizationId: newOrg.id,
           clerkUserId: userId,
           email: '', // This should be populated from Clerk user data
-          role: 'owner',
+          role: 'owner' as const,
           isActive: true
         })
     );

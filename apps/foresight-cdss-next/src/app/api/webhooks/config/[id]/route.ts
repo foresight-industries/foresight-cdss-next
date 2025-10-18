@@ -4,17 +4,6 @@ import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
 import { webhookConfigs, webhookDeliveries, teamMembers, organizations } from '@foresight-cdss-next/db';
 
-// Available webhook events
-const AVAILABLE_EVENTS = [
-  'all',
-  'organization.created',
-  'organization.updated',
-  'organization.deleted',
-  'team_member.added',
-  'team_member.updated',
-  'team_member.removed'
-] as const;
-
 // GET - Get specific webhook configuration
 export async function GET(
   request: NextRequest,
@@ -54,11 +43,11 @@ export async function GET(
         id: webhookConfigs.id,
         name: webhookConfigs.name,
         url: webhookConfigs.url,
-        events: webhookConfigs.events,
+        description: webhookConfigs.description,
+        environment: webhookConfigs.environment,
         isActive: webhookConfigs.isActive,
         retryCount: webhookConfigs.retryCount,
         timeoutSeconds: webhookConfigs.timeoutSeconds,
-        secret: webhookConfigs.secret,
         organizationId: webhookConfigs.organizationId,
         createdAt: webhookConfigs.createdAt,
         updatedAt: webhookConfigs.updatedAt,
@@ -101,11 +90,11 @@ export async function GET(
       id: string;
       name: string;
       url: string;
-      events: string;
+      description: string | null;
+      environment: 'staging' | 'production';
       isActive: boolean;
       retryCount: number;
       timeoutSeconds: number;
-      secret: string;
       organizationId: string;
       createdAt: Date;
       updatedAt: Date;
@@ -130,13 +119,12 @@ export async function GET(
       recent_deliveries: deliveryList
     };
 
-    // Remove secret from response for security
-    const { secret, organizationName, organizationSlug, organizationId, ...webhookResponse } = webhookData;
+    // Extract organization data for response
+    const { organizationName, organizationSlug, organizationId, ...webhookResponse } = webhookData;
 
     return NextResponse.json({
       webhook: {
         ...webhookResponse,
-        secret_hint: secret ? `${secret.substring(0, 8)}...` : null,
         organization: {
           id: organizationId,
           name: organizationName,
@@ -209,8 +197,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    // Validate update fields
-    const allowedFields = new Set(['name', 'url', 'events', 'isActive', 'retryCount', 'timeoutSeconds']);
+    // Validate update fields - remove events since they're in separate table
+    const allowedFields = new Set(['name', 'url', 'description', 'isActive', 'retryCount', 'timeoutSeconds']);
     const updates: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(body)) {
@@ -240,20 +228,7 @@ export async function PUT(
       }
     }
 
-    // Validate events if provided
-    if (updates.events) {
-      if (!Array.isArray(updates.events)) {
-        return NextResponse.json({ error: 'Events must be an array' }, { status: 400 });
-      }
-
-      const availableEventsSet = new Set(AVAILABLE_EVENTS as readonly string[]);
-      const invalidEvents = (updates.events as string[]).filter(event => !availableEventsSet.has(event));
-      if (invalidEvents.length > 0) {
-        return NextResponse.json({
-          error: `Invalid events: ${invalidEvents.join(', ')}`
-        }, { status: 400 });
-      }
-    }
+    // TODO: Handle events update in webhookEventSubscriptions table
 
     // Clamp numeric values
     if (updates.retryCount !== undefined) {
@@ -287,24 +262,18 @@ export async function PUT(
       id: string;
       name: string;
       url: string;
-      events: string;
+      description: string | null;
+      environment: 'staging' | 'production';
       isActive: boolean;
       retryCount: number;
       timeoutSeconds: number;
-      secret: string;
       organizationId: string;
       createdAt: Date;
       updatedAt: Date;
     };
 
-    // Return without secret
-    const { secret, ...webhookResponse } = updatedWebhook;
-
     return NextResponse.json({
-      webhook: {
-        ...webhookResponse,
-        secret_hint: secret ? `${secret.substring(0, 8)}...` : null
-      }
+      webhook: updatedWebhook
     });
 
   } catch (error) {
