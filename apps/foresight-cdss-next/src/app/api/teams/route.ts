@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // For now, we'll generate a placeholder Clerk org ID
     // In a real implementation, this should integrate with Clerk's organization creation
-    const clerkOrgId = `org_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const clerkOrgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
     // Create organization
     const { data: organization, error: orgError } = await safeInsert(async () =>
@@ -136,13 +136,17 @@ export async function POST(request: NextRequest) {
 
     const newOrg = organization[0] as Organization;
 
-    const { data: userProfile } = await safeSingle(async () =>
+    const { data: userProfile, error: profileError } = await safeSingle(async () =>
       db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId))
     );
 
     if (!userProfile) {
       // Handle case where user profile doesn't exist
-      throw new Error('User profile not found');
+      console.error('Error fetching user profile:', profileError);
+      // Try to clean up the organization if member creation failed
+      await db.delete(organizations).where(eq(organizations.id, newOrg.id));
+
+      return NextResponse.json({ error: 'Failed to create organization membership' }, { status: 500 });
     }
 
     // Add creator as organization owner
@@ -159,7 +163,7 @@ export async function POST(request: NextRequest) {
 
     if (memberError) {
       console.error('Error adding team member:', memberError);
-      // Try to cleanup the organization if member creation failed
+      // Try to clean up the organization if member creation failed
       await db.delete(organizations).where(eq(organizations.id, newOrg.id));
       return NextResponse.json({ error: 'Failed to create organization membership' }, { status: 500 });
     }

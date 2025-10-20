@@ -452,6 +452,36 @@ function SettingsPageContent({
     initialValidationSettings || defaultValidationSettings
   );
 
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationLoading, setOrganizationLoading] = useState(true);
+
+  // Load organization ID from team slug
+  useEffect(() => {
+    const loadOrganization = async () => {
+      if (!teamSlug) {
+        setOrganizationLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+        const data = await response.json();
+        
+        if (response.ok && data.organization) {
+          setOrganizationId(data.organization.id);
+        } else {
+          console.error('Failed to load organization:', data.error);
+        }
+      } catch (error) {
+        console.error('Error loading organization:', error);
+      } finally {
+        setOrganizationLoading(false);
+      }
+    };
+
+    loadOrganization();
+  }, [teamSlug]);
+
   const [teamMembers, setTeamMembers] = useState([
     {
       name: "Jane Doe",
@@ -1669,8 +1699,15 @@ function SettingsPageContent({
       case "integrations":
         return renderIntegrationSettings();
       case "security":
+        if (organizationLoading) {
+          return <div className="flex items-center justify-center py-8">Loading organization...</div>;
+        }
+        if (!organizationId) {
+          return <div className="flex items-center justify-center py-8">Organization not found</div>;
+        }
         return (
           <SecurityTab
+            organizationId={organizationId}
             validationSettings={validationSettings}
             onSettingChange={(key, value) =>
               handleSettingChange("validation", key, value)
