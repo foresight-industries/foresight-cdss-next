@@ -25,7 +25,7 @@ const updateCredentialSchema = z.object({
   }).optional(),
   isActive: z.boolean().optional(),
   autoRenew: z.boolean().optional(),
-  expiresAt: z.string().datetime().optional(),
+  expiresAt: z.iso.datetime().optional(),
 });
 
 interface RouteParams {
