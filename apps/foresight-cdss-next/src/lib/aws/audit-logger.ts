@@ -30,8 +30,8 @@ export class AuditLogger {
       },
     });
 
-    this.logGroupName = `/aws/rcm/${process.env.STAGE ?? 'staging'}/credential-operations`;
-    this.logStreamName = `${new Date().toISOString().split('T')[0]}-${process.env.INSTANCE_ID ?? 'default'}`;
+    this.logGroupName = `/aws/lambda/rcm-audit-${process.env.NODE_ENV ?? 'staging'}`;
+    this.logStreamName = `${new Date().toISOString().split('T')[0]}-credential-operations`;
   }
 
   async log(entry: AuditLogEntry): Promise<void> {

@@ -52,6 +52,7 @@ import {
   FieldMappingsTab,
   SecurityTab,
   UserManagementTab,
+  GeneralTab,
 } from './tabs';
 
 interface SettingsSection {
@@ -185,9 +186,34 @@ interface SettingsProps {
       retentionPeriod: string;
     };
   };
+  initialOrganizationData?: {
+    id: string;
+    name: string;
+    taxId: string;
+    npiNumber: string;
+    billingAddress: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+    primaryContact: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    };
+  } | null;
 }
 
 const settingsSections: SettingsSection[] = [
+  {
+    id: "general",
+    title: "General",
+    icon: Building2,
+    description: "Basic organization information and administrative settings",
+  },
   {
     id: "automation",
     title: "Automation & Confidence",
@@ -291,9 +317,10 @@ function SettingsPageContent({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
+  initialOrganizationData,
 }: Readonly<SettingsProps>) {
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState("automation");
+  const [activeSection, setActiveSection] = useState("general");
   const [hasChanges, setHasChanges] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -452,6 +479,36 @@ function SettingsPageContent({
     initialValidationSettings || defaultValidationSettings
   );
 
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [organizationLoading, setOrganizationLoading] = useState(true);
+
+  // Load organization ID from team slug
+  useEffect(() => {
+    const loadOrganization = async () => {
+      if (!teamSlug) {
+        setOrganizationLoading(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+        const data = await response.json();
+
+        if (response.ok && data.organization) {
+          setOrganizationId(data.organization.id);
+        } else {
+          console.error('Failed to load organization:', data.error);
+        }
+      } catch (error) {
+        console.error('Error loading organization:', error);
+      } finally {
+        setOrganizationLoading(false);
+      }
+    };
+
+    loadOrganization();
+  }, [teamSlug]);
+
   const [teamMembers, setTeamMembers] = useState([
     {
       name: "Jane Doe",
@@ -474,9 +531,9 @@ function SettingsPageContent({
   ]);
 
   const [integrationStatus] = useState({
-    cmm: { connected: true, lastSync: "2 minutes ago", status: "healthy" },
-    supabase: { connected: true, lastSync: "Real-time", status: "healthy" },
-    gemini: { connected: true, lastSync: "1 minute ago", status: "healthy" },
+    dosespot: { connected: true, lastSync: "2 minutes ago", status: "healthy" },
+    aws: { connected: true, lastSync: "Real-time", status: "healthy" },
+    openai: { connected: true, lastSync: "1 minute ago", status: "healthy" },
     webhooks: {
       connected: true,
       lastSync: "30 seconds ago",
@@ -1386,7 +1443,7 @@ function SettingsPageContent({
                   ></div>
                   <div>
                     <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">
-                      {key === "cmm" ? "CMM API" : key}
+                      {key === "aws" ? "Amazon Web Services" : key === 'openai' ? 'OpenAI' : key}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Last sync: {integration.lastSync}
@@ -1451,10 +1508,6 @@ function SettingsPageContent({
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               Add your DoseSpot API credentials to enable eRx and ePA processing.
             </p>
-            <Button onClick={() => setShowDosespotModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Credentials
-            </Button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -1541,6 +1594,11 @@ function SettingsPageContent({
 
   const renderSectionContent = () => {
     switch (activeSection) {
+      case "general":
+        if (!initialOrganizationData) {
+          return <div className="flex items-center justify-center py-8">Organization not found</div>;
+        }
+        return <GeneralTab initialOrganizationData={initialOrganizationData} />;
       case "automation":
         return (
           <AutomationTab
@@ -1669,8 +1727,15 @@ function SettingsPageContent({
       case "integrations":
         return renderIntegrationSettings();
       case "security":
+        if (organizationLoading) {
+          return <div className="flex items-center justify-center py-8">Loading organization...</div>;
+        }
+        if (!organizationId) {
+          return <div className="flex items-center justify-center py-8">Organization not found</div>;
+        }
         return (
           <SecurityTab
+            organizationId={organizationId}
             validationSettings={validationSettings}
             onSettingChange={(key, value) =>
               handleSettingChange("validation", key, value)
@@ -3283,7 +3348,7 @@ function SettingsPageContent({
 
       {/* DoseSpot Credential Modal */}
       <Dialog open={showDosespotModal} onOpenChange={setShowDosespotModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Stethoscope className="w-5 h-5 mr-2 text-primary" />
@@ -3522,6 +3587,7 @@ export default function SettingsClient({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
+  initialOrganizationData,
 }: Readonly<SettingsProps>) {
   return (
     <Suspense fallback={<SettingsLoading />}>
@@ -3530,6 +3596,7 @@ export default function SettingsClient({
         initialAutomationSettings={initialAutomationSettings}
         initialNotificationSettings={initialNotificationSettings}
         initialValidationSettings={initialValidationSettings}
+        initialOrganizationData={initialOrganizationData}
       />
     </Suspense>
   );

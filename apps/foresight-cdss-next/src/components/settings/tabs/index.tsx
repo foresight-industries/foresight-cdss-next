@@ -13,3 +13,4 @@ export { PayersTab } from './payers-tab';
 export { FieldMappingsTab } from './field-mappings-tab';
 export { SecurityTab } from './security-tab';
 export { UserManagementTab } from './user-management-tab';
+export { GeneralTab } from './general-tab';

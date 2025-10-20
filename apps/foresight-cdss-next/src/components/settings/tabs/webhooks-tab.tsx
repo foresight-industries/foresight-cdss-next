@@ -1,14 +1,81 @@
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Webhook, Shield, Lock, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Webhook, Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, FileCheck, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 interface WebhooksTabProps {
   teamSlug?: string;
 }
 
+interface WebhookStats {
+  productionCount: number;
+  developmentCount: number;
+  loading: boolean;
+}
+
 export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
+  const [webhookStats, setWebhookStats] = useState<WebhookStats>({
+    productionCount: 0,
+    developmentCount: 0,
+    loading: true
+  });
+
+  // Fetch webhook counts for both environments
+  useEffect(() => {
+    const fetchWebhookCounts = async () => {
+      try {
+        setWebhookStats(prev => ({ ...prev, loading: true }));
+
+        // Get the organization ID first (we'll need to implement this based on teamSlug)
+        let organizationId = '';
+        if (teamSlug) {
+          const orgResponse = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+          if (orgResponse.ok) {
+            const orgData = await orgResponse.json();
+            organizationId = orgData.organization?.id || '';
+          }
+        }
+
+        if (!organizationId) {
+          setWebhookStats({ productionCount: 0, developmentCount: 0, loading: false });
+          return;
+        }
+
+        // Fetch webhooks for both environments
+        const [productionResponse, stagingResponse] = await Promise.all([
+          fetch(`/api/webhooks/config?organization_id=${organizationId}&environment=production`),
+          fetch(`/api/webhooks/config?organization_id=${organizationId}&environment=staging`)
+        ]);
+
+        let productionCount = 0;
+        let developmentCount = 0;
+
+        if (productionResponse.ok) {
+          const prodData = await productionResponse.json();
+          productionCount = prodData.webhooks?.filter((webhook: any) => webhook.isActive)?.length || 0;
+        }
+
+        if (stagingResponse.ok) {
+          const stagingData = await stagingResponse.json();
+          developmentCount = stagingData.webhooks?.filter((webhook: any) => webhook.isActive)?.length || 0;
+        }
+
+        setWebhookStats({
+          productionCount,
+          developmentCount,
+          loading: false
+        });
+
+      } catch (error) {
+        console.error('Error fetching webhook counts:', error);
+        setWebhookStats({ productionCount: 0, developmentCount: 0, loading: false });
+      }
+    };
+
+    fetchWebhookCounts();
+  }, [teamSlug]);
   return (
     <div className="space-y-6">
       <Card className="p-6">
@@ -25,7 +92,7 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Configure HIPAA-compliant webhook endpoints to receive real-time notifications
-          about organization, user, patient, claims, and document events.
+          about organization, user, patient, clinician, claims, prior authorization, and document events.
         </p>
 
         {/* HIPAA Compliance Status */}
@@ -44,10 +111,27 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Production Webhooks</h4>
-              <Badge variant="outline">0 active</Badge>
+              {webhookStats.loading ? (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Loading...
+                </Badge>
+              ) : (
+                <Badge
+                  variant={webhookStats.productionCount > 0 ? "default" : "outline"}
+                  className={webhookStats.productionCount > 0 ? "bg-green-100 text-green-800 border-green-200" : ""}
+                >
+                  {webhookStats.productionCount} active
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              No production webhooks configured
+              {webhookStats.loading
+                ? "Checking webhook configuration..."
+                : webhookStats.productionCount === 0
+                  ? "No production webhooks configured"
+                  : `${webhookStats.productionCount} webhook${webhookStats.productionCount !== 1 ? 's' : ''} actively monitoring events`
+              }
             </p>
             <div className="flex items-center gap-2 mt-2">
               <Shield className="h-4 w-4 text-blue-500" />
@@ -57,10 +141,27 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
           <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
             <div className="flex items-center justify-between mb-2">
               <h4 className="font-medium">Development Webhooks</h4>
-              <Badge variant="outline">0 active</Badge>
+              {webhookStats.loading ? (
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" />
+                  Loading...
+                </Badge>
+              ) : (
+                <Badge
+                  variant={webhookStats.developmentCount > 0 ? "default" : "outline"}
+                  className={webhookStats.developmentCount > 0 ? "bg-green-100 text-green-800 border-green-200" : ""}
+                >
+                  {webhookStats.developmentCount} active
+                </Badge>
+              )}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              No development webhooks configured
+              {webhookStats.loading
+                ? "Checking webhook configuration..."
+                : webhookStats.developmentCount === 0
+                  ? "No development webhooks configured"
+                  : `${webhookStats.developmentCount} webhook${webhookStats.developmentCount !== 1 ? 's' : ''} actively monitoring events`
+              }
             </p>
             <div className="flex items-center gap-2 mt-2">
               <Lock className="h-4 w-4 text-green-500" />
@@ -128,6 +229,39 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
             </div>
           </div>
 
+          {/* Clinician Events */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-sky-500" />
+              Clinician Events
+              <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">Provider Data</Badge>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                "clinician.created",
+                "clinician.updated",
+                "clinician.deleted",
+                "clinician.license.added",
+                "clinician.license.updated",
+                "clinician.license.expired",
+                "clinician.credentials.verified",
+                "clinician.status.changed",
+                "clinician.specialty.updated",
+                "clinician.npi.updated"
+              ].map((event) => (
+                <div
+                  key={event}
+                  className="flex items-center justify-between p-2 border border-sky-200 dark:border-sky-800 rounded bg-sky-50 dark:bg-sky-950"
+                >
+                  <code className="text-xs bg-sky-100 dark:bg-sky-900 px-2 py-1 rounded">
+                    {event}
+                  </code>
+                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Claims Events */}
           <div>
             <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
@@ -149,6 +283,36 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
                   className="flex items-center justify-between p-2 border border-yellow-200 dark:border-yellow-800 rounded"
                 >
                   <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">
+                    {event}
+                  </code>
+                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Prior Authorization Events */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <FileCheck className="h-4 w-4 text-blue-500" />
+              Prior Authorization Events
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                "prior_auth.created",
+                "prior_auth.updated",
+                "prior_auth.submitted",
+                "prior_auth.approved",
+                "prior_auth.denied",
+                "prior_auth.pending",
+                "prior_auth.expired",
+                "prior_auth.cancelled"
+              ].map((event) => (
+                <div
+                  key={event}
+                  className="flex items-center justify-between p-2 border border-blue-200 dark:border-blue-800 rounded"
+                >
+                  <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
                     {event}
                   </code>
                   <Badge variant="outline" className="text-xs">PHI: Limited</Badge>

@@ -1,5 +1,7 @@
-// import { createSupabaseServerClient } from "@/lib/supabase/server";
-// import { requireTeamMembership } from "@/lib/team";
+import { createAuthenticatedDatabaseClient, safeSingle } from '@/lib/aws/database';
+import { auth } from '@clerk/nextjs/server';
+import { eq, and, isNull } from 'drizzle-orm';
+import { organizations, teamMembers } from '@foresight-cdss-next/db';
 import SettingsClient from "@/components/settings/settings-client";
 
 async function loadTeamSettings() {
@@ -39,12 +41,95 @@ async function loadTeamSettings() {
   }
 }
 
+async function loadOrganizationData(slug: string) {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return null;
+    }
+
+    const { db } = await createAuthenticatedDatabaseClient();
+
+    // Get organization by slug
+    const { data: organization, error: orgError } = await safeSingle(async () =>
+      db.select({
+        id: organizations.id,
+        name: organizations.name,
+        npi: organizations.npi,
+        taxId: organizations.taxId,
+        email: organizations.email,
+        phone: organizations.phone,
+        addressLine1: organizations.addressLine1,
+        addressLine2: organizations.addressLine2,
+        city: organizations.city,
+        state: organizations.state,
+        zipCode: organizations.zipCode,
+        settings: organizations.settings
+      })
+      .from(organizations)
+      .where(and(
+        eq(organizations.slug, slug),
+        isNull(organizations.deletedAt)
+      ))
+    );
+
+    if (orgError || !organization) {
+      return null;
+    }
+
+    // Verify user has access to this organization
+    const { data: membership } = await safeSingle(async () =>
+      db.select({
+        organizationId: teamMembers.organizationId,
+        role: teamMembers.role,
+        isActive: teamMembers.isActive
+      })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.clerkUserId, userId),
+        eq(teamMembers.organizationId, organization.id),
+        eq(teamMembers.isActive, true)
+      ))
+    );
+
+    if (!membership) {
+      return null;
+    }
+
+    return {
+      id: organization.id,
+      name: organization.name || '',
+      taxId: organization.taxId || '',
+      npiNumber: organization.npi || '',
+      billingAddress: {
+        addressLine1: organization.addressLine1 || '',
+        addressLine2: organization.addressLine2 || '',
+        city: organization.city || '',
+        state: organization.state || '',
+        zipCode: organization.zipCode || '',
+      },
+      primaryContact: {
+        firstName: '', // We'll need to get this from Clerk or settings
+        lastName: '',  // We'll need to get this from Clerk or settings
+        email: organization.email || '',
+        phone: organization.phone || '',
+      },
+    };
+  } catch (error) {
+    console.error('Error loading organization data:', error);
+    return null;
+  }
+}
+
 export default async function SettingsPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const searchParams = await params;
+
   const settingsData = await loadTeamSettings();
+  const organizationData = await loadOrganizationData(searchParams.slug);
 
   // Default automation settings
   const defaultAutomationSettings = {
@@ -176,7 +261,8 @@ export default async function SettingsPage({
       initialAutomationSettings={automationSettings}
       initialNotificationSettings={notificationSettings}
       initialValidationSettings={validationSettings}
-      teamSlug={params.slug}
+      teamSlug={searchParams.slug}
+      initialOrganizationData={organizationData}
     />
   );
 }
