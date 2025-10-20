@@ -52,6 +52,7 @@ import {
   FieldMappingsTab,
   SecurityTab,
   UserManagementTab,
+  GeneralTab,
 } from './tabs';
 
 interface SettingsSection {
@@ -188,6 +189,12 @@ interface SettingsProps {
 }
 
 const settingsSections: SettingsSection[] = [
+  {
+    id: "general",
+    title: "General",
+    icon: Building2,
+    description: "Basic organization information and administrative settings",
+  },
   {
     id: "automation",
     title: "Automation & Confidence",
@@ -1567,6 +1574,14 @@ function SettingsPageContent({
 
   const renderSectionContent = () => {
     switch (activeSection) {
+      case "general":
+        if (organizationLoading) {
+          return <div className="flex items-center justify-center py-8">Loading organization...</div>;
+        }
+        if (!organizationId) {
+          return <div className="flex items-center justify-center py-8">Organization not found</div>;
+        }
+        return <GeneralTab organizationId={organizationId} />;
       case "automation":
         return (
           <AutomationTab
