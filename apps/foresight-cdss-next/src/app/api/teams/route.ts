@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { teamMembers, organizations, Organization, userProfiles } from '@foresight-cdss-next/db';
+import { teamMembers, organizations, Organization, userProfiles, UserProfile } from '@foresight-cdss-next/db';
 
 // GET - Get organizations for current user
 export async function GET() {
@@ -108,17 +108,30 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // For now, we'll generate a placeholder Clerk org ID
-    // In a real implementation, this should integrate with Clerk's organization creation
-    const clerkOrgId = `org_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    // Create organization in Clerk first
+    let clerkOrganization;
+    try {
+      const clerk = await clerkClient();
+      clerkOrganization = await clerk.organizations.createOrganization({
+        name: name,
+        slug: slug,
+        createdBy: userId,
+      });
+    } catch (clerkError) {
+      console.error('Error creating Clerk organization:', clerkError);
+      return NextResponse.json({
+        error: 'Failed to create organization in Clerk',
+        details: clerkError instanceof Error ? clerkError.message : 'Unknown error'
+      }, { status: 500 });
+    }
 
-    // Create organization
+    // Create organization in our database
     const { data: organization, error: orgError } = await safeInsert(async () =>
       db.insert(organizations)
         .values({
           name,
           slug,
-          clerkOrgId
+          clerkOrgId: clerkOrganization.id
         })
         .returning({
           id: organizations.id,
@@ -130,23 +143,68 @@ export async function POST(request: NextRequest) {
     );
 
     if (orgError || !organization || organization.length === 0) {
-      console.error('Error creating organization:', orgError);
+      console.error('Error creating organization in database:', orgError);
+
+      // Clean up the Clerk organization if database creation failed
+      try {
+        const clerk = await clerkClient();
+        await clerk.organizations.deleteOrganization(clerkOrganization.id);
+      } catch (cleanupError) {
+        console.error('Error cleaning up Clerk organization:', cleanupError);
+      }
+
       return NextResponse.json({ error: 'Failed to create organization' }, { status: 500 });
     }
 
     const newOrg = organization[0] as Organization;
 
-    const { data: userProfile, error: profileError } = await safeSingle(async () =>
+    // Get or create user profile
+    let userProfile: UserProfile;
+    const { data: existingProfile } = await safeSingle(async () =>
       db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId))
     );
 
-    if (!userProfile) {
-      // Handle case where user profile doesn't exist
-      console.error('Error fetching user profile:', profileError);
-      // Try to clean up the organization if member creation failed
-      await db.delete(organizations).where(eq(organizations.id, newOrg.id));
+    if (!existingProfile) {
+      // Create user profile if it doesn't exist
+      try {
+        const clerk = await clerkClient();
+        const clerkUser = await clerk.users.getUser(userId);
 
-      return NextResponse.json({ error: 'Failed to create organization membership' }, { status: 500 });
+        const { data: newProfile } = await safeInsert(async () =>
+          db.insert(userProfiles)
+            .values({
+              clerkUserId: userId,
+              email: clerkUser.emailAddresses[0]?.emailAddress || '',
+              firstName: clerkUser.firstName || '',
+              lastName: clerkUser.lastName || '',
+            })
+            .returning()
+        );
+
+        if (!newProfile || newProfile.length === 0) {
+          throw new Error('Failed to create user profile');
+        }
+
+        userProfile = newProfile[0] as UserProfile;
+      } catch (createProfileError) {
+        console.error('Error creating user profile:', createProfileError);
+
+        // Clean up the organization and Clerk org if profile creation failed
+        await db.delete(organizations).where(eq(organizations.id, newOrg.id));
+        try {
+          const clerk = await clerkClient();
+          await clerk.organizations.deleteOrganization(clerkOrganization.id);
+        } catch (cleanupError) {
+          console.error('Error cleaning up Clerk organization:', cleanupError);
+        }
+
+        return NextResponse.json({
+          error: 'User profile not found and could not be created',
+          details: createProfileError instanceof Error ? createProfileError.message : 'Unknown error'
+        }, { status: 500 });
+      }
+    } else {
+      userProfile = existingProfile as UserProfile;
     }
 
     // Add creator as organization owner
