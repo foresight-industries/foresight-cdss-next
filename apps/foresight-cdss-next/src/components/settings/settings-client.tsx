@@ -466,7 +466,7 @@ function SettingsPageContent({
       try {
         const response = await fetch(`/api/organizations/by-slug/${teamSlug}`);
         const data = await response.json();
-        
+
         if (response.ok && data.organization) {
           setOrganizationId(data.organization.id);
         } else {
@@ -1481,10 +1481,6 @@ function SettingsPageContent({
             <p className="text-gray-500 dark:text-gray-400 mb-4">
               Add your DoseSpot API credentials to enable eRx and ePA processing.
             </p>
-            <Button onClick={() => setShowDosespotModal(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Credentials
-            </Button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -3320,7 +3316,7 @@ function SettingsPageContent({
 
       {/* DoseSpot Credential Modal */}
       <Dialog open={showDosespotModal} onOpenChange={setShowDosespotModal}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <Stethoscope className="w-5 h-5 mr-2 text-primary" />
