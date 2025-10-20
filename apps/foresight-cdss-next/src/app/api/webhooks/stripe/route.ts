@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from "@/lib/aws/database";
 import { eq, and } from "drizzle-orm";
-import { 
-  organizations, 
-  analyticsEvents, 
-  notificationTemplates, 
-  notifications, 
+import {
+  organizations,
+  analyticsEvents,
+  notificationTemplates,
+  notifications,
   workQueues,
   teamMembers
 } from "@foresight-cdss-next/db";
@@ -188,9 +188,9 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   // Find the organization by Clerk organization ID
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
-    db.select({ 
+    db.select({
       id: organizations.id
     })
     .from(organizations)
@@ -261,7 +261,7 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -314,7 +314,7 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -347,7 +347,7 @@ async function handleSubscriptionResumed(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -380,7 +380,7 @@ async function handleTrialEndingSoon(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -424,7 +424,7 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -475,7 +475,7 @@ async function handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription:
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -532,7 +532,7 @@ async function handlePaymentActionRequired(invoice: Stripe.Invoice) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -554,7 +554,7 @@ async function handleCustomerUpdate(customer: Stripe.Customer) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -578,7 +578,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -612,7 +612,7 @@ async function handleDispute(dispute: Stripe.Dispute) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -734,7 +734,7 @@ async function sendNotification(
 ) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
-    
+
     // Get notification template - simplified for AWS schema compatibility
     const { data: template } = await safeSingle(async () =>
       db.select()
@@ -775,7 +775,7 @@ async function sendNotification(
         type: "email", // Default to email notification type
         subject: templateData.subject || `Billing notification: ${type}`,
         message: templateData.body || JSON.stringify(metadata),
-        recipient: "billing@organization.com", // Default billing email
+        recipient: "ops@have-foresight.com", // Default billing email
         templateId: templateData.id,
       })
     );
@@ -790,7 +790,7 @@ async function createManualReviewAlert(
 ) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
-    
+
     // Create an internal alert for your team to review
     await safeInsert(async () =>
       db.insert(workQueues).values({
