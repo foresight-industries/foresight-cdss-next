@@ -7,7 +7,7 @@
     "typecheck": "npx tsc",
     "lint": "npx eslint . --ext ts,tsx",
     "lint:fix": "npx eslint . --ext ts,tsx --fix",
-    "postinstall": "yarn workspace @foresight-cdss-next/db build && yarn install && yarn workspace @foresight-cdss-next/webhooks build",
+    "postinstall": "yarn workspace @foresight-cdss-next/db build && yarn workspace @foresight-cdss-next/webhooks build",
     "build": "npx next build",
     "start": "npx next start",
     "supabase:types": "dotenvx run --quiet --env-file=.env.local -- cross-var yarn supabase gen types typescript --project-id=%SUPABASE_PROJECT_REF_PROD% --schema public > src/types/database.types.d.ts && echo \"✅ Successfully generated Supabase types\"",
