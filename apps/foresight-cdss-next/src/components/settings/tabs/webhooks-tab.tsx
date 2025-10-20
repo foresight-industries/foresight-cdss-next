@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Webhook, Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, FileCheck } from 'lucide-react';
+import { Webhook, Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, FileCheck, UserCheck } from 'lucide-react';
 import Link from 'next/link';
 
 interface WebhooksTabProps {
@@ -92,7 +92,7 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Configure HIPAA-compliant webhook endpoints to receive real-time notifications
-          about organization, user, patient, claims, prior authorization, and document events.
+          about organization, user, patient, clinician, claims, prior authorization, and document events.
         </p>
 
         {/* HIPAA Compliance Status */}
@@ -117,7 +117,7 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
                   Loading...
                 </Badge>
               ) : (
-                <Badge 
+                <Badge
                   variant={webhookStats.productionCount > 0 ? "default" : "outline"}
                   className={webhookStats.productionCount > 0 ? "bg-green-100 text-green-800 border-green-200" : ""}
                 >
@@ -126,10 +126,10 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               )}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {webhookStats.loading 
-                ? "Checking webhook configuration..." 
-                : webhookStats.productionCount === 0 
-                  ? "No production webhooks configured" 
+              {webhookStats.loading
+                ? "Checking webhook configuration..."
+                : webhookStats.productionCount === 0
+                  ? "No production webhooks configured"
                   : `${webhookStats.productionCount} webhook${webhookStats.productionCount !== 1 ? 's' : ''} actively monitoring events`
               }
             </p>
@@ -147,7 +147,7 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
                   Loading...
                 </Badge>
               ) : (
-                <Badge 
+                <Badge
                   variant={webhookStats.developmentCount > 0 ? "default" : "outline"}
                   className={webhookStats.developmentCount > 0 ? "bg-green-100 text-green-800 border-green-200" : ""}
                 >
@@ -156,10 +156,10 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               )}
             </div>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {webhookStats.loading 
-                ? "Checking webhook configuration..." 
-                : webhookStats.developmentCount === 0 
-                  ? "No development webhooks configured" 
+              {webhookStats.loading
+                ? "Checking webhook configuration..."
+                : webhookStats.developmentCount === 0
+                  ? "No development webhooks configured"
                   : `${webhookStats.developmentCount} webhook${webhookStats.developmentCount !== 1 ? 's' : ''} actively monitoring events`
               }
             </p>
@@ -224,6 +224,39 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
                     {event}
                   </code>
                   <Badge variant="destructive" className="text-xs">PHI: Full</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Clinician Events */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-sky-500" />
+              Clinician Events
+              <Badge variant="outline" className="text-xs bg-sky-50 text-sky-700 border-sky-200">Provider Data</Badge>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                "clinician.created",
+                "clinician.updated",
+                "clinician.deleted",
+                "clinician.license.added",
+                "clinician.license.updated",
+                "clinician.license.expired",
+                "clinician.credentials.verified",
+                "clinician.status.changed",
+                "clinician.specialty.updated",
+                "clinician.npi.updated"
+              ].map((event) => (
+                <div
+                  key={event}
+                  className="flex items-center justify-between p-2 border border-sky-200 dark:border-sky-800 rounded bg-sky-50 dark:bg-sky-950"
+                >
+                  <code className="text-xs bg-sky-100 dark:bg-sky-900 px-2 py-1 rounded">
+                    {event}
+                  </code>
+                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
                 </div>
               ))}
             </div>
