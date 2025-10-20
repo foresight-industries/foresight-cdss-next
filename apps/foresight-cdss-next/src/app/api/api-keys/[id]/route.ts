@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate, safeDelete } from '@/lib/aws/database';
+import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and, isNull } from 'drizzle-orm';
 import { apiKeys, teamMembers, userProfiles } from '@foresight-cdss-next/db';

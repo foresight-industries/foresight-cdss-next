@@ -504,9 +504,9 @@ function SettingsPageContent({
   ]);
 
   const [integrationStatus] = useState({
-    cmm: { connected: true, lastSync: "2 minutes ago", status: "healthy" },
-    supabase: { connected: true, lastSync: "Real-time", status: "healthy" },
-    gemini: { connected: true, lastSync: "1 minute ago", status: "healthy" },
+    dosespot: { connected: true, lastSync: "2 minutes ago", status: "healthy" },
+    aws: { connected: true, lastSync: "Real-time", status: "healthy" },
+    openai: { connected: true, lastSync: "1 minute ago", status: "healthy" },
     webhooks: {
       connected: true,
       lastSync: "30 seconds ago",
@@ -1416,7 +1416,7 @@ function SettingsPageContent({
                   ></div>
                   <div>
                     <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">
-                      {key === "cmm" ? "CMM API" : key}
+                      {key === "aws" ? "Amazon Web Services" : key === 'openai' ? 'OpenAI' : key}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
                       Last sync: {integration.lastSync}
