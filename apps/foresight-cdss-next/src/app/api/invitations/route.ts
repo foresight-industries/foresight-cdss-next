@@ -16,7 +16,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const membership = await requireTeamMembership();
 
     // Check if user has permission to invite (org_admin or super_admin)
-    if (!['org_admin', 'super_admin'].includes(membership.role)) {
+    if (!['org_admin', 'super_admin', 'admin'].includes(membership.role)) {
       return NextResponse.json({ error: 'Insufficient permissions to invite users' }, { status: 403 });
     }
 
