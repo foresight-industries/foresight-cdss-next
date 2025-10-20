@@ -19,7 +19,7 @@ import {
   uniqueIndex,
   type PgTableWithColumns
 } from 'drizzle-orm/pg-core';
-import { InferSelectModel, InferInsertModel, sql } from 'drizzle-orm';
+import { InferSelectModel, InferInsertModel, and, eq, gt, isNull } from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS
@@ -1323,72 +1323,12 @@ export const externalServiceCredentials = pgTable('external_service_credential',
   // Ensure one active credential per organization per service
   orgServiceUniqueIdx: uniqueIndex('external_service_credential_org_service_unique_idx')
     .on(table.organizationId, table.serviceName, table.environment)
-    .where(sql`${table.isActive} = true AND ${table.deletedAt} IS NULL`),
+    .where(and(eq(table.isActive, true), isNull(table.deletedAt))!),
 }));
 
-// Webhook configurations
-export const webhookConfigs = pgTable('webhook_config', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-
-  // Webhook details
-  name: text('name').notNull(),
-  url: text('url').notNull(),
-  secret: text('secret'), // For webhook signature verification
-
-  // Events
-  events: text('events').notNull(), // JSON array of event types
-
-  // Configuration
-  retryCount: integer('retry_count').default(3),
-  timeoutSeconds: integer('timeout_seconds').default(30),
-
-  // Status
-  isActive: boolean('is_active').default(true).notNull(),
-  lastDelivery: timestamp('last_delivery'),
-
-  // Audit fields
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-  deletedAt: timestamp('deleted_at'),
-}, (table) => ({
-  orgIdx: index('webhook_config_org_idx').on(table.organizationId),
-  activeIdx: index('webhook_config_active_idx').on(table.isActive),
-  urlIdx: index('webhook_config_url_idx').on(table.url),
-}));
-
-// Webhook deliveries (tracking webhook calls)
-export const webhookDeliveries = pgTable('webhook_delivery', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id).notNull(),
-
-  // Event details
-  eventType: varchar('event_type', { length: 50 }).notNull(),
-  eventData: json('event_data').notNull(),
-
-  // Delivery
-  httpStatus: integer('http_status'),
-  responseBody: text('response_body'),
-  responseHeaders: text('response_headers'),
-
-  // Timing
-  attemptCount: integer('attempt_count').default(1),
-  deliveredAt: timestamp('delivered_at'),
-  nextRetryAt: timestamp('next_retry_at'),
-
-  // Status
-  status: varchar('status', { length: 20 }).default('pending').notNull(), // pending, delivered, failed
-
-  // Audit fields
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  webhookConfigIdx: index('webhook_delivery_webhook_config_idx').on(table.webhookConfigId),
-  statusIdx: index('webhook_delivery_status_idx').on(table.status),
-  eventTypeIdx: index('webhook_delivery_event_type_idx').on(table.eventType),
-  nextRetryIdx: index('webhook_delivery_next_retry_idx').on(table.nextRetryAt),
-  createdAtIdx: index('webhook_delivery_created_at_idx').on(table.createdAt),
-}));
+// Enhanced webhook system - imported from dedicated webhook schema
+// See ./webhook-schema.ts for the new webhook table definitions
+export * from './webhook-schema';
 
 // Integration event logs
 export const integrationEventLogs = pgTable('integration_event_log', {
@@ -1435,11 +1375,6 @@ export type NewClearinghouseBatch = InferInsertModel<typeof clearinghouseBatches
 export type ApiKey = InferSelectModel<typeof apiKeys>;
 export type NewApiKey = InferInsertModel<typeof apiKeys>;
 
-export type WebhookConfig = InferSelectModel<typeof webhookConfigs>;
-export type NewWebhookConfig = InferInsertModel<typeof webhookConfigs>;
-
-export type WebhookDelivery = InferSelectModel<typeof webhookDeliveries>;
-export type NewWebhookDelivery = InferInsertModel<typeof webhookDeliveries>;
 
 // ============================================================================
 // CLINICAL & EHR INTEGRATION TABLES
@@ -5153,12 +5088,12 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
   // Performance indexes from guide
   // Billable codes only (most queries need billable codes)
   billableActiveIdx: index('icd10_code_master_billable_active_idx').on(table.icd10Code).where(
-    sql`${table.isBillable} = true AND ${table.isActive} = true`
+    and(eq(table.isBillable, true), eq(table.isActive, true))!
   ),
 
   // Hot codes index (frequently used)
   hotCodesIdx: index('icd10_code_master_hot_codes_idx').on(table.icd10Code, table.shortDescription).where(
-    sql`${table.usageCount} > 100`
+    gt(table.usageCount, 100)
   ),
 
   // Composite index for common query patterns
@@ -5167,7 +5102,7 @@ export const icd10CodeMaster = pgTable('icd10_code_master', {
     table.shortDescription,
     table.category,
     table.isBillable
-  ).where(sql`${table.isActive} = true`),
+  ).where(eq(table.isActive, true)),
 
   // Usage tracking for caching decisions
   usageTrackingIdx: index('icd10_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),
@@ -5221,7 +5156,7 @@ export const hcpcsCodeMaster = pgTable('hcpcs_code_master', {
     table.hcpcsCode,
     table.shortDescription,
     table.category
-  ).where(sql`${table.isActive} = true`),
+  ).where(eq(table.isActive, true)),
 
   // Usage tracking
   usageTrackingIdx: index('hcpcs_code_master_usage_tracking_idx').on(table.usageCount, table.lastUsedDate),

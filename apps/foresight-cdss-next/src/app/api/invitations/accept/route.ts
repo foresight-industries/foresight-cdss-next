@@ -51,6 +51,12 @@ export async function POST(request: NextRequest) {
 
     const organizationId = latestMembership.organization.id;
 
+    if (!organizationId) {
+      return NextResponse.json({
+        error: 'No organization ID found'
+      }, { status: 400 });
+    }
+
     // Here you can add any additional logic needed after invitation acceptance:
     // - Create user profile in your database
     // - Set up default team memberships
@@ -72,12 +78,10 @@ export async function POST(request: NextRequest) {
         await db
           .insert(teamMembers)
           .values({
-            organizationId: organizationId,
+            organizationId,
+            userProfileId: userId,
             clerkUserId: userId,
-            email: latestMembership.publicUserData?.identifier || '',
-            firstName: latestMembership.publicUserData?.firstName || '',
-            lastName: latestMembership.publicUserData?.lastName || '',
-            role: 'provider',
+            role: 'read',
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date(),

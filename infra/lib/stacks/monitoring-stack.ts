@@ -16,9 +16,9 @@ interface MonitoringStackProps extends cdk.StackProps {
   api?: apigateway.HttpApi;
   queues?: {
     claimsQueue: sqs.Queue;
-    webhookQueue: sqs.Queue;
     dlq: sqs.Queue;
   };
+  webhookQueue?: sqs.Queue; // Optional - comes from WebhookStack
   stackType?: 'alerting' | 'monitoring';
 }
 
@@ -494,13 +494,23 @@ export class MonitoringStack extends cdk.Stack {
 
     // Queue Metrics Row (if queues are provided)
     if (props.queues) {
+      const queueMetrics = [
+        props.queues.claimsQueue.metricApproximateNumberOfMessagesVisible(),
+      ];
+      const queueAgeMetrics = [
+        props.queues.claimsQueue.metricApproximateAgeOfOldestMessage(),
+      ];
+
+      // Add webhook queue metrics if available
+      if (props.webhookQueue) {
+        queueMetrics.push(props.webhookQueue.metricApproximateNumberOfMessagesVisible());
+        queueAgeMetrics.push(props.webhookQueue.metricApproximateAgeOfOldestMessage());
+      }
+
       dashboard.addWidgets(
         new cloudwatch.GraphWidget({
           title: 'Queue Messages',
-          left: [
-            props.queues.claimsQueue.metricApproximateNumberOfMessagesVisible(),
-            props.queues.webhookQueue.metricApproximateNumberOfMessagesVisible(),
-          ],
+          left: queueMetrics,
           right: [
             props.queues.dlq.metricApproximateNumberOfMessagesVisible({
               color: cloudwatch.Color.RED,
@@ -511,10 +521,7 @@ export class MonitoringStack extends cdk.Stack {
         }),
         new cloudwatch.GraphWidget({
           title: 'Queue Age',
-          left: [
-            props.queues.claimsQueue.metricApproximateAgeOfOldestMessage(),
-            props.queues.webhookQueue.metricApproximateAgeOfOldestMessage(),
-          ],
+          left: queueAgeMetrics,
           width: 12,
           height: 6,
         }),

@@ -108,6 +108,7 @@ export async function PUT(request: NextRequest) {
                 organizationId,
                 settingKey,
                 settingValue: JSON.stringify(settingValue),
+                settingType: 'json',
                 scope: 'organization'
               })
               .returning()
@@ -199,10 +200,10 @@ export async function POST(request: NextRequest) {
               description: ruleData.description,
               category: ruleData.category,
               ruleType: ruleData.ruleType || 'trigger',
-              triggerConditions: ruleData.triggerConditions,
+              conditions: ruleData.conditions || {},
               actions: ruleData.actions,
               priority: ruleData.priority || 50,
-              isActive: ruleData.isActive ?? true
+              status: ruleData.isActive ? 'active' : 'inactive'
             })
             .returning()
         );
@@ -256,8 +257,8 @@ export async function POST(request: NextRequest) {
               organizationId,
               settingKey: ruleData.settingKey,
               settingValue: JSON.stringify(ruleData.settingValue),
+              settingType: 'json',
               scope: ruleData.scope || 'organization',
-              category: ruleData.category,
               description: ruleData.description
             })
             .returning()
@@ -306,6 +307,7 @@ export async function DELETE(request: NextRequest) {
               eq(automationRules.id, ruleId),
               eq(automationRules.organizationId, organizationId)
             ))
+            .returning({ id: automationRules.id })
         );
         break;
 
@@ -316,6 +318,7 @@ export async function DELETE(request: NextRequest) {
               eq(businessRules.id, ruleId),
               eq(businessRules.organizationId, organizationId)
             ))
+            .returning({ id: businessRules.id })
         );
         break;
 
@@ -326,6 +329,7 @@ export async function DELETE(request: NextRequest) {
               eq(notificationTemplates.id, ruleId),
               eq(notificationTemplates.organizationId, organizationId)
             ))
+            .returning({ id: notificationTemplates.id })
         );
         break;
 
@@ -336,6 +340,7 @@ export async function DELETE(request: NextRequest) {
               eq(systemSettings.id, ruleId),
               eq(systemSettings.organizationId, organizationId)
             ))
+            .returning({ id: systemSettings.id })
         );
         break;
 

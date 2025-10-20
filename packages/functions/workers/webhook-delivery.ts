@@ -36,6 +36,23 @@ interface LogData {
 
 export const handler = async (event: any) => {
     console.log('Webhook delivery started: records=%d', event.Records?.length || 0);
+    console.log('Full event received:', JSON.stringify(event, null, 2));
+
+    // Check if Records exists and is an array
+    if (!event.Records) {
+        console.error('No Records field found in event');
+        return { batchItemFailures: [] };
+    }
+
+    if (!Array.isArray(event.Records)) {
+        console.error('Records is not an array:', typeof event.Records, event.Records);
+        return { batchItemFailures: [] };
+    }
+
+    if (event.Records.length === 0) {
+        console.warn('Received empty Records array - no messages to process');
+        return { batchItemFailures: [] };
+    }
 
     const results = [];
     const batchItemFailures = [];

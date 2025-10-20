@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeUpdate, safeDelete } from '@/lib/aws/database';
+import { createAuthenticatedDatabaseClient, safeSingle, safeSelect, safeUpdate, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { webhookConfigs, webhookDeliveries, teamMembers, organizations } from '@foresight-cdss-next/db';
-
-// Available webhook events
-const AVAILABLE_EVENTS = [
-  'all',
-  'organization.created',
-  'organization.updated',
-  'organization.deleted',
-  'team_member.added',
-  'team_member.updated',
-  'team_member.removed'
-] as const;
+import { webhookConfigs, webhookDeliveries, teamMembers, organizations, webhookEventSubscriptions } from '@foresight-cdss-next/db';
 
 // GET - Get specific webhook configuration
 export async function GET(
@@ -31,9 +20,9 @@ export async function GET(
 
     // Verify user has access to the webhook's organization
     const { data: membership } = await safeSingle(async () =>
-      db.select({ 
+      db.select({
         organizationId: teamMembers.organizationId,
-        role: teamMembers.role 
+        role: teamMembers.role
       })
       .from(teamMembers)
       .where(and(
@@ -54,11 +43,10 @@ export async function GET(
         id: webhookConfigs.id,
         name: webhookConfigs.name,
         url: webhookConfigs.url,
-        events: webhookConfigs.events,
+        environment: webhookConfigs.environment,
         isActive: webhookConfigs.isActive,
         retryCount: webhookConfigs.retryCount,
         timeoutSeconds: webhookConfigs.timeoutSeconds,
-        secret: webhookConfigs.secret,
         organizationId: webhookConfigs.organizationId,
         createdAt: webhookConfigs.createdAt,
         updatedAt: webhookConfigs.updatedAt,
@@ -101,11 +89,11 @@ export async function GET(
       id: string;
       name: string;
       url: string;
-      events: string;
+      description: string | null;
+      environment: 'staging' | 'production';
       isActive: boolean;
       retryCount: number;
       timeoutSeconds: number;
-      secret: string;
       organizationId: string;
       createdAt: Date;
       updatedAt: Date;
@@ -121,7 +109,7 @@ export async function GET(
       status: string;
       createdAt: Date;
     }>;
-    
+
     const stats = {
       total_deliveries: deliveryList.length,
       successful_deliveries: deliveryList.filter(d => d.deliveredAt).length,
@@ -130,13 +118,12 @@ export async function GET(
       recent_deliveries: deliveryList
     };
 
-    // Remove secret from response for security
-    const { secret, organizationName, organizationSlug, organizationId, ...webhookResponse } = webhookData;
+    // Extract organization data for response
+    const { organizationName, organizationSlug, organizationId, ...webhookResponse } = webhookData;
 
     return NextResponse.json({
       webhook: {
         ...webhookResponse,
-        secret_hint: secret ? `${secret.substring(0, 8)}...` : null,
         organization: {
           id: organizationId,
           name: organizationName,
@@ -155,7 +142,7 @@ export async function GET(
 // PUT - Update webhook configuration
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { userId } = await auth();
@@ -164,14 +151,14 @@ export async function PUT(
     }
 
     const { db } = await createAuthenticatedDatabaseClient();
-    const webhookId = params.id;
+    const { id: webhookId } = await params;
     const body = await request.json();
 
     // Validate permissions
     const { data: member } = await safeSingle(async () =>
-      db.select({ 
+      db.select({
         organizationId: teamMembers.organizationId,
-        role: teamMembers.role 
+        role: teamMembers.role
       })
       .from(teamMembers)
       .where(and(
@@ -185,7 +172,7 @@ export async function PUT(
     }
 
     const memberData = member as { organizationId: string; role: string };
-    
+
     if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
@@ -204,13 +191,13 @@ export async function PUT(
     }
 
     const existingWebhookData = existingWebhook as { organizationId: string };
-    
+
     if (existingWebhookData.organizationId !== memberData.organizationId) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    // Validate update fields
-    const allowedFields = new Set(['name', 'url', 'events', 'isActive', 'retryCount', 'timeoutSeconds']);
+    // Validate update fields - remove events since they're in separate table
+    const allowedFields = new Set(['name', 'url', 'description', 'isActive', 'retryCount', 'timeoutSeconds']);
     const updates: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(body)) {
@@ -225,7 +212,7 @@ export async function PUT(
       } else {
         mappedKey = key;
       }
-      
+
       if (allowedFields.has(mappedKey)) {
         updates[mappedKey] = value;
       }
@@ -240,19 +227,25 @@ export async function PUT(
       }
     }
 
-    // Validate events if provided
-    if (updates.events) {
-      if (!Array.isArray(updates.events)) {
-        return NextResponse.json({ error: 'Events must be an array' }, { status: 400 });
-      }
+    // Handle events update in webhookEventSubscriptions table
+    if (body.events && Array.isArray(body.events)) {
+      // Delete existing event subscriptions
+      await db.delete(webhookEventSubscriptions)
+        .where(eq(webhookEventSubscriptions.webhookConfigId, webhookId));
 
-      const availableEventsSet = new Set(AVAILABLE_EVENTS as readonly string[]);
-      const invalidEvents = (updates.events as string[]).filter(event => !availableEventsSet.has(event));
-      if (invalidEvents.length > 0) {
-        return NextResponse.json({
-          error: `Invalid events: ${invalidEvents.join(', ')}`
-        }, { status: 400 });
-      }
+      // Create new event subscriptions
+      const subscriptionPromises = body.events.map((eventType: string) =>
+        safeInsert(async () =>
+          db.insert(webhookEventSubscriptions)
+            .values({
+              webhookConfigId: webhookId,
+              eventType: eventType as any, // Cast to bypass strict type checking for dynamic events
+              isEnabled: true
+            })
+        )
+      );
+
+      await Promise.all(subscriptionPromises);
     }
 
     // Clamp numeric values
@@ -263,7 +256,7 @@ export async function PUT(
       updates.timeoutSeconds = Math.min(Math.max(updates.timeoutSeconds as number, 5), 300);
     }
 
-    if (Object.keys(updates).length === 0) {
+    if (Object.keys(updates).length === 0 && !body.events) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
 
@@ -283,28 +276,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Failed to update webhook' }, { status: 500 });
     }
 
-    const updatedWebhook = webhook[0] as {
-      id: string;
-      name: string;
-      url: string;
-      events: string;
-      isActive: boolean;
-      retryCount: number;
-      timeoutSeconds: number;
-      secret: string;
-      organizationId: string;
-      createdAt: Date;
-      updatedAt: Date;
-    };
-
-    // Return without secret
-    const { secret, ...webhookResponse } = updatedWebhook;
+    const updatedWebhook = webhook[0];
 
     return NextResponse.json({
-      webhook: {
-        ...webhookResponse,
-        secret_hint: secret ? `${secret.substring(0, 8)}...` : null
-      }
+      webhook: updatedWebhook
     });
 
   } catch (error) {
@@ -329,9 +304,9 @@ export async function DELETE(
 
     // Validate permissions
     const { data: member } = await safeSingle(async () =>
-      db.select({ 
+      db.select({
         organizationId: teamMembers.organizationId,
-        role: teamMembers.role 
+        role: teamMembers.role
       })
       .from(teamMembers)
       .where(and(
@@ -345,7 +320,7 @@ export async function DELETE(
     }
 
     const memberData = member as { organizationId: string; role: string };
-    
+
     if (!['admin', 'owner'].includes(memberData.role)) {
       return NextResponse.json({
         error: 'Admin permissions required'
@@ -364,19 +339,17 @@ export async function DELETE(
     }
 
     const existingWebhookData = existingWebhook as { organizationId: string };
-    
+
     if (existingWebhookData.organizationId !== memberData.organizationId) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
     // Delete webhook
-    const { error } = await safeDelete(async () =>
-      db.delete(webhookConfigs)
-        .where(eq(webhookConfigs.id, webhookId))
-    );
-
-    if (error) {
-      console.error('Error deleting webhook:', error);
+    try {
+      await db.delete(webhookConfigs)
+        .where(eq(webhookConfigs.id, webhookId));
+    } catch (deleteError) {
+      console.error('Error deleting webhook:', deleteError);
       return NextResponse.json({ error: 'Failed to delete webhook' }, { status: 500 });
     }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Card, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import {
   Plus,
   Settings,
@@ -21,7 +22,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Activity,
-  Zap
+  Zap,
+  Eye
 } from 'lucide-react';
 import { type WebhookConfig, type WebhookStats, WEBHOOK_EVENTS } from '@/types/webhook.types';
 
@@ -47,6 +49,9 @@ export default function WebhooksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [deleteWebhookId, setDeleteWebhookId] = useState<string | null>(null);
+  const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
+  const [editingWebhook, setEditingWebhook] = useState<WebhookWithStats | null>(null);
 
   useEffect(() => {
     fetchWebhooks();
@@ -55,17 +60,32 @@ export default function WebhooksPage() {
   const fetchWebhooks = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/webhooks/config?environment=${environment}`);
+      // Map frontend environment to backend environment
+      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+
+      // Get organization_id from the current team
+      const teamSlug = pathname.split('/')[2];
+      const orgResponse = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+      const orgData = await orgResponse.json();
+
+      if (!orgResponse.ok || !orgData.organization?.id) {
+        setError('Failed to get organization information');
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch(`/api/webhooks/config?environment=${backendEnvironment}&organization_id=${orgData.organization.id}`);
       const data = await response.json();
 
       if (response.ok) {
-        setWebhooks(data.webhooks || []);
+        setWebhooks(data.webhooks ?? []);
         setError(null);
       } else {
-        setError(data.error || 'Failed to fetch webhooks');
+        setError(data.error ?? 'Failed to fetch webhooks');
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -73,10 +93,27 @@ export default function WebhooksPage() {
 
   const handleCreateWebhook = async (formData: any) => {
     try {
+      // Map frontend environment to backend environment
+      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+
+      // Get organization_id from the current team
+      const teamSlug = pathname.split('/')[2];
+      const orgResponse = await fetch(`/api/organizations/by-slug/${teamSlug}`);
+      const orgData = await orgResponse.json();
+
+      if (!orgResponse.ok || !orgData.organization?.id) {
+        setError('Failed to get organization information');
+        return;
+      }
+
       const response = await fetch('/api/webhooks/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, environment })
+        body: JSON.stringify({
+          ...formData,
+          environment: backendEnvironment,
+          organization_id: orgData.organization.id
+        })
       });
 
       const data = await response.json();
@@ -84,13 +121,14 @@ export default function WebhooksPage() {
       if (response.ok) {
         setIsCreateOpen(false);
         fetchWebhooks();
-        // Show secret to user once
-        alert(`Webhook created! Secret: ${data.secret_hint} (save this, it won't be shown again)`);
+        // Show secret to user once in dialog
+        setWebhookSecret(data.secret_hint);
       } else {
         setError(data.error || 'Failed to create webhook');
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     }
   };
 
@@ -105,36 +143,71 @@ export default function WebhooksPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert('Test webhook sent! Check your endpoint logs.');
+        toast.success('Test webhook sent!', {
+          description: 'Check your endpoint logs for the test event.'
+        });
       } else {
         setError(data.error || 'Failed to send test webhook');
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
     }
   };
 
-  const handleDeleteWebhook = async (webhookId: string) => {
-    if (!confirm('Are you sure you want to delete this webhook?')) return;
+  const handleDeleteClick = (webhookId: string) => {
+    setDeleteWebhookId(webhookId);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteWebhookId) return;
 
     try {
-      const response = await fetch(`/api/webhooks/config/${webhookId}`, {
+      const response = await fetch(`/api/webhooks/config/${deleteWebhookId}`, {
         method: 'DELETE'
       });
 
       if (response.ok) {
         fetchWebhooks();
+        toast.success('Webhook deleted successfully');
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to delete webhook');
       }
     } catch (err) {
       setError('Network error occurred');
+      console.error(err);
+    } finally {
+      setDeleteWebhookId(null);
+    }
+  };
+
+  const handleEditWebhook = async (formData: any) => {
+    if (!editingWebhook) return;
+
+    try {
+      const response = await fetch(`/api/webhooks/config/${editingWebhook.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        setEditingWebhook(null);
+        fetchWebhooks();
+        toast.success('Webhook updated successfully');
+      } else {
+        const data = await response.json();
+        setError(data.error || 'Failed to update webhook');
+      }
+    } catch (err) {
+      setError('Network error occurred');
+      console.error(err);
     }
   };
 
   const totalWebhooks = webhooks.length;
-  const activeWebhooks = webhooks.filter(w => w.active).length;
+  const activeWebhooks = webhooks.filter(w => w.isActive).length;
   const totalDeliveries = webhooks.reduce((sum, w) => sum + w.stats.total_deliveries, 0);
   const successfulDeliveries = webhooks.reduce((sum, w) => sum + w.stats.successful_deliveries, 0);
   const overallSuccessRate = totalDeliveries > 0 ? Math.round((successfulDeliveries / totalDeliveries) * 100) : 0;
@@ -261,14 +334,14 @@ export default function WebhooksPage() {
                   className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${webhook.active ? "bg-green-500" : "bg-gray-400"}`} />
+                    <div className={`w-3 h-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-400"}`} />
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-medium text-slate-900 dark:text-slate-100">
                           {webhook.name}
                         </p>
-                        <Badge variant={webhook.active ? "default" : "secondary"}>
-                          {webhook.active ? "Active" : "Inactive"}
+                        <Badge variant={webhook.isActive ? "default" : "secondary"}>
+                          {webhook.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
@@ -278,9 +351,9 @@ export default function WebhooksPage() {
                         </span>
                         <span className="flex items-center gap-1">
                           <Clock className="h-4 w-4" />
-                          {webhook.timeout_seconds}s timeout
+                          {webhook.timeoutSeconds}s timeout
                         </span>
-                        <span>{webhook.events.length} events</span>
+                        <span>{webhook.events?.length} events</span>
                         <span>{successRate}% success rate</span>
                       </div>
                       {webhook.last_error && (
@@ -303,13 +376,22 @@ export default function WebhooksPage() {
                     <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => router.push(`${pathname}/${webhook.id}/events`)}
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Events
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setEditingWebhook(webhook)}
                     >
                       <Settings className="w-4 h-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDeleteWebhook(webhook.id)}
+                      onClick={() => handleDeleteClick(webhook.id)}
                       className="text-red-600 hover:text-red-700"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -331,6 +413,71 @@ export default function WebhooksPage() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Webhook Secret Dialog */}
+      <Dialog open={!!webhookSecret} onOpenChange={() => setWebhookSecret(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Webhook Created Successfully!</DialogTitle>
+            <DialogDescription>
+              Your webhook has been created. Please save this secret key as it won&apos;t be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label>Webhook Secret</Label>
+            <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-md border">
+              <code className="text-sm font-mono break-all">{webhookSecret}</code>
+            </div>
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
+              Use this secret to verify webhook signatures in your application.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setWebhookSecret(null)}>
+              I&apos;ve Saved It
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Webhook Dialog */}
+      <Dialog open={!!editingWebhook} onOpenChange={() => setEditingWebhook(null)}>
+        <DialogContent className="max-w-2xl">
+          {editingWebhook && (
+            <EditWebhookForm
+              webhook={editingWebhook}
+              onSubmit={handleEditWebhook}
+              onCancel={() => setEditingWebhook(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Webhook Confirmation Dialog */}
+      <Dialog open={!!deleteWebhookId} onOpenChange={() => setDeleteWebhookId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Webhook</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this webhook? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteWebhookId(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+            >
+              Delete Webhook
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -344,7 +491,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
     timeout_seconds: 30
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     onSubmit(formData);
   };
@@ -421,7 +568,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
               min="1"
               max="10"
               value={formData.retry_count}
-              onChange={(e) => setFormData(prev => ({ ...prev, retry_count: parseInt(e.target.value) }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, retry_count: Number.parseInt(e.target.value) }))}
             />
           </div>
           <div>
@@ -432,7 +579,7 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
               min="5"
               max="300"
               value={formData.timeout_seconds}
-              onChange={(e) => setFormData(prev => ({ ...prev, timeout_seconds: parseInt(e.target.value) }))}
+              onChange={(e) => setFormData(prev => ({ ...prev, timeout_seconds: Number.parseInt(e.target.value) }))}
             />
           </div>
         </div>
@@ -444,6 +591,139 @@ function CreateWebhookForm({ onSubmit, onCancel }: { onSubmit: (data: any) => vo
         </Button>
         <Button type="submit" disabled={!formData.name || !formData.url || formData.events.length === 0}>
           Create Webhook
+        </Button>
+      </DialogFooter>
+    </form>
+  );
+}
+
+function EditWebhookForm({ webhook, onSubmit, onCancel }: {
+  webhook: WebhookWithStats;
+  onSubmit: (data: any) => void;
+  onCancel: () => void
+}) {
+  const [formData, setFormData] = useState({
+    name: webhook.name || '',
+    url: webhook.url || '',
+    events: webhook.events || [],
+    retry_count: webhook.retryCount || 3,
+    timeout_seconds: webhook.timeoutSeconds || 30,
+    is_active: webhook.isActive ?? true
+  });
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const toggleEvent = (eventValue: string) => {
+    setFormData(prev => ({
+      ...prev,
+      events: prev.events.includes(eventValue)
+        ? prev.events.filter(e => e !== eventValue)
+        : [...prev.events, eventValue]
+    }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <DialogHeader>
+        <DialogTitle>Edit Webhook</DialogTitle>
+        <DialogDescription>
+          Update your webhook endpoint configuration
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-4 py-4">
+        <div>
+          <Label htmlFor="edit-name">Webhook Name</Label>
+          <Input
+            id="edit-name"
+            value={formData.name}
+            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            placeholder="e.g., team-sync-webhook"
+            required
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="edit-url">Endpoint URL</Label>
+          <Input
+            id="edit-url"
+            type="url"
+            value={formData.url}
+            onChange={(e) => setFormData(prev => ({ ...prev, url: e.target.value }))}
+            placeholder="https://your-app.com/api/webhooks/foresight"
+            required
+          />
+        </div>
+
+        <div>
+          <Label>Events to Listen For</Label>
+          <div className="grid grid-cols-1 gap-2 mt-2">
+            {AVAILABLE_EVENTS.map((event) => (
+              <div key={event.value} className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id={`edit-${event.value}`}
+                  checked={formData.events.includes(event.value)}
+                  onChange={() => toggleEvent(event.value)}
+                  className="rounded"
+                />
+                <Label htmlFor={`edit-${event.value}`} className="text-sm font-normal">
+                  <span className="font-medium">{event.label}</span>
+                  <span className="text-muted-foreground ml-2">{event.description}</span>
+                </Label>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="edit-retry_count">Retry Count</Label>
+            <Input
+              id="edit-retry_count"
+              type="number"
+              min="1"
+              max="10"
+              value={formData.retry_count}
+              onChange={(e) => setFormData(prev => ({ ...prev, retry_count: Number.parseInt(e.target.value) }))}
+            />
+          </div>
+          <div>
+            <Label htmlFor="edit-timeout_seconds">Timeout (seconds)</Label>
+            <Input
+              id="edit-timeout_seconds"
+              type="number"
+              min="5"
+              max="300"
+              value={formData.timeout_seconds}
+              onChange={(e) => setFormData(prev => ({ ...prev, timeout_seconds: Number.parseInt(e.target.value) }))}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="edit-is_active"
+            checked={formData.is_active}
+            onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+            className="rounded"
+          />
+          <Label htmlFor="edit-is_active" className="text-sm font-normal">
+            Active (receive webhook events)
+          </Label>
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!formData.name || !formData.url || formData.events.length === 0}>
+          Update Webhook
         </Button>
       </DialogFooter>
     </form>

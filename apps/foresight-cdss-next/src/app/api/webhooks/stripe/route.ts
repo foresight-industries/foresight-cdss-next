@@ -2,13 +2,14 @@ import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from "@/lib/aws/database";
-import { eq } from "drizzle-orm";
-import { 
-  organizations, 
-  analyticsEvents, 
-  notificationTemplates, 
-  notifications, 
-  workQueues
+import { eq, and } from "drizzle-orm";
+import {
+  organizations,
+  analyticsEvents,
+  notificationTemplates,
+  notifications,
+  workQueues,
+  teamMembers
 } from "@foresight-cdss-next/db";
 
 // Define AWS schema compatible types
@@ -187,9 +188,9 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   // Find the organization by Clerk organization ID
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
-    db.select({ 
+    db.select({
       id: organizations.id
     })
     .from(organizations)
@@ -209,27 +210,28 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   const orgStatus = mapStripeStatusToOrgStatus(status);
   const planType = (await extractPlanType(items)) as RecurringPlanType;
 
-  // Update organization record
+  // Update organization record - store all billing info in settings JSON field
   const { error: updateError } = await safeUpdate(async () =>
     db.update(organizations)
       .set({
-        status: orgStatus,
-        planType: planType,
         updatedAt: new Date(),
-        // Store trial end if applicable
-        trialEndsAt: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null,
-        // Store subscription metadata in settings
+        // Store all subscription metadata in settings
         settings: {
           stripe_subscription_id: subscription.id,
           stripe_customer_id: typeof customer === 'string' ? customer : customer.id,
           stripe_price_id: items.data[0]?.price.id,
           stripe_product_id: typeof items.data[0]?.price.product === 'string' ? items.data[0]?.price.product : items.data[0]?.price.product.id,
           billing_interval: items.data[0]?.price.recurring?.interval,
+          // Store billing status and plan info in settings
+          status: orgStatus,
+          planType: planType,
+          trialEndsAt: subscription.trial_end
+            ? new Date(subscription.trial_end * 1000).toISOString()
+            : null,
         },
       })
       .where(eq(organizations.id, organizationId))
+      .returning({ id: organizations.id })
   );
 
   if (updateError) {
@@ -259,7 +261,7 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -270,14 +272,17 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
 
   const organizationId = (organization as { id: string }).id;
 
-  // Update organization status to cancelled
+  // Update organization status to cancelled in settings
   await safeUpdate(async () =>
     db.update(organizations)
       .set({
-        status: 'cancelled',
         updatedAt: new Date(),
+        settings: {
+          status: 'cancelled',
+        },
       })
       .where(eq(organizations.id, organizationId))
+      .returning({ id: organizations.id })
   );
 
   // Create work queue item for offboarding
@@ -288,16 +293,10 @@ async function handleSubscriptionCancellation(subscription: Stripe.Subscription)
         entityType: 'organization',
         entityId: organizationId,
         title: 'Subscription Cancelled - Offboarding Required',
-        description: 'Customer subscription has been cancelled. Begin offboarding process.',
-        priority: 2,
+        description: `Customer subscription has been cancelled. Begin offboarding process. Subscription ID: ${subscription.id}`,
+        priority: 'medium',
         status: 'pending',
         dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        metadata: {
-          subscription_id: subscription.id,
-          cancel_at: subscription.cancel_at,
-          cancel_at_period_end: subscription.cancel_at_period_end,
-          cancellation_details: JSON.stringify(subscription.cancellation_details),
-        },
       })
   );
 
@@ -315,7 +314,7 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -329,10 +328,13 @@ async function handleSubscriptionPaused(subscription: Stripe.Subscription) {
   await safeUpdate(async () =>
     db.update(organizations)
       .set({
-        status: 'suspended',
         updatedAt: new Date(),
+        settings: {
+          status: 'suspended',
+        },
       })
       .where(eq(organizations.id, organizationId))
+      .returning({ id: organizations.id })
   );
 
   await logAnalyticsEvent(organizationId, 'subscription_paused', {
@@ -345,7 +347,7 @@ async function handleSubscriptionResumed(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -359,10 +361,13 @@ async function handleSubscriptionResumed(subscription: Stripe.Subscription) {
   await safeUpdate(async () =>
     db.update(organizations)
       .set({
-        status: 'active',
         updatedAt: new Date(),
+        settings: {
+          status: 'active',
+        },
       })
       .where(eq(organizations.id, organizationId))
+      .returning({ id: organizations.id })
   );
 
   await logAnalyticsEvent(organizationId, 'subscription_resumed', {
@@ -375,7 +380,7 @@ async function handleTrialEndingSoon(subscription: Stripe.Subscription) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -419,7 +424,7 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -445,16 +450,9 @@ async function handleFailedPayment(invoice: Stripe.Invoice & { subscription: Str
       entityType: 'payment',
       entityId: invoice.id,
       title: 'Payment Failed',
-      description: `Payment of $${(invoice.amount_due / 100).toFixed(2)} failed. Attempt ${invoice.attempt_count}`,
-      priority: 1,
+      description: `Payment of $${(invoice.amount_due / 100).toFixed(2)} failed. Attempt ${invoice.attempt_count}. Invoice: ${invoice.id}`,
+      priority: 'high',
       status: 'pending',
-      metadata: {
-        invoice_id: invoice.id,
-        customer_id: typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id,
-        amount: invoice.amount_due,
-        attempt_count: invoice.attempt_count,
-        next_attempt: invoice.next_payment_attempt,
-      },
     })
   );
 
@@ -477,7 +475,7 @@ async function handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription:
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -492,18 +490,20 @@ async function handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription:
   await logAnalyticsEvent(organizationId, 'payment_succeeded', {
     invoice_id: invoice.id,
     amount: invoice.amount_paid,
-    subscription_id: String(invoice.subscription),
+    subscription_id: invoice.subscription ? (typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription.id) : null,
   });
 
   // Always update organization to active status on successful payment
-  // Since we don't have status field in current schema, we'll update anyway
   await safeUpdate(async () =>
     db.update(organizations)
       .set({
-        status: 'active',
         updatedAt: new Date(),
+        settings: {
+          status: 'active',
+        },
       })
       .where(eq(organizations.id, organizationId))
+      .returning({ id: organizations.id })
   );
 
   // Notify organization that access has been restored
@@ -518,9 +518,12 @@ async function handleSuccessfulPayment(invoice: Stripe.Invoice & { subscription:
         status: 'completed',
         updatedAt: new Date(),
       })
-      .where(eq(workQueues.organizationId, organizationId))
-      .where(eq(workQueues.entityType, 'payment'))
-      .where(eq(workQueues.status, 'pending'))
+      .where(and(
+        eq(workQueues.organizationId, organizationId),
+        eq(workQueues.entityType, 'payment'),
+        eq(workQueues.status, 'pending')
+      ))
+      .returning({ id: workQueues.id })
   );
 }
 
@@ -529,7 +532,7 @@ async function handlePaymentActionRequired(invoice: Stripe.Invoice) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -551,7 +554,7 @@ async function handleCustomerUpdate(customer: Stripe.Customer) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -575,7 +578,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -609,7 +612,7 @@ async function handleDispute(dispute: Stripe.Dispute) {
   if (!clerkOrgId) return;
 
   const { db } = await createAuthenticatedDatabaseClient();
-  
+
   const { data: organization } = await safeSingle(async () =>
     db.select({ id: organizations.id })
     .from(organizations)
@@ -627,17 +630,10 @@ async function handleDispute(dispute: Stripe.Dispute) {
       entityType: 'dispute',
       entityId: dispute.id,
       title: `Payment Dispute - $${(dispute.amount / 100).toFixed(2)}`,
-      description: `A payment dispute has been initiated. Response required by ${new Date((dispute.evidence_details?.due_by ?? 0) * 1000).toLocaleDateString()}`,
-      priority: 1,
+      description: `A payment dispute has been initiated. Response required by ${new Date((dispute.evidence_details?.due_by ?? 0) * 1000).toLocaleDateString()}. Dispute ID: ${dispute.id}`,
+      priority: 'urgent',
       status: 'pending',
       dueDate: new Date((dispute.evidence_details?.due_by ?? 0) * 1000),
-      metadata: {
-        dispute_id: dispute.id,
-        charge_id: typeof dispute.charge === 'string' ? dispute.charge : dispute.charge.id,
-        amount: dispute.amount,
-        reason: dispute.reason,
-        due_by: dispute.evidence_details.due_by,
-      },
     })
   );
 }
@@ -722,8 +718,8 @@ async function logAnalyticsEvent(
       db.insert(analyticsEvents).values({
         organizationId: organizationId,
         eventName: eventName,
-        eventCategory: "financial",
-        eventData: eventData,
+        category: "business_metric",
+        properties: eventData,
       })
     );
   } catch (error) {
@@ -738,7 +734,7 @@ async function sendNotification(
 ) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
-    
+
     // Get notification template - simplified for AWS schema compatibility
     const { data: template } = await safeSingle(async () =>
       db.select()
@@ -754,19 +750,32 @@ async function sendNotification(
 
     const templateData = template as {
       id: string;
-      subject: string;
-      bodyTemplate: string;
+      subject: string | null;
+      body: string;
     };
+
+    // Get a team member for the organization (simplified - use first active member)
+    const { data: teamMember } = await safeSingle(async () =>
+      db.select({ id: teamMembers.id })
+        .from(teamMembers)
+        .where(eq(teamMembers.organizationId, organizationId))
+        .limit(1)
+    );
+
+    if (!teamMember) {
+      console.log('No team member found for organization:', organizationId);
+      return;
+    }
 
     // Create notification
     await safeInsert(async () =>
       db.insert(notifications).values({
         organizationId: organizationId,
-        type: type as NotificationCategory,
+        teamMemberId: (teamMember as { id: string }).id,
+        type: "email", // Default to email notification type
         subject: templateData.subject || `Billing notification: ${type}`,
-        body: templateData.bodyTemplate || JSON.stringify(metadata),
-        status: "pending",
-        metadata: metadata,
+        message: templateData.body || JSON.stringify(metadata),
+        recipient: "ops@have-foresight.com", // Default billing email
         templateId: templateData.id,
       })
     );
@@ -781,7 +790,7 @@ async function createManualReviewAlert(
 ) {
   try {
     const { db } = await createAuthenticatedDatabaseClient();
-    
+
     // Create an internal alert for your team to review
     await safeInsert(async () =>
       db.insert(workQueues).values({
@@ -790,13 +799,8 @@ async function createManualReviewAlert(
         entityId: entityId,
         title: `Webhook Issue: ${alertType}`,
         description: `Manual review required for ${alertType} on entity ${entityId}`,
-        priority: 2,
+        priority: 'medium',
         status: 'pending',
-        metadata: {
-          alert_type: alertType,
-          entity_id: entityId,
-          timestamp: new Date().toISOString(),
-        },
       })
     );
   } catch (error) {
@@ -813,7 +817,7 @@ async function prepareSuspension(organizationId: string, invoice: Stripe.Invoice
       entityId: invoice.id,
       title: 'Account Suspension Pending',
       description: 'Multiple payment attempts have failed. Account will be suspended if payment is not received.',
-      priority: 1,
+      priority: 'urgent',
       status: 'pending',
       dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
     })

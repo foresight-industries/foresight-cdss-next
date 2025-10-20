@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
-import { asc } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { ehrSystems } from '@foresight-cdss-next/db';
 
 // GET - List available EHR systems
@@ -38,7 +38,7 @@ export async function GET() {
         updatedAt: ehrSystems.updatedAt
       })
       .from(ehrSystems)
-      .where(ehrSystems.isActive)
+      .where(eq(ehrSystems.isActive, true))
       .orderBy(asc(ehrSystems.systemName))
     );
 

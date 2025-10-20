@@ -39,7 +39,11 @@ async function loadTeamSettings() {
   }
 }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  params,
+}: {
+  params: { slug: string };
+}) {
   const settingsData = await loadTeamSettings();
 
   // Default automation settings
@@ -172,6 +176,7 @@ export default async function SettingsPage() {
       initialAutomationSettings={automationSettings}
       initialNotificationSettings={notificationSettings}
       initialValidationSettings={validationSettings}
+      teamSlug={params.slug}
     />
   );
 }
