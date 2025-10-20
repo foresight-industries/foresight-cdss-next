@@ -186,6 +186,25 @@ interface SettingsProps {
       retentionPeriod: string;
     };
   };
+  initialOrganizationData?: {
+    id: string;
+    name: string;
+    taxId: string;
+    npiNumber: string;
+    billingAddress: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+    primaryContact: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    };
+  } | null;
 }
 
 const settingsSections: SettingsSection[] = [
@@ -298,9 +317,10 @@ function SettingsPageContent({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
+  initialOrganizationData,
 }: Readonly<SettingsProps>) {
   const searchParams = useSearchParams();
-  const [activeSection, setActiveSection] = useState("automation");
+  const [activeSection, setActiveSection] = useState("general");
   const [hasChanges, setHasChanges] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
@@ -1575,13 +1595,10 @@ function SettingsPageContent({
   const renderSectionContent = () => {
     switch (activeSection) {
       case "general":
-        if (organizationLoading) {
-          return <div className="flex items-center justify-center py-8">Loading organization...</div>;
-        }
-        if (!organizationId) {
+        if (!initialOrganizationData) {
           return <div className="flex items-center justify-center py-8">Organization not found</div>;
         }
-        return <GeneralTab organizationId={organizationId} />;
+        return <GeneralTab initialOrganizationData={initialOrganizationData} />;
       case "automation":
         return (
           <AutomationTab
@@ -3570,6 +3587,7 @@ export default function SettingsClient({
   initialAutomationSettings,
   initialNotificationSettings,
   initialValidationSettings,
+  initialOrganizationData,
 }: Readonly<SettingsProps>) {
   return (
     <Suspense fallback={<SettingsLoading />}>
@@ -3578,6 +3596,7 @@ export default function SettingsClient({
         initialAutomationSettings={initialAutomationSettings}
         initialNotificationSettings={initialNotificationSettings}
         initialValidationSettings={initialValidationSettings}
+        initialOrganizationData={initialOrganizationData}
       />
     </Suspense>
   );

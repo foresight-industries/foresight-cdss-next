@@ -1,15 +1,33 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Building2, Save, CheckCircle, AlertCircle } from 'lucide-react';
+import { Building2, Save, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface GeneralTabProps {
-  organizationId?: string;
+  initialOrganizationData?: {
+    id: string;
+    name: string;
+    taxId: string;
+    npiNumber: string;
+    billingAddress: {
+      addressLine1: string;
+      addressLine2: string;
+      city: string;
+      state: string;
+      zipCode: string;
+    };
+    primaryContact: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    };
+  } | null;
 }
 
 interface OrganizationSettings {
@@ -31,61 +49,34 @@ interface OrganizationSettings {
   };
 }
 
-export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
-  const [settings, setSettings] = useState<OrganizationSettings>({
-    name: '',
-    taxId: '',
-    npiNumber: '',
-    billingAddress: {
-      addressLine1: '',
-      addressLine2: '',
-      city: '',
-      state: '',
-      zipCode: '',
-    },
-    primaryContact: {
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-    },
-  });
+export function GeneralTab({ initialOrganizationData }: Readonly<GeneralTabProps>) {
+  const [settings, setSettings] = useState<OrganizationSettings>(
+    initialOrganizationData || {
+      name: '',
+      taxId: '',
+      npiNumber: '',
+      billingAddress: {
+        addressLine1: '',
+        addressLine2: '',
+        city: '',
+        state: '',
+        zipCode: '',
+      },
+      primaryContact: {
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+      },
+    }
+  );
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load organization settings
-  useEffect(() => {
-    const loadSettings = async () => {
-      if (!organizationId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(`/api/organizations/${organizationId}/settings`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data.settings) {
-            setSettings(data.settings);
-          }
-        } else {
-          console.error('Failed to load organization settings');
-        }
-      } catch (error) {
-        console.error('Error loading organization settings:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSettings();
-  }, [organizationId]);
-
   const handleInputChange = (field: string, value: string) => {
     setHasChanges(true);
-    
+
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setSettings(prev => ({
@@ -104,14 +95,14 @@ export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
   };
 
   const handleSave = async () => {
-    if (!organizationId) {
+    if (!initialOrganizationData?.id) {
       toast.error('Organization ID is required');
       return;
     }
 
     setSaving(true);
     try {
-      const response = await fetch(`/api/organizations/${organizationId}/settings`, {
+      const response = await fetch(`/api/organizations/${initialOrganizationData.id}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -133,21 +124,6 @@ export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
       setSaving(false);
     }
   };
-
-  if (loading) {
-    return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded-lg mb-4" />
-          <div className="space-y-4">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg" />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -175,7 +151,7 @@ export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Organization Information
         </h3>
-        
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="org-name">Organization Name</Label>
@@ -227,7 +203,7 @@ export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Billing Address
         </h3>
-        
+
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="address-line1">Address Line 1</Label>
@@ -295,7 +271,7 @@ export function GeneralTab({ organizationId }: Readonly<GeneralTabProps>) {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
           Primary Contact
         </h3>
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
