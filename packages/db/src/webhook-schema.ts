@@ -52,7 +52,8 @@ export const webhookEventTypeEnum = pgEnum('webhook_event_type', [
   'claim.submitted',
   'payment.received',
   'eligibility.checked',
-  'user.deleted'
+  'user.deleted',
+  'webhook.test'
 ]);
 
 // ============================================================================
