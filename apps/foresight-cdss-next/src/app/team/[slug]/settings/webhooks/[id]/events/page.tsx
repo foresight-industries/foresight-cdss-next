@@ -230,7 +230,7 @@ export default function WebhookEventsPage() {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="w-[160px]">
               <Filter className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -244,7 +244,7 @@ export default function WebhookEventsPage() {
           </Select>
 
           <Select value={eventTypeFilter} onValueChange={setEventTypeFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -257,7 +257,7 @@ export default function WebhookEventsPage() {
           </Select>
 
           <Select value={dateRange} onValueChange={setDateRange}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-[140px]">
               <Calendar className="w-4 h-4 mr-2" />
               <SelectValue />
             </SelectTrigger>
@@ -443,7 +443,7 @@ export default function WebhookEventsPage() {
       {/* Event Detail Modal */}
       {selectedEvent && (
         <Dialog open={true} onOpenChange={() => setSelectedEvent(null)}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-auto">
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-none w-[90vw]">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {getStatusIcon(selectedEvent.status)}

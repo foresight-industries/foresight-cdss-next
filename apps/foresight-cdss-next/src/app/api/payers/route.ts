@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { and, eq, desc } from 'drizzle-orm';
-import { teamMembers, payers, payerContracts, payerConfigs, payerPortalCredentials, claims, priorAuths } from '@foresight-cdss-next/db';
+import { teamMembers, payers, payerContracts, payerConfigs, payerPortalCredentials, claims, priorAuths, Payer } from '@foresight-cdss-next/db';
 import type { CreatePayerRequest, PayerWithConfig } from '@/types/payer.types';
 
 // GET - List payers and their configurations for current team
@@ -57,10 +57,10 @@ export async function GET(request: NextRequest) {
 
     // Calculate performance stats for each payer
     const payersWithConfig: PayerWithConfig[] = [];
-    
+
     for (const payer of payerList || []) {
       const payerData = payer as any;
-      
+
       // Get payer config
       const { data: config } = await safeSingle(async () =>
         db.select()
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create payer
-    const { data: newPayer, error: payerError } = await safeInsert(async () =>
+    const { data: newPayerArray, error: payerError } = await safeInsert(async () =>
       db.insert(payers)
         .values({ name })
         .returning({
@@ -239,17 +239,21 @@ export async function POST(request: NextRequest) {
         })
     );
 
-    if (payerError || !newPayer || newPayer.length === 0) {
+    if (payerError || !newPayerArray || newPayerArray.length === 0) {
       console.error('Error creating payer:', payerError);
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
+
+    const newPayer = newPayerArray[0] as Payer;
 
     // Create payer contract to link it to the organization
     const { error: contractError } = await safeInsert(async () =>
       db.insert(payerContracts)
         .values({
-          payerId: (newPayer[0] as any).id,
-          organizationId: memberData.organizationId
+          payerId: newPayer.id,
+          organizationId: memberData.organizationId,
+          contractName: `Default contract for ${newPayer.name}`,
+          effectiveDate: new Date().toISOString().split('T')[0] // Today's date in YYYY-MM-DD format
         })
     );
 
@@ -259,7 +263,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      payer: (newPayer[0] as any)
+      payer: newPayer
     }, { status: 201 });
 
   } catch (error) {

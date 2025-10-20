@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSelect, safeSingle, safeInsert } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { teamMembers, organizations } from '@foresight-cdss-next/db';
+import { teamMembers, organizations, Organization, userProfiles } from '@foresight-cdss-next/db';
 
 // GET - Get organizations for current user
 export async function GET() {
@@ -134,15 +134,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create organization' }, { status: 500 });
     }
 
-    const newOrg = organization[0] as any;
+    const newOrg = organization[0] as Organization;
+
+    const { data: userProfile } = await safeSingle(async () =>
+      db.select().from(userProfiles).where(eq(userProfiles.clerkUserId, userId))
+    );
+
+    if (!userProfile) {
+      // Handle case where user profile doesn't exist
+      throw new Error('User profile not found');
+    }
 
     // Add creator as organization owner
     const { error: memberError } = await safeInsert(async () =>
       db.insert(teamMembers)
         .values({
           organizationId: newOrg.id,
+          userProfileId: userProfile.id,
           clerkUserId: userId,
-          email: '', // This should be populated from Clerk user data
           role: 'owner' as const,
           isActive: true
         })

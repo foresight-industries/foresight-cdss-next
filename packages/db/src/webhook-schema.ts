@@ -113,7 +113,7 @@ export const webhookConfigs = pgTable('webhook_config', {
 }));
 
 // Webhook secrets table for secret rotation support
-export const webhookSecrets = pgTable('webhook_secrets', {
+export const webhookSecrets = pgTable('webhook_secret', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id, { onDelete: 'cascade' }).notNull(),
 
@@ -141,7 +141,7 @@ export const webhookConfigsWithSecretRef = pgTable('webhook_config', {
 });
 
 // Webhook event subscriptions table
-export const webhookEventSubscriptions = pgTable('webhook_event_subscriptions', {
+export const webhookEventSubscriptions = pgTable('webhook_event_subscription', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookConfigId: uuid('webhook_config_id').references(() => webhookConfigs.id, { onDelete: 'cascade' }).notNull(),
 
@@ -161,7 +161,7 @@ export const webhookEventSubscriptions = pgTable('webhook_event_subscriptions', 
 }));
 
 // Source webhook events table
-export const webhookEvents = pgTable('webhook_events', {
+export const webhookEvents = pgTable('webhook_event', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
 
@@ -239,7 +239,7 @@ export const webhookDeliveries = pgTable('webhook_delivery', {
 }));
 
 // Detailed delivery attempts tracking
-export const webhookDeliveryAttempts = pgTable('webhook_delivery_attempts', {
+export const webhookDeliveryAttempts = pgTable('webhook_delivery_attempt', {
   id: uuid('id').primaryKey().defaultRandom(),
   webhookDeliveryId: uuid('webhook_delivery_id').references(() => webhookDeliveries.id, { onDelete: 'cascade' }).notNull(),
 

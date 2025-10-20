@@ -312,6 +312,20 @@ export class WebhookStack extends cdk.Stack {
     });
 
     documentRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
+
+    // Webhook test events rule
+    const webhookTestRule = new events.Rule(this, 'WebhookTestEventsRule', {
+      ruleName: `foresight-webhook-test-events-${this.stageName}`,
+      eventBus: this.eventBus,
+      eventPattern: {
+        source: ['foresight.webhooks'],
+        detailType: [
+          'Webhook Test Event',
+        ],
+      },
+    });
+
+    webhookTestRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
   }
 
   private createDlqMonitoring(): void {

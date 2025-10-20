@@ -6,7 +6,7 @@ import {
   systemSettings,
   automationRules,
   businessRules,
-  notificationTemplates
+  notificationTemplates, SystemSettings
 } from "@foresight-cdss-next/db";
 
 // Types for AWS schema integration
@@ -203,7 +203,7 @@ export class SettingsService {
       throw new Error('Failed to update automation config');
     }
 
-    return data[0] as OrganizationAutomationConfig;
+    return data[0] as unknown as OrganizationAutomationConfig;
   }
 
   async updateValidationConfig(
@@ -228,7 +228,7 @@ export class SettingsService {
       throw new Error('Failed to update validation config');
     }
 
-    return data[0] as OrganizationValidationConfig;
+    return data[0] as unknown as OrganizationValidationConfig;
   }
 
   private async getOrCreateAutomationConfig(
@@ -243,25 +243,37 @@ export class SettingsService {
     );
 
     if (existingConfig) {
-      return existingConfig as OrganizationAutomationConfig;
+      return existingConfig as unknown as OrganizationAutomationConfig;
+    }
+
+    if (!organizationId) {
+      throw new Error('Organization ID is required');
     }
 
     // Create default config
+    const defaultConfigValue = {
+      globalConfidenceThreshold: 0.7,
+      autoApprovalThreshold: 0.9,
+      requireReviewThreshold: 0.5,
+      cptCodeThreshold: 0.8,
+      icd10Threshold: 0.8,
+      placeOfServiceThreshold: 0.8,
+      modifiersThreshold: 0.8,
+      enableAutoSubmission: false,
+      enableAutoEpa: false,
+      enableBulkProcessing: false,
+      confidenceScoreEnabled: true
+    };
+
     const { data: newConfig } = await safeInsert(async () =>
       db.insert(systemSettings)
         .values({
           organizationId,
-          globalConfidenceThreshold: 0.7,
-          autoApprovalThreshold: 0.9,
-          requireReviewThreshold: 0.5,
-          cptCodeThreshold: 0.8,
-          icd10Threshold: 0.8,
-          placeOfServiceThreshold: 0.8,
-          modifiersThreshold: 0.8,
-          enableAutoSubmission: false,
-          enableAutoEpa: false,
-          enableBulkProcessing: false,
-          confidenceScoreEnabled: true
+          settingKey: 'automation_config',
+          settingValue: JSON.stringify(defaultConfigValue),
+          settingType: 'json',
+          scope: 'organization',
+          description: 'Default automation configuration'
         })
         .returning()
     );
@@ -281,33 +293,51 @@ export class SettingsService {
     const { data: existingConfig } = await safeSingle(async () =>
       db.select()
         .from(systemSettings)
-        .where(eq(systemSettings.organizationId, organizationId))
+        .where(and(
+          eq(systemSettings.organizationId, organizationId),
+          eq(systemSettings.settingKey, 'validation_config')
+        ))
     );
 
     if (existingConfig) {
-      return existingConfig as OrganizationValidationConfig;
+      const parsedValue = JSON.parse(existingConfig.settingValue || '{}');
+      return {
+        id: existingConfig.id,
+        organizationId: existingConfig.organizationId!,
+        ...parsedValue,
+        createdAt: existingConfig.createdAt,
+        updatedAt: existingConfig.updatedAt
+      } as OrganizationValidationConfig;
     }
 
     // Create default config
+    const defaultValidationValue = {
+      telehealthEnabled: true,
+      inPersonEnabled: true,
+      homeVisitsEnabled: false,
+      enforcePosValidation: true,
+      blockOnMissingFields: false,
+      enableTimeValidation: true,
+      extractTimeFromNotes: false,
+      enforceCredentialing: true,
+      multiStateLicensure: false,
+      showCredentialingAlerts: true,
+      allowedProviderStatuses: ['active', 'credentialed'],
+      medicalNecessityThreshold: 0.8,
+      logRuleApplications: true,
+      logAutoFixes: true,
+      auditRetentionPeriod: '365 days'
+    };
+
     const { data: newConfig } = await safeInsert(async () =>
       db.insert(systemSettings)
         .values({
           organizationId,
-          telehealthEnabled: true,
-          inPersonEnabled: true,
-          homeVisitsEnabled: false,
-          enforcePosValidation: true,
-          blockOnMissingFields: false,
-          enableTimeValidation: true,
-          extractTimeFromNotes: false,
-          enforceCredentialing: true,
-          multiStateLicensure: false,
-          showCredentialingAlerts: true,
-          allowedProviderStatuses: ['active', 'credentialed'],
-          medicalNecessityThreshold: 0.8,
-          logRuleApplications: true,
-          logAutoFixes: true,
-          auditRetentionPeriod: '365 days'
+          settingKey: 'validation_config',
+          settingValue: JSON.stringify(defaultValidationValue),
+          settingType: 'json',
+          scope: 'organization',
+          description: 'Default validation configuration'
         })
         .returning()
     );
@@ -316,7 +346,15 @@ export class SettingsService {
       throw new Error('Failed to create validation config');
     }
 
-    return newConfig[0] as OrganizationValidationConfig;
+    const configData = newConfig[0] as SystemSettings;
+
+    return {
+      id: configData.id,
+      organizationId: configData.organizationId!,
+      ...defaultValidationValue,
+      createdAt: configData.createdAt,
+      updatedAt: configData.updatedAt
+    } as OrganizationValidationConfig;
   }
 
   // ===================================
@@ -347,7 +385,7 @@ export class SettingsService {
         ))
     );
 
-    return (data as PayerOverrideRule[]) || [];
+    return (data as unknown as PayerOverrideRule[]) || [];
   }
 
   async getEmTimeRules(organizationId: string): Promise<EmTimeRule[]> {
@@ -362,7 +400,7 @@ export class SettingsService {
         ))
     );
 
-    return (data as EmTimeRule[]) || [];
+    return (data as unknown as EmTimeRule[]) || [];
   }
 
   async getDenialPlaybook(organizationId: string): Promise<DenialPlaybook[]> {
@@ -377,7 +415,7 @@ export class SettingsService {
         ))
     );
 
-    return (data as DenialPlaybook[]) || [];
+    return (data as unknown as DenialPlaybook[]) || [];
   }
 
   // ===================================
@@ -391,7 +429,17 @@ export class SettingsService {
 
     const { data } = await safeInsert(async () =>
       db.insert(automationRules)
-        .values({ ...rule, organizationId })
+        .values({
+          organizationId,
+          name: rule.name,
+          description: rule.description,
+          category: 'automation',
+          ruleType: 'trigger',
+          conditions: rule.conditions,
+          actions: rule.actions,
+          priority: rule.priority,
+          status: rule.isActive ? 'active' : 'inactive'
+        })
         .returning()
     );
 
@@ -428,6 +476,7 @@ export class SettingsService {
     await safeDelete(async () =>
       db.delete(automationRules)
         .where(eq(automationRules.id, ruleId))
+        .returning({ id: automationRules.id })
     );
   }
 
@@ -437,9 +486,35 @@ export class SettingsService {
   ): Promise<PayerOverrideRule | EmTimeRule | DenialPlaybook> {
     const { db } = await createAuthenticatedDatabaseClient();
 
+    // Map interface fields to schema fields based on rule type
+    const businessRuleData: any = {
+      organizationId,
+      name: (rule as any).ruleName || (rule as any).code || 'Business Rule',
+      description: rule.description || '',
+      conditions: (rule as any).conditions || {},
+      actions: (rule as any).actions || {},
+      triggerEvent: 'manual',
+      category: 'general'
+    };
+
+    // Determine category and map fields based on rule type
+    if ('payerName' in rule) {
+      // PayerOverrideRule
+      businessRuleData.category = 'payer_override';
+      businessRuleData.name = (rule as PayerOverrideRule).ruleName;
+    } else if ('cptCode' in rule) {
+      // EmTimeRule
+      businessRuleData.category = 'em_time';
+      businessRuleData.name = `Time rule for ${(rule as EmTimeRule).cptCode}`;
+    } else if ('strategy' in rule) {
+      // DenialPlaybook
+      businessRuleData.category = 'denial_playbook';
+      businessRuleData.name = `Denial strategy for ${(rule as DenialPlaybook).code}`;
+    }
+
     const { data } = await safeInsert(async () =>
       db.insert(businessRules)
-        .values({ ...rule, organizationId })
+        .values(businessRuleData)
         .returning()
     );
 
@@ -456,6 +531,7 @@ export class SettingsService {
     await safeDelete(async () =>
       db.delete(businessRules)
         .where(eq(businessRules.id, ruleId))
+        .returning({ id: businessRules.id })
     );
   }
 

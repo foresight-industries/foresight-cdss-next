@@ -106,6 +106,7 @@ export async function POST(
           nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // Retry in 5 minutes
         })
         .where(eq(webhookDeliveries.id, eventId))
+        .returning({ id: webhookDeliveries.id })
     );
 
     if (updateError) {
@@ -187,6 +188,7 @@ export async function POST(
             nextRetryAt: null
           })
           .where(eq(webhookDeliveries.id, eventId))
+          .returning({ id: webhookDeliveries.id })
       );
 
       return NextResponse.json({

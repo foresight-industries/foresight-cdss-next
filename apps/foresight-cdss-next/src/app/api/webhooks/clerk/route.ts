@@ -12,7 +12,7 @@ import type {
 } from "@clerk/nextjs/server";
 import { safeSingle, safeInsert, safeUpdate, createDatabaseAdminClient } from "@/lib/aws/database";
 import { eq, and, sql } from "drizzle-orm";
-import { teamMembers, organizations, organizationInvitations, userProfiles, UserProfile, type Organization } from "@foresight-cdss-next/db";
+import { teamMembers, organizations, organizationInvitations, userProfiles, type Organization } from "@foresight-cdss-next/db";
 import {
   publishOrganizationCreated,
   // publishOrganizationUpdated,
@@ -249,6 +249,7 @@ async function handleUserUpdated(data: UserWebhookEvent['data']) {
           updatedAt: new Date()
         })
         .where(eq(userProfiles.clerkUserId, data.id))
+        .returning({ id: userProfiles.id })
     );
 
     if (error) {
@@ -278,7 +279,7 @@ async function handleUserDeleted(data: UserWebhookEvent['data']) {
     const { db } = createDatabaseAdminClient();
 
     // Get user profile to find the internal ID
-    const { data: userProfile } : { data: UserProfile | null, error: Error | null } = await safeSingle(async () =>
+    const { data: userProfile } = await safeSingle(async () =>
       db.select({ id: userProfiles.id })
         .from(userProfiles)
         .where(eq(userProfiles.clerkUserId, data.id!))
@@ -293,6 +294,7 @@ async function handleUserDeleted(data: UserWebhookEvent['data']) {
           updatedAt: new Date()
         })
         .where(eq(userProfiles.clerkUserId, data.id!))
+        .returning({ id: userProfiles.id })
     );
 
     if (profileError) {
@@ -309,6 +311,7 @@ async function handleUserDeleted(data: UserWebhookEvent['data']) {
             updatedAt: new Date()
           })
           .where(eq(teamMembers.userProfileId, userProfile.id))
+          .returning({ id: teamMembers.id })
       );
 
       if (memberError) {
@@ -361,7 +364,7 @@ async function handleOrganizationCreated(data: OrganizationWebhookEvent['data'])
     }
 
     // Get the created organization to get internal ID
-    const { data: createdOrg } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: createdOrg } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.id))
@@ -403,6 +406,7 @@ async function handleOrganizationUpdated(data: OrganizationWebhookEvent['data'])
           updatedAt: new Date()
         })
         .where(eq(organizations.clerkOrgId, data.id))
+        .returning({ id: organizations.id })
     );
 
     if (error) {
@@ -432,7 +436,7 @@ async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data'])
     const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID to find the internal ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.id!))
@@ -454,6 +458,7 @@ async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data'])
           eq(organizationInvitations.organizationId, organization.id),
           eq(organizationInvitations.status, "pending")
         ))
+      .returning({ id: organizationInvitations.id })
     );
 
     if (invitationError) {
@@ -468,6 +473,7 @@ async function handleOrganizationDeleted(data: OrganizationWebhookEvent['data'])
           updatedAt: new Date()
         })
         .where(eq(organizations.id, organization.id))
+      .returning({ id: organizations.id })
     );
 
     if (orgError) {
@@ -499,7 +505,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
     const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
     // Get organization by Clerk org ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
@@ -517,15 +523,43 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
       );
 
       if (!existingMember) {
+        // Find or create user profile first
+        const { data: userProfile } = await safeSingle(async () =>
+          db.select({ id: userProfiles.id })
+            .from(userProfiles)
+            .where(eq(userProfiles.clerkUserId, data.public_user_data.user_id))
+        );
+
+        let userProfileId = userProfile?.id;
+
+        if (!userProfile) {
+          // Create user profile if it doesn't exist
+          const { data: newProfile } = await safeInsert(async () =>
+            db.insert(userProfiles)
+              .values({
+                clerkUserId: data.public_user_data.user_id,
+                email: email || '',
+                firstName: data.public_user_data.first_name,
+                lastName: data.public_user_data.last_name,
+                role: sql.raw(`'read'::access_level`),
+                isActive: true
+              })
+              .returning({ id: userProfiles.id })
+          );
+          userProfileId = (newProfile?.[0] as { id: string })?.id;
+        }
+
+        if (!userProfileId) {
+          throw new Error('Failed to get or create user profile');
+        }
+
         // Add user to organization
         const { error: memberError } = await safeInsert(async () =>
           db.insert(teamMembers)
             .values({
               organizationId: organization.id,
+              userProfileId: userProfileId,
               clerkUserId: data.public_user_data.user_id,
-              email,
-              firstName: data.public_user_data.first_name,
-              lastName: data.public_user_data.last_name,
               role: sql.raw(`'${role}'::access_level`),
               isActive: true
             })
@@ -549,6 +583,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
                 eq(organizationInvitations.email, email),
                 eq(organizationInvitations.status, "pending")
               ))
+            .returning({ id: organizationInvitations.id })
           );
 
           if (invitationError) {
@@ -583,18 +618,43 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
       );
 
       if (!existingMember) {
+        // Find or create user profile first
+        const { data: userProfile } = await safeSingle(async () =>
+          db.select({ id: userProfiles.id })
+            .from(userProfiles)
+            .where(eq(userProfiles.clerkUserId, data.public_user_data.user_id))
+        );
+
+        let userProfileId = userProfile?.id;
+
+        if (!userProfile) {
+          // Create user profile if it doesn't exist
+          const { data: newProfile } = await safeInsert(async () =>
+            db.insert(userProfiles)
+              .values({
+                clerkUserId: data.public_user_data.user_id,
+                email: email || '',
+                firstName: data.public_user_data.first_name,
+                lastName: data.public_user_data.last_name,
+                role: sql.raw(`'read'::access_level`),
+                isActive: true
+              })
+              .returning({ id: userProfiles.id })
+          );
+          userProfileId = (newProfile?.[0] as { id: string })?.id;
+        }
+
         // Add user to organization
         const { error: memberError } = await safeInsert(async () =>
           db.insert(teamMembers)
             .values({
               organizationId: newOrg[0].id,
               clerkUserId: data.public_user_data.user_id,
-              email,
-              firstName: data.public_user_data.first_name,
-              lastName: data.public_user_data.last_name,
+              userProfileId: userProfileId!,
               role: sql.raw(`'${role}'::access_level`),
               isActive: true
             })
+            .returning({ id: teamMembers.id })
         );
 
         if (memberError) {
@@ -615,6 +675,7 @@ async function handleMembershipCreated(data: OrganizationMembershipWebhookEvent[
                 eq(organizationInvitations.email, email),
                 eq(organizationInvitations.status, "pending")
               ))
+            .returning({ id: organizationInvitations.id })
           );
 
           if (invitationError) {
@@ -651,7 +712,7 @@ async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent[
     const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
     // Get organization by Clerk org ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
@@ -671,6 +732,7 @@ async function handleMembershipUpdated(data: OrganizationMembershipWebhookEvent[
           eq(teamMembers.clerkUserId, data.public_user_data.user_id),
           eq(teamMembers.organizationId, organization.id)
         ))
+        .returning({ id: teamMembers.id })
     );
 
     if (error) {
@@ -695,7 +757,7 @@ async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent[
     const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization.id))
@@ -716,6 +778,7 @@ async function handleMembershipDeleted(data: OrganizationMembershipWebhookEvent[
           eq(teamMembers.clerkUserId, data.public_user_data.user_id),
           eq(teamMembers.organizationId, organization.id)
         ))
+        .returning({ id: teamMembers.id })
     );
 
     if (error) {
@@ -741,7 +804,7 @@ async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent[
     const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization_id))
@@ -761,16 +824,21 @@ async function handleInvitationCreated(data: OrganizationInvitationWebhookEvent[
     const role = roleMapping[data.role as keyof typeof roleMapping] ?? "read";
 
     // Create invitation record
+    const invitationData: any = {
+      organizationId: organization.id,
+      email: data.email_address,
+      role: sql.raw(`'${role}'::access_level`),
+      status: "pending",
+      clerkInvitationId: data.id,
+    };
+
+    if (data.expires_at) {
+      invitationData.expiresAt = new Date(data.expires_at);
+    }
+
     const { error } = await safeInsert(async () =>
       db.insert(organizationInvitations)
-        .values({
-          organizationId: organization.id,
-          email: data.email_address,
-          role: sql.raw(`'${role}'::access_level`),
-          status: "pending",
-          clerkInvitationId: data.id,
-          expiresAt: data.expires_at ? new Date(data.expires_at) : null,
-        })
+        .values(invitationData)
     );
 
     if (error) {
@@ -795,7 +863,7 @@ async function handleInvitationRevoked(data: OrganizationInvitationWebhookEvent[
     const { db } = createDatabaseAdminClient();
 
     // Get organization by Clerk org ID
-    const { data: organization } : { data: Organization | null } = await safeSingle(async () =>
+    const { data: organization } = await safeSingle(async () =>
       db.select({ id: organizations.id })
         .from(organizations)
         .where(eq(organizations.clerkOrgId, data.organization_id))
@@ -816,6 +884,7 @@ async function handleInvitationRevoked(data: OrganizationInvitationWebhookEvent[
           eq(organizationInvitations.organizationId, organization.id),
           eq(organizationInvitations.clerkInvitationId, data.id)
         ))
+        .returning({ id: organizationInvitations.id })
     );
 
     if (error) {

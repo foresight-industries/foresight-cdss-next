@@ -94,7 +94,7 @@ export async function PUT(
     const updateData: UpdateEncounterRequest = await request.json();
 
     // Verify user has access to this encounter
-    const { data: existingEncounter } : { data: Encounter | null } = await safeSingle(async () =>
+    const { data: existingEncounter } : { data: Partial<Encounter> | null } = await safeSingle(async () =>
       db.select({
         id: encounters.id,
         organizationId: encounters.organizationId,
@@ -202,6 +202,10 @@ export async function PUT(
     // Trigger Comprehend Medical processing if clinical_notes was updated and is not empty
     if (changedFields.includes('clinical_notes') && updateData.clinicalNotes?.trim()) {
       try {
+        if (!existingEncounter.organizationId) {
+          return NextResponse.json({ error: 'Organization ID not found for encounter' }, { status: 404 });
+        }
+
         await publishEncounterUpdate({
           encounterId,
           organizationId: existingEncounter.organizationId,

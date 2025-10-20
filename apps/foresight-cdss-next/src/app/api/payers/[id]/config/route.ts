@@ -85,10 +85,7 @@ export async function POST(
       requiresPriorAuth,
       priorAuthTypes,
       maxClaimsPerBatch,
-      submissionFrequency,
-      autoSubmit,
-      retryAttempts,
-      notificationSettings
+      submissionFrequency
     } = body as any;
 
     if (!submissionMethod) {
@@ -164,9 +161,7 @@ export async function POST(
           priorAuthTypes: priorAuthTypes || null,
           maxClaimsPerBatch: maxClaimsPerBatch || 100,
           submissionFrequency: submissionFrequency || null,
-          autoSubmit: autoSubmit || false,
-          retryAttempts: retryAttempts || 3,
-          notificationSettings: notificationSettings || null
+          // Note: autoSubmit, retryAttempts, and notificationSettings fields don't exist in the schema
         })
         .returning()
     );

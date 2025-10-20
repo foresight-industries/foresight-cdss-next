@@ -112,9 +112,9 @@ for (const envName of ['staging', 'prod']) {
     stackType: 'monitoring',
     queues: {
       claimsQueue: queues.claimsQueue,
-      webhookQueue: queues.webhookQueue,
       dlq: queues.dlq,
     },
+    webhookQueue: webhooks.webhookQueue,
   });
 
   // Add dependencies
@@ -135,6 +135,7 @@ for (const envName of ['staging', 'prod']) {
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);
   monitoring.addDependency(queues);
+  monitoring.addDependency(webhooks);
 
   // Configure S3 event notifications after both stacks are created
   // This avoids cyclic dependencies between storage and document processing

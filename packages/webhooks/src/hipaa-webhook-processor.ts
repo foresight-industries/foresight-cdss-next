@@ -1,4 +1,4 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { WebhookHipaaComplianceManager, PhiDataClassifier } from './hipaa-compliance';
 import { PhiEncryptionManager, PhiFieldDetector } from './phi-encryption';
 import type { DatabaseWrapper, HipaaComplianceStatus, PhiDataClassification } from './types';
@@ -170,7 +170,7 @@ export class HipaaWebhookProcessor {
             webhookConfigId,
             eventType: eventData.event_type ?? 'unknown',
             eventData: processedPayload,
-            environment: webhookData.environment,
+            environment: sql`CAST(${webhookData.environment} AS webhook_environment)`,
             status: 'pending',
             attemptCount: 1,
           })
@@ -596,7 +596,7 @@ export class HipaaWebhookEventRouter {
         .from(this.databaseWrapper.schemas.webhookConfigs)
         .where(and(
           eq(this.databaseWrapper.schemas.webhookConfigs.organizationId, this.organizationId),
-          eq(this.databaseWrapper.schemas.webhookConfigs.environment, eventData.environment),
+          eq(this.databaseWrapper.schemas.webhookConfigs.environment, sql`CAST(${eventData.environment} AS webhook_environment)`),
           eq(this.databaseWrapper.schemas.webhookConfigs.isActive, true)
         ))
       );

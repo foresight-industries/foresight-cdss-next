@@ -1,6 +1,9 @@
 import type { EventBridgeEvent, Context } from 'aws-lambda';
 import { HipaaWebhookEventRouter } from '@foresight-cdss-next/webhooks';
-import { createAuthenticatedDatabaseClient } from '@foresight-cdss-next/web/src/lib/aws/database';
+// Import database functions directly - avoid Next.js web imports in Lambda
+import { RDSDataClient } from '@aws-sdk/client-rds-data';
+import { drizzle } from 'drizzle-orm/aws-data-api/pg';
+import { randomUUID } from 'node:crypto';
 import {
   webhookConfigs,
   webhookDeliveries,
@@ -43,12 +46,27 @@ interface LambdaResponse {
 const sqsClient = new SQSClient({ region: process.env.AWS_REGION });
 const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION });
 const snsClient = new SNSClient({ region: process.env.AWS_REGION });
+const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION });
 
 // Environment variables
 const WEBHOOK_QUEUE_URL = process.env.WEBHOOK_QUEUE_URL!;
 const HIPAA_ALERTS_TOPIC_ARN = process.env.HIPAA_ALERTS_TOPIC_ARN!;
-const PHI_ENCRYPTION_KEY_ID = process.env.PHI_ENCRYPTION_KEY_ID!;
-const AUDIT_LOG_GROUP_NAME = process.env.AUDIT_LOG_GROUP_NAME!;
+const DATABASE_SECRET_ARN = process.env.DATABASE_SECRET_ARN!;
+const DATABASE_CLUSTER_ARN = process.env.DATABASE_CLUSTER_ARN!;
+const DATABASE_NAME = process.env.DATABASE_NAME!;
+
+/**
+ * Create authenticated database client for Lambda environment
+ */
+async function createLambdaDatabaseClient() {
+  const db = drizzle(rdsClient, {
+    database: DATABASE_NAME,
+    secretArn: DATABASE_SECRET_ARN,
+    resourceArn: DATABASE_CLUSTER_ARN,
+  });
+
+  return { db };
+}
 
 /**
  * Database wrapper implementation for AWS RDS Data API
@@ -61,7 +79,7 @@ class AwsDatabaseWrapper {
   }
 
   async createAuthenticatedDatabaseClient() {
-    return createAuthenticatedDatabaseClient();
+    return createLambdaDatabaseClient();
   }
 
   async safeSelect(callback: () => any) {
@@ -234,7 +252,7 @@ export const handler = async (
       console.error('Missing required event fields:', { organizationId, eventType, environment });
       await putMetric('ProcessingErrors', 1, 'Count', {
         ErrorType: 'MissingFields',
-        Environment: environment || 'unknown'
+        Environment: environment ?? 'unknown'
       });
 
       return {
@@ -244,7 +262,7 @@ export const handler = async (
     }
 
     // Create database wrapper
-    const { db } = await createAuthenticatedDatabaseClient();
+    const { db } = await createLambdaDatabaseClient();
     const databaseWrapper = new AwsDatabaseWrapper(db);
 
     // Initialize webhook event router
@@ -269,7 +287,7 @@ export const handler = async (
       organizationId,
       eventType,
       environment,
-      dataKeys: Object.keys(data || {}),
+      dataKeys: Object.keys(data ?? {}),
     });
 
     // Process the event and determine webhook deliveries
@@ -293,7 +311,7 @@ export const handler = async (
     for (const webhookResult of result.results) {
       if (webhookResult.success) {
         try {
-          const deliveryId = crypto.randomUUID();
+          const deliveryId = randomUUID();
           await queueWebhookDelivery(
             webhookResult.webhookId,
             eventDetail,

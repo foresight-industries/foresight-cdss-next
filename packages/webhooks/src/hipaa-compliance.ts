@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import type { DatabaseWrapper, PhiDataClassification, HipaaComplianceStatus } from './types';
 
 /**
@@ -112,7 +112,7 @@ export class WebhookHipaaComplianceManager {
             organizationId: this.organizationId,
             phiDataTypes: eventData.phiDataTypes ? JSON.stringify(eventData.phiDataTypes) : null,
             entityIds: eventData.entityIds ? JSON.stringify(eventData.entityIds) : null,
-            dataClassification: eventData.dataClassification,
+            dataClassification: sql`CAST(${eventData.dataClassification} AS phi_data_classification)`,
             baaVerified: eventData.baaVerified ?? false,
             encryptionVerified: eventData.encryptionVerified ?? false,
             retentionPolicyApplied: eventData.retentionPolicyApplied ?? false,

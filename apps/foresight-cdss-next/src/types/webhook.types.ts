@@ -1,18 +1,18 @@
 export interface WebhookConfig {
   id: string;
-  team_id: string;
+  organizationId: string;
   name: string;
   environment: 'staging' | 'production';
   url: string;
   events: string[];
-  is_active: boolean;
-  retry_count: number;
-  timeout_seconds: number;
-  last_triggered_at?: string;
-  last_success_at?: string;
+  isActive: boolean;
+  retryCount: number;
+  timeoutSeconds: number;
+  lastDelivery?: string;
+  lastSuccessfulDelivery?: string;
   last_error?: string;
-  created_at: string;
-  updated_at: string;
+  createdAt: string;
+  updatedAt: string;
   secret_hint?: string;
 
   // HIPAA Compliance fields

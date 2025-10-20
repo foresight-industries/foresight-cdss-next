@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { userProfiles, organizations, teamMembers, UserProfile } from '@foresight-cdss-next/db';
+import { userProfiles, organizations, teamMembers } from '@foresight-cdss-next/db';
 
 // PUT - Update user profile
 export async function PUT(request: NextRequest) {
@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Find the user's profile record
-    const { data: existingProfile } : { data: UserProfile | null, error: Error | null } = await safeSingle(async () =>
+    const { data: existingProfile } = await safeSingle(async () =>
       db.select({
         id: userProfiles.id
       })

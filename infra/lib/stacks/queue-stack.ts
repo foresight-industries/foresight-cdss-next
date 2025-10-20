@@ -15,7 +15,6 @@ interface QueueStackProps extends cdk.StackProps {
 
 export class QueueStack extends cdk.Stack {
   public readonly claimsQueue: sqs.Queue;
-  public readonly webhookQueue: sqs.Queue;
   public readonly eligibilityQueue: sqs.Queue;
   public readonly dlq: sqs.Queue;
 
@@ -47,17 +46,6 @@ export class QueueStack extends cdk.Stack {
       deadLetterQueue: {
         queue: fifoDlq,
         maxReceiveCount: 3,
-      },
-      encryption: sqs.QueueEncryption.KMS_MANAGED,
-    });
-
-    // Webhook Delivery Queue (high throughput)
-    this.webhookQueue = new sqs.Queue(this, 'WebhookQueue', {
-      queueName: `rcm-webhooks-${props.stageName}`,
-      visibilityTimeout: cdk.Duration.seconds(30),
-      deadLetterQueue: {
-        queue: this.dlq,
-        maxReceiveCount: 5,
       },
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
@@ -108,37 +96,6 @@ export class QueueStack extends cdk.Stack {
       })
     );
 
-    // Lambda for Webhook Delivery - Using NodejsFunction for better bundling
-    const webhookDelivery = new lambdaNodejs.NodejsFunction(this, 'WebhookDelivery', {
-      functionName: `rcm-webhook-delivery-${props.stageName}`,
-      entry: '../packages/functions/workers/webhook-delivery.ts',
-      handler: 'handler',
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
-      environment: {
-        NODE_ENV: props.stageName,
-        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
-        DATABASE_CLUSTER_ARN: props.database.clusterArn,
-        DATABASE_NAME: 'rcm',
-      },
-      bundling: {
-        minify: true,
-        sourceMap: false,
-        target: 'node22',
-        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
-      },
-      // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 50 } : {}),
-    });
-
-    props.database.grantDataApiAccess(webhookDelivery);
-
-    webhookDelivery.addEventSource(
-      new lambdaEventSources.SqsEventSource(this.webhookQueue, {
-        batchSize: 10,
-        // maxConcurrency: 20,
-        reportBatchItemFailures: true,
-      })
-    );
 
     // Lambda for Eligibility Checks - Using NodejsFunction for better bundling
     const eligibilityChecker = new lambdaNodejs.NodejsFunction(this, 'EligibilityChecker', {
@@ -149,10 +106,10 @@ export class QueueStack extends cdk.Stack {
       memorySize: 512,
       environment: {
         NODE_ENV: props.stageName,
-        DATABASE_SECRET_ARN: props.database.secret?.secretArn || '',
+        DATABASE_SECRET_ARN: props.database.secret?.secretArn ?? '',
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
         DATABASE_NAME: 'rcm',
-        PAYER_API_KEY: process.env.PAYER_API_KEY || '',
+        PAYER_API_KEY: process.env.PAYER_API_KEY ?? '',
       },
       bundling: {
         minify: true,
@@ -213,10 +170,6 @@ export class QueueStack extends cdk.Stack {
       exportName: `RCM-ClaimsQueueUrl-${props.stageName}`,
     });
 
-    new cdk.CfnOutput(this, 'WebhookQueueUrl', {
-      value: this.webhookQueue.queueUrl,
-      exportName: `RCM-WebhookQueueUrl-${props.stageName}`,
-    });
 
     new cdk.CfnOutput(this, 'DLQArn', {
       value: this.dlq.queueArn,
