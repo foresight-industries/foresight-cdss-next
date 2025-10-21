@@ -1,11 +1,9 @@
 import axios from 'axios';
-import { DosespotClinicianInformationResponse } from './types';
+import { DosespotClinicianInformationResponse } from '@/types/dosespot';
 
 export const getClinicianInfo = async (clinicianId: number, token: string) => {
-  if (!process.env.DOSESPOT_SUBSCRIPTION_KEY) {
-    throw new Error('DOSESPOT_SUBSCRIPTION_KEY is not set');
-  } else if (!process.env.DOSESPOT_BASE_URL) {
-    throw new Error('DOSESPOT_BASE_URL is not set');
+  if (!process.env.DOSESPOT_BASE_URL) {
+    throw new Error('DOSESPOT_BASE_URL environment variable is missing');
   }
 
   const clinicianInfoOption = {
@@ -18,9 +16,8 @@ export const getClinicianInfo = async (clinicianId: number, token: string) => {
       .DOSESPOT_BASE_URL}/webapi/v2/api/clinicians/${clinicianId}`,
   };
 
-  const { data: clinician } = await axios<DosespotClinicianInformationResponse>(
-    clinicianInfoOption
-  );
+  const { data: clinician } =
+    await axios<DosespotClinicianInformationResponse>(clinicianInfoOption);
 
   if (clinician.Result.ResultCode === 'ERROR') {
     const details = `Details: {Resource: ClinicianById, ClinicianId: ${clinicianId}}`;

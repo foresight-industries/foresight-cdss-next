@@ -1,4 +1,4 @@
-import { DosespotInitiatePriorAuthResponse } from './types';
+import { DosespotInitiatePriorAuthResponse } from '@/types/dosespot';
 import axios from 'axios';
 
 type InitializePriorAuthData = {
@@ -12,6 +12,14 @@ export const initiatePriorAuth = async (
   token: string,
   data: InitializePriorAuthData
 ) => {
+  if (!process.env.DOSESPOT_BASE_URL) {
+    throw new Error('DOSESPOT_BASE_URL environment variable is missing');
+  }
+
+  if (!process.env.DOSESPOT_SUBSCRIPTION_KEY) {
+    throw new Error('DOSESPOT_SUBSCRIPTION_KEY environment variable is missing');
+  }
+
   const priorAuthOptions = {
     method: 'POST',
     headers: {
@@ -25,9 +33,8 @@ export const initiatePriorAuth = async (
     },
   };
 
-  const { data: priorAuth } = await axios<DosespotInitiatePriorAuthResponse>(
-    priorAuthOptions
-  );
+  const { data: priorAuth } =
+    await axios<DosespotInitiatePriorAuthResponse>(priorAuthOptions);
 
   if (priorAuth.Result.ResultCode === 'ERROR') {
     const details = `Details: {Resource: InitiatePriorAuth, RxChangeId: ${data.RxChangeId}, Prescription: ${data.PrescriptionId}}`;

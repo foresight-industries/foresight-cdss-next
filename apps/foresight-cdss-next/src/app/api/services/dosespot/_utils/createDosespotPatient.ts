@@ -1,9 +1,9 @@
-import { Tables } from "@/lib/supabase";
-import { supabaseAdmin } from "@/lib/supabase/server";
-import { getDosespotPatientUrl } from "@/app/api/utils/dosespot/getDosespotPatientUrl";
-import { getDosespotHeaders } from "@/app/api/utils/dosespot/getDosespotHeaders";
-import axios, { AxiosRequestConfig } from "axios";
-import { Database } from "@/types/database.types";
+import { createAuthenticatedDatabaseClient, safeSingle } from '@/lib/aws/database';
+import { getDosespotPatientUrl } from '@/app/api/utils/dosespot/getDosespotPatientUrl';
+import { getDosespotHeaders } from '@/app/api/utils/dosespot/getDosespotHeaders';
+import axios, { AxiosRequestConfig } from 'axios';
+import { Patient, patients, addresses } from '@foresight-cdss-next/db';
+import { eq, and, isNull } from 'drizzle-orm';
 
 enum PrimaryPhoneTypeEnum {
   Beeper = 1,
@@ -62,8 +62,6 @@ type PatientDosespotCreated = {
   };
 };
 
-type Patient = Database['public']['Tables']['patient']['Row'];
-
 export const createDosespotPatient = async (
   patient: Patient,
   token: string
@@ -73,110 +71,136 @@ export const createDosespotPatient = async (
     message: `Creating dosespot patient for ${patient.id}`,
   });
 
-  const [profile, address] = await Promise.all([
-    supabaseAdmin
-      .from(Tables.PATIENT_PROFILE)
-      .select("*")
-      .eq("id", patient.profile_id ?? 0)
-      .maybeSingle()
-      .then(({ data }) => data),
+  try {
+    const { db } = await createAuthenticatedDatabaseClient();
 
-    supabaseAdmin
-      .from("address")
-      .select("*")
-      .eq("patient_id", patient.id)
-      .maybeSingle()
-      .then(({ data }) => data),
-  ]);
-
-  if (!address) {
-    throw new Error(`Could not find address for patientId: ${patient.id}`);
-  }
-
-  if (!profile) {
-    throw new Error(
-      `Could not find profile for profile id: ${patient.profile_id}`
+    // Get patient address - using the primary address
+    const { data: address } = await safeSingle(async () =>
+      db.select({
+        addressLine1: addresses.addressLine1,
+        addressLine2: addresses.addressLine2,
+        city: addresses.city,
+        state: addresses.state,
+        zipCode: addresses.zipCode,
+      })
+      .from(addresses)
+      .where(and(
+        eq(addresses.patientId, patient.id),
+        eq(addresses.isPrimary, true),
+        isNull(addresses.deletedAt)
+      ))
     );
-  }
 
-  if (!profile.phone) {
-    throw new Error(`
-      Patient ${patient.id} does not have phone number
-    `);
-  }
+    if (!address) {
+      throw new Error(`Could not find primary address for patientId: ${patient.id}`);
+    }
 
-  const formattedPhoneNumber = profile
-    .phone.replace('+1', '')
-    .replace(/\D+/g, '');
+    // Use patient data directly from the patients table (no separate profile table in AWS schema)
+    if (!patient.firstName || !patient.lastName) {
+      throw new Error(`Patient ${patient.id} is missing required name fields`);
+    }
 
-  if (formattedPhoneNumber.length > 10) {
-    throw new Error(
-      `Patient ${patient.id}. Phone of type Primary and number ${profile.phone} is not a valid phone number.`
+    if (!patient.email) {
+      throw new Error(`Patient ${patient.id} does not have email`);
+    }
+
+    if (!patient.dateOfBirth) {
+      throw new Error(`Patient ${patient.id} does not have date of birth`);
+    }
+
+    // Use the primary phone (mobile first, then home, then work)
+    const primaryPhone = patient.phoneMobile || patient.phoneHome || patient.phoneWork;
+    if (!primaryPhone) {
+      throw new Error(`Patient ${patient.id} does not have phone number`);
+    }
+
+    const formattedPhoneNumber = primaryPhone
+      .replace('+1', '')
+      .replaceAll(/\D+/g, '');
+
+    if (formattedPhoneNumber.length > 10) {
+      throw new Error(
+        `Patient ${patient.id}. Phone of type Primary and number ${primaryPhone} is not a valid phone number.`
+      );
+    }
+
+    console.log({
+      level: 'info',
+      message: `Getting dosespot token to create dosespot patient for ${patient.id}`,
+    });
+
+    const patientInput: CreateDosespotPatientInput = {
+      FirstName: patient.firstName,
+      LastName: patient.lastName,
+      MiddleName: patient.middleName,
+      Email: patient.email,
+      DateOfBirth: patient.dateOfBirth,
+      PrimaryPhone: formattedPhoneNumber,
+      PrimaryPhoneType: PrimaryPhoneTypeEnum.Primary,
+      Gender: patient.gender === 'M' ? GenderEnum.Male : patient.gender === 'F' ? GenderEnum.Female : GenderEnum.Unknown,
+      Address1: address.addressLine1,
+      Address2: address.addressLine2,
+      City: address.city,
+      ZipCode: address.zipCode,
+      State: address.state,
+      Active: true,
+      IsHospice: false,
+    };
+
+    if (patient.height) {
+      patientInput.Height = patient.height;
+      patientInput.HeightMetric = HeightUnits.In;
+    }
+
+    if (patient.weight) {
+      patientInput.Weight = patient.weight;
+      patientInput.WeightMetric = WeightUnits.Lb;
+    }
+
+    console.log({ PATIENT_INPUT: patientInput });
+
+    const options: AxiosRequestConfig = {
+      method: 'POST',
+      url: getDosespotPatientUrl(),
+      data: patientInput,
+      headers: getDosespotHeaders(token),
+    };
+
+    const { data: dosespotPatient } =
+      await axios<PatientDosespotCreated>(options);
+
+    console.log({ DOSESPOT_PATIENT: dosespotPatient });
+
+    if (!dosespotPatient.Id || dosespotPatient.Result.ResultCode === 'ERROR') {
+      throw new Error(
+        dosespotPatient.Result.ResultDescription ||
+        `Could not create dosespot patient for patientId ${patient.id}`
+      );
+    }
+
+    // Update patient with DoseSpot patient ID using AWS DB
+    const { data: updatedPatient } = await safeSingle(async () =>
+      db.update(patients)
+        .set({
+          dosespotPatientId: Number(dosespotPatient.Id),
+          updatedAt: new Date(),
+        })
+        .where(eq(patients.id, patient.id))
+        .returning({
+          id: patients.id,
+        })
     );
+
+    return {
+      id: updatedPatient?.id || patient.id,
+      dosespotPatientId: dosespotPatient.Id
+    };
+  } catch (err) {
+    console.error({
+      level: 'error',
+      message: `Could not create dosespot patient for patientId ${patient.id}`,
+      error: err,
+    });
+    throw err;
   }
-
-  console.log({
-    level: 'info',
-    message: `Getting dosespot token to create dosespot patient for ${patient.id}`,
-  });
-
-  const patientInput: CreateDosespotPatientInput = {
-    FirstName: profile.first_name ?? "",
-    LastName: profile.last_name ?? "",
-    // MiddleName: profile.middle_name,
-    // Suffix: profile.suffix,
-    Email: profile.email ?? "",
-    DateOfBirth: profile.birth_date ?? "",
-    PrimaryPhone: formattedPhoneNumber,
-    PrimaryPhoneType: PrimaryPhoneTypeEnum.Primary,
-    Gender: profile.gender === "male" ? GenderEnum.Male : GenderEnum.Female,
-    Address1: address.address_line_1,
-    Address2: address.address_line_2,
-    City: address.city,
-    ZipCode: address.zip_code,
-    State: address.state,
-    Active: true,
-    IsHospice: false,
-  };
-
-  if (patient.height) {
-    patientInput.Height = patient.height;
-    patientInput.HeightMetric = HeightUnits.In;
-  }
-
-  if (patient.weight) {
-    patientInput.Weight = patient.weight;
-    patientInput.WeightMetric = WeightUnits.Lb;
-  }
-
-  console.log({ PATIENT_INPUT: patientInput });
-
-  const options: AxiosRequestConfig = {
-    method: 'POST',
-    url: getDosespotPatientUrl(),
-    data: patientInput,
-    headers: getDosespotHeaders(token),
-  };
-
-  const { data: dosespotPatient } = await axios<PatientDosespotCreated>(
-    options
-  );
-
-  console.log({ DOSESPOT_PATIENT: dosespotPatient });
-
-  if (!dosespotPatient.Id || dosespotPatient.Result.ResultCode === 'ERROR') {
-    throw new Error(
-      dosespotPatient.Result.ResultDescription ||
-      `Could not create dosespot patient for patientId ${patient.id}`
-    );
-  }
-
-  return supabaseAdmin
-    .from('patient')
-    .update({
-      dosespot_patient_id: dosespotPatient.Id,
-    })
-    .eq('id', patient.id)
-    .select('id, dosespot_patient_id')
-    .maybeSingle();
 };

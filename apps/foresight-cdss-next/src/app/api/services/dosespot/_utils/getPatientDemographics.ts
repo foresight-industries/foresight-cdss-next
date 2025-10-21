@@ -1,10 +1,14 @@
 import axios from 'axios';
-import { DosespotPatientDemographicsResponse } from './types';
+import { DosespotPatientDemographicsResponse } from '@/types/dosespot';
 
 export const getPatientDemographics = async (
   dosespotPatientId: number,
   token: string
 ) => {
+  if (!process.env.DOSESPOT_BASE_URL) {
+    throw new Error('DOSESPOT_BASE_URL environment variable is missing');
+  }
+
   const options = {
     method: 'GET',
     headers: {
@@ -15,9 +19,8 @@ export const getPatientDemographics = async (
       .DOSESPOT_BASE_URL}/webapi/v2/api/patients/${dosespotPatientId}`,
   };
 
-  const { data: patient } = await axios<DosespotPatientDemographicsResponse>(
-    options
-  );
+  const { data: patient } =
+    await axios<DosespotPatientDemographicsResponse>(options);
 
   if (patient.Result.ResultCode === 'ERROR') {
     const details = `Details: {Resource: PatientDemographics, PatientId: ${dosespotPatientId}}`;

@@ -311,6 +311,7 @@ export const patients = pgTable('patient', {
   // Identifiers
   mrn: varchar('mrn', { length: 50 }),
   ssnLast4: varchar('ssn_last_4', { length: 4 }),
+  dosespotPatientId: integer('dosespot_patient_id'),
 
   // Demographics
   firstName: text('first_name').notNull(),
@@ -318,6 +319,8 @@ export const patients = pgTable('patient', {
   middleName: text('middle_name'),
   dateOfBirth: date('date_of_birth'),
   gender: varchar('gender', { length: 1 }), // M, F, O
+  height: integer('height'), // In inches
+  weight: integer('weight'), // In pounds
 
   // Contact
   email: text('email'),
@@ -626,6 +629,7 @@ export const priorAuths = pgTable('prior_auth', {
   // Identifiers
   authNumber: varchar('auth_number', { length: 50 }),
   referenceNumber: varchar('reference_number', { length: 50 }),
+  dosespotCaseId: integer('dosespot_case_id'),
 
   // Request details
   requestedService: text('requested_service').notNull(),
@@ -2257,6 +2261,10 @@ export const clinicians = pgTable('clinician', {
   employeeId: varchar('employee_id', { length: 50 }),
   npi: varchar('npi', { length: 10 }),
   licenseNumber: varchar('license_number', { length: 50 }),
+  dosespotProviderId: integer('dosespot_provider_id'),
+  dosespotConfirmed: boolean('dosespot_confirmed').default(false).notNull(),
+  dosespotNotificationsCount: integer('dosespot_notifications_count').default(0).notNull(),
+  dosespotIdpCompleted: boolean('dosespot_idp_completed').default(false).notNull(),
 
   // Profile
   firstName: text('first_name').notNull(),

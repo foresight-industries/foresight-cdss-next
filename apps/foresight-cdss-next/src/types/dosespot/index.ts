@@ -1,4 +1,11 @@
-import { Database } from "@/types/database.types";
+export type DosespotToken = {
+  access_token: string;
+  token_type: 'bearer';
+  expires_in: number;
+  userName: string;
+  '.issued': Date;
+  '.expires': Date;
+};
 
 export type DosespotDiagnosis = {
   DiagnosisId: number;
@@ -39,11 +46,6 @@ export type PrescriberNotificationCountsData = {
     ChangeRequestCount: number;
   };
 };
-
-export type Patient = Pick<
-  Database['public']['Tables']['patient']['Row'],
-  'id'
->;
 
 export type DosespotPharmacy = {
   PharmacyId: number;
@@ -168,11 +170,6 @@ export type DosespotPrescriptionsResponse = {
   PageResult: DosespotPageResult;
   Result: DosespotResult;
 };
-
-export type Clinician = Pick<
-  Database["public"]["Tables"]["clinician"]["Row"],
-  "id" | "npi_key" | "dosespot_provider_id"
->;
 
 export type PrescriptionResultData = {
   PatientId: number;
@@ -334,7 +331,7 @@ export type DosespotClinician = {
       DEANumber: string;
       State: string;
       ClinicId: string;
-    }
+    },
   ];
   DEANumber: string;
   NADEANumbers: [
@@ -342,14 +339,14 @@ export type DosespotClinician = {
       NADEANumber: string;
       State: string;
       ClinicId: string;
-    }
+    },
   ];
   MedicalLicenseNumbers: [
     {
       LicenseNumber: string;
       State: string;
       ClinicId: string;
-    }
+    },
   ];
   NPINumber: string;
   Roles: string[];
@@ -368,7 +365,7 @@ export type DosespotClinician = {
       HasCancel: boolean;
       HasRxFill: boolean;
       HasEpcs: boolean;
-    }
+    },
   ];
 };
 
@@ -430,7 +427,7 @@ export type DosespotPriorAuth = {
       CreatedDateStamp: string;
       FileName: string;
       IsOutbound: boolean;
-    }
+    },
   ];
 };
 
@@ -442,7 +439,7 @@ export type DosespotPatientEligibility = {
       PharmacyType: string;
       EligibilityStatus: string;
       Name: string;
-    }
+    },
   ];
   PlanName: string;
   CoverageId: string;
@@ -496,7 +493,7 @@ export type DosespotPricingCoverage = {
     {
       ReferenceCode: string;
       ReferenceText: string;
-    }
+    },
   ];
   FormularyStatus: string;
   PriorAuthRequired: boolean;
@@ -567,19 +564,19 @@ export type DosespotCoverageRestrictions = {
     {
       Message: string;
       LongMessage: string;
-    }
+    },
   ];
   DrugResources: [
     {
       Url: string;
       ResourceType: string;
-    }
+    },
   ];
   SummaryResources: [
     {
       Url: string;
       ResourceType: string;
-    }
+    },
   ];
 };
 
@@ -621,7 +618,7 @@ export type DosespotInsuranceCoverageAlternative = {
         {
           Pharmacy: DosespotPharmacy;
           PricingCoverage: DosespotPricingCoverage;
-        }
+        },
       ];
       Ndc: string;
       DisplayName: string;
@@ -637,13 +634,13 @@ export type DosespotInsuranceCoverageAlternative = {
               {
                 Ndc: string;
                 Coverage: object;
-              }
+              },
             ];
-          }
+          },
         ];
         Restrictions: DosespotCoverageRestrictions;
       };
-    }
+    },
   ];
   RepresentativeFormularyCoverage: {
     CopayFactors: DosespotCopay[];
@@ -660,7 +657,7 @@ export type DosespotInsuranceCoverageAlternative = {
         {
           GenderAbbreviation: string;
           GenderDescription: string;
-        }
+        },
       ];
       QuantityLimitRestrictions: DosespotQuantityLimitRestriction[];
       StepMedicationRestrictions: DosespotStepMedicationRestriction[];
@@ -668,19 +665,19 @@ export type DosespotInsuranceCoverageAlternative = {
         {
           Message: string;
           LongMessage: string;
-        }
+        },
       ];
       DrugResources: [
         {
           Url: string;
           ResourceType: string;
-        }
+        },
       ];
       SummaryResources: [
         {
           Url: string;
           ResourceType: string;
-        }
+        },
       ];
     };
   };
@@ -688,7 +685,7 @@ export type DosespotInsuranceCoverageAlternative = {
     {
       Pharmacy: DosespotPharmacy;
       PricingCoverage: DosespotPricingCoverage;
-    }
+    },
   ];
 };
 
