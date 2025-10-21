@@ -19,7 +19,7 @@ import { organizations } from './schema';
 // WEBHOOK ENUMS
 // ============================================================================
 
-export const webhookEnvironmentEnum = pgEnum('webhook_environment', ['staging', 'production']);
+export const webhookEnvironmentEnum = pgEnum('webhook_environment', ['development', 'production']);
 
 // HIPAA compliance enums
 export const phiDataClassificationEnum = pgEnum('phi_data_classification', [

@@ -216,9 +216,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate and cast environment to proper enum type
-    const validEnvironments: WebhookEnvironment[] = ['staging', 'production'];
+    const validEnvironments: WebhookEnvironment[] = ['development', 'production'];
     if (!validEnvironments.includes(rawEnvironment as WebhookEnvironment)) {
-      return NextResponse.json({ error: 'Invalid environment. Must be staging or production' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid environment. Must be development or production' }, { status: 400 });
     }
     const environment: WebhookEnvironment = rawEnvironment as WebhookEnvironment;
 
