@@ -2099,6 +2099,77 @@ export const appeals = pgTable('appeal', {
   dueDateIdx: index('appeal_due_date_idx').on(table.dueDate),
 }));
 
+// Prior Authorization Appeals
+export const priorAuthAppeals = pgTable('prior_auth_appeal', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  patientId: uuid('patient_id').references(() => patients.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  providerId: uuid('provider_id').references(() => providers.id).notNull(),
+
+  // Appeal details
+  appealNumber: varchar('appeal_number', { length: 50 }),
+  appealLevel: appealLevelEnum('appeal_level').default('first_level').notNull(),
+  appealType: varchar('appeal_type', { length: 50 }), // medical_necessity, coverage, eligibility, etc.
+
+  // Dates
+  appealDate: date('appeal_date').notNull(),
+  dueDate: date('due_date'),
+  responseDate: date('response_date'),
+
+  // Status
+  status: appealStatusEnum('status').default('pending').notNull(),
+
+  // Content
+  appealReason: text('appeal_reason').notNull(),
+  clinicalJustification: text('clinical_justification'),
+  medicalNecessityRationale: text('medical_necessity_rationale'),
+  additionalDocumentation: text('additional_documentation'),
+
+  // Original denial details
+  originalDenialReason: text('original_denial_reason'),
+  originalDenialCode: varchar('original_denial_code', { length: 20 }),
+  originalDenialDate: date('original_denial_date'),
+
+  // Processing
+  submissionMethod: varchar('submission_method', { length: 20 }), // portal, mail, fax, phone, api
+  confirmationNumber: varchar('confirmation_number', { length: 50 }),
+
+  // Response
+  payerResponse: text('payer_response'),
+  responseReason: text('response_reason'),
+  finalDecision: varchar('final_decision', { length: 20 }), // approved, denied, partially_approved
+
+  // Clinical attachments/evidence
+  attachedDocuments: text('attached_documents'), // JSON array of document references
+  letterOfMedicalNecessity: text('letter_of_medical_necessity'),
+
+  // Escalation tracking
+  escalatedToExternalReview: boolean('escalated_to_external_review').default(false),
+  externalReviewOrganization: varchar('external_review_organization', { length: 100 }),
+  externalReviewNumber: varchar('external_review_number', { length: 50 }),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  orgIdx: index('prior_auth_appeal_org_idx').on(table.organizationId),
+  priorAuthIdx: index('prior_auth_appeal_prior_auth_idx').on(table.priorAuthId),
+  patientIdx: index('prior_auth_appeal_patient_idx').on(table.patientId),
+  payerIdx: index('prior_auth_appeal_payer_idx').on(table.payerId),
+  providerIdx: index('prior_auth_appeal_provider_idx').on(table.providerId),
+  statusIdx: index('prior_auth_appeal_status_idx').on(table.status),
+  levelIdx: index('prior_auth_appeal_level_idx').on(table.appealLevel),
+  appealDateIdx: index('prior_auth_appeal_appeal_date_idx').on(table.appealDate),
+  dueDateIdx: index('prior_auth_appeal_due_date_idx').on(table.dueDate),
+  originalDenialDateIdx: index('prior_auth_appeal_original_denial_date_idx').on(table.originalDenialDate),
+  escalatedIdx: index('prior_auth_appeal_escalated_idx').on(table.escalatedToExternalReview),
+}));
+
 // Denial tracking
 export const denialTracking = pgTable('denial_tracking', {
   id: uuid('id').primaryKey().defaultRandom(),

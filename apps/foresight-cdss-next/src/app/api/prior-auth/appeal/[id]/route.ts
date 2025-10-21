@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
+import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and, isNull } from 'drizzle-orm';
-import { priorAuths, teamMembers, userProfiles, clinicians } from '@foresight-cdss-next/db';
+import { priorAuths, priorAuthAppeals, teamMembers, userProfiles, clinicians } from '@foresight-cdss-next/db';
 import { z } from 'zod';
 import { createDosespotToken } from '../../../services/dosespot/_utils/createDosespotToken';
 import axios from 'axios';
@@ -18,16 +18,24 @@ const createAppealSchema = z.object({
   appealDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)'),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
 
-  // Financial
-  appealedAmount: z.number().positive('Appealed amount must be positive'),
-
   // Appeal content
   appealReason: z.string().min(1, 'Appeal reason is required'),
-  supportingDocuments: z.string().optional(), // JSON array of document IDs
-
-  // External system identifiers
-  externalAppealId: z.string().max(100).optional(),
-  externalSystem: z.string().max(50).optional(),
+  clinicalJustification: z.string().optional(),
+  medicalNecessityRationale: z.string().optional(),
+  additionalDocumentation: z.string().optional(),
+  
+  // Original denial details
+  originalDenialReason: z.string().optional(),
+  originalDenialCode: z.string().max(20).optional(),
+  originalDenialDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date format (YYYY-MM-DD)').optional(),
+  
+  // Processing
+  submissionMethod: z.enum(['portal', 'mail', 'fax', 'phone', 'api']).optional(),
+  confirmationNumber: z.string().max(50).optional(),
+  
+  // Clinical attachments/evidence
+  attachedDocuments: z.string().optional(), // JSON array of document references
+  letterOfMedicalNecessity: z.string().optional(),
 
   // DoseSpot integration fields
   dosespot: z.object({
@@ -72,6 +80,7 @@ export async function POST(
         organizationId: priorAuths.organizationId,
         patientId: priorAuths.patientId,
         payerId: priorAuths.payerId,
+        providerId: priorAuths.providerId,
         status: priorAuths.status,
         requestedService: priorAuths.requestedService,
         dosespotCaseId: priorAuths.dosespotCaseId,
@@ -129,11 +138,48 @@ export async function POST(
       }, { status: 400 });
     }
 
-    // Update the prior authorization record with appeal information
+    // Create the appeal record in the prior_auth_appeal table
+    const { data: createdAppeal } = await safeUpdate(async () =>
+      db.insert(priorAuthAppeals)
+        .values({
+          organizationId: priorAuth.organizationId,
+          priorAuthId: priorAuthId,
+          patientId: priorAuth.patientId,
+          payerId: priorAuth.payerId,
+          providerId: priorAuth.providerId!,
+          appealNumber: appealData.appealNumber || `APPEAL-${Date.now()}`,
+          appealLevel: appealData.appealLevel,
+          appealType: appealData.appealType,
+          appealDate: appealData.appealDate,
+          dueDate: appealData.dueDate,
+          appealReason: appealData.appealReason,
+          clinicalJustification: appealData.clinicalJustification,
+          medicalNecessityRationale: appealData.medicalNecessityRationale,
+          additionalDocumentation: appealData.additionalDocumentation,
+          originalDenialReason: appealData.originalDenialReason,
+          originalDenialCode: appealData.originalDenialCode,
+          originalDenialDate: appealData.originalDenialDate,
+          submissionMethod: appealData.submissionMethod,
+          confirmationNumber: appealData.confirmationNumber,
+          attachedDocuments: appealData.attachedDocuments,
+          letterOfMedicalNecessity: appealData.letterOfMedicalNecessity,
+          createdBy: membershipData.teamMemberId,
+          updatedBy: membershipData.teamMemberId,
+        })
+        .returning()
+    );
+
+    if (!createdAppeal || createdAppeal.length === 0) {
+      return NextResponse.json({ error: 'Failed to create appeal record' }, { status: 500 });
+    }
+
+    const appealRecord = createdAppeal[0];
+
+    // Update the prior authorization status to 'appealed'
     const { data: updatedPriorAuth } = await safeUpdate(async () =>
       db.update(priorAuths)
         .set({
-          status: 'appealed' as any, // Add 'appealed' status to the enum if not present
+          status: 'appealed' as any,
           updatedAt: new Date(),
           updatedBy: membershipData.teamMemberId,
         })
@@ -142,7 +188,7 @@ export async function POST(
     );
 
     if (!updatedPriorAuth || updatedPriorAuth.length === 0) {
-      return NextResponse.json({ error: 'Failed to update prior authorization for appeal' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to update prior authorization status' }, { status: 500 });
     }
 
     const updatedPA = updatedPriorAuth[0] as any;
@@ -197,33 +243,44 @@ export async function POST(
 
     // Format response
     const responseData = {
-      id: updatedPA.id,
-      organizationId: updatedPA.organizationId,
-      patientId: updatedPA.patientId,
-      payerId: updatedPA.payerId,
-      authNumber: updatedPA.authNumber,
-      referenceNumber: updatedPA.referenceNumber,
-      requestedService: updatedPA.requestedService,
-      status: updatedPA.status,
-      appealDate: updatedPA.appealDate,
-      appealReason: updatedPA.appealReason,
-      requestDate: updatedPA.requestDate,
-      effectiveDate: updatedPA.effectiveDate,
-      expirationDate: updatedPA.expirationDate,
-      createdAt: updatedPA.createdAt,
-      updatedAt: updatedPA.updatedAt,
-      // Include appeal metadata
+      // Prior authorization data
+      priorAuth: {
+        id: updatedPA.id,
+        organizationId: updatedPA.organizationId,
+        patientId: updatedPA.patientId,
+        payerId: updatedPA.payerId,
+        authNumber: updatedPA.authNumber,
+        referenceNumber: updatedPA.referenceNumber,
+        requestedService: updatedPA.requestedService,
+        status: updatedPA.status,
+        requestDate: updatedPA.requestDate,
+        effectiveDate: updatedPA.effectiveDate,
+        expirationDate: updatedPA.expirationDate,
+        createdAt: updatedPA.createdAt,
+        updatedAt: updatedPA.updatedAt,
+      },
+      // Appeal data from the new appeal record
       appeal: {
-        appealNumber: appealData.appealNumber || `APPEAL-${Date.now()}`,
-        appealLevel: appealData.appealLevel,
-        appealType: appealData.appealType || 'authorization',
-        appealDate: appealData.appealDate,
-        dueDate: appealData.dueDate,
-        appealedAmount: appealData.appealedAmount,
-        appealReason: appealData.appealReason,
-        supportingDocuments: appealData.supportingDocuments,
-        externalAppealId: appealData.externalAppealId,
-        externalSystem: appealData.externalSystem,
+        id: appealRecord.id,
+        appealNumber: appealRecord.appealNumber,
+        appealLevel: appealRecord.appealLevel,
+        appealType: appealRecord.appealType,
+        appealDate: appealRecord.appealDate,
+        dueDate: appealRecord.dueDate,
+        status: appealRecord.status,
+        appealReason: appealRecord.appealReason,
+        clinicalJustification: appealRecord.clinicalJustification,
+        medicalNecessityRationale: appealRecord.medicalNecessityRationale,
+        additionalDocumentation: appealRecord.additionalDocumentation,
+        originalDenialReason: appealRecord.originalDenialReason,
+        originalDenialCode: appealRecord.originalDenialCode,
+        originalDenialDate: appealRecord.originalDenialDate,
+        submissionMethod: appealRecord.submissionMethod,
+        confirmationNumber: appealRecord.confirmationNumber,
+        attachedDocuments: appealRecord.attachedDocuments,
+        letterOfMedicalNecessity: appealRecord.letterOfMedicalNecessity,
+        createdAt: appealRecord.createdAt,
+        updatedAt: appealRecord.updatedAt,
       },
       // Include DoseSpot appeal results
       dosespot: appealData.dosespot?.autoAppeal ? {
@@ -235,7 +292,7 @@ export async function POST(
 
     return NextResponse.json({
       message: 'Appeal created successfully',
-      appeal: responseData
+      data: responseData
     }, { status: 201 });
 
   } catch (error) {
@@ -300,8 +357,8 @@ export async function GET(
       }, { status: 403 });
     }
 
-    // Get the prior authorization with appeal status
-    const { data: priorAuthWithAppeal } = await safeSingle(async () =>
+    // Get the prior authorization details
+    const { data: priorAuthData } = await safeSingle(async () =>
       db.select({
         id: priorAuths.id,
         organizationId: priorAuths.organizationId,
@@ -324,10 +381,50 @@ export async function GET(
       ))
     );
 
+    // Get all appeals for this prior authorization
+    const { data: appeals } = await safeSelect(async () =>
+      db.select({
+        id: priorAuthAppeals.id,
+        appealNumber: priorAuthAppeals.appealNumber,
+        appealLevel: priorAuthAppeals.appealLevel,
+        appealType: priorAuthAppeals.appealType,
+        appealDate: priorAuthAppeals.appealDate,
+        dueDate: priorAuthAppeals.dueDate,
+        responseDate: priorAuthAppeals.responseDate,
+        status: priorAuthAppeals.status,
+        appealReason: priorAuthAppeals.appealReason,
+        clinicalJustification: priorAuthAppeals.clinicalJustification,
+        medicalNecessityRationale: priorAuthAppeals.medicalNecessityRationale,
+        additionalDocumentation: priorAuthAppeals.additionalDocumentation,
+        originalDenialReason: priorAuthAppeals.originalDenialReason,
+        originalDenialCode: priorAuthAppeals.originalDenialCode,
+        originalDenialDate: priorAuthAppeals.originalDenialDate,
+        submissionMethod: priorAuthAppeals.submissionMethod,
+        confirmationNumber: priorAuthAppeals.confirmationNumber,
+        payerResponse: priorAuthAppeals.payerResponse,
+        responseReason: priorAuthAppeals.responseReason,
+        finalDecision: priorAuthAppeals.finalDecision,
+        attachedDocuments: priorAuthAppeals.attachedDocuments,
+        letterOfMedicalNecessity: priorAuthAppeals.letterOfMedicalNecessity,
+        escalatedToExternalReview: priorAuthAppeals.escalatedToExternalReview,
+        externalReviewOrganization: priorAuthAppeals.externalReviewOrganization,
+        externalReviewNumber: priorAuthAppeals.externalReviewNumber,
+        createdAt: priorAuthAppeals.createdAt,
+        updatedAt: priorAuthAppeals.updatedAt,
+      })
+      .from(priorAuthAppeals)
+      .where(and(
+        eq(priorAuthAppeals.priorAuthId, priorAuthId),
+        isNull(priorAuthAppeals.deletedAt)
+      ))
+      .orderBy(priorAuthAppeals.createdAt)
+    );
+
     return NextResponse.json({
       priorAuthId: priorAuthId,
-      priorAuth: priorAuthWithAppeal,
-      hasAppeal: priorAuthWithAppeal?.status !== 'pending' && priorAuthWithAppeal?.status !== 'approved' && priorAuthWithAppeal?.status !== 'denied' && priorAuthWithAppeal?.status !== 'cancelled' && priorAuthWithAppeal?.status !== 'expired'
+      priorAuth: priorAuthData,
+      appeals: appeals || [],
+      hasAppeal: (appeals && appeals.length > 0)
     });
 
   } catch (error) {
