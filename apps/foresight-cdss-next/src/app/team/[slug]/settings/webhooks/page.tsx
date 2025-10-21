@@ -47,7 +47,7 @@ export default function WebhooksPage() {
   const router = useRouter();
   const pathname = usePathname();
   const [webhooks, setWebhooks] = useState<WebhookWithStats[]>([]);
-  const [environment, setEnvironment] = useState<'development' | 'production'>('production');
+  const [environment, setEnvironment] = useState<'staging' | 'production'>('production');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -63,7 +63,7 @@ export default function WebhooksPage() {
     try {
       setLoading(true);
       // Map frontend environment to backend environment
-      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+      const backendEnvironment = environment === 'staging' ? 'staging' : 'production';
 
       // Get organization_id from the current team
       const teamSlug = pathname.split('/')[2];
@@ -96,7 +96,7 @@ export default function WebhooksPage() {
   const handleCreateWebhook = async (formData: any) => {
     try {
       // Map frontend environment to backend environment
-      const backendEnvironment = environment === 'development' ? 'staging' : 'production';
+      const backendEnvironment = environment === 'staging' ? 'staging' : 'production';
 
       // Get organization_id from the current team
       const teamSlug = pathname.split('/')[2];
@@ -261,13 +261,13 @@ export default function WebhooksPage() {
           </p>
         </div>
         <div className="flex items-center gap-4">
-          <Select value={environment} onValueChange={(value: 'development' | 'production') => setEnvironment(value)}>
+          <Select value={environment} onValueChange={(value: 'staging' | 'production') => setEnvironment(value)}>
             <SelectTrigger className="w-[150px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="production">Production</SelectItem>
-              <SelectItem value="development">Development</SelectItem>
+              <SelectItem value="staging">Development</SelectItem>
             </SelectContent>
           </Select>
           <Button
@@ -434,7 +434,7 @@ export default function WebhooksPage() {
                       </Button>
                     </div>
                   </div>
-                  
+
                   {/* Webhook Secret Section */}
                   <div className="border-t pt-3 border-slate-200 dark:border-slate-700">
                     <div className="flex items-center justify-between">

@@ -65,7 +65,7 @@ export interface CreateWebhookRequest {
   name: string;
   url: string;
   events: string[];
-  environment?: 'development' | 'production';
+  environment?: 'staging' | 'production';
   retry_count?: number;
   timeout_seconds?: number;
 

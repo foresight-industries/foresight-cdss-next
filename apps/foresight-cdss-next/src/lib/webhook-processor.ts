@@ -178,7 +178,7 @@ export class WebhookProcessor {
     organizationId: string,
     eventType: string,
     payload: Record<string, unknown>,
-    environment: 'development' | 'production' = 'production'
+    environment: 'staging' | 'production' = 'production'
   ): Promise<boolean> {
     try {
       const { db } = await createAuthenticatedDatabaseClient();
@@ -206,8 +206,8 @@ export class WebhookProcessor {
 export const webhookProcessor = new WebhookProcessor();
 
 // Environment detection utility
-export function getCurrentEnvironment(): 'development' | 'production' {
-  return process.env.NODE_ENV === 'development' ? 'development' : 'production';
+export function getCurrentEnvironment(): 'staging' | 'production' {
+  return process.env.NODE_ENV === 'development' ? 'staging' : 'production';
 }
 
 // Utility to set environment context for database operations
