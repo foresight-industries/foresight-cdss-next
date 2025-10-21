@@ -220,18 +220,30 @@ async function processWebhookDelivery(
     );
 
     // Transform EventBridge format to webhook payload format
-    const webhookPayload = {
-      event_type: convertEventTypeToWebhookFormat(eventData.eventType),
-      organization_id: eventData.organizationId,
-      timestamp: Math.floor(Date.now() / 1000), // Use current timestamp since eventData doesn't have timestamp
-      source: eventData.metadata?.source || 'foresight_cdss',
-      data: eventData.data,
-      metadata: {
-        ...eventData.metadata,
-        environment: eventData.environment,
-        user_id: eventData.userId,
-      },
-    };
+    // Check if eventData.data is already a properly formatted webhook payload (for test events)
+    const isTestEvent = eventData.eventType === 'webhook.test';
+    let webhookPayload;
+
+    if (isTestEvent && eventData.data && typeof eventData.data === 'object' && 
+        'event_type' in eventData.data && 'organization_id' in eventData.data && 
+        'timestamp' in eventData.data && 'source' in eventData.data) {
+      // For test events, use the pre-formatted payload from eventData.data
+      webhookPayload = eventData.data;
+    } else {
+      // For regular events, construct the webhook payload from EventBridge format
+      webhookPayload = {
+        event_type: convertEventTypeToWebhookFormat(eventData.eventType),
+        organization_id: eventData.organizationId,
+        timestamp: Math.floor(Date.now() / 1000),
+        source: eventData.metadata?.source || 'foresight_cdss',
+        data: eventData.data,
+        metadata: {
+          ...eventData.metadata,
+          environment: eventData.environment,
+          user_id: eventData.userId,
+        },
+      };
+    }
 
     // Perform the webhook delivery with HIPAA compliance
     const result = await processor.processWebhookDelivery(
