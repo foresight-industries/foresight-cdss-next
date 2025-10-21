@@ -163,7 +163,7 @@ export async function getQueueData(
         authNumber: result.authNumber || undefined,
         requestedService: result.requestedService || undefined,
         clinicalNotes: result.clinicalNotes || undefined,
-        prescriptionId: result.prescriptionId || undefined,
+        prescriptionId: result.prescriptionId ? result.prescriptionId.toString() : undefined,
         providerId: result.providerId,
         payerId: result.payerId,
       };

@@ -1,11 +1,11 @@
 /**
  * Prior Authorization Partial Automation
- * 
+ *
  * Provides intelligent pre-population and automation for common prior auth scenarios
  * while maintaining human oversight for clinical decisions.
  */
 
-import { z } from 'zod';
+// import { z } from 'zod';
 
 // ============================================================================
 // TYPES AND SCHEMAS
@@ -100,7 +100,7 @@ export class PriorAuthAutomation {
     let estimatedApprovalChance = 75; // Base approval chance
 
     // Analyze medication complexity
-    const isHighRiskMedication = HIGH_RISK_MEDICATIONS.some(med => 
+    const isHighRiskMedication = HIGH_RISK_MEDICATIONS.some(med =>
       requestedService.toLowerCase().includes(med.toLowerCase())
     );
 
@@ -112,7 +112,7 @@ export class PriorAuthAutomation {
     }
 
     // Analyze diagnosis complexity
-    const hasComplexDiagnosis = diagnosisCodes.some(code => 
+    const hasComplexDiagnosis = diagnosisCodes.some(code =>
       COMPLEX_DIAGNOSES.some(complex => code.startsWith(complex))
     );
 
@@ -125,7 +125,7 @@ export class PriorAuthAutomation {
 
     // Check provider specialization alignment
     const medicationCategory = this.categorizeMedication(requestedService);
-    const providerSpecialtyMatch = providerData.specialties.some(specialty => 
+    const providerSpecialtyMatch = providerData.specialties.some(specialty =>
       this.isSpecialtyRelevant(specialty, medicationCategory)
     );
 
@@ -152,7 +152,7 @@ export class PriorAuthAutomation {
     ));
 
     // Determine if can auto-submit (low risk, all data available)
-    const canAutoSubmit = riskFactors.length === 0 && 
+    const canAutoSubmit = riskFactors.length === 0 &&
                          requiresManualInput.length === 0 &&
                          !payerData.requiresDoseSpot;
 
@@ -177,7 +177,7 @@ export class PriorAuthAutomation {
     const requiresQuestionnaire = payerData.requiresDoseSpot;
     const hasExistingCase = !!existingCaseId;
     const needsNewCase = requiresQuestionnaire && !hasExistingCase;
-    
+
     // Estimate number of questions based on medication type
     let estimatedQuestions = 0;
     if (requiresQuestionnaire) {
@@ -212,21 +212,21 @@ export class PriorAuthAutomation {
       requestDate: today,
       effectiveDate: today,
       expirationDate: futureDate.toISOString().split('T')[0],
-      
+
       // Clinical data
       diagnosisCodes: JSON.stringify(diagnosisCodes),
       requestedService,
-      
+
       // Provider information
       submissionMethod: payerData.requiresDoseSpot ? 'portal' : 'fax',
-      
+
       // Auto-generated clinical notes template
       clinicalNotes: this.generateClinicalNotesTemplate(
         patientData,
         requestedService,
         diagnosisCodes
       ),
-      
+
       // Medical necessity template based on diagnosis
       medicalNecessity: this.generateMedicalNecessityTemplate(
         diagnosisCodes,
@@ -245,7 +245,7 @@ export class PriorAuthAutomation {
   ): string {
     const age = this.calculateAge(patientData.dateOfBirth);
     const primaryDiagnosis = diagnosisCodes[0] || 'See diagnosis codes';
-    
+
     return `Patient: ${patientData.firstName} ${patientData.lastName}, Age: ${age}
 
 Primary Diagnosis: ${primaryDiagnosis}
@@ -272,7 +272,7 @@ Treatment Plan:
   ): string {
     const isDiabetes = diagnosisCodes.some(code => code.startsWith('E11'));
     const isObesity = diagnosisCodes.some(code => code.startsWith('E66'));
-    
+
     if (isDiabetes && requestedService.toLowerCase().includes('ozempic')) {
       return `Medical necessity for ${requestedService}:
 
@@ -342,12 +342,12 @@ Treatment Plan:
    */
   private static categorizeMedication(requestedService: string): string {
     const service = requestedService.toLowerCase();
-    
+
     if (service.includes('ozempic') || service.includes('semaglutide')) return 'glp1_diabetes';
     if (service.includes('wegovy') || service.includes('weight loss')) return 'glp1_obesity';
     if (service.includes('mounjaro') || service.includes('tirzepatide')) return 'gip_glp1';
     if (service.includes('specialty') || service.includes('biologic')) return 'specialty';
-    
+
     return 'standard';
   }
 
@@ -356,25 +356,25 @@ Treatment Plan:
    */
   private static isSpecialtyRelevant(specialty: string, medicationCategory: string): boolean {
     const specialtyLower = specialty.toLowerCase();
-    
+
     switch (medicationCategory) {
       case 'glp1_diabetes':
       case 'gip_glp1':
-        return specialtyLower.includes('endocrin') || 
-               specialtyLower.includes('diabetes') || 
+        return specialtyLower.includes('endocrin') ||
+               specialtyLower.includes('diabetes') ||
                specialtyLower.includes('internal medicine') ||
                specialtyLower.includes('family medicine');
-      
+
       case 'glp1_obesity':
-        return specialtyLower.includes('endocrin') || 
-               specialtyLower.includes('obesity') || 
+        return specialtyLower.includes('endocrin') ||
+               specialtyLower.includes('obesity') ||
                specialtyLower.includes('bariatric') ||
                specialtyLower.includes('internal medicine') ||
                specialtyLower.includes('family medicine');
-      
+
       case 'specialty':
         return true; // Specialty meds can be prescribed by various specialists
-      
+
       default:
         return true; // Standard medications can be prescribed by most providers
     }
@@ -388,13 +388,13 @@ Treatment Plan:
       case 'glp1_diabetes':
       case 'gip_glp1':
         return 8; // Diabetes-related questions
-      
+
       case 'glp1_obesity':
         return 6; // Weight loss questions
-      
+
       case 'specialty':
         return 12; // More complex specialty questions
-      
+
       default:
         return 4; // Standard medication questions
     }
@@ -408,11 +408,11 @@ Treatment Plan:
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     return age;
   }
 }
@@ -428,7 +428,7 @@ export function canAutoSubmitPriorAuth(
   analysisResult: AutomationResult,
   dosespotRequirements: DosespotRequirements
 ): boolean {
-  return analysisResult.canAutoSubmit && 
+  return analysisResult.canAutoSubmit &&
          !dosespotRequirements.requiresQuestionnaire &&
          analysisResult.estimatedApprovalChance >= 70;
 }
@@ -443,11 +443,11 @@ export function getSubmissionStrategy(
   if (canAutoSubmitPriorAuth(analysisResult, dosespotRequirements)) {
     return 'auto';
   }
-  
+
   if (dosespotRequirements.requiresQuestionnaire || analysisResult.requiresManualInput.length > 3) {
     return 'manual';
   }
-  
+
   return 'guided';
 }
 
@@ -459,20 +459,20 @@ export function generateSubmissionSummary(
   dosespotRequirements: DosespotRequirements
 ): string {
   const strategy = getSubmissionStrategy(analysisResult, dosespotRequirements);
-  
+
   switch (strategy) {
     case 'auto':
       return `Ready for automatic submission (${analysisResult.estimatedApprovalChance}% approval confidence)`;
-    
+
     case 'guided':
       return `Ready for guided submission - ${analysisResult.requiresManualInput.length} field(s) need review`;
-    
+
     case 'manual':
       if (dosespotRequirements.requiresQuestionnaire) {
         return `Manual submission required - DoseSpot questions needed (~${dosespotRequirements.estimatedQuestions} questions)`;
       }
       return `Manual submission required - ${analysisResult.requiresManualInput.length} field(s) need completion`;
-    
+
     default:
       return 'Review required before submission';
   }
