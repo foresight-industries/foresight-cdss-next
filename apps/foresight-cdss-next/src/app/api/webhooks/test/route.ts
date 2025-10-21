@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Get the correct EventBridge bus name based on webhook environment
-    const stageName = process.env.NODE_ENV === 'production' ? 'prod' : 'staging';
+    const stageName = process.env.VERCEL_ENV === 'production' ? 'prod' : 'staging';
     const eventBusName = `foresight-webhooks-${stageName}`;
 
     const putEventsCommand = new PutEventsCommand({
