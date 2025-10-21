@@ -1,12 +1,12 @@
-import { SQSEvent, SQSRecord, Context } from 'aws-lambda';
+import type { SQSEvent, SQSRecord, Context } from 'aws-lambda';
 import { HipaaWebhookProcessor } from '@foresight-cdss-next/webhooks';
 import { createAuthenticatedDatabaseClient } from '@foresight-cdss-next/web/src/lib/aws/database';
-import { 
-  webhookConfigs, 
-  webhookDeliveries, 
-  webhookSecrets, 
+import {
+  webhookConfigs,
+  webhookDeliveries,
+  webhookSecrets,
   webhookHipaaAuditLog,
-  webhookDeliveryAttempts 
+  webhookDeliveryAttempts
 } from '@foresight-cdss-next/db';
 
 /**
@@ -124,7 +124,7 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Organization Updated': 'organization.updated',
     'Organization Deleted': 'organization.deleted',
     'Organization Settings Changed': 'organization.settings.changed',
-    
+
     // User and team events
     'User Created': 'user.created',
     'User Updated': 'user.updated',
@@ -133,12 +133,12 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Team Member Added': 'team_member.added',
     'Team Member Updated': 'team_member.updated',
     'Team Member Removed': 'team_member.removed',
-    
+
     // Patient events
     'Patient Created': 'patient.created',
     'Patient Updated': 'patient.updated',
     'Patient Deleted': 'patient.deleted',
-    
+
     // Clinician events
     'Clinician Created': 'clinician.created',
     'Clinician Updated': 'clinician.updated',
@@ -150,7 +150,7 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Clinician Status Changed': 'clinician.status.changed',
     'Clinician Specialty Updated': 'clinician.specialty.updated',
     'Clinician NPI Updated': 'clinician.npi.updated',
-    
+
     // Claims events
     'Claim Created': 'claim.created',
     'Claim Updated': 'claim.updated',
@@ -159,7 +159,7 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Claim Denied': 'claim.denied',
     'Claim Processing Started': 'claim.processing.started',
     'Claim Processing Completed': 'claim.processing.completed',
-    
+
     // Prior authorization events
     'Prior Auth Created': 'prior_auth.created',
     'Prior Auth Updated': 'prior_auth.updated',
@@ -169,13 +169,13 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Prior Auth Pending': 'prior_auth.pending',
     'Prior Auth Expired': 'prior_auth.expired',
     'Prior Auth Cancelled': 'prior_auth.cancelled',
-    
+
     // Document events
     'Document Uploaded': 'document.uploaded',
     'Document Processed': 'document.processed',
     'Document Analysis Completed': 'document.analysis.completed',
     'Document Deleted': 'document.deleted',
-    
+
     // Encounter events
     'Encounter Created': 'encounter.created',
     'Encounter Updated': 'encounter.updated',
@@ -187,11 +187,11 @@ function convertEventTypeToWebhookFormat(eventType: string): string {
     'Encounter Procedure Updated': 'encounter.procedure.updated',
     'Encounter Finalized': 'encounter.finalized',
     'Encounter Billed': 'encounter.billed',
-    
+
     // Webhook test events
     'Webhook Test Event': 'webhook.test',
   };
-  
+
   return eventTypeMap[eventType] || eventType.toLowerCase().replace(/\s+/g, '.');
 }
 
@@ -203,7 +203,7 @@ async function processWebhookDelivery(
   databaseWrapper: AwsDatabaseWrapper
 ): Promise<{ success: boolean; error?: string }> {
   const { webhookConfigId, eventData, deliveryId } = message;
-  
+
   try {
     console.log(`Processing webhook delivery:`, {
       webhookConfigId,
@@ -252,17 +252,17 @@ async function processWebhookDelivery(
         deliveryId,
         issues: result.issues,
       });
-      return { 
-        success: false, 
-        error: `Delivery failed: ${result.issues.join(', ')}` 
+      return {
+        success: false,
+        error: `Delivery failed: ${result.issues.join(', ')}`
       };
     }
 
   } catch (error) {
     console.error(`Error processing webhook delivery ${deliveryId}:`, error);
-    return { 
-      success: false, 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
 }
@@ -273,10 +273,10 @@ async function processWebhookDelivery(
 function parseMessage(record: SQSRecord): WebhookDeliveryMessage | null {
   try {
     const message = JSON.parse(record.body) as WebhookDeliveryMessage;
-    
+
     // Validate required fields
     if (!message.webhookConfigId || !message.eventData || !message.deliveryId) {
-      console.error('Invalid message format:', { 
+      console.error('Invalid message format:', {
         hasWebhookConfigId: !!message.webhookConfigId,
         hasEventData: !!message.eventData,
         hasDeliveryId: !!message.deliveryId,
@@ -300,7 +300,7 @@ export const handler = async (
 ): Promise<LambdaResponse> => {
   const startTime = Date.now();
   const batchItemFailures: Array<{ itemIdentifier: string }> = [];
-  
+
   try {
     console.log(`Processing ${event.Records.length} webhook delivery messages`);
 
@@ -312,7 +312,7 @@ export const handler = async (
     for (const record of event.Records) {
       try {
         const message = parseMessage(record);
-        
+
         if (!message) {
           console.error(`Invalid message format for messageId: ${record.messageId}`);
           batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -321,7 +321,7 @@ export const handler = async (
 
         // Process the webhook delivery
         const result = await processWebhookDelivery(message, databaseWrapper);
-        
+
         if (!result.success) {
           console.error(`Failed to process delivery for messageId: ${record.messageId}:`, result.error);
           batchItemFailures.push({ itemIdentifier: record.messageId });
@@ -349,7 +349,7 @@ export const handler = async (
 
   } catch (error) {
     console.error('Critical error in webhook delivery processor:', error);
-    
+
     // If there's a critical error, mark all messages as failed
     // so they can be retried or sent to DLQ
     return {
