@@ -192,12 +192,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-gray-200 dark:border-gray-700 rounded"
+                  className="flex items-center justify-between p-2 border border-gray-200 dark:border-gray-700 rounded min-w-0"
                 >
-                  <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
+                  <code className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Limited</Badge>
                 </div>
               ))}
             </div>
@@ -218,12 +218,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-red-200 dark:border-red-800 rounded bg-red-50 dark:bg-red-950"
+                  className="flex items-center justify-between p-2 border border-red-200 dark:border-red-800 rounded bg-red-50 dark:bg-red-950 min-w-0"
                 >
-                  <code className="text-xs bg-red-100 dark:bg-red-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-red-100 dark:bg-red-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="destructive" className="text-xs">PHI: Full</Badge>
+                  <Badge variant="destructive" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Full</Badge>
                 </div>
               ))}
             </div>
@@ -251,12 +251,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-sky-200 dark:border-sky-800 rounded bg-sky-50 dark:bg-sky-950"
+                  className="flex items-center justify-between p-2 border border-sky-200 dark:border-sky-800 rounded bg-sky-50 dark:bg-sky-950 min-w-0"
                 >
-                  <code className="text-xs bg-sky-100 dark:bg-sky-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-sky-100 dark:bg-sky-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Limited</Badge>
                 </div>
               ))}
             </div>
@@ -280,12 +280,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-yellow-200 dark:border-yellow-800 rounded"
+                  className="flex items-center justify-between p-2 border border-yellow-200 dark:border-yellow-800 rounded min-w-0"
                 >
-                  <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-yellow-100 dark:bg-yellow-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Limited</Badge>
                 </div>
               ))}
             </div>
@@ -310,12 +310,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-blue-200 dark:border-blue-800 rounded"
+                  className="flex items-center justify-between p-2 border border-blue-200 dark:border-blue-800 rounded min-w-0"
                 >
-                  <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: Limited</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Limited</Badge>
                 </div>
               ))}
             </div>
@@ -336,12 +336,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-purple-200 dark:border-purple-800 rounded"
+                  className="flex items-center justify-between p-2 border border-purple-200 dark:border-purple-800 rounded min-w-0"
                 >
-                  <code className="text-xs bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: Full</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Full</Badge>
                 </div>
               ))}
             </div>
@@ -365,12 +365,12 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
               ].map((event) => (
                 <div
                   key={event}
-                  className="flex items-center justify-between p-2 border border-green-200 dark:border-green-800 rounded"
+                  className="flex items-center justify-between p-2 border border-green-200 dark:border-green-800 rounded min-w-0"
                 >
-                  <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+                  <code className="text-xs bg-green-100 dark:bg-green-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
                     {event}
                   </code>
-                  <Badge variant="outline" className="text-xs">PHI: None</Badge>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: None</Badge>
                 </div>
               ))}
             </div>
