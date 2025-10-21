@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Webhook, Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, FileCheck, UserCheck } from 'lucide-react';
+import { Webhook, Shield, Lock, AlertTriangle, CheckCircle, RefreshCw, FileCheck, UserCheck, Activity } from 'lucide-react';
 import Link from 'next/link';
 
 interface WebhooksTabProps {
@@ -92,7 +92,7 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Configure HIPAA-compliant webhook endpoints to receive real-time notifications
-          about organization, user, patient, clinician, claims, prior authorization, and document events.
+          about organization, user, patient, encounter, clinician, claims, prior authorization, and document events.
         </p>
 
         {/* HIPAA Compliance Status */}
@@ -224,6 +224,39 @@ export function WebhooksTab({ teamSlug }: Readonly<WebhooksTabProps>) {
                     {event}
                   </code>
                   <Badge variant="destructive" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Full</Badge>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Encounter Events */}
+          <div>
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3 flex items-center gap-2">
+              <Activity className="h-4 w-4 text-orange-500" />
+              Encounter Events
+              <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">Care Events</Badge>
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[
+                "encounter.created",
+                "encounter.updated",
+                "encounter.deleted",
+                "encounter.status.changed",
+                "encounter.diagnosis.added",
+                "encounter.diagnosis.updated",
+                "encounter.procedure.added",
+                "encounter.procedure.updated",
+                "encounter.finalized",
+                "encounter.billed"
+              ].map((event) => (
+                <div
+                  key={event}
+                  className="flex items-center justify-between p-2 border border-orange-200 dark:border-orange-800 rounded bg-orange-50 dark:bg-orange-950 min-w-0"
+                >
+                  <code className="text-xs bg-orange-100 dark:bg-orange-900 px-2 py-1 rounded break-all min-w-0 flex-1 mr-2">
+                    {event}
+                  </code>
+                  <Badge variant="outline" className="text-xs whitespace-nowrap flex-shrink-0">PHI: Full</Badge>
                 </div>
               ))}
             </div>
