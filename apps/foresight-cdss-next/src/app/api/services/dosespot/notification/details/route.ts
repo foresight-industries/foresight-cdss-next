@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
     const { data: token } = await createDosespotToken(dosespotProviderId);
 
     let endpoint = '/api/notifications/counts'; // Default endpoint
-    let queryParams = new URLSearchParams();
+    const queryParams = new URLSearchParams();
 
     // Determine endpoint based on notification type
     switch (notificationType) {

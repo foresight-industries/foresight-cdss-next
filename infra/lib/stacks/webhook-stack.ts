@@ -226,6 +226,69 @@ export class WebhookStack extends cdk.Stack {
   }
 
   private createEventBridgeRules(): void {
+    /**
+     * EventBridge Event Type Mapping
+     * 
+     * This maps the webhook event types shown in the UI (webhooks-tab.tsx) 
+     * to EventBridge DetailTypes for proper event routing:
+     * 
+     * Organization Events:
+     * - organization.created → Organization Created
+     * - organization.updated → Organization Updated  
+     * - organization.deleted → Organization Deleted
+     * - organization.settings.changed → Organization Settings Changed
+     * 
+     * User & Team Events:
+     * - user.created → User Created
+     * - user.updated → User Updated
+     * - user.deleted → User Deleted
+     * - user.role.changed → User Role Changed
+     * - team_member.added → Team Member Added
+     * - team_member.updated → Team Member Updated
+     * - team_member.removed → Team Member Removed
+     * 
+     * Patient Events (HIPAA Critical):
+     * - patient.created → Patient Created
+     * - patient.updated → Patient Updated
+     * - patient.deleted → Patient Deleted
+     * 
+     * Clinician Events:
+     * - clinician.created → Clinician Created
+     * - clinician.updated → Clinician Updated
+     * - clinician.deleted → Clinician Deleted
+     * - clinician.license.added → Clinician License Added
+     * - clinician.license.updated → Clinician License Updated
+     * - clinician.license.expired → Clinician License Expired
+     * - clinician.credentials.verified → Clinician Credentials Verified
+     * - clinician.status.changed → Clinician Status Changed
+     * - clinician.specialty.updated → Clinician Specialty Updated
+     * - clinician.npi.updated → Clinician NPI Updated
+     * 
+     * Claims Events:
+     * - claim.created → Claim Created
+     * - claim.updated → Claim Updated
+     * - claim.submitted → Claim Submitted
+     * - claim.approved → Claim Approved
+     * - claim.denied → Claim Denied
+     * - claim.processing.started → Claim Processing Started
+     * - claim.processing.completed → Claim Processing Completed
+     * 
+     * Prior Authorization Events:
+     * - prior_auth.created → Prior Auth Created
+     * - prior_auth.updated → Prior Auth Updated
+     * - prior_auth.submitted → Prior Auth Submitted
+     * - prior_auth.approved → Prior Auth Approved
+     * - prior_auth.denied → Prior Auth Denied
+     * - prior_auth.pending → Prior Auth Pending
+     * - prior_auth.expired → Prior Auth Expired
+     * - prior_auth.cancelled → Prior Auth Cancelled
+     * 
+     * Document Events (HIPAA Critical):
+     * - document.uploaded → Document Uploaded
+     * - document.processed → Document Processed
+     * - document.analysis.completed → Document Analysis Completed
+     * - document.deleted → Document Deleted
+     */
     // Organization events rule
     const organizationRule = new events.Rule(this, 'OrganizationEventsRule', {
       ruleName: `foresight-organization-events-${this.stageName}`,
@@ -243,24 +306,27 @@ export class WebhookStack extends cdk.Stack {
 
     organizationRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
 
-    // User events rule
+    // User & Team events rule
     const userRule = new events.Rule(this, 'UserEventsRule', {
       ruleName: `foresight-user-events-${this.stageName}`,
       eventBus: this.eventBus,
       eventPattern: {
-        source: ['foresight.users'],
+        source: ['foresight.users', 'foresight.teams'],
         detailType: [
           'User Created',
           'User Updated',
           'User Deleted',
           'User Role Changed',
+          'Team Member Added',
+          'Team Member Updated',
+          'Team Member Removed',
         ],
       },
     });
 
     userRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
 
-    // Patient events rule
+    // Patient events rule (HIPAA Critical)
     const patientRule = new events.Rule(this, 'PatientEventsRule', {
       ruleName: `foresight-patient-events-${this.stageName}`,
       eventBus: this.eventBus,
@@ -275,6 +341,29 @@ export class WebhookStack extends cdk.Stack {
     });
 
     patientRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
+
+    // Clinician events rule
+    const clinicianRule = new events.Rule(this, 'ClinicianEventsRule', {
+      ruleName: `foresight-clinician-events-${this.stageName}`,
+      eventBus: this.eventBus,
+      eventPattern: {
+        source: ['foresight.clinicians'],
+        detailType: [
+          'Clinician Created',
+          'Clinician Updated',
+          'Clinician Deleted',
+          'Clinician License Added',
+          'Clinician License Updated', 
+          'Clinician License Expired',
+          'Clinician Credentials Verified',
+          'Clinician Status Changed',
+          'Clinician Specialty Updated',
+          'Clinician NPI Updated',
+        ],
+      },
+    });
+
+    clinicianRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
 
     // Claims events rule
     const claimsRule = new events.Rule(this, 'ClaimsEventsRule', {
@@ -296,7 +385,28 @@ export class WebhookStack extends cdk.Stack {
 
     claimsRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
 
-    // Document events rule
+    // Prior Authorization events rule
+    const priorAuthRule = new events.Rule(this, 'PriorAuthEventsRule', {
+      ruleName: `foresight-prior-auth-events-${this.stageName}`,
+      eventBus: this.eventBus,
+      eventPattern: {
+        source: ['foresight.prior_auths'],
+        detailType: [
+          'Prior Auth Created',
+          'Prior Auth Updated',
+          'Prior Auth Submitted',
+          'Prior Auth Approved',
+          'Prior Auth Denied',
+          'Prior Auth Pending',
+          'Prior Auth Expired',
+          'Prior Auth Cancelled',
+        ],
+      },
+    });
+
+    priorAuthRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
+
+    // Document events rule (HIPAA Critical)
     const documentRule = new events.Rule(this, 'DocumentEventsRule', {
       ruleName: `foresight-document-events-${this.stageName}`,
       eventBus: this.eventBus,
