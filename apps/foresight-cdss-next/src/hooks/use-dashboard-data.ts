@@ -74,7 +74,7 @@ export function useStatusDistribution() {
   return useQuery({
     queryKey: ['status-distribution'],
     queryFn: async () => {
-      const response = await fetch('/api/prior-auths/status-distribution');
+      const response = await fetch('/api/prior-auth/status-distribution');
       if (!response.ok) {
         throw new Error('Failed to fetch status distribution');
       }

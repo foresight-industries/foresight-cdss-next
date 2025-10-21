@@ -90,11 +90,12 @@ export async function DELETE(request: NextRequest) {
     const fullPath = join(process.cwd(), 'public', filePath);
 
     try {
-      const fs = await import('fs/promises');
+      const fs = await import('node:fs/promises');
       await fs.unlink(fullPath);
       return NextResponse.json({ message: 'File deleted successfully' });
     } catch (error) {
       // File might not exist, which is fine
+      console.warn('Delete error:', error);
       return NextResponse.json({ message: 'File not found or already deleted' });
     }
 

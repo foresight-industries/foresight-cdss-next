@@ -15,7 +15,7 @@ const phiDataRegistry = new Map<string, PHIDataEntry<any>>();
 
 // Generate session ID for audit tracking
 const generateSessionId = () => {
-  return `phi-session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return `phi-session-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
 
 // Current session ID
