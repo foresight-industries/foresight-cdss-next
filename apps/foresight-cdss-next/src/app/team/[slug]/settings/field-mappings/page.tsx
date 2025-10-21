@@ -364,7 +364,7 @@ export default function FieldMappingsPage() {
               <div className="flex items-center">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Entity Types</p>
-                  <p className="text-2xl font-bold text-purple-600">{Object.keys(stats.by_entity_type).length}</p>
+                  <p className="text-2xl font-bold text-purple-600">{stats?.by_entity_type ? Object.keys(stats.by_entity_type).length : 0}</p>
                 </div>
                 <Filter className="h-8 w-8 text-purple-600" />
               </div>
@@ -376,7 +376,7 @@ export default function FieldMappingsPage() {
               <div className="flex items-center">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">EHR Systems</p>
-                  <p className="text-2xl font-bold text-orange-600">{Object.keys(stats.by_ehr_system).length}</p>
+                  <p className="text-2xl font-bold text-orange-600">{stats?.by_ehr_system ? Object.keys(stats.by_ehr_system).length : 0}</p>
                 </div>
                 <Info className="h-8 w-8 text-orange-600" />
               </div>
