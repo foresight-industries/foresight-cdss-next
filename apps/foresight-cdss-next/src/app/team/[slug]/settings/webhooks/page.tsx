@@ -23,7 +23,9 @@ import {
   CheckCircle,
   Activity,
   Zap,
-  Eye
+  Eye,
+  Key,
+  Copy
 } from 'lucide-react';
 import { type WebhookConfig, type WebhookStats, WEBHOOK_EVENTS } from '@/types/webhook.types';
 
@@ -206,6 +208,39 @@ export default function WebhooksPage() {
     }
   };
 
+  const handleRegenerateSecret = async (webhookId: string) => {
+    try {
+      const response = await fetch(`/api/webhooks/config/${webhookId}/regenerate-secret`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Show the new secret once in dialog
+        setWebhookSecret(data.secret);
+        toast.success('Webhook secret regenerated successfully', {
+          description: 'Please update your application with the new secret.'
+        });
+      } else {
+        setError(data.error || 'Failed to regenerate webhook secret');
+      }
+    } catch (err) {
+      setError('Network error occurred');
+      console.error(err);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    } catch (err) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
   const totalWebhooks = webhooks.length;
   const activeWebhooks = webhooks.filter(w => w.isActive).length;
   const totalDeliveries = webhooks.reduce((sum, w) => sum + w.stats.total_deliveries, 0);
@@ -331,71 +366,103 @@ export default function WebhooksPage() {
               return (
                 <div
                   key={webhook.id}
-                  className="flex items-center justify-between p-4 border border-slate-200 dark:border-slate-700 rounded-lg"
+                  className="p-4 border border-slate-200 dark:border-slate-700 rounded-lg space-y-3"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-3 h-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-400"}`} />
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <p className="font-medium text-slate-900 dark:text-slate-100">
-                          {webhook.name}
-                        </p>
-                        <Badge variant={webhook.isActive ? "default" : "secondary"}>
-                          {webhook.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Globe className="h-4 w-4" />
-                          {webhook.url}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          {webhook.timeoutSeconds}s timeout
-                        </span>
-                        <span>{webhook.events?.length} events</span>
-                        <span>{successRate}% success rate</span>
-                      </div>
-                      {webhook.last_error && (
-                        <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
-                          <XCircle className="h-4 w-4" />
-                          <span>Last error: {webhook.last_error}</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={`w-3 h-3 rounded-full ${webhook.isActive ? "bg-green-500" : "bg-gray-400"}`} />
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-slate-900 dark:text-slate-100">
+                            {webhook.name}
+                          </p>
+                          <Badge variant={webhook.isActive ? "default" : "secondary"}>
+                            {webhook.isActive ? "Active" : "Inactive"}
+                          </Badge>
                         </div>
-                      )}
+                        <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Globe className="h-4 w-4" />
+                            {webhook.url}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            {webhook.timeoutSeconds}s timeout
+                          </span>
+                          <span>{webhook.events?.length} events</span>
+                          <span>{successRate}% success rate</span>
+                        </div>
+                        {webhook.last_error && (
+                          <div className="mt-2 flex items-center gap-1 text-sm text-red-600 dark:text-red-400">
+                            <XCircle className="h-4 w-4" />
+                            <span>Last error: {webhook.last_error}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleTestWebhook(webhook.id)}
+                      >
+                        <TestTube className="w-4 h-4 mr-1" />
+                        Test
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push(`${pathname}/${webhook.id}/events`)}
+                      >
+                        <Eye className="w-4 h-4 mr-1" />
+                        Events
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setEditingWebhook(webhook)}
+                      >
+                        <Settings className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteClick(webhook.id)}
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleTestWebhook(webhook.id)}
-                    >
-                      <TestTube className="w-4 h-4 mr-1" />
-                      Test
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => router.push(`${pathname}/${webhook.id}/events`)}
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      Events
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setEditingWebhook(webhook)}
-                    >
-                      <Settings className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleDeleteClick(webhook.id)}
-                      className="text-red-600 hover:text-red-700"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                  
+                  {/* Webhook Secret Section */}
+                  <div className="border-t pt-3 border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <Label className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                          Webhook Secret
+                        </Label>
+                        <div className="mt-1 flex items-center space-x-2">
+                          <code className="text-xs bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded font-mono text-slate-600 dark:text-slate-400">
+                            whsec_••••••••••••••••••••••••••••••••••
+                          </code>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleRegenerateSecret(webhook.id)}
+                              className="text-xs h-7"
+                            >
+                              <Key className="w-3 h-3 mr-1" />
+                              Regenerate & Copy New Secret
+                            </Button>
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Secret is masked for security. Regenerate to get a new secret that will be shown once.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -418,21 +485,52 @@ export default function WebhooksPage() {
       <Dialog open={!!webhookSecret} onOpenChange={() => setWebhookSecret(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Webhook Created Successfully!</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="w-5 h-5 text-amber-600" />
+              Webhook Secret Generated
+            </DialogTitle>
             <DialogDescription>
-              Your webhook has been created. Please save this secret key as it won&apos;t be shown again.
+              <div className="space-y-2">
+                <p>Your webhook secret has been generated. Please save this secret key as it won&apos;t be shown again.</p>
+                <div className="bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 rounded-md p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-amber-800 dark:text-amber-200">
+                      <p className="font-medium">Security Notice</p>
+                      <p>This secret will only be displayed once. Store it securely and never expose it in your frontend code.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Label>Webhook Secret</Label>
-            <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-md border">
-              <code className="text-sm font-mono break-all">{webhookSecret}</code>
+            <div className="mt-2 flex items-center gap-2">
+              <div className="flex-1 p-3 bg-slate-100 dark:bg-slate-800 rounded-md border">
+                <code className="text-sm font-mono break-all">{webhookSecret}</code>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => webhookSecret && copyToClipboard(webhookSecret)}
+                className="flex-shrink-0"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
             </div>
             <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">
-              Use this secret to verify webhook signatures in your application.
+              Use this secret to verify webhook signatures in your application using HMAC-SHA256.
             </p>
           </div>
           <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => webhookSecret && copyToClipboard(webhookSecret)}
+            >
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Secret
+            </Button>
             <Button onClick={() => setWebhookSecret(null)}>
               I&apos;ve Saved It
             </Button>
