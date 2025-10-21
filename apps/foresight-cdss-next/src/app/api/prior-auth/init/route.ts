@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuthenticatedDatabaseClient, safeSingle, safeInsert } from '@/lib/aws/database';
+import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and, isNull } from 'drizzle-orm';
-import { priorAuths, teamMembers, userProfiles, patients, providers, payers } from '@foresight-cdss-next/db';
+import { priorAuths, teamMembers, userProfiles, patients, providers, payers, clinicians } from '@foresight-cdss-next/db';
 import { z } from 'zod';
+import { createDosespotToken } from '@/app/api/services/dosespot/_utils/createDosespotToken';
+import { initiatePriorAuth } from '@/app/api/services/dosespot/_utils/initiatePriorAuth';
 
 // Validation schema for creating a prior authorization
 const createPriorAuthSchema = z.object({
@@ -40,6 +42,15 @@ const createPriorAuthSchema = z.object({
   // External system identifiers
   externalId: z.string().max(100).optional(),
   externalSystem: z.string().max(50).optional(),
+
+  // DoseSpot integration fields
+  dosespot: z.object({
+    autoInitiate: z.boolean().default(false),
+    prescriptionId: z.number().optional(),
+    rxChangeRequestId: z.number().optional(),
+    dosespotPatientId: z.number().optional(),
+    dosespotEligibilityId: z.number().optional(),
+  }).optional(),
 });
 
 // POST /api/prior-auth/init - Initialize a new prior authorization request
@@ -198,6 +209,58 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const createdPriorAuth = newPriorAuth[0] as any;
 
+    // DoseSpot Integration: Auto-initiate prior auth if requested
+    let dosespotCaseId = createdPriorAuth.dosespotCaseId;
+    let dosespotError = null;
+
+    if (priorAuthData.dosespot?.autoInitiate && priorAuthData.dosespot.dosespotPatientId && priorAuthData.dosespot.dosespotEligibilityId) {
+      try {
+        // Get the clinician's DoseSpot provider ID through team member relationship
+        const { data: clinician } = await safeSingle(async () =>
+          db.select({
+            dosespotProviderId: clinicians.dosespotProviderId,
+          })
+          .from(clinicians)
+          .where(and(
+            eq(clinicians.organizationId, priorAuthData.organizationId),
+            eq(clinicians.teamMemberId, membershipData.teamMemberId),
+            isNull(clinicians.deletedAt)
+          ))
+        );
+
+        if (!clinician?.dosespotProviderId) {
+          dosespotError = 'DoseSpot provider ID not found for this provider';
+        } else {
+          // Validate that either prescriptionId or rxChangeRequestId is provided
+          if (!priorAuthData.dosespot.prescriptionId && !priorAuthData.dosespot.rxChangeRequestId) {
+            dosespotError = 'Either prescriptionId or rxChangeRequestId is required for DoseSpot integration';
+          } else {
+            // Create DoseSpot token and initiate prior auth
+            const { data: token } = await createDosespotToken(clinician.dosespotProviderId);
+
+            const dosespotPriorAuthId = await initiatePriorAuth(token.access_token, {
+              PrescriptionId: priorAuthData.dosespot.prescriptionId,
+              RxChangeId: priorAuthData.dosespot.rxChangeRequestId,
+              dosespotPatientId: priorAuthData.dosespot.dosespotPatientId,
+              dosespotEligibilityId: priorAuthData.dosespot.dosespotEligibilityId,
+            });
+
+            // Update the prior auth record with the DoseSpot case ID
+            dosespotCaseId = dosespotPriorAuthId;
+            await safeUpdate(async () =>
+              db.update(priorAuths)
+                .set({ dosespotCaseId: dosespotPriorAuthId })
+                .where(eq(priorAuths.id, createdPriorAuth.id))
+                .returning()
+            );
+          }
+        }
+      } catch (error) {
+        console.error('DoseSpot prior auth initiation error:', error);
+        dosespotError = `Failed to initiate DoseSpot prior auth: ${(error as Error).message}`;
+      }
+    }
+
     // Format response with additional context
     const responseData = {
       id: createdPriorAuth.id,
@@ -240,6 +303,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       external: priorAuthData.externalId ? {
         externalId: priorAuthData.externalId,
         externalSystem: priorAuthData.externalSystem,
+      } : null,
+      // Include DoseSpot integration results
+      dosespot: priorAuthData.dosespot?.autoInitiate ? {
+        initiated: !!dosespotCaseId,
+        caseId: dosespotCaseId,
+        error: dosespotError,
       } : null,
     };
 

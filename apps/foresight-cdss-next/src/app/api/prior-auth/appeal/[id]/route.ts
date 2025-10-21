@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSingle, safeUpdate } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and, isNull } from 'drizzle-orm';
-import { priorAuths, teamMembers, userProfiles } from '@foresight-cdss-next/db';
+import { priorAuths, teamMembers, userProfiles, clinicians } from '@foresight-cdss-next/db';
 import { z } from 'zod';
+import { createDosespotToken } from '../../../services/dosespot/_utils/createDosespotToken';
+import axios from 'axios';
 
 // Validation schema for creating an appeal
 const createAppealSchema = z.object({
@@ -26,6 +28,11 @@ const createAppealSchema = z.object({
   // External system identifiers
   externalAppealId: z.string().max(100).optional(),
   externalSystem: z.string().max(50).optional(),
+
+  // DoseSpot integration fields
+  dosespot: z.object({
+    autoAppeal: z.boolean().default(false),
+  }).optional(),
 });
 
 // POST /api/prior-auth/appeal/[id] - Create an appeal for a prior authorization
@@ -67,6 +74,7 @@ export async function POST(
         payerId: priorAuths.payerId,
         status: priorAuths.status,
         requestedService: priorAuths.requestedService,
+        dosespotCaseId: priorAuths.dosespotCaseId,
       })
       .from(priorAuths)
       .where(and(
@@ -139,6 +147,54 @@ export async function POST(
 
     const updatedPA = updatedPriorAuth[0] as any;
 
+    // DoseSpot Integration: Auto-appeal if requested and PA has DoseSpot case ID
+    let dosespotAppealError = null;
+    let dosespotAppealSuccess = false;
+
+    if (appealData.dosespot?.autoAppeal && priorAuth.dosespotCaseId) {
+      try {
+        // Get the clinician's DoseSpot provider ID through team member relationship
+        const { data: clinician } = await safeSingle(async () =>
+          db.select({
+            dosespotProviderId: clinicians.dosespotProviderId,
+          })
+          .from(clinicians)
+          .where(and(
+            eq(clinicians.organizationId, priorAuth.organizationId),
+            eq(clinicians.teamMemberId, membershipData.teamMemberId),
+            isNull(clinicians.deletedAt)
+          ))
+        );
+
+        if (!clinician?.dosespotProviderId) {
+          dosespotAppealError = 'DoseSpot provider ID not found for this provider';
+        } else {
+          // Create DoseSpot token and appeal the prior auth
+          const { data: token } = await createDosespotToken(clinician.dosespotProviderId);
+          
+          const url = `${process.env.DOSESPOT_BASE_URL}/webapi/v2/api/priorAuths/${priorAuth.dosespotCaseId}/appeal`;
+          
+          const appealRequest = {
+            method: 'POST',
+            headers: {
+              'Subscription-Key': process.env.DOSESPOT_SUBSCRIPTION_KEY,
+              Authorization: `Bearer ${token.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            url: url,
+            data: { AppealReason: appealData.appealReason.trim() },
+          };
+
+          const response = await axios(appealRequest);
+          dosespotAppealSuccess = true;
+          console.log('DoseSpot appeal submitted successfully:', response.data);
+        }
+      } catch (error) {
+        console.error('DoseSpot appeal error:', error);
+        dosespotAppealError = `Failed to submit DoseSpot appeal: ${(error as Error).message}`;
+      }
+    }
+
     // Format response
     const responseData = {
       id: updatedPA.id,
@@ -168,7 +224,13 @@ export async function POST(
         supportingDocuments: appealData.supportingDocuments,
         externalAppealId: appealData.externalAppealId,
         externalSystem: appealData.externalSystem,
-      }
+      },
+      // Include DoseSpot appeal results
+      dosespot: appealData.dosespot?.autoAppeal ? {
+        appealed: dosespotAppealSuccess,
+        caseId: priorAuth.dosespotCaseId,
+        error: dosespotAppealError,
+      } : null,
     };
 
     return NextResponse.json({
