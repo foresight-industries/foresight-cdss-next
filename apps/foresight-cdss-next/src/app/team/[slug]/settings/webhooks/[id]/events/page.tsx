@@ -304,7 +304,6 @@ export default function WebhookEventsPage() {
           <div className="space-y-4">
             {filteredEvents.map((event) => {
               const isExpanded = expandedEvents.has(event.id);
-              const StatusIcon = STATUS_ICONS[event.status];
 
               return (
                 <div
@@ -324,7 +323,7 @@ export default function WebhookEventsPage() {
                         </Button>
 
                         <div className="flex items-center gap-2">
-                          <StatusIcon className="h-4 w-4" />
+                          {getStatusIcon(event.status)}
                           <Badge className={STATUS_COLORS[event.status]}>
                             {event.status}
                           </Badge>
