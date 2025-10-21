@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X } from 'lucide-react';
+import { Filter, Download, MoreHorizontal, Clock, AlertCircle, CheckCircle, XCircle, Eye, Edit, FileText, MessageSquare, Archive, ChevronUp, ChevronDown, ArrowUpDown, X, Brain } from 'lucide-react';
 import { type QueueFiltersType, QueueFilters } from '@/components/filters';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,7 +20,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { PADetails } from "@/components/pa/pa-details";
-import type { QueueData } from '@/lib/queue-data';
+import { PriorAuthSubmissionModal } from '@/components/queue/prior-auth-submission-modal';
+import type { QueueData } from '@/types/queue';
+import { useQueueData } from '@/hooks/use-queue-data';
 
 type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'updatedAt';
 type SortDirection = 'asc' | 'desc' | null;
@@ -62,7 +64,7 @@ const formatRelativeTime = (value: string) => {
   return `${days} day${days === 1 ? '' : 's'} ago`;
 };
 
-export default function QueueClient({ data }: Readonly<QueueClientProps>) {
+export default function QueueClient({ data: initialData }: Readonly<QueueClientProps>) {
   const router = useRouter();
   const [filters, setFilters] = useState<QueueFiltersType>({
     search: "",
@@ -89,11 +91,30 @@ export default function QueueClient({ data }: Readonly<QueueClientProps>) {
   const [initialAction, setInitialAction] = useState<
     "edit" | "documents" | "notes" | undefined
   >(undefined);
-console.log(isClosing)
-  // Use server-computed data
-  const queueData = data.items;
-  const isLoading = false;
-  const error = null;
+  const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
+  const [selectedItemForSubmission, setSelectedItemForSubmission] = useState<any>(null);
+
+  // Use real-time queue data with auto-refresh
+  const {
+    data: queueDataResponse,
+    loading: isLoading,
+    error,
+    refetch,
+    // updateFilters
+  } = useQueueData({
+    initialData,
+    filters: {
+      status: filters.status !== 'all' ? filters.status : undefined,
+      payer: filters.payer !== 'all' ? filters.payer : undefined,
+    },
+    autoRefresh: true,
+    refreshInterval: 30000, // Refresh every 30 seconds
+  });
+
+  console.log(isClosing)
+
+  // Get queue data items
+  const queueData = queueDataResponse?.items || initialData.items || [];
 
   const filteredData = useMemo(() => {
     const filtered = queueData.filter((item) => {
@@ -905,6 +926,20 @@ console.log(isClosing)
                               Add Note
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            {item.status === "needs-review" && (
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedItemForSubmission(item);
+                                  setSubmissionModalOpen(true);
+                                }}
+                                className="text-blue-600 focus:text-blue-600"
+                              >
+                                <Brain className="w-4 h-4 mr-2" />
+                                Smart Submit
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -1017,6 +1052,21 @@ console.log(isClosing)
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Prior Auth Submission Modal */}
+      <PriorAuthSubmissionModal
+        open={submissionModalOpen}
+        onClose={() => {
+          setSubmissionModalOpen(false);
+          setSelectedItemForSubmission(null);
+        }}
+        priorAuthItem={selectedItemForSubmission}
+        onSubmissionComplete={(result) => {
+          console.log('Submission completed:', result);
+          // Refresh the queue data to show updated status
+          refetch();
+        }}
+      />
     </div>
   );
 }

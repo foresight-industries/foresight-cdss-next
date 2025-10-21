@@ -627,7 +627,7 @@ export const priorAuths = pgTable('prior_auth', {
   patientId: uuid('patient_id').references(() => patients.id).notNull(),
   providerId: uuid('provider_id').references(() => providers.id).notNull(),
   payerId: uuid('payer_id').references(() => payers.id).notNull(),
-  prescriptionId: uuid('prescription_id').references(() => prescription.id),
+  prescriptionId: integer('prescription_id').references(() => prescription.id),
 
   // Identifiers
   authNumber: varchar('auth_number', { length: 50 }),
@@ -2382,7 +2382,7 @@ export const prescription = pgTable('prescription', {
   directions: text('directions'),
   prescriberNotes: text('prescriber_notes'),
   pharmacyNotes: text('pharmacy_notes'),
-  status: varchar('status', { length: 50 }).default('active'),
+  status: varchar('status', { length: 50 }).default('draft'),
   noSubstitutions: boolean('no_substitutions').default(false),
   deaSchedule: varchar('dea_schedule', { length: 5 }),
   prescribedDate: timestamp('prescribed_date').defaultNow(),

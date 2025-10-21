@@ -1,54 +1,56 @@
-import type { QueueItem, QueueData } from '@/types/queue';
-
-export type { QueueItem, QueueData };
-
-import { db } from '@/lib/aws/database';
+import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@foresight-cdss-next/db';
 import {
   priorAuths,
   patients,
   providers,
   payers,
-  prescription
+  prescription,
 } from '@foresight-cdss-next/db/schema';
 import { and, eq, desc, count, isNull } from 'drizzle-orm';
+import { auth } from '@clerk/nextjs/server';
 
-export async function getQueueData(
-  organizationId?: string,
-  filters?: {
-    status?: string;
-    payer?: string;
-    page?: number;
-    limit?: number;
-  }
-): Promise<QueueData> {
+import type { QueueItem, QueueData } from '@/types/queue';
+import { requireTeamMembership } from '@/lib/team';
+
+export type { QueueItem, QueueData };
+
+export async function GET(request: NextRequest) {
   try {
-    // If no organizationId provided, return empty data
-    if (!organizationId) {
-      return {
-        items: [],
-        statusCounts: {},
-        payerCounts: {},
-        medicationCounts: {},
-        totalItems: 0
-      };
+    // Get current user and organization
+    const { isAuthenticated } = await auth();
+
+    const membership = await requireTeamMembership();
+    const organizationId = membership.team_id;
+
+    if (!isAuthenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const page = filters?.page || 1;
-    const limit = filters?.limit || 50;
+    // Parse query parameters for filtering
+    const searchParams = request.nextUrl.searchParams;
+    const statusFilter = searchParams.get('status');
+    const payerFilter = searchParams.get('payer');
+    const page = Number.parseInt(searchParams.get('page') || '1');
+    const limit = Number.parseInt(searchParams.get('limit') || '50');
     const offset = (page - 1) * limit;
 
     // Build where conditions
     const whereConditions = [
-      eq(priorAuths.organizationId, organizationId),
+      eq(priorAuths.organizationId, organizationId!),
       isNull(priorAuths.deletedAt)
     ];
 
-    if (filters?.status) {
-      whereConditions.push(eq(priorAuths.status, filters.status as any));
+    if (statusFilter) {
+      whereConditions.push(eq(priorAuths.status, statusFilter as any));
+    }
+
+    if (payerFilter) {
+      // We'll need to join with payers table for this filter
     }
 
     // Fetch prior authorization data with joins
-    const results = await db
+    const priorAuthsQuery = db
       .select({
         // Prior auth fields
         id: priorAuths.id,
@@ -89,6 +91,8 @@ export async function getQueueData(
       .orderBy(desc(priorAuths.updatedAt))
       .limit(limit)
       .offset(offset);
+
+    const results = await priorAuthsQuery;
 
     // Transform results to match queue item interface
     const items: QueueItem[] = results.map(result => {
@@ -177,7 +181,7 @@ export async function getQueueData(
       })
       .from(priorAuths)
       .where(and(
-        eq(priorAuths.organizationId, organizationId),
+        eq(priorAuths.organizationId, organizationId!),
         isNull(priorAuths.deletedAt)
       ))
       .groupBy(priorAuths.status);
@@ -213,7 +217,7 @@ export async function getQueueData(
       .from(priorAuths)
       .innerJoin(payers, eq(priorAuths.payerId, payers.id))
       .where(and(
-        eq(priorAuths.organizationId, organizationId),
+        eq(priorAuths.organizationId, organizationId!),
         isNull(priorAuths.deletedAt)
       ))
       .groupBy(payers.name);
@@ -233,7 +237,7 @@ export async function getQueueData(
       .from(priorAuths)
       .leftJoin(prescription, eq(priorAuths.prescriptionId, prescription.id))
       .where(and(
-        eq(priorAuths.organizationId, organizationId),
+        eq(priorAuths.organizationId, organizationId!),
         isNull(priorAuths.deletedAt)
       ))
       .groupBy(priorAuths.requestedService, prescription.medicationName);
@@ -249,13 +253,13 @@ export async function getQueueData(
       .select({ count: count() })
       .from(priorAuths)
       .where(and(
-        eq(priorAuths.organizationId, organizationId),
+        eq(priorAuths.organizationId, organizationId!),
         isNull(priorAuths.deletedAt)
       ));
 
     const totalItems = totalCountQuery[0]?.count || 0;
 
-    return {
+    const queueData: QueueData = {
       items,
       statusCounts,
       payerCounts,
@@ -263,16 +267,13 @@ export async function getQueueData(
       totalItems
     };
 
+    return NextResponse.json(queueData);
+
   } catch (error) {
     console.error('Error fetching queue data:', error);
-
-    // Return empty data structure as fallback
-    return {
-      items: [],
-      statusCounts: {},
-      payerCounts: {},
-      medicationCounts: {},
-      totalItems: 0
-    };
+    return NextResponse.json(
+      { error: 'Failed to fetch queue data' },
+      { status: 500 }
+    );
   }
 }
