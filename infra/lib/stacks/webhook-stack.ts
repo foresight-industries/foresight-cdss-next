@@ -288,6 +288,18 @@ export class WebhookStack extends cdk.Stack {
      * - document.processed → Document Processed
      * - document.analysis.completed → Document Analysis Completed
      * - document.deleted → Document Deleted
+     * 
+     * Encounter Events (HIPAA Critical):
+     * - encounter.created → Encounter Created
+     * - encounter.updated → Encounter Updated
+     * - encounter.deleted → Encounter Deleted
+     * - encounter.status.changed → Encounter Status Changed
+     * - encounter.diagnosis.added → Encounter Diagnosis Added
+     * - encounter.diagnosis.updated → Encounter Diagnosis Updated
+     * - encounter.procedure.added → Encounter Procedure Added
+     * - encounter.procedure.updated → Encounter Procedure Updated
+     * - encounter.finalized → Encounter Finalized
+     * - encounter.billed → Encounter Billed
      */
     // Organization events rule
     const organizationRule = new events.Rule(this, 'OrganizationEventsRule', {
@@ -422,6 +434,29 @@ export class WebhookStack extends cdk.Stack {
     });
 
     documentRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
+
+    // Encounter events rule (HIPAA Critical)
+    const encounterRule = new events.Rule(this, 'EncounterEventsRule', {
+      ruleName: `foresight-encounter-events-${this.stageName}`,
+      eventBus: this.eventBus,
+      eventPattern: {
+        source: ['foresight.encounters'],
+        detailType: [
+          'Encounter Created',
+          'Encounter Updated',
+          'Encounter Deleted',
+          'Encounter Status Changed',
+          'Encounter Diagnosis Added',
+          'Encounter Diagnosis Updated',
+          'Encounter Procedure Added',
+          'Encounter Procedure Updated',
+          'Encounter Finalized',
+          'Encounter Billed',
+        ],
+      },
+    });
+
+    encounterRule.addTarget(new targets.LambdaFunction(this.webhookProcessorFunction));
 
     // Webhook test events rule
     const webhookTestRule = new events.Rule(this, 'WebhookTestEventsRule', {

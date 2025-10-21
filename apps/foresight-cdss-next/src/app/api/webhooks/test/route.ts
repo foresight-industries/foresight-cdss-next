@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAuthenticatedDatabaseClient, safeSingle, safeInsert, safeSelect } from '@/lib/aws/database';
 import { auth } from '@clerk/nextjs/server';
 import { eq, and } from 'drizzle-orm';
-import { teamMembers, webhookConfigs, webhookDeliveries } from '@foresight-cdss-next/db';
+import { teamMembers, webhookConfigs, webhookDeliveries, webhookSecrets } from '@foresight-cdss-next/db';
 import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import crypto from 'node:crypto';
 
 // POST - Test webhook by sending a test event
 export async function POST(request: NextRequest) {
@@ -63,7 +65,51 @@ export async function POST(request: NextRequest) {
       url: string;
       name: string;
       environment: 'staging' | 'production';
+      primarySecretId: string | null;
     };
+
+    // Get the webhook secret for signature generation
+    const { data: webhookSecret } = await safeSingle(async () =>
+      db.select({
+        secretId: webhookSecrets.secretId
+      })
+      .from(webhookSecrets)
+      .where(and(
+        eq(webhookSecrets.webhookConfigId, webhook_id || ''),
+        eq(webhookSecrets.isActive, true)
+      ))
+    );
+
+    if (!webhookSecret) {
+      return NextResponse.json({
+        error: 'No active webhook secret found for this webhook'
+      }, { status: 400 });
+    }
+
+    // Fetch the actual secret from AWS Secrets Manager
+    const secretsManagerClient = new SecretsManagerClient({});
+    let actualSecret: string;
+
+    try {
+      const getSecretCommand = new GetSecretValueCommand({
+        SecretId: webhookSecret.secretId
+      });
+
+      const secretResponse = await secretsManagerClient.send(getSecretCommand);
+
+      if (!secretResponse.SecretString) {
+        return NextResponse.json({
+          error: 'Failed to retrieve webhook secret from AWS Secrets Manager'
+        }, { status: 500 });
+      }
+
+      actualSecret = secretResponse.SecretString;
+    } catch (secretError) {
+      console.error('Error fetching webhook secret:', secretError);
+      return NextResponse.json({
+        error: 'Failed to retrieve webhook secret'
+      }, { status: 500 });
+    }
 
     // Create test payload
     const testPayload = {
@@ -85,6 +131,11 @@ export async function POST(request: NextRequest) {
     // Send EventBridge event to trigger webhook processing pipeline
     const eventBridgeClient = new EventBridgeClient({});
 
+    // Generate the signature that will be used when delivering this webhook
+    const webhookSignature = crypto.createHmac('sha256', actualSecret)
+      .update(JSON.stringify(testPayload))
+      .digest('hex');
+
     const eventDetail = {
       eventType: 'webhook.test',
       organizationId: webhookData.organizationId,
@@ -97,7 +148,9 @@ export async function POST(request: NextRequest) {
       metadata: {
         triggeredBy: userId,
         triggerSource: 'manual_test',
-        webhookId: webhookData.id
+        webhookId: webhookData.id,
+        expectedSignature: `sha256=${webhookSignature}`,
+        secretId: webhookSecret.secretId
       }
     };
 
@@ -200,15 +253,16 @@ export async function GET(request: NextRequest) {
             'Content-Type': 'application/json',
             'User-Agent': 'Foresight-CDSS-Webhook/1.0',
             'X-Foresight-Event': 'webhook.test',
-            'X-Foresight-Signature': 'sha256=<hmac-signature>',
-            'X-Foresight-Organization-ID': '<organization-uuid>',
-            'X-Foresight-Delivery': '<delivery-uuid>'
+            'X-Foresight-Signature': 'sha256=<hmac-signature-generated-from-webhook-secret>',
+            'X-Foresight-Organization-ID': 'uuid', // Use actual organization ID
+            'X-Foresight-Delivery': crypto.randomUUID()
           }
         }
       });
     }
 
     const { userId } = await auth();
+
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

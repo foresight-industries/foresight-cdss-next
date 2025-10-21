@@ -114,6 +114,88 @@ class AwsDatabaseWrapper {
 }
 
 /**
+ * Convert EventBridge DetailType to webhook event_type format
+ */
+function convertEventTypeToWebhookFormat(eventType: string): string {
+  // Map EventBridge DetailTypes to webhook event_type format
+  const eventTypeMap: Record<string, string> = {
+    // Organization events
+    'Organization Created': 'organization.created',
+    'Organization Updated': 'organization.updated',
+    'Organization Deleted': 'organization.deleted',
+    'Organization Settings Changed': 'organization.settings.changed',
+    
+    // User and team events
+    'User Created': 'user.created',
+    'User Updated': 'user.updated',
+    'User Deleted': 'user.deleted',
+    'User Role Changed': 'user.role.changed',
+    'Team Member Added': 'team_member.added',
+    'Team Member Updated': 'team_member.updated',
+    'Team Member Removed': 'team_member.removed',
+    
+    // Patient events
+    'Patient Created': 'patient.created',
+    'Patient Updated': 'patient.updated',
+    'Patient Deleted': 'patient.deleted',
+    
+    // Clinician events
+    'Clinician Created': 'clinician.created',
+    'Clinician Updated': 'clinician.updated',
+    'Clinician Deleted': 'clinician.deleted',
+    'Clinician License Added': 'clinician.license.added',
+    'Clinician License Updated': 'clinician.license.updated',
+    'Clinician License Expired': 'clinician.license.expired',
+    'Clinician Credentials Verified': 'clinician.credentials.verified',
+    'Clinician Status Changed': 'clinician.status.changed',
+    'Clinician Specialty Updated': 'clinician.specialty.updated',
+    'Clinician NPI Updated': 'clinician.npi.updated',
+    
+    // Claims events
+    'Claim Created': 'claim.created',
+    'Claim Updated': 'claim.updated',
+    'Claim Submitted': 'claim.submitted',
+    'Claim Approved': 'claim.approved',
+    'Claim Denied': 'claim.denied',
+    'Claim Processing Started': 'claim.processing.started',
+    'Claim Processing Completed': 'claim.processing.completed',
+    
+    // Prior authorization events
+    'Prior Auth Created': 'prior_auth.created',
+    'Prior Auth Updated': 'prior_auth.updated',
+    'Prior Auth Submitted': 'prior_auth.submitted',
+    'Prior Auth Approved': 'prior_auth.approved',
+    'Prior Auth Denied': 'prior_auth.denied',
+    'Prior Auth Pending': 'prior_auth.pending',
+    'Prior Auth Expired': 'prior_auth.expired',
+    'Prior Auth Cancelled': 'prior_auth.cancelled',
+    
+    // Document events
+    'Document Uploaded': 'document.uploaded',
+    'Document Processed': 'document.processed',
+    'Document Analysis Completed': 'document.analysis.completed',
+    'Document Deleted': 'document.deleted',
+    
+    // Encounter events
+    'Encounter Created': 'encounter.created',
+    'Encounter Updated': 'encounter.updated',
+    'Encounter Deleted': 'encounter.deleted',
+    'Encounter Status Changed': 'encounter.status.changed',
+    'Encounter Diagnosis Added': 'encounter.diagnosis.added',
+    'Encounter Diagnosis Updated': 'encounter.diagnosis.updated',
+    'Encounter Procedure Added': 'encounter.procedure.added',
+    'Encounter Procedure Updated': 'encounter.procedure.updated',
+    'Encounter Finalized': 'encounter.finalized',
+    'Encounter Billed': 'encounter.billed',
+    
+    // Webhook test events
+    'Webhook Test Event': 'webhook.test',
+  };
+  
+  return eventTypeMap[eventType] || eventType.toLowerCase().replace(/\s+/g, '.');
+}
+
+/**
  * Process a single webhook delivery message
  */
 async function processWebhookDelivery(
@@ -137,10 +219,24 @@ async function processWebhookDelivery(
       eventData.userId
     );
 
+    // Transform EventBridge format to webhook payload format
+    const webhookPayload = {
+      event_type: convertEventTypeToWebhookFormat(eventData.eventType),
+      organization_id: eventData.organizationId,
+      timestamp: Math.floor(Date.now() / 1000), // Use current timestamp since eventData doesn't have timestamp
+      source: eventData.metadata?.source || 'foresight_cdss',
+      data: eventData.data,
+      metadata: {
+        ...eventData.metadata,
+        environment: eventData.environment,
+        user_id: eventData.userId,
+      },
+    };
+
     // Perform the webhook delivery with HIPAA compliance
     const result = await processor.processWebhookDelivery(
       webhookConfigId,
-      eventData
+      webhookPayload
     );
 
     if (result.success) {
