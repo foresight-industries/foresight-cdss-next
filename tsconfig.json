@@ -4,10 +4,10 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/foresight-cdss-next-e2e"
+      "path": "./apps/web-e2e"
     },
     {
-      "path": "./apps/foresight-cdss-next"
+      "path": "./apps/web"
     },
     {
       "path": "./infra"

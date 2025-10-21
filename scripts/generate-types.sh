@@ -17,10 +17,10 @@ fi
 echo "🔄 Generating TypeScript types from Supabase project: $PROJECT_REF"
 
 # Generate types and save to the types directory
-supabase gen types typescript --project-id="$PROJECT_REF" > apps/foresight-cdss-next/src/types/database.types.ts
+supabase gen types typescript --project-id="$PROJECT_REF" > apps/web/src/types/database.types.ts
 
 echo "✅ TypeScript types generated successfully!"
-echo "📁 Saved to: apps/foresight-cdss-next/src/types/database.types.ts"
+echo "📁 Saved to: apps/web/src/types/database.types.ts"
 
 # Optional: Generate the schema SQL for reference
 echo "🔄 Pulling database schema..."

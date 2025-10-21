@@ -1,0 +1,43 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "aliases": {
+    "start": "apps/web/start",
+    "build": "apps/web/build",
+    "dev": "apps/web/dev",
+    "lint": "apps/web/lint",
+    "test": "apps/web/test",
+    "typecheck": "apps/web/typecheck",
+    "components": "apps/web/components",
+    "hooks": "apps/web/hooks",
+    "lib": "apps/web/lib",
+    "pages": "apps/web/pages",
+    "public": "apps/web/public",
+    "styles": "apps/web/styles",
+    "utils": "apps/web/utils",
+    "vercel": "apps/web/vercel",
+    "vercel:env:pull": "apps/web/vercel:env:pull",
+    "vercel:env:pull-dev": "apps/web/vercel:env:pull-dev"
+  },
+  "rsc": true,
+  "style": "default",
+  "tailwind": {
+    "config": "",
+    "css": "apps/web/src/app/global.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    }
+  }
+}

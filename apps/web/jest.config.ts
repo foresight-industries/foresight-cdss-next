@@ -12,7 +12,7 @@ const config: Config = {
     '^(?!.*\\.(js|jsx|ts|tsx|css|json)$)': '@nx/react/plugins/jest',
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
-  coverageDirectory: '../../coverage/apps/foresight-cdss-next',
+  coverageDirectory: '../../coverage/apps/web',
   testEnvironment: 'jsdom',
 };
 

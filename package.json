@@ -1,7 +1,6 @@
 {
   "name": "@foresight-cdss-next/source",
   "version": "1.0.0",
-  "license": "MIT",
   "private": true,
   "dependencies": {
     "@aws-sdk/client-comprehendmedical": "^3.911.0",
@@ -42,6 +41,7 @@
     "eslint": "^9.8.0",
     "eslint-config-next": "^15.2.4",
     "eslint-config-prettier": "^10.0.0",
+    "eslint-config-turbo": "^2.5.8",
     "eslint-plugin-cypress": "^3.5.0",
     "eslint-plugin-import": "2.31.0",
     "eslint-plugin-jsx-a11y": "6.10.1",
@@ -56,6 +56,7 @@
     "ts-jest": "^29.4.0",
     "tslib": "^2.3.0",
     "tsx": "^4.20.6",
+    "turbo": "^2.5.8",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0"
   },
@@ -63,15 +64,16 @@
     "test": "jest",
     "db:gen-types": "yarn run db:generate",
     "db:introspect": "yarn run db:introspect --workspace=packages/db",
-    "type-check": "tsc --noEmit",
-    "codegen": "npm run db:generate-types && npm run type-check"
+    "check-types": "tsc --noEmit",
+    "codegen": "npm run db:generate-types && npm run check-types"
   },
   "workspaces": [
     "apps/*",
     "infra",
     "!infra/layers/dependencies",
-    "packages/*",
-    "packages/functions/*"
+    "packages/db",
+    "packages/functions/*",
+    "packages/webhooks"
   ],
   "packageManager": "yarn@4.10.3"
 }

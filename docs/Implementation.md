@@ -562,9 +562,9 @@ The application can now be pointed to the Claim.MD sandbox environment for end-t
 - **Comprehensive Testing**: Both unit tests for sorting logic and React component tests for user interactions
 
 **Files Modified:**
-- `apps/foresight-cdss-next/src/app/team/[slug]/claims/page.tsx`: Main implementation
-- `apps/foresight-cdss-next/specs/claims-sorting.spec.ts`: Unit tests for sorting algorithm
-- `apps/foresight-cdss-next/specs/claims-page.spec.tsx`: Component integration tests
+- `apps/web/src/app/team/[slug]/claims/page.tsx`: Main implementation
+- `apps/web/specs/claims-sorting.spec.ts`: Unit tests for sorting algorithm
+- `apps/web/specs/claims-page.spec.tsx`: Component integration tests
 
 #### 27. Edge Case Handling and UX Design Decisions
 

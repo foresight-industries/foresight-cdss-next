@@ -1,0 +1,8 @@
+# Environment variables
+.env*.local
+
+# Clerk configuration (can include secrets)
+/.clerk/
+
+# Vercel cache
+.vercel
