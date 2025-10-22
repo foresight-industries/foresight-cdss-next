@@ -2,9 +2,14 @@ import * as cdk from 'aws-cdk-lib';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 import { join } from 'node:path';
 import { SchemaFile } from 'aws-cdk-lib/aws-appsync';
+
+if (!process.env.APPSYNC_CERT_ARN) {
+  throw new Error('Missing APPSYNC_CERT_ARN environment variable');
+}
 
 interface AppSyncStackProps extends cdk.StackProps {
   stageName: string;
@@ -13,11 +18,31 @@ interface AppSyncStackProps extends cdk.StackProps {
 }
 
 export class AppSyncStack extends cdk.Stack {
+  public readonly certificate: certmanager.ICertificate;
+  public readonly appsyncDomainName: appsync.CfnDomainName;
   public readonly graphqlApi: appsync.GraphqlApi;
+  public readonly domainAssoc: appsync.CfnDomainNameApiAssociation;
   public readonly rdsDataSource: appsync.RdsDataSource;
 
   constructor(scope: Construct, id: string, props: AppSyncStackProps) {
     super(scope, id, props);
+
+    const isProd = props.stageName === 'prod';
+
+    this.certificate = cdk.aws_certificatemanager.Certificate.fromCertificateArn(
+      this,
+      "3fef5cb9-7261-491c-86be-8f57de7a523b",
+      process.env.APPSYNC_CERT_ARN as string,
+    );
+
+    this.appsyncDomainName = new appsync.CfnDomainName(
+      this,
+      'AppsyncDomainName',
+      {
+        certificateArn: this.certificate.certificateArn,
+        domainName: isProd ? 'api.have-foresight.app' : 'staging.api.have-foresight.app',
+      }
+    );
 
     // Read GraphQL schema
     const schemaPath = join(__dirname, '../graphql/schema.graphql');
@@ -56,6 +81,18 @@ export class AppSyncStack extends cdk.Stack {
       xrayEnabled: true,
     });
 
+    this.domainAssoc = new appsync.CfnDomainNameApiAssociation(
+      this,
+      'ForesightCfnDomainNameApiAssociation',
+      {
+        apiId: this.graphqlApi.apiId,
+        domainName: isProd ? 'api.have-foresight.app' : 'staging.api.have-foresight.app',
+      }
+    );
+
+//  Required to ensure the resources are created in order
+    this.domainAssoc.addDependency(this.appsyncDomainName);
+
     // Create RDS Data Source for Aurora PostgreSQL
     this.rdsDataSource = this.graphqlApi.addRdsDataSource(
       'RCMDatabaseDataSource',
@@ -67,6 +104,7 @@ export class AppSyncStack extends cdk.Stack {
         description: 'Healthcare RCM PostgreSQL Aurora Database',
       }
     );
+
 
     // Grant necessary permissions for AppSync to access RDS Data API
     // The RDS data source automatically creates the necessary IAM permissions
