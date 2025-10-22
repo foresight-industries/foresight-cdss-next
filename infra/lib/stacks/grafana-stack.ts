@@ -124,8 +124,8 @@ export class GrafanaStack extends cdk.Stack {
       // Account access type - use AWS SSO if available, otherwise IAM
       accountAccessType: 'CURRENT_ACCOUNT',
 
-      // Authentication providers
-      authenticationProviders: ['AWS_SSO'], // Change to ['SAML'] if using SAML
+      // Authentication providers - use SAML for standard AWS account access
+      authenticationProviders: ['SAML'],
 
       pluginAdminEnabled: true,
 
@@ -144,9 +144,6 @@ export class GrafanaStack extends cdk.Stack {
       notificationDestinations: [
         'SNS', // For alerting via SNS
       ],
-
-      // Organization units (if using AWS SSO)
-      organizationalUnits: [], // Add your org units if using AWS SSO
 
       // Network access configuration for VPC (optional but recommended for HIPAA)
       // vpcConfiguration: undefined, // Can be configured later with specific security groups and subnets
