@@ -1,6 +1,5 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from 'next';
-import * as path from 'node:path';
 
 const nextConfig: NextConfig = {
   reactCompiler: false,

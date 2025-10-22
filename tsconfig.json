@@ -19,6 +19,9 @@
       "path": "./packages/functions/document-processor"
     },
     {
+      "path": "./packages/functions/shared"
+    },
+    {
       "path": "./packages/functions/workers"
     },
     {
@@ -32,7 +35,6 @@
     }
   ],
   "exclude": [
-    "supabase/functions/**/*",
     "node_modules",
     ".next",
     "dist",
