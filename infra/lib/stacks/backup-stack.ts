@@ -103,7 +103,7 @@ export class BackupStack extends cdk.Stack {
           scheduleExpression: events.Schedule.cron({
             minute: '0',
             hour: '3', // 3 AM UTC
-            day: '?',
+            weekDay: 'SUN', // Every Sunday
             month: '*',
             year: '*',
           }),

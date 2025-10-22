@@ -8,13 +8,15 @@ import {
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
-import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { join } from 'node:path';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import { AppSyncAuthorizationType } from 'aws-cdk-lib/aws-appsync';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 
 if (!process.env.APPSYNC_CERT_ARN) {
   throw new Error('Missing APPSYNC_CERT_ARN environment variable');
@@ -28,6 +30,7 @@ interface AppSyncStackProps extends cdk.StackProps {
   stageName: string;
   databaseCluster: rds.DatabaseCluster;
   databaseSecret: secretsmanager.ISecret;
+  alertTopicArn?: string;
 }
 
 export class AppSyncStack extends cdk.Stack {
@@ -88,6 +91,16 @@ export class AppSyncStack extends cdk.Stack {
         retention: logs.RetentionDays.ONE_MONTH,
         fieldLogLevel: appsync.FieldLogLevel.ALL,
       },
+    });
+
+    // Add caching configuration for improved performance
+    const cachingConfig = new appsync.CfnApiCache(this, 'HealthcareRCMApiCache', {
+      apiId: this.graphqlApi.apiId,
+      type: 'SMALL', // SMALL, MEDIUM, LARGE, XLARGE, LARGE_2X, LARGE_4X, LARGE_8X, LARGE_12X
+      ttl: Duration.minutes(isProd ? 60 : 5).toSeconds(), // Longer TTL in production
+      apiCachingBehavior: 'FULL_REQUEST_CACHING',
+      transitEncryptionEnabled: true,
+      atRestEncryptionEnabled: true,
     });
 
     this.domainAssoc = new appsync.CfnDomainNameApiAssociation(
@@ -178,6 +191,93 @@ export class AppSyncStack extends cdk.Stack {
       },
     });
 
+    // Create DLQ for AppSync API failures
+    const appsyncDlq = new sqs.Queue(this, 'AppSyncDLQ', {
+      queueName: `rcm-appsync-dlq-${props.stageName}`,
+      retentionPeriod: Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    // Create DLQ for Event API failures
+    const eventApiDlq = new sqs.Queue(this, 'EventApiDLQ', {
+      queueName: `rcm-eventapi-dlq-${props.stageName}`,
+      retentionPeriod: Duration.days(14),
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    // Create Lambda function to handle AppSync errors and send to DLQ
+    const appsyncErrorHandler = new lambdaNodejs.NodejsFunction(this, 'AppSyncErrorHandler', {
+      functionName: `rcm-appsync-error-handler-${props.stageName}`,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: 'handler',
+      entry: join(__dirname, '../functions/appsync-error-handler.ts'),
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        APPSYNC_DLQ_URL: appsyncDlq.queueUrl,
+        EVENT_API_DLQ_URL: eventApiDlq.queueUrl,
+        ALERT_TOPIC_ARN: props.alertTopicArn || '',
+        STAGE_NAME: props.stageName,
+      },
+    });
+
+    // Grant permissions for the error handler
+    appsyncDlq.grantSendMessages(appsyncErrorHandler);
+    eventApiDlq.grantSendMessages(appsyncErrorHandler);
+
+    if (props.alertTopicArn) {
+      appsyncErrorHandler.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['sns:Publish'],
+          resources: [props.alertTopicArn],
+        })
+      );
+    }
+
+    // Create DLQ processor for AppSync errors
+    const appsyncDlqProcessor = new lambdaNodejs.NodejsFunction(this, 'AppSyncDLQProcessor', {
+      functionName: `rcm-appsync-dlq-processor-${props.stageName}`,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: 'handler',
+      entry: join(__dirname, '../functions/appsync-dlq-processor.ts'),
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+      environment: {
+        ALERT_TOPIC_ARN: props.alertTopicArn || '',
+        STAGE_NAME: props.stageName,
+      },
+    });
+
+    // Add SQS triggers for DLQ processors
+    appsyncDlqProcessor.addEventSource(
+      new lambdaEventSources.SqsEventSource(appsyncDlq, {
+        batchSize: 10,
+        reportBatchItemFailures: true,
+      })
+    );
+
+    appsyncDlqProcessor.addEventSource(
+      new lambdaEventSources.SqsEventSource(eventApiDlq, {
+        batchSize: 10,
+        reportBatchItemFailures: true,
+      })
+    );
+
+    // Grant permissions for DLQ processor
+    if (props.alertTopicArn) {
+      appsyncDlqProcessor.addToRolePolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: [
+            'sns:Publish',
+            'cloudwatch:PutMetricData',
+          ],
+          resources: ['*'],
+        })
+      );
+    }
+
     // Outputs for EventApi
     new cdk.CfnOutput(this, 'EventApiUrl', {
       value: eventApi.appSyncDomainName,
@@ -209,13 +309,32 @@ export class AppSyncStack extends cdk.Stack {
       description: 'GraphQL API Key',
       exportName: `RCM-GraphQLApiKey-${props.stageName}`,
     });
+
+    // Outputs for DLQ
+    new cdk.CfnOutput(this, 'AppSyncDLQArn', {
+      value: appsyncDlq.queueArn,
+      description: 'AppSync Dead Letter Queue ARN',
+      exportName: `RCM-AppSyncDLQ-Arn-${props.stageName}`,
+    });
+
+    new cdk.CfnOutput(this, 'EventApiDLQArn', {
+      value: eventApiDlq.queueArn,
+      description: 'Event API Dead Letter Queue ARN',
+      exportName: `RCM-EventApiDLQ-Arn-${props.stageName}`,
+    });
   }
 
   private createPatientResolvers(): void {
+    const isProd = this.node.tryGetContext('stageName') === 'prod';
+
     // Get Patient Query Resolver
     this.rdsDataSource.createResolver('GetPatientResolver', {
       typeName: 'Query',
       fieldName: 'getPatient',
+      cachingConfig: {
+        ttl: Duration.minutes(isProd ? 15 : 5),
+        cachingKeys: ['$context.identity'],
+      },
       requestMappingTemplate: appsync.MappingTemplate.fromString(`
         {
           "version": "2018-05-29",
@@ -393,10 +512,16 @@ export class AppSyncStack extends cdk.Stack {
   }
 
   private createClaimResolvers(): void {
+    const isProd = this.node.tryGetContext('stageName') === 'prod';
+
     // Get Claim Query Resolver
     this.rdsDataSource.createResolver('GetClaimResolver', {
       typeName: 'Query',
       fieldName: 'getClaim',
+      cachingConfig: {
+        ttl: Duration.minutes(isProd ? 10 : 3),
+        cachingKeys: ['$context.identity'],
+      },
       requestMappingTemplate: appsync.MappingTemplate.fromString(`
         {
           "version": "2018-05-29",
@@ -551,10 +676,16 @@ export class AppSyncStack extends cdk.Stack {
   }
 
   private createOrganizationResolvers(): void {
+    const isProd = this.node.tryGetContext('stageName') === 'prod';
+
     // Get Organization Query Resolver
     this.rdsDataSource.createResolver('GetOrganizationResolver', {
       typeName: 'Query',
       fieldName: 'getOrganization',
+      cachingConfig: {
+        ttl: Duration.minutes(isProd ? 30 : 10),
+        cachingKeys: ['$context.identity'],
+      },
       requestMappingTemplate: appsync.MappingTemplate.fromString(`
         {
           "version": "2018-05-29",
@@ -591,10 +722,16 @@ export class AppSyncStack extends cdk.Stack {
   }
 
   private createAnalyticsResolvers(): void {
+    const isProd = this.node.tryGetContext('stageName') === 'prod';
+
     // Get Realtime Metrics Query Resolver
     this.rdsDataSource.createResolver('GetRealtimeMetricsResolver', {
       typeName: 'Query',
       fieldName: 'getRealtimeMetrics',
+      cachingConfig: {
+        ttl: Duration.minutes(isProd ? 2 : 1),
+        cachingKeys: ['$context.arguments.organizationId'],
+      },
       requestMappingTemplate: appsync.MappingTemplate.fromString(`
         {
           "version": "2018-05-29",
@@ -628,150 +765,6 @@ export class AppSyncStack extends cdk.Stack {
           "timestamp": "$util.time.nowISO8601()"
         }
       `),
-    });
-  }
-
-  private createEventAPI(): void {
-    // Create Lambda function for event publishing
-    const eventPublisherFunction = new lambdaNodejs.NodejsFunction(
-      this,
-      'EventPublisherFunction',
-      {
-        functionName: `rcm-event-publisher-${this.stackName}`,
-        runtime: lambda.Runtime.NODEJS_22_X,
-        handler: 'handler',
-        entry: join(__dirname, '../functions/event-publisher.ts'),
-        environment: {
-          GRAPHQL_API_ID: this.graphqlApi.apiId,
-          GRAPHQL_ENDPOINT: this.graphqlApi.graphqlUrl,
-          STAGE_NAME: this.node.tryGetContext('stageName') || 'dev',
-        },
-        timeout: Duration.seconds(30),
-        memorySize: 256,
-      },
-    );
-
-    // Grant the Lambda function permission to invoke AppSync
-    eventPublisherFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['appsync:GraphQL'],
-        resources: [`${this.graphqlApi.resources.graphqlApi.arn}/*`],
-      }),
-    );
-
-    // Create Lambda data source for event publishing
-    const eventLambdaDataSource = this.graphqlApi.addLambdaDataSource(
-      'EventLambdaDataSource',
-      eventPublisherFunction,
-      {
-        name: 'EventLambdaDataSource',
-        description: 'Lambda data source for healthcare RCM event publishing',
-      },
-    );
-
-    // Create event publishing mutation resolver
-    eventLambdaDataSource.createResolver('PublishEventResolver', {
-      typeName: 'Mutation',
-      fieldName: 'publishEvent',
-      requestMappingTemplate: appsync.MappingTemplate.fromString(`
-        {
-          "version": "2017-02-28",
-          "operation": "Invoke",
-          "payload": {
-            "eventType": "$ctx.args.input.eventType",
-            "eventData": $util.toJson($ctx.args.input.eventData),
-            "organizationId": "$ctx.args.input.organizationId",
-            "targetUsers": $util.toJson($ctx.args.input.targetUsers),
-            "metadata": $util.toJson($ctx.args.input.metadata),
-            "timestamp": "$util.time.nowISO8601()",
-            "publisherId": "$ctx.identity.sub"
-          }
-        }
-      `),
-      responseMappingTemplate: appsync.MappingTemplate.fromString(`
-        #if($ctx.error)
-          $util.error($ctx.error.message, $ctx.error.type)
-        #end
-        $util.toJson($ctx.result)
-      `),
-    });
-
-    // Create event history query resolver (for audit trail)
-    this.rdsDataSource.createResolver('GetEventHistoryResolver', {
-      typeName: 'Query',
-      fieldName: 'getEventHistory',
-      requestMappingTemplate: appsync.MappingTemplate.fromString(`
-        #set($limit = $util.defaultIfNull($ctx.args.limit, 20))
-        #set($offset = 0)
-        #if($ctx.args.nextToken)
-          #set($offset = $util.base64Decode($ctx.args.nextToken))
-        #end
-
-        {
-          "version": "2018-05-29",
-          "statements": [
-            "SELECT
-              e.id, e.event_type as eventType, e.event_data as eventData,
-              e.organization_id as organizationId, e.publisher_id as publisherId,
-              e.target_users as targetUsers, e.metadata, e.timestamp,
-              e.created_at as createdAt
-            FROM event_log e
-            WHERE e.organization_id = :organizationId
-            #if($ctx.args.eventType)
-              AND e.event_type = :eventType
-            #end
-            ORDER BY e.timestamp DESC
-            LIMIT :limit OFFSET :offset"
-          ],
-          "variableMap": {
-            ":organizationId": $util.toJson($ctx.args.organizationId),
-            #if($ctx.args.eventType)
-              ":eventType": $util.toJson($ctx.args.eventType),
-            #end
-            ":limit": $limit,
-            ":offset": $offset
-          }
-        }
-      `),
-      responseMappingTemplate: appsync.MappingTemplate.fromString(`
-        #set($events = [])
-
-        #if($ctx.result.records.size() > 0)
-          #foreach($record in $ctx.result.records[0])
-            #set($event = {
-              "id": "$record.id",
-              "eventType": "$record.eventType",
-              "eventData": $util.parseJson($record.eventData),
-              "organizationId": "$record.organizationId",
-              "publisherId": "$record.publisherId",
-              "targetUsers": $util.parseJson($record.targetUsers),
-              "metadata": $util.parseJson($record.metadata),
-              "timestamp": "$record.timestamp",
-              "createdAt": "$record.createdAt"
-            })
-            $util.qr($events.add($event))
-          #end
-        #end
-
-        #set($nextToken = "")
-        #if($events.size() == $ctx.args.limit)
-          #set($nextOffset = $offset + $ctx.args.limit)
-          #set($nextToken = $util.base64Encode($nextOffset))
-        #end
-
-        {
-          "items": $util.toJson($events),
-          "nextToken": "$nextToken"
-        }
-      `),
-    });
-
-    // Output the event publisher Lambda function ARN
-    new cdk.CfnOutput(this, 'EventPublisherFunctionArn', {
-      value: eventPublisherFunction.functionArn,
-      description: 'Event Publisher Lambda Function ARN',
-      exportName: `RCM-EventPublisher-${this.node.tryGetContext('stageName') || 'dev'}`,
     });
   }
 }

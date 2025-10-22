@@ -29,6 +29,7 @@ export class SecurityStack extends cdk.Stack {
         id: 'delete-old-logs',
         expiration: cdk.Duration.days(90),
       }],
+      enforceSSL: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
 
@@ -44,6 +45,29 @@ export class SecurityStack extends cdk.Stack {
       resources: [wafLogsBucket.bucketArn],
     }));
 
+    const wafLogsFirehoseKey = new kms.CfnKey(this, 'WAFLogsFirehoseKey', {
+      description: 'KMS key for encrypting WAF logs stream',
+      enableKeyRotation: true,
+      keyPolicy: new iam.PolicyDocument({
+        statements: [
+          new iam.PolicyStatement({
+            sid: 'EnableRootPermissions',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.AccountRootPrincipal()],
+            actions: ['kms:*'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            sid: 'AllowApplicationAccess',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.ServicePrincipal('firehose.amazonaws.com')],
+            actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*'],
+            resources: ['*'],
+          }),
+        ],
+      }),
+    });
+
     const wafLogsFirehose = new kinesisfirehose.CfnDeliveryStream(this, 'WAFLogsFirehose', {
       deliveryStreamName: `aws-waf-logs-rcm-${props.stageName}`,
       deliveryStreamType: 'DirectPut',
@@ -55,7 +79,7 @@ export class SecurityStack extends cdk.Stack {
         compressionFormat: 'GZIP',
         encryptionConfiguration: {
           kmsEncryptionConfig: {
-            awskmsKeyArn: firehoseRole.roleArn,
+            awskmsKeyArn: wafLogsFirehoseKey.attrArn
           },
         },
         cloudWatchLoggingOptions: {
