@@ -7,6 +7,9 @@ import {
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { join } from 'node:path';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
@@ -126,6 +129,9 @@ export class AppSyncStack extends cdk.Stack {
 
     // Create resolvers for Real-time Analytics
     this.createAnalyticsResolvers();
+
+    // Create Event API for publish/subscribe functionality
+    this.createEventAPI();
 
     // Outputs
     new cdk.CfnOutput(this, 'GraphQLApiUrl', {
@@ -564,6 +570,148 @@ export class AppSyncStack extends cdk.Stack {
           "timestamp": "$util.time.nowISO8601()"
         }
       `),
+    });
+  }
+
+  private createEventAPI(): void {
+    // Create Lambda function for event publishing
+    const eventPublisherFunction = new lambdaNodejs.NodejsFunction(this, 'EventPublisherFunction', {
+      functionName: `rcm-event-publisher-${this.stackName}`,
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: 'handler',
+      entry: join(__dirname, '../functions/event-publisher.ts'),
+      environment: {
+        GRAPHQL_API_ID: this.graphqlApi.apiId,
+        GRAPHQL_ENDPOINT: this.graphqlApi.graphqlUrl,
+        STAGE_NAME: this.node.tryGetContext('stageName') || 'dev',
+      },
+      timeout: Duration.seconds(30),
+      memorySize: 256,
+    });
+
+    // Grant the Lambda function permission to invoke AppSync
+    eventPublisherFunction.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'appsync:GraphQL',
+      ],
+      resources: [
+        `${this.graphqlApi.resources.graphqlApi.arn}/*`,
+      ],
+    }));
+
+    // Create Lambda data source for event publishing
+    const eventLambdaDataSource = this.graphqlApi.addLambdaDataSource(
+      'EventLambdaDataSource',
+      eventPublisherFunction,
+      {
+        name: 'EventLambdaDataSource',
+        description: 'Lambda data source for healthcare RCM event publishing',
+      }
+    );
+
+    // Create event publishing mutation resolver
+    eventLambdaDataSource.createResolver('PublishEventResolver', {
+      typeName: 'Mutation',
+      fieldName: 'publishEvent',
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        {
+          "version": "2017-02-28",
+          "operation": "Invoke",
+          "payload": {
+            "eventType": "$ctx.args.input.eventType",
+            "eventData": $util.toJson($ctx.args.input.eventData),
+            "organizationId": "$ctx.args.input.organizationId",
+            "targetUsers": $util.toJson($ctx.args.input.targetUsers),
+            "metadata": $util.toJson($ctx.args.input.metadata),
+            "timestamp": "$util.time.nowISO8601()",
+            "publisherId": "$ctx.identity.sub"
+          }
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.fromString(`
+        #if($ctx.error)
+          $util.error($ctx.error.message, $ctx.error.type)
+        #end
+        $util.toJson($ctx.result)
+      `),
+    });
+
+    // Create event history query resolver (for audit trail)
+    this.rdsDataSource.createResolver('GetEventHistoryResolver', {
+      typeName: 'Query',
+      fieldName: 'getEventHistory',
+      requestMappingTemplate: appsync.MappingTemplate.fromString(`
+        #set($limit = $util.defaultIfNull($ctx.args.limit, 20))
+        #set($offset = 0)
+        #if($ctx.args.nextToken)
+          #set($offset = $util.base64Decode($ctx.args.nextToken))
+        #end
+
+        {
+          "version": "2018-05-29",
+          "statements": [
+            "SELECT
+              e.id, e.event_type as eventType, e.event_data as eventData,
+              e.organization_id as organizationId, e.publisher_id as publisherId,
+              e.target_users as targetUsers, e.metadata, e.timestamp,
+              e.created_at as createdAt
+            FROM event_log e
+            WHERE e.organization_id = :organizationId
+            #if($ctx.args.eventType)
+              AND e.event_type = :eventType
+            #end
+            ORDER BY e.timestamp DESC
+            LIMIT :limit OFFSET :offset"
+          ],
+          "variableMap": {
+            ":organizationId": $util.toJson($ctx.args.organizationId),
+            #if($ctx.args.eventType)
+              ":eventType": $util.toJson($ctx.args.eventType),
+            #end
+            ":limit": $limit,
+            ":offset": $offset
+          }
+        }
+      `),
+      responseMappingTemplate: appsync.MappingTemplate.fromString(`
+        #set($events = [])
+
+        #if($ctx.result.records.size() > 0)
+          #foreach($record in $ctx.result.records[0])
+            #set($event = {
+              "id": "$record.id",
+              "eventType": "$record.eventType",
+              "eventData": $util.parseJson($record.eventData),
+              "organizationId": "$record.organizationId",
+              "publisherId": "$record.publisherId",
+              "targetUsers": $util.parseJson($record.targetUsers),
+              "metadata": $util.parseJson($record.metadata),
+              "timestamp": "$record.timestamp",
+              "createdAt": "$record.createdAt"
+            })
+            $util.qr($events.add($event))
+          #end
+        #end
+
+        #set($nextToken = "")
+        #if($events.size() == $ctx.args.limit)
+          #set($nextOffset = $offset + $ctx.args.limit)
+          #set($nextToken = $util.base64Encode($nextOffset))
+        #end
+
+        {
+          "items": $util.toJson($events),
+          "nextToken": "$nextToken"
+        }
+      `),
+    });
+
+    // Output the event publisher Lambda function ARN
+    new cdk.CfnOutput(this, 'EventPublisherFunctionArn', {
+      value: eventPublisherFunction.functionArn,
+      description: 'Event Publisher Lambda Function ARN',
+      exportName: `RCM-EventPublisher-${this.node.tryGetContext('stageName') || 'dev'}`,
     });
   }
 }

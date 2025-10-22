@@ -236,7 +236,7 @@ export class AppConfigStack extends cdk.Stack {
     // Create Lambda function for AppConfig retrieval (for server-side usage)
     this.retrievalLambda = new lambdaNodejs.NodejsFunction(this, 'AppConfigRetrievalFunction', {
       functionName: `foresight-appconfig-retrieval-${props.stageName}`,
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       handler: 'handler',
       entry: join(__dirname, '../functions/appconfig-retrieval.ts'),
       role: this.retrievalRole,
