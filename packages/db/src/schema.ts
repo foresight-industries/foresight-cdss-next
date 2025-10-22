@@ -606,6 +606,34 @@ export const documents = pgTable('document', {
   isProcessed: boolean('is_processed').default(false),
   ocrText: text('ocr_text'),
   metadata: json('metadata').$type<Record<string, any>>().default({}),
+  
+  // Enhanced processing tracking
+  uploadId: uuid('upload_id').unique(), // External reference for API clients
+  processingStatus: varchar('processing_status', { length: 20 }).default('uploaded'), // uploaded, validating, processing, completed, failed
+  processingStartedAt: timestamp('processing_started_at'),
+  processingCompletedAt: timestamp('processing_completed_at'),
+  
+  // Validation results (from Rekognition)
+  validationResult: json('validation_result').$type<{
+    isValid: boolean;
+    confidence: number;
+    issues: string[];
+    metadata?: {
+      textConfidence?: number;
+      documentQuality?: 'high' | 'medium' | 'low';
+      suspiciousContent?: boolean;
+    };
+  }>(),
+  
+  // Extraction results (from Textract)
+  extractedData: json('extracted_data').$type<Record<string, any>>(),
+  
+  // Error information
+  errorMessage: text('error_message'),
+  errorDetails: json('error_details'),
+  
+  // Retry information
+  retryCount: integer('retry_count').default(0),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -7370,3 +7398,4 @@ export type NewDatabaseConnectionLog = InferInsertModel<typeof databaseConnectio
 
 export type DatabaseQueryLog = InferSelectModel<typeof databaseQueryLogs>;
 export type NewDatabaseQueryLog = InferInsertModel<typeof databaseQueryLogs>;
+
