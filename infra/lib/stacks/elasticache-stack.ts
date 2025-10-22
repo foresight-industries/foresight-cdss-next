@@ -51,7 +51,6 @@ export class ElastiCacheStack extends cdk.Stack {
         'maxmemory-policy': 'allkeys-lru', // Evict least recently used keys when memory is full
         'timeout': '300', // Client idle timeout (5 minutes)
         'tcp-keepalive': '60', // TCP keepalive
-        'maxclients': '10000', // Max concurrent clients
         // Enable notifications for key events (useful for cache invalidation)
         'notify-keyspace-events': 'Ex', // Expired keys events
       },
