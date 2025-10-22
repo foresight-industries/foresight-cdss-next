@@ -42,6 +42,23 @@ export class CloudTrailStack extends cdk.Stack {
             ],
             resources: ['*'],
           }),
+          new iam.PolicyStatement({
+            sid: 'Allow CloudWatch Logs to encrypt logs',
+            principals: [new iam.ServicePrincipal(`logs.${cdk.Aws.REGION}.amazonaws.com`)],
+            actions: [
+              'kms:Encrypt',
+              'kms:Decrypt',
+              'kms:ReEncrypt*',
+              'kms:GenerateDataKey*',
+              'kms:DescribeKey',
+            ],
+            resources: ['*'],
+            conditions: {
+              ArnEquals: {
+                'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:log-group:/aws/cloudtrail/foresight-${props.stageName}`,
+              },
+            },
+          }),
         ],
       }),
     });

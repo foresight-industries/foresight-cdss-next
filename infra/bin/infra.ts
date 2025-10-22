@@ -17,6 +17,7 @@ import { WebhookStack } from '../lib/stacks/webhook-stack';
 import { AppSyncStack } from '../lib/stacks/appsync-stack';
 import { CloudTrailStack } from '../lib/stacks/cloudtrail-stack';
 import { BatchStack } from '../lib/stacks/batch-stack';
+import { ElastiCacheStack } from '../lib/stacks/elasticache-stack';
 
 const app = new cdk.App();
 
@@ -61,6 +62,14 @@ for (const envName of ['staging', 'prod']) {
     database: database.cluster,
     stackType: 'alerting',
     // No API provided - will skip API Gateway alarms and dashboard widgets
+  });
+
+  // ElastiCache for session management, API caching, and rate limiting
+  const elastiCache = new ElastiCacheStack(app, `RCM-ElastiCache-${envName}`, {
+    env,
+    stageName: envName,
+    vpc: database.vpc,
+    alertTopicArn: alerting.alarmTopic.topicArn,
   });
 
   const queues = new QueueStack(app, `RCM-Queues-${envName}`, {
@@ -145,6 +154,8 @@ for (const envName of ['staging', 'prod']) {
 
   // Add dependencies
   alerting.addDependency(database);
+  elastiCache.addDependency(database);
+  elastiCache.addDependency(alerting);
   medicalInfra.addDependency(database);
   medicalInfra.addDependency(storage);
   queues.addDependency(database);
@@ -153,12 +164,18 @@ for (const envName of ['staging', 'prod']) {
   api.addDependency(database);
   api.addDependency(storage);
   api.addDependency(medicalInfra);
+  // API stack can optionally use ElastiCache for response caching and rate limiting
+  api.addDependency(elastiCache);
   workflows.addDependency(queues);
   security.addDependency(api);
   documentProcessing.addDependency(database);
   webhooks.addDependency(database);
   appSync.addDependency(database);
+  // AppSync can use ElastiCache for real-time metrics caching
+  appSync.addDependency(elastiCache);
   batch.addDependency(database);
+  // Batch jobs can use ElastiCache for distributed locks and query caching
+  batch.addDependency(elastiCache);
   // CloudTrail has no dependencies as it's account-wide infrastructure
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
