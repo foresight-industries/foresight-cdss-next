@@ -94,7 +94,7 @@ export class BackupStack extends cdk.Stack {
             },
           ] : undefined,
         }),
-        
+
         // Weekly backups for additional redundancy
         new backup.BackupPlanRule({
           ruleName: 'WeeklyBackupRule',
@@ -137,18 +137,12 @@ export class BackupStack extends cdk.Stack {
         backupSelectionName: 'ForesightDatabaseBackup',
         role: this.backupRole,
         resources: [
-          backup.BackupResource.fromRdsCluster(props.databaseCluster),
+          backup.BackupResource.fromRdsDatabaseCluster(props.databaseCluster),
         ],
-        conditions: {
-          stringEquals: {
-            'aws:ResourceTag/Project': ['ForesightRCM'],
-            'aws:ResourceTag/Environment': [props.stageName],
-          },
-        },
       });
     }
 
-    // Backup selection for S3 buckets
+    // Backup selection for S3 buckets using tag-based selection
     if (props.documentsBucket) {
       new backup.BackupSelection(this, 'S3BackupSelection', {
         backupPlan: this.backupPlan,
@@ -156,13 +150,8 @@ export class BackupStack extends cdk.Stack {
         role: this.backupRole,
         resources: [
           backup.BackupResource.fromTag('Project', 'ForesightRCM'),
-          backup.BackupResource.fromTag('Environment', props.stageName),
+          backup.BackupResource.fromTag('Component', 'storage'),
         ],
-        conditions: {
-          stringEquals: {
-            'aws:ResourceTag/Component': ['storage'],
-          },
-        },
       });
     }
 
