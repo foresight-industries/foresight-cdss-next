@@ -53,6 +53,16 @@ export class SecurityStack extends cdk.Stack {
         prefix: 'waf-logs/',
         errorOutputPrefix: 'waf-logs-errors/',
         compressionFormat: 'GZIP',
+        encryptionConfiguration: {
+          kmsEncryptionConfig: {
+            awskmsKeyArn: firehoseRole.roleArn,
+          },
+        },
+        cloudWatchLoggingOptions: {
+          enabled: true,
+          logGroupName: `/aws/waf/${props.stageName}`,
+          logStreamName: 'waf-logs',
+        }
       },
     });
 
