@@ -14,6 +14,7 @@ import { SecurityStack } from '../lib/stacks/security-stack';
 import { DocumentProcessingStack } from '../lib/stacks/document-processing-stack';
 import { MedicalInfrastructure } from '../lib/medical-infrastructure';
 import { WebhookStack } from '../lib/stacks/webhook-stack';
+import { AppSyncStack } from '../lib/stacks/appsync-stack';
 
 const app = new cdk.App();
 
@@ -104,6 +105,14 @@ for (const envName of ['staging', 'prod']) {
     database: database.cluster,
   });
 
+  // AppSync GraphQL API for real-time data sync
+  const appSync = new AppSyncStack(app, `RCM-AppSync-${envName}`, {
+    env,
+    stageName: envName,
+    databaseCluster: database.cluster,
+    databaseSecret: database.cluster.secret!,
+  });
+
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
     env,
     stageName: envName,
@@ -131,6 +140,7 @@ for (const envName of ['staging', 'prod']) {
   security.addDependency(api);
   documentProcessing.addDependency(database);
   webhooks.addDependency(database);
+  appSync.addDependency(database);
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);

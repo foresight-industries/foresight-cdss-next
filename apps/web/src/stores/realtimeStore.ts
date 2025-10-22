@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 // AWS AppSync GraphQL subscription for real-time updates
-interface AppSyncSubscription {
+export interface AppSyncSubscription {
   id: string;
   subscriptionName: string;
   variables?: Record<string, any>;
@@ -11,7 +11,7 @@ interface AppSyncSubscription {
 }
 
 // AppSync real-time data structure
-interface AppSyncEvent {
+export interface AppSyncEvent {
   subscriptionName: string;
   data: any;
   timestamp: Date;
@@ -65,12 +65,12 @@ interface RealtimeState {
   addAppSyncSubscription: (key: string, subscription: AppSyncSubscription) => void;
   removeAppSyncSubscription: (key: string) => void;
   clearSubscriptions: () => void;
-  
-  triggerMutation: (mutationName: string, variables: any) => Promise<void>;
-  
+
+  triggerMutation: (mutationName: string, variables: any) => Promise<{ data: any }>;
+
   setConnectionStatus: (status: RealtimeState["connectionStatus"]) => void;
   updateHeartbeat: () => void;
-  
+
   addAppSyncEvent: (event: AppSyncEvent) => void;
   addEventBridgeEvent: (event: EventBridgeEvent) => void;
   clearEventHistory: () => void;
@@ -82,7 +82,7 @@ interface RealtimeState {
     >
   ) => void;
   removeActiveUser: (userId: string) => void;
-  
+
   updateRealtimeMetrics: (metrics: Partial<RealtimeState["realtimeMetrics"]>) => void;
 }
 
@@ -129,25 +129,42 @@ export const useRealtimeStore = create<RealtimeState>()((set, get) => ({
   },
 
   triggerMutation: async (mutationName: string, variables: any) => {
-    // Implementation would use AWS AppSync GraphQL client
+    // Implementation using AWS AppSync GraphQL client
     console.log(`Triggering AppSync mutation ${mutationName}:`, variables);
-    
+
     try {
-      // In real implementation, this would use AWS Amplify or AppSync client
-      // const client = generateClient();
-      // await client.graphql({ query: mutations[mutationName], variables });
-      
-      console.log(`✅ Mutation ${mutationName} executed successfully`);
-      
+      const { graphqlClient, UPDATE_CLAIM_STATUS, CREATE_PATIENT, CREATE_PRIOR_AUTH } = await import('@/lib/graphql/appsync-client');
+
+      let result;
+      switch (mutationName) {
+        case 'updateClaimStatus':
+          result = await graphqlClient.request(UPDATE_CLAIM_STATUS, { input: variables });
+          break;
+        case 'createPatient':
+          result = await graphqlClient.request(CREATE_PATIENT, { input: variables });
+          break;
+        case 'createPriorAuth':
+          result = await graphqlClient.request(CREATE_PRIOR_AUTH, { input: variables });
+          break;
+        default:
+          throw new Error(`Unknown mutation: ${mutationName}`);
+      }
+
+      console.log(`✅ Mutation ${mutationName} executed successfully:`, result);
+
       // Update local state optimistically if needed
-      if (mutationName === 'updatePAStatus') {
+      if (mutationName === 'updateClaimStatus') {
         set((state) => ({
           realtimeMetrics: {
             ...state.realtimeMetrics,
-            activePAs: state.realtimeMetrics.activePAs + (variables.status === 'pending' ? 1 : -1)
+            pendingClaims: variables.status === 'pending' ?
+              state.realtimeMetrics.pendingClaims + 1 :
+              state.realtimeMetrics.pendingClaims - 1
           }
         }));
       }
+
+      return result;
     } catch (error) {
       console.error(`❌ Failed to execute mutation ${mutationName}:`, error);
       throw error;
