@@ -32,7 +32,7 @@ npm run dev -- --hostname foresight.local --port 3000
 ## Production Deployment Steps
 
 ### 1. **Deploy to Vercel**
-Make sure your middleware.ts is included in the deployment.
+Make sure your proxy.ts is included in the deployment.
 
 ### 2. **Configure Cloudflare DNS**
 In Cloudflare dashboard:
@@ -48,7 +48,7 @@ In Cloudflare dashboard:
 ## Debugging Tips
 
 ### Check middleware logs
-Add to middleware.ts for debugging:
+Add to proxy.ts for debugging:
 ```typescript
 console.log('🔍 Middleware Debug:', {
   hostname,
@@ -85,7 +85,7 @@ curl -I -H "Host: testteam.foresight.local:3000" http://localhost:3000
 ### Middleware not triggering
 **Problem**: Middleware config issue
 **Solution**:
-- Check middleware.ts config.matcher
+- Check proxy.ts config.matcher
 - Verify file is in root of app directory
 - Check console for errors
 

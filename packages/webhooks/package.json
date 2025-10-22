@@ -1,8 +1,7 @@
 {
   "name": "@foresight-cdss-next/webhooks",
   "version": "1.0.0",
-  "description": "Webhook utilities for Foresight CDSS",
-  "type": "module",
+  "description": "Webhook utilities for Foresight RCM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

@@ -1,7 +1,20 @@
 import { withSentryConfig } from "@sentry/nextjs";
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
+  reactCompiler: false,
+  turbopack: {
+    resolveAlias: {
+      "@": "src",
+    },
+  },
+  experimental: {
+    turbopackFileSystemCacheForDev: true,
+  },
+}
 
 module.exports = withSentryConfig(
-  module.exports,
+  nextConfig,
   {
     // For all available options, see:
     // https://www.npmjs.com/package/@sentry/webpack-plugin#options

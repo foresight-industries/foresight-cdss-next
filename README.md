@@ -151,7 +151,7 @@ foresight-cdss-next/
 │   │   │   ├── app/           # App Router pages
 │   │   │   ├── components/    # Reusable components
 │   │   │   ├── lib/          # Utilities and configurations
-│   │   │   └── middleware.ts  # Next.js middleware
+│   │   │   └── proxy.ts  # Next.js middleware
 │   │   └── package.json
 │   └── web-e2e/              # Cypress E2E tests
 ├── packages/

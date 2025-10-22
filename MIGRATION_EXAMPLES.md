@@ -376,7 +376,7 @@ export function ClaimsRealtime() {
 
 ### Before (Supabase)
 ```typescript
-// src/middleware.ts
+// src/proxy.ts
 import { createSupabaseMiddlewareClient } from '@/lib/supabase/server';
 import { auth } from '@clerk/nextjs/server';
 
@@ -403,7 +403,7 @@ export async function middleware(request: NextRequest) {
 
 ### After (AWS)
 ```typescript
-// src/middleware.ts
+// src/proxy.ts
 import { getUserTeamSlug } from '@/lib/team-routing';
 import { auth } from '@clerk/nextjs/server';
 

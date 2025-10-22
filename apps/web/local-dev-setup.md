@@ -76,7 +76,7 @@ curl -H "Host: testteam.foresight.local:3000" http://localhost:3000
 ```
 
 ### 3. Debug middleware
-Add console.log to middleware.ts:
+Add console.log to proxy.ts:
 ```typescript
 console.log('Hostname:', hostname);
 console.log('Subdomain:', subdomain);
