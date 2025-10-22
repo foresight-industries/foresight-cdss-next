@@ -1,11 +1,21 @@
-import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { sql } from 'drizzle-orm';
 
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+
+if (!process.env.DATABASE_NAME) {
+  throw new Error('DATABASE_NAME is not defined');
+}
+
+if (!process.env.DATABASE_SECRET_ARN) {
+  throw new Error('DATABASE_SECRET_ARN is not defined');
+}
+
+if (!process.env.DATABASE_CLUSTER_ARN) {
+  throw new Error('DATABASE_CLUSTER_ARN is not defined');
+}
 
 const db = drizzle(rdsClient, {
   database: process.env.DATABASE_NAME,
@@ -69,7 +79,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     if (method === 'POST' && path.includes('/update')) {
       const updateRequest: UpdateRequest = JSON.parse(event.body || '{}');
       const result = await triggerCodeUpdate(updateRequest);
-      
+
       return {
         statusCode: 200,
         headers,
@@ -120,7 +130,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 async function searchMedicalCodes(request: CodeSearchRequest) {
   try {
     const { query, type, limit, offset } = request;
-    
+
     if (!query || query.length < 2) {
       return {
         results: [],
@@ -135,50 +145,50 @@ async function searchMedicalCodes(request: CodeSearchRequest) {
     // Search ICD-10 codes
     if (type === 'icd10' || type === 'both') {
       const icd10Results = await db.execute(sql`
-        SELECT 
+        SELECT
           code,
           description,
           'icd10' as type,
           is_active,
           effective_date,
           version
-        FROM icd10_code_master 
-        WHERE 
+        FROM icd10_code_master
+        WHERE
           (code ILIKE ${`%${query}%`} OR description ILIKE ${`%${query}%`})
           AND is_active = true
-        ORDER BY 
+        ORDER BY
           CASE WHEN code = ${query} THEN 1 ELSE 2 END,
           LENGTH(code),
           code
         LIMIT ${limit}
         OFFSET ${offset}
       `);
-      
+
       results.push(...icd10Results.rows);
     }
 
     // Search CPT codes
     if (type === 'cpt' || type === 'both') {
       const cptResults = await db.execute(sql`
-        SELECT 
+        SELECT
           code,
           description,
           'cpt' as type,
           is_active,
           effective_date,
           version
-        FROM cpt_code_master 
-        WHERE 
+        FROM cpt_code_master
+        WHERE
           (code ILIKE ${`%${query}%`} OR description ILIKE ${`%${query}%`})
           AND is_active = true
-        ORDER BY 
+        ORDER BY
           CASE WHEN code = ${query} THEN 1 ELSE 2 END,
           LENGTH(code),
           code
         LIMIT ${limit}
         OFFSET ${offset}
       `);
-      
+
       results.push(...cptResults.rows);
     }
 
@@ -203,14 +213,14 @@ async function triggerCodeUpdate(request: UpdateRequest) {
 
     // Create update record
     const updateId = `update_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-    
+
     await db.execute(sql`
       INSERT INTO annual_code_updates (
-        id, 
-        code_type, 
-        version, 
-        source_file, 
-        status, 
+        id,
+        code_type,
+        version,
+        source_file,
+        status,
         started_at,
         created_at
       ) VALUES (
@@ -226,7 +236,7 @@ async function triggerCodeUpdate(request: UpdateRequest) {
 
     // In a real implementation, this would trigger an async process
     // For now, we'll return the update ID for tracking
-    
+
     return {
       success: true,
       updateId,
@@ -244,7 +254,7 @@ async function triggerCodeUpdate(request: UpdateRequest) {
 async function getUpdateStatus() {
   try {
     const recentUpdates = await db.execute(sql`
-      SELECT 
+      SELECT
         id,
         code_type,
         version,
@@ -255,8 +265,8 @@ async function getUpdateStatus() {
         records_processed,
         records_added,
         records_updated
-      FROM annual_code_updates 
-      ORDER BY started_at DESC 
+      FROM annual_code_updates
+      ORDER BY started_at DESC
       LIMIT 10
     `);
 
@@ -275,14 +285,14 @@ async function getCacheStats() {
   try {
     // Get statistics about code usage and cache performance
     const stats = await db.execute(sql`
-      SELECT 
+      SELECT
         'icd10' as code_type,
         COUNT(*) as total_codes,
         COUNT(*) FILTER (WHERE is_active = true) as active_codes,
         MAX(updated_at) as last_updated
       FROM icd10_code_master
       UNION ALL
-      SELECT 
+      SELECT
         'cpt' as code_type,
         COUNT(*) as total_codes,
         COUNT(*) FILTER (WHERE is_active = true) as active_codes,

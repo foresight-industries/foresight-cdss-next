@@ -142,19 +142,16 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
       await updateDocumentWithResults(documentId, classification);
 
       console.log(`Successfully processed document ${documentId}`);
-      results.push({ itemIdentifier: record.messageId });
-
+      // Success - no failure to report
+      
     } catch (error) {
       console.error('Error processing Textract completion:', error);
       // Return failure to retry the message
-      results.push({
-        itemIdentifier: record.messageId,
-        batchItemFailures: [{ itemIdentifier: record.messageId }]
-      });
+      results.push({ itemIdentifier: record.messageId });
     }
   }
 
-  return { batchItemFailures: results.filter(r => r.batchItemFailures).map(r => r.batchItemFailures[0]) };
+  return { batchItemFailures: results };
 };
 
 function extractDocumentId(jobTag: string): string | null {
@@ -354,10 +351,10 @@ function extractFormFields(blocks: Block[]): ExtractedField[] {
               value: valueText.trim(),
               confidence: keyBlock.Confidence || 0.7,
               boundingBox: keyBlock.Geometry?.BoundingBox ? {
-                top: keyBlock.Geometry.BoundingBox.Top,
-                left: keyBlock.Geometry.BoundingBox.Left,
-                width: keyBlock.Geometry.BoundingBox.Width,
-                height: keyBlock.Geometry.BoundingBox.Height,
+                top: keyBlock.Geometry.BoundingBox.Top ?? 0,
+                left: keyBlock.Geometry.BoundingBox.Left ?? 0,
+                width: keyBlock.Geometry.BoundingBox.Width ?? 0,
+                height: keyBlock.Geometry.BoundingBox.Height ?? 0,
               } : undefined
             });
           }
@@ -374,11 +371,11 @@ function getBlockText(block: Block, allBlocks: Block[]): string {
 
   if (block.Relationships) {
     const childRelation = block.Relationships.find(rel => rel.Type === 'CHILD');
-    if (childRelation && childRelation.Ids) {
+    if (childRelation?.Ids) {
       const childTexts = childRelation.Ids
         .map(id => allBlocks.find(b => b.Id === id))
-        .filter(b => b && b.Text)
-        .map(b => b.Text);
+        .filter(b => b?.Text)
+        .map(b => b?.Text);
       return childTexts.join(' ');
     }
   }

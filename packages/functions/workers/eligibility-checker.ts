@@ -1,15 +1,5 @@
-import { RDSDataClient } from '@aws-sdk/client-rds-data';
-import { drizzle } from 'drizzle-orm/aws-data-api/pg';
-import { eq, and, desc, sql } from 'drizzle-orm';
-
-const rdsDataClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
-
-// Initialize Drizzle with RDS Data API (we'll use raw SQL for now since eligibility tables may not be in schema yet)
-const db = drizzle(rdsDataClient, {
-  database: process.env.DATABASE_NAME,
-  secretArn: process.env.DATABASE_SECRET_ARN,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN,
-});
+import { db } from '@foresight-cdss-next/db';
+import { sql } from 'drizzle-orm';
 
 export const handler = async (event: any) => {
     console.log('Eligibility checker started: records=%d', event.Records?.length || 0);
@@ -91,16 +81,16 @@ async function checkEligibility(eligibilityRequest: any) {
 
     } catch (error) {
         console.error('Eligibility check failed:', error);
-        throw new Error(`Failed to check eligibility for patient ${patientId}: ${error.message}`);
+        throw new Error(`Failed to check eligibility for patient ${patientId}: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
     }
 }
 
 async function getCachedEligibility(patientId: string, serviceDate: string) {
     try {
         console.log('Checking eligibility cache: patientId=%s serviceDate=%s', patientId, serviceDate);
-        
+
         // Use Drizzle sql helper for raw SQL
-        const result = await db.execute(sql`
+        await db.execute(sql`
             SELECT * FROM eligibility_cache
             WHERE patient_id = ${patientId}
             AND service_date = ${serviceDate}
@@ -108,7 +98,7 @@ async function getCachedEligibility(patientId: string, serviceDate: string) {
             ORDER BY created_at DESC
             LIMIT 1
         `);
-        
+
         // For now, simulate caching behavior since table might not exist yet
         // const cachedData = result.rows[0];
 
@@ -144,7 +134,7 @@ async function getCachedEligibility(patientId: string, serviceDate: string) {
 }
 
 async function callPayerAPI(requestData: any): Promise<any> {
-    const { memberId, providerId, serviceCode, serviceDate } = requestData;
+    // const { memberId, providerId, serviceCode, serviceDate } = requestData;
 
     // Mock external payer API call
     return new Promise((resolve) => {
@@ -173,7 +163,7 @@ async function callPayerAPI(requestData: any): Promise<any> {
 async function cacheEligibilityResult(patientId: string, serviceDate: string, result: any) {
     try {
         console.log('Caching eligibility result: patientId=%s serviceDate=%s eligible=%s', patientId, serviceDate, result.eligible);
-        
+
         // Use Drizzle sql helper for raw SQL
         await db.execute(sql`
             INSERT INTO eligibility_cache (patient_id, service_date, eligible, benefits, copay, deductible, created_at)
@@ -195,7 +185,7 @@ async function cacheEligibilityResult(patientId: string, serviceDate: string, re
 async function storeEligibilityResult(data: any) {
     try {
         console.log('Storing eligibility result: patientId=%s eligible=%s', data.patientId, data.eligible);
-        
+
         // Use Drizzle sql helper for raw SQL
         await db.execute(sql`
             INSERT INTO eligibility_checks (patient_id, member_id, provider_id, service_code, service_date, eligible, benefits, copay, deductible, checked_at)

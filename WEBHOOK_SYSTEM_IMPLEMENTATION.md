@@ -26,9 +26,9 @@ This document summarizes the comprehensive webhook system implementation that pr
 - **Index**: `packages/webhooks/src/index.ts`
 
 ### Integration Layer
-- **Webhook Helpers**: `apps/foresight-cdss-next/src/lib/webhooks.ts`
-- **Updated Clerk Handler**: `apps/foresight-cdss-next/src/app/api/webhooks/clerk/route.ts`
-- **Enhanced API Route**: `apps/foresight-cdss-next/src/app/api/webhooks/config/route.ts`
+- **Webhook Helpers**: `apps/web/src/lib/webhooks.ts`
+- **Updated Clerk Handler**: `apps/web/src/app/api/webhooks/clerk/route.ts`
+- **Enhanced API Route**: `apps/web/src/app/api/webhooks/config/route.ts`
 
 ## 🎯 Key Features Implemented
 

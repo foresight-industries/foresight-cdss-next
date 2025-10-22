@@ -1,32 +1,15 @@
-import nx from '@nx/eslint-plugin';
+import turboConfig from 'eslint-config-turbo/flat';
 
 export default [
-  ...nx.configs['flat/base'],
-  ...nx.configs['flat/typescript'],
-  ...nx.configs['flat/javascript'],
+  ...turboConfig,
   {
     ignores: ['**/dist'],
   },
   {
     files: ['**/*.ts', '**/*.tsx', '**/*.js', '**/*.jsx'],
-    rules: {
-      '@nx/enforce-module-boundaries': [
-        'error',
-        {
-          enforceBuildableLibDependency: true,
-          allow: [
-            '^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$',
-            '^@foresight-cdss-next/db/schema$'
-          ],
-          depConstraints: [
-            {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
-            },
-          ],
-        },
-      ],
-    },
+    rules: {},
+    parser: '@typescript-eslint/parser',
+    plugins: ['@typescript-eslint'],
   },
   {
     files: [

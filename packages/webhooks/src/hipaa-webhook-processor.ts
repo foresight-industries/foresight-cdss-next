@@ -129,7 +129,32 @@ export class HipaaWebhookProcessor {
       }
 
       // Step 4: Prepare payload with encryption if needed
-      let processedPayload = eventData;
+      // Transform EventBridge format to webhook payload format
+      let processedPayload;
+      
+      // Check if eventData is already a properly formatted webhook payload (for test events)
+      if (eventData && typeof eventData === 'object' && 
+          'event_type' in eventData && 'organization_id' in eventData && 
+          'timestamp' in eventData && 'source' in eventData) {
+        // For test events, use the pre-formatted payload from eventData
+        processedPayload = eventData;
+      } else {
+        // For regular events, construct the webhook payload format
+        // This handles the case where eventData contains the full EventBridge structure
+        processedPayload = {
+          event_type: eventData.eventType || 'unknown',
+          organization_id: eventData.organizationId,
+          timestamp: Math.floor(Date.now() / 1000),
+          source: eventData.metadata?.source || 'foresight_cdss',
+          data: eventData.data,
+          metadata: {
+            ...eventData.metadata,
+            environment: eventData.environment,
+            user_id: eventData.userId,
+          },
+        };
+      }
+      
       let encryptionMetadata = null;
 
       if (dataClassification !== 'none' && webhookData.requiresEncryption && this.encryptionManager) {
@@ -168,7 +193,7 @@ export class HipaaWebhookProcessor {
         db.insert(this.databaseWrapper.schemas.webhookDeliveries)
           .values({
             webhookConfigId,
-            eventType: eventData.event_type ?? 'unknown',
+            eventType: processedPayload.event_type ?? 'unknown',
             eventData: processedPayload,
             environment: sql`CAST(${webhookData.environment} AS webhook_environment)`,
             status: 'pending',

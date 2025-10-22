@@ -1,17 +1,30 @@
 {
-  "name": "rcm-api-functions",
+  "name": "@foresight-cdss-next/functions-api",
   "version": "1.0.0",
-  "description": "RCM API Lambda functions",
-  "main": "index.js",
+  "description": "API Lambda functions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo 'Build complete'",
+    "build": "tsc",
+    "build:functions": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
     "test": "echo 'No tests specified'"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.910.0",
     "@aws-sdk/credential-providers": "^3.911.0",
-    "@foresight-cdss-next/db": "workspace:^"
+    "@foresight-cdss-next/db": "workspace:*",
+    "drizzle-orm": "^0.44.6",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "@types/pg": "^8",
+    "typescript": "*"
   }
 }

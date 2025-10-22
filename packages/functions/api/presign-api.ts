@@ -28,7 +28,7 @@ export const handler = async (event: any) => {
     );
 
     try {
-        const { httpMethod, queryStringParameters, body } = event;
+        const { httpMethod, body } = event;
 
         // Extract user context from authorizer
         const { userId, organizationId } = event.requestContext.authorizer;
@@ -62,14 +62,15 @@ export const handler = async (event: any) => {
 
     } catch (error) {
         console.error('Presign API error:', error);
+        const err = error as any;
         return {
-            statusCode: error.statusCode || 500,
+            statusCode: err.statusCode || 500,
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({
-                error: error.message || 'Internal server error',
+                error: err.message || 'Internal server error',
             }),
         };
     }

@@ -171,7 +171,7 @@ The team routing has been updated to use AWS database client with proper organiz
 ## File-by-File Migration Checklist
 
 ### High Priority (Core Functionality)
-- [ ] `src/middleware.ts` - Update to use AWS database
+- [ ] `src/proxy.ts` - Update to use AWS database
 - [ ] `src/lib/supabase/server.ts` - Replace with AWS client
 - [ ] `src/app/api/**/*.ts` - Update all API routes
 - [ ] `src/hooks/**/*.ts` - Update React hooks

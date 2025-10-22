@@ -1,0 +1,85 @@
+name: Test Web Specs
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - '.github/workflows/test-web-specs.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/web/**'
+      - 'packages/**'
+      - '.github/workflows/test-web-specs.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-specs:
+    name: Run Web Specs Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    strategy:
+      matrix:
+        node-version: [22]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build packages
+        run: yarn turbo build --filter=@foresight-cdss-next/web^...
+
+      - name: Run type checking
+        run: yarn turbo check-types --filter=@foresight-cdss-next/web
+
+      - name: Run web specs tests
+        run: yarn turbo test --filter=@foresight-cdss-next/web
+        env:
+          NODE_ENV: test
+          # Mock environment variables for testing
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_mock_key
+          CLERK_SECRET_KEY: sk_test_mock_key
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          NEXT_PUBLIC_SUPABASE_URL: https://mock.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: mock_anon_key
+          SUPABASE_SERVICE_ROLE_KEY: mock_service_role_key
+          RESEND_API_KEY: re_mock_key
+          OPENAI_API_KEY: sk-mock_openai_key
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.node-version }}
+          path: |
+            apps/web/coverage/
+            apps/web/test-results/
+          retention-days: 7
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          directory: apps/web/coverage/
+          flags: web-specs
+          name: web-specs-coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

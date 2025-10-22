@@ -1,6 +1,6 @@
-import { SecretsManagerClient, UpdateSecretCommand, GetSecretValueCommand, CreateSecretCommand } from '@aws-sdk/client-secrets-manager';
+import { SecretsManagerClient, UpdateSecretCommand, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { RDSDataClient, ExecuteStatementCommand, BeginTransactionCommand, CommitTransactionCommand, RollbackTransactionCommand } from '@aws-sdk/client-rds-data';
-import crypto from 'node:crypto';
+import * as crypto from 'node:crypto';
 
 interface RotationConfig {
   region?: string;
@@ -22,9 +22,9 @@ interface WebhookSecretData {
  * Handles automatic rotation of webhook signing secrets
  */
 export class WebhookSecretRotationManager {
-  private secretsClient: SecretsManagerClient;
-  private rdsClient: RDSDataClient;
-  private config: RotationConfig;
+  private readonly secretsClient: SecretsManagerClient;
+  private readonly rdsClient: RDSDataClient;
+  private readonly config: RotationConfig;
 
   constructor(config: RotationConfig) {
     this.config = config;
@@ -262,74 +262,74 @@ export class WebhookSecretRotationManager {
   /**
    * Create new secret in AWS Secrets Manager (kept for initial webhook creation)
    */
-  private async createNewSecret(
-    secretName: string,
-    secretData: WebhookSecretData,
-    webhookConfigId: string
-  ): Promise<string> {
-    const result = await this.secretsClient.send(new CreateSecretCommand({
-      Name: secretName,
-      SecretString: JSON.stringify(secretData),
-      Description: `Rotated webhook signing secret for config ${webhookConfigId}`,
-    }));
-
-    if (!result.ARN) {
-      throw new Error('Failed to create new secret');
-    }
-
-    return result.ARN;
-  }
+  // private async createNewSecret(
+  //   secretName: string,
+  //   secretData: WebhookSecretData,
+  //   webhookConfigId: string
+  // ): Promise<string> {
+  //   const result = await this.secretsClient.send(new CreateSecretCommand({
+  //     Name: secretName,
+  //     SecretString: JSON.stringify(secretData),
+  //     Description: `Rotated webhook signing secret for config ${webhookConfigId}`,
+  //   }));
+  //
+  //   if (!result.ARN) {
+  //     throw new Error('Failed to create new secret');
+  //   }
+  //
+  //   return result.ARN;
+  // }
 
   /**
    * Update webhook secret reference in database
    */
-  private async updateWebhookSecretReference(
-    webhookConfigId: string,
-    oldSecretId: string,
-    newSecretId: string,
-    transactionId: string
-  ): Promise<void> {
-    // Deactivate old secret
-    const deactivateOldSql = `
-      UPDATE webhook_secrets
-      SET is_active = false, updated_at = NOW()
-      WHERE webhook_config_id = :webhookConfigId
-        AND secret_id = :oldSecretId
-    `;
-
-    await this.rdsClient.send(new ExecuteStatementCommand({
-      resourceArn: this.config.databaseClusterArn,
-      secretArn: this.config.databaseSecretArn,
-      database: this.config.databaseName,
-      sql: deactivateOldSql,
-      parameters: [
-        { name: 'webhookConfigId', value: { stringValue: webhookConfigId } },
-        { name: 'oldSecretId', value: { stringValue: oldSecretId } },
-      ],
-      transactionId,
-    }));
-
-    // Insert new secret reference
-    const insertNewSql = `
-      INSERT INTO webhook_secrets (
-        webhook_config_id, secret_id, algorithm, is_active, created_at, updated_at
-      ) VALUES (
-        :webhookConfigId, :newSecretId, 'sha256', true, NOW(), NOW()
-      )
-    `;
-
-    await this.rdsClient.send(new ExecuteStatementCommand({
-      resourceArn: this.config.databaseClusterArn,
-      secretArn: this.config.databaseSecretArn,
-      database: this.config.databaseName,
-      sql: insertNewSql,
-      parameters: [
-        { name: 'webhookConfigId', value: { stringValue: webhookConfigId } },
-        { name: 'newSecretId', value: { stringValue: newSecretId } },
-      ],
-      transactionId,
-    }));
-  }
+  // private async updateWebhookSecretReference(
+  //   webhookConfigId: string,
+  //   oldSecretId: string,
+  //   newSecretId: string,
+  //   transactionId: string
+  // ): Promise<void> {
+  //   // Deactivate old secret
+  //   const deactivateOldSql = `
+  //     UPDATE webhook_secrets
+  //     SET is_active = false, updated_at = NOW()
+  //     WHERE webhook_config_id = :webhookConfigId
+  //       AND secret_id = :oldSecretId
+  //   `;
+  //
+  //   await this.rdsClient.send(new ExecuteStatementCommand({
+  //     resourceArn: this.config.databaseClusterArn,
+  //     secretArn: this.config.databaseSecretArn,
+  //     database: this.config.databaseName,
+  //     sql: deactivateOldSql,
+  //     parameters: [
+  //       { name: 'webhookConfigId', value: { stringValue: webhookConfigId } },
+  //       { name: 'oldSecretId', value: { stringValue: oldSecretId } },
+  //     ],
+  //     transactionId,
+  //   }));
+  //
+  //   // Insert new secret reference
+  //   const insertNewSql = `
+  //     INSERT INTO webhook_secrets (
+  //       webhook_config_id, secret_id, algorithm, is_active, created_at, updated_at
+  //     ) VALUES (
+  //       :webhookConfigId, :newSecretId, 'sha256', true, NOW(), NOW()
+  //     )
+  //   `;
+  //
+  //   await this.rdsClient.send(new ExecuteStatementCommand({
+  //     resourceArn: this.config.databaseClusterArn,
+  //     secretArn: this.config.databaseSecretArn,
+  //     database: this.config.databaseName,
+  //     sql: insertNewSql,
+  //     parameters: [
+  //       { name: 'webhookConfigId', value: { stringValue: webhookConfigId } },
+  //       { name: 'newSecretId', value: { stringValue: newSecretId } },
+  //     ],
+  //     transactionId,
+  //   }));
+  // }
 
   /**
    * Get all webhook configurations for an organization

@@ -1,16 +1,5 @@
-import { RDSDataClient } from '@aws-sdk/client-rds-data';
-import { S3Client } from '@aws-sdk/client-s3';
-import { drizzle } from 'drizzle-orm/aws-data-api/pg';
+import { db } from '@foresight-cdss-next/db';
 import { sql } from 'drizzle-orm';
-
-const rdsDataClient = new RDSDataClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
-const s3 = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
-
-const db = drizzle(rdsDataClient, {
-  database: process.env.DATABASE_NAME,
-  secretArn: process.env.DATABASE_SECRET_ARN,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN,
-});
 
 interface ClaimData {
     claimId: string;

@@ -302,7 +302,7 @@ export class ApiStack extends cdk.Stack {
     const medicalCodesFn = new lambdaNodejs.NodejsFunction(this, 'MedicalCodesFunction', {
       ...functionProps,
       functionName: `rcm-medical-codes-${props.stageName}`,
-      entry: '../apps/foresight-cdss-next/src/lib/services/annual-code-update.service.ts',
+      entry: '../apps/web/src/lib/services/annual-code-update.service.ts',
       handler: 'handler',
       timeout: cdk.Duration.minutes(15), // Longer timeout for code processing
       memorySize: 1024, // More memory for processing large datasets

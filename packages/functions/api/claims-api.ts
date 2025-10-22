@@ -5,6 +5,18 @@ import { claims, patients } from '@foresight-cdss-next/db/schema';
 
 const rdsDataClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
 
+if (!process.env.DATABASE_NAME) {
+  throw new Error('DATABASE_NAME is not defined');
+}
+
+if (!process.env.DATABASE_SECRET_ARN) {
+  throw new Error('DATABASE_SECRET_ARN is not defined');
+}
+
+if (!process.env.DATABASE_CLUSTER_ARN) {
+  throw new Error('DATABASE_CLUSTER_ARN is not defined');
+}
+
 // Initialize Drizzle with RDS Data API and schema
 const db = drizzle(rdsDataClient, {
   database: process.env.DATABASE_NAME,
@@ -67,14 +79,15 @@ export const handler = async (event: any) => {
 
     } catch (error) {
         console.error('Claims API error:', error);
+        const err = error as any;
         return {
-            statusCode: error.statusCode || 500,
+            statusCode: err.statusCode || 500,
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({
-                error: error.message || 'Internal server error',
+                error: err.message || 'Internal server error',
             }),
         };
     }

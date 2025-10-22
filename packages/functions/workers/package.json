@@ -1,19 +1,32 @@
 {
-  "name": "rcm-workers",
+  "name": "@foresight-cdss-next/functions-workers",
   "version": "1.0.0",
-  "description": "RCM Lambda worker functions",
-  "main": "index.js",
+  "description": "Lambda worker functions including webhook processors",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo 'Build complete'",
+    "build": "tsc",
+    "build:functions": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
     "test": "echo 'No tests specified'"
-  },
-  "dependencies": {
-    "@aws-sdk/client-comprehendmedical": "^3.911.0",
-    "@aws-sdk/client-eventbridge": "^3.911.0",
-    "@aws-sdk/client-sns": "^3.911.0",
-    "aws-sdk": "^2.1400.0"
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.908.0",
+    "@aws-sdk/client-comprehendmedical": "^3.908.0",
+    "@aws-sdk/client-eventbridge": "^3.908.0",
+    "@aws-sdk/client-sns": "^3.908.0",
+    "@aws-sdk/client-sqs": "^3.908.0",
+    "@foresight-cdss-next/db": "workspace:*",
+    "@foresight-cdss-next/webhooks": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "*",
+    "typescript": "*"
   }
 }

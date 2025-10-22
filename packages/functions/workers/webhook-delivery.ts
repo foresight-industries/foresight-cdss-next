@@ -1,16 +1,7 @@
-import { RDSDataClient } from '@aws-sdk/client-rds-data';
-import { drizzle } from 'drizzle-orm/aws-data-api/pg';
+import { db } from '@foresight-cdss-next/db';
 import { sql } from 'drizzle-orm';
 import * as https from 'node:https';
 import * as http from 'node:http';
-
-const rdsDataClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
-
-const db = drizzle(rdsDataClient, {
-  database: process.env.DATABASE_NAME,
-  secretArn: process.env.DATABASE_SECRET_ARN,
-  resourceArn: process.env.DATABASE_CLUSTER_ARN,
-});
 
 interface WebhookResponse {
     statusCode: number;
@@ -141,7 +132,7 @@ function sendWebhook(url: string, payload: any, headers: Record<string, string>)
             });
 
             res.on('end', () => {
-                if (res.statusCode >= 200 && res.statusCode < 300) {
+                if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
                     resolve({
                         statusCode: res.statusCode,
                         data: responseData
@@ -166,7 +157,7 @@ function sendWebhook(url: string, payload: any, headers: Record<string, string>)
 async function logWebhookDelivery(logData: LogData) {
     try {
         console.log('Logging webhook delivery: url=%s status=%s attempt=%d', logData.url, logData.status, logData.attempt);
-        
+
         await db.execute(sql`
             INSERT INTO webhook_delivery (webhook_config_id, event_type, event_data, http_status, status, attempt_count, delivered_at, created_at)
             VALUES (${sql.placeholder('00000000-0000-0000-0000-000000000000')}, ${'webhook_delivery'}, ${JSON.stringify({ url: logData.url, error: logData.error })}, ${logData.responseCode || 0}, ${logData.status}, ${logData.attempt}, ${logData.deliveredAt ? sql`${logData.deliveredAt}::timestamp` : sql`NOW()`}, NOW())

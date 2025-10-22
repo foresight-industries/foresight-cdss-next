@@ -1,5 +1,5 @@
 import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
-import { CloudWatchLogsEvent } from 'aws-lambda';
+import type { CloudWatchLogsEvent } from 'aws-lambda';
 import { gunzipSync } from 'node:zlib';
 
 const cloudWatch = new CloudWatchClient({});

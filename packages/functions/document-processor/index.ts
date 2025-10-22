@@ -1,4 +1,4 @@
-import { S3Event, S3Handler } from 'aws-lambda';
+import type { S3Event, S3Handler } from 'aws-lambda';
 import {
   TextractClient,
   StartDocumentAnalysisCommand,
@@ -79,7 +79,7 @@ export const handler: S3Handler = async (event: S3Event) => {
       if (record.s3.object.key.includes('documents/')) {
         const documentId = record.s3.object.key.split('/')[1];
         try {
-          await updateDocumentStatus(documentId, 'failed', `Processing error: ${error.message}`);
+          await updateDocumentStatus(documentId, 'failed', `Processing error: ${error instanceof Error ? error.message : JSON.stringify(error)}`);
         } catch (dbError) {
           console.error('Error updating failed document status:', dbError);
         }

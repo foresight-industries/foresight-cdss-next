@@ -17,9 +17,11 @@ import {
   serial,
   bigint,
   uniqueIndex,
-  type PgTableWithColumns
+  type PgTableWithColumns,
+  foreignKey,
+  check,
 } from 'drizzle-orm/pg-core';
-import { InferSelectModel, InferInsertModel, and, eq, gt, isNull } from 'drizzle-orm';
+import { InferSelectModel, InferInsertModel, and, eq, gt, isNull, sql } from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS
@@ -311,6 +313,7 @@ export const patients = pgTable('patient', {
   // Identifiers
   mrn: varchar('mrn', { length: 50 }),
   ssnLast4: varchar('ssn_last_4', { length: 4 }),
+  dosespotPatientId: integer('dosespot_patient_id'),
 
   // Demographics
   firstName: text('first_name').notNull(),
@@ -318,6 +321,8 @@ export const patients = pgTable('patient', {
   middleName: text('middle_name'),
   dateOfBirth: date('date_of_birth'),
   gender: varchar('gender', { length: 1 }), // M, F, O
+  height: integer('height'), // In inches
+  weight: integer('weight'), // In pounds
 
   // Contact
   email: text('email'),
@@ -622,10 +627,12 @@ export const priorAuths = pgTable('prior_auth', {
   patientId: uuid('patient_id').references(() => patients.id).notNull(),
   providerId: uuid('provider_id').references(() => providers.id).notNull(),
   payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  prescriptionId: integer('prescription_id').references(() => prescription.id),
 
   // Identifiers
   authNumber: varchar('auth_number', { length: 50 }),
   referenceNumber: varchar('reference_number', { length: 50 }),
+  dosespotCaseId: integer('dosespot_case_id'),
 
   // Request details
   requestedService: text('requested_service').notNull(),
@@ -662,6 +669,9 @@ export const priorAuths = pgTable('prior_auth', {
   statusIdx: index('prior_auth_status_idx').on(table.status),
   authNumberIdx: index('prior_auth_auth_number_idx').on(table.authNumber),
   expirationIdx: index('prior_auth_expiration_idx').on(table.expirationDate),
+  dosespotCaseIdUnique: uniqueIndex('prior_authorization_dosespot_case_id_unique').on(table.dosespotCaseId),
+  prescriptionIdIdx: index('idx_prior_auth_prescription_id').on(table.prescriptionId),
+  dosespotCaseIdx: index('idx_prior_auth_dosespot_case').on(table.dosespotCaseId),
 }));
 
 // Appointments
@@ -2089,6 +2099,77 @@ export const appeals = pgTable('appeal', {
   dueDateIdx: index('appeal_due_date_idx').on(table.dueDate),
 }));
 
+// Prior Authorization Appeals
+export const priorAuthAppeals = pgTable('prior_auth_appeal', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  patientId: uuid('patient_id').references(() => patients.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  providerId: uuid('provider_id').references(() => providers.id).notNull(),
+
+  // Appeal details
+  appealNumber: varchar('appeal_number', { length: 50 }),
+  appealLevel: appealLevelEnum('appeal_level').default('first_level').notNull(),
+  appealType: varchar('appeal_type', { length: 50 }), // medical_necessity, coverage, eligibility, etc.
+
+  // Dates
+  appealDate: date('appeal_date').notNull(),
+  dueDate: date('due_date'),
+  responseDate: date('response_date'),
+
+  // Status
+  status: appealStatusEnum('status').default('pending').notNull(),
+
+  // Content
+  appealReason: text('appeal_reason').notNull(),
+  clinicalJustification: text('clinical_justification'),
+  medicalNecessityRationale: text('medical_necessity_rationale'),
+  additionalDocumentation: text('additional_documentation'),
+
+  // Original denial details
+  originalDenialReason: text('original_denial_reason'),
+  originalDenialCode: varchar('original_denial_code', { length: 20 }),
+  originalDenialDate: date('original_denial_date'),
+
+  // Processing
+  submissionMethod: varchar('submission_method', { length: 20 }), // portal, mail, fax, phone, api
+  confirmationNumber: varchar('confirmation_number', { length: 50 }),
+
+  // Response
+  payerResponse: text('payer_response'),
+  responseReason: text('response_reason'),
+  finalDecision: varchar('final_decision', { length: 20 }), // approved, denied, partially_approved
+
+  // Clinical attachments/evidence
+  attachedDocuments: text('attached_documents'), // JSON array of document references
+  letterOfMedicalNecessity: text('letter_of_medical_necessity'),
+
+  // Escalation tracking
+  escalatedToExternalReview: boolean('escalated_to_external_review').default(false),
+  externalReviewOrganization: varchar('external_review_organization', { length: 100 }),
+  externalReviewNumber: varchar('external_review_number', { length: 50 }),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  orgIdx: index('prior_auth_appeal_org_idx').on(table.organizationId),
+  priorAuthIdx: index('prior_auth_appeal_prior_auth_idx').on(table.priorAuthId),
+  patientIdx: index('prior_auth_appeal_patient_idx').on(table.patientId),
+  payerIdx: index('prior_auth_appeal_payer_idx').on(table.payerId),
+  providerIdx: index('prior_auth_appeal_provider_idx').on(table.providerId),
+  statusIdx: index('prior_auth_appeal_status_idx').on(table.status),
+  levelIdx: index('prior_auth_appeal_level_idx').on(table.appealLevel),
+  appealDateIdx: index('prior_auth_appeal_appeal_date_idx').on(table.appealDate),
+  dueDateIdx: index('prior_auth_appeal_due_date_idx').on(table.dueDate),
+  originalDenialDateIdx: index('prior_auth_appeal_original_denial_date_idx').on(table.originalDenialDate),
+  escalatedIdx: index('prior_auth_appeal_escalated_idx').on(table.escalatedToExternalReview),
+}));
+
 // Denial tracking
 export const denialTracking = pgTable('denial_tracking', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -2252,11 +2333,17 @@ export const encounters = pgTable('encounter', {
 export const clinicians = pgTable('clinician', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  userProfileId: uuid('user_profile_id').references(() => userProfiles.id),
+  teamMemberId: uuid('team_member_id').references(() => teamMembers.id),
 
   // Identifiers
   employeeId: varchar('employee_id', { length: 50 }),
   npi: varchar('npi', { length: 10 }),
   licenseNumber: varchar('license_number', { length: 50 }),
+  dosespotProviderId: integer('dosespot_provider_id'),
+  dosespotConfirmed: boolean('dosespot_confirmed').default(false).notNull(),
+  dosespotNotificationsCount: integer('dosespot_notifications_count').default(0).notNull(),
+  dosespotIdpCompleted: boolean('dosespot_idp_completed').default(false).notNull(),
 
   // Profile
   firstName: text('first_name').notNull(),
@@ -2288,6 +2375,7 @@ export const clinicians = pgTable('clinician', {
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
   deletedAt: timestamp('deleted_at'),
 }, (table) => ({
@@ -2346,6 +2434,236 @@ export const medicalHistory = pgTable('medical_history', {
   icd10Idx: index('medical_history_icd10_idx').on(table.icd10Code),
   onsetDateIdx: index('medical_history_onset_date_idx').on(table.onsetDate),
   diagnosedByIdx: index('medical_history_diagnosed_by_idx').on(table.diagnosedBy),
+}));
+
+export const prescription = pgTable('prescription', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').notNull().references(() => patients.id),
+  clinicianId: integer('clinician_id').notNull().references(() => clinicians.id),
+  dosespotPrescriptionId: integer('dosespot_prescription_id'),
+  medicationName: varchar('medication_name', { length: 255 }).notNull(),
+  medicationStrength: varchar('medication_strength', { length: 100 }),
+  dosageForm: varchar('dosage_form', { length: 100 }),
+  ndcCode: varchar('ndc_code', { length: 11 }),
+  dispensableDrugId: integer('dispensable_drug_id'),
+  quantity: decimal('quantity', { precision: 10, scale: 2 }),
+  daysSupply: integer('days_supply'),
+  refillsRemaining: integer('refills_remaining').default(0),
+  totalRefills: integer('total_refills').default(0),
+  directions: text('directions'),
+  prescriberNotes: text('prescriber_notes'),
+  pharmacyNotes: text('pharmacy_notes'),
+  status: varchar('status', { length: 50 }).default('draft'),
+  noSubstitutions: boolean('no_substitutions').default(false),
+  deaSchedule: varchar('dea_schedule', { length: 5 }),
+  prescribedDate: timestamp('prescribed_date').defaultNow(),
+  lastFilledDate: timestamp('last_filled_date'),
+  expirationDate: timestamp('expiration_date'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  dosespotPrescriptionIdUnique:
+    uniqueIndex('prescription_dosespot_prescription_id_unique').on(table.dosespotPrescriptionId),
+  patientIdIdx: index('idx_prescription_patient_id').on(table.patientId),
+  clinicianIdIdx: index('idx_prescription_clinician_id').on(table.clinicianId),
+  dosespotIdIdx: index('idx_prescription_dosespot_id').on(table.dosespotPrescriptionId),
+  statusIdx: index('idx_prescription_status').on(table.status),
+  prescribedDateIdx: index('idx_prescription_prescribed_date').on(table.prescribedDate),
+  quantityPositiveCheck: check('chk_prescription_quantity_positive', sql`quantity > 0`),
+  daysSupplyPositiveCheck: check('chk_prescription_days_supply_positive', sql`days_supply > 0`),
+  refillsValidCheck: check('chk_prescription_refills_valid', sql`refills_remaining >= 0 AND total_refills >= 0 AND
+  refills_remaining <= total_refills`),
+}));
+
+// Pharmacy network information
+export const pharmacyNetwork = pgTable('pharmacy_network', {
+  id: serial('id').primaryKey(),
+  dosespotPharmacyId: integer('dosespot_pharmacy_id').notNull(),
+  pharmacyName: varchar('pharmacy_name', { length: 255 }).notNull(),
+  npi: varchar('npi', { length: 10 }),
+  ncpdpId: varchar('ncpdp_id', { length: 7 }),
+  address: text('address'),
+  city: varchar('city', { length: 100 }),
+  state: varchar('state', { length: 2 }),
+  zip: varchar('zip', { length: 10 }),
+  phone: varchar('phone', { length: 20 }),
+  fax: varchar('fax', { length: 20 }),
+  email: varchar('email', { length: 255 }),
+  isActive: boolean('is_active').default(true),
+  acceptsControlled: boolean('accepts_controlled').default(false),
+  acceptsSpecialty: boolean('accepts_specialty').default(false),
+  acceptsCompounds: boolean('accepts_compounds').default(false),
+  ePrescribingEnabled: boolean('e_prescribing_enabled').default(true),
+  lastUpdated: timestamp('last_updated').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  dosespotPharmacyIdUnique: uniqueIndex('pharmacy_network_dosespot_pharmacy_id_unique').on(table.dosespotPharmacyId),
+  dosespotIdIdx: index('idx_pharmacy_network_dosespot_id').on(table.dosespotPharmacyId),
+  activeIdx: index('idx_pharmacy_network_active').on(table.isActive),
+  locationIdx: index('idx_pharmacy_network_location').on(table.city, table.state, table.zip),
+  capabilitiesIdx: index('idx_pharmacy_network_capabilities').on(table.acceptsControlled, table.acceptsSpecialty),
+}));
+
+// Patient preferred pharmacies
+export const patientPharmacy = pgTable('patient_pharmacy', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').notNull().references(() => patients.id),
+  dosespotPharmacyId: integer('dosespot_pharmacy_id').notNull(),
+  pharmacyName: varchar('pharmacy_name', { length: 255 }),
+  pharmacyAddress: text('pharmacy_address'),
+  pharmacyPhone: varchar('pharmacy_phone', { length: 20 }),
+  pharmacyFax: varchar('pharmacy_fax', { length: 20 }),
+  isPreferred: boolean('is_preferred').default(false),
+  isActive: boolean('is_active').default(true),
+  medicationType: varchar('medication_type', { length: 50 }).default('general'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  createdBy: integer('created_by').references(() => clinicians.id),
+}, (table) => ({
+  uniquePreferredPharmacy: uniqueIndex('unique_preferred_pharmacy').on(table.patientId, table.medicationType),
+  patientIdIdx: index('idx_patient_pharmacy_patient_id').on(table.patientId),
+  dosespotIdIdx: index('idx_patient_pharmacy_dosespot_id').on(table.dosespotPharmacyId),
+  preferredIdx: index('idx_patient_pharmacy_preferred').on(table.patientId, table.isPreferred).where(sql`is_preferred =
+  true`),
+  activeIdx: index('idx_patient_pharmacy_active').on(table.patientId, table.isActive).where(sql`is_active = true`),
+  dosespotPharmacyIdFk: foreignKey({
+    columns: [table.dosespotPharmacyId],
+    foreignColumns: [pharmacyNetwork.dosespotPharmacyId],
+  }),
+}));
+
+// Prescription routing and pharmacy history
+export const prescriptionPharmacyHistory = pgTable('prescription_pharmacy_history', {
+  id: serial('id').primaryKey(),
+  prescriptionId: integer('prescription_id').notNull().references(() => prescription.id),
+  dosespotPharmacyId: integer('dosespot_pharmacy_id').notNull(),
+  pharmacyName: varchar('pharmacy_name', { length: 255 }),
+  routedAt: timestamp('routed_at').defaultNow(),
+  routedBy: integer('routed_by').references(() => clinicians.id),
+  status: varchar('status', { length: 50 }).notNull(),
+  statusDate: timestamp('status_date').defaultNow(),
+  fillDate: timestamp('fill_date'),
+  rejectionReason: text('rejection_reason'),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  prescriptionIdIdx: index('idx_prescription_history_prescription_id').on(table.prescriptionId),
+  pharmacyIdIdx: index('idx_prescription_history_pharmacy_id').on(table.dosespotPharmacyId),
+  statusIdx: index('idx_prescription_history_status').on(table.status),
+  routedAtIdx: index('idx_prescription_history_routed_at').on(table.routedAt),
+}));
+
+// Prescription refill history
+export const prescriptionRefillHistory = pgTable('prescription_refill_history', {
+  id: serial('id').primaryKey(),
+  prescriptionId: integer('prescription_id').notNull().references(() => prescription.id),
+  refillNumber: integer('refill_number').notNull(),
+  dosespotPharmacyId: integer('dosespot_pharmacy_id').notNull(),
+  quantityDispensed: decimal('quantity_dispensed', { precision: 10, scale: 2 }),
+  daysSupply: integer('days_supply'),
+  fillDate: timestamp('fill_date').notNull(),
+  prescriberAuthorization: boolean('prescriber_authorization').default(false),
+  authorizedBy: integer('authorized_by').references(() => clinicians.id),
+  authorizedAt: timestamp('authorized_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  prescriptionIdIdx: index('idx_refill_history_prescription_id').on(table.prescriptionId),
+  fillDateIdx: index('idx_refill_history_fill_date').on(table.fillDate),
+  quantityPositiveCheck: check('chk_refill_quantity_positive', sql`quantity_dispensed > 0`),
+  daysSupplyPositiveCheck: check('chk_refill_days_supply_positive', sql`days_supply > 0`),
+}));
+
+// Medication formulary cache
+export const medicationFormulary = pgTable('medication_formulary', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').notNull().references(() => patients.id),
+  medicationNdc: varchar('medication_ndc', { length: 11 }).notNull(),
+  medicationName: varchar('medication_name', { length: 255 }).notNull(),
+  insurancePlan: varchar('insurance_plan', { length: 255 }),
+  tierLevel: integer('tier_level'),
+  copayAmount: decimal('copay_amount', { precision: 10, scale: 2 }),
+  requiresPriorAuth: boolean('requires_prior_auth').default(false),
+  isCovered: boolean('is_covered').default(true),
+  alternativeMedications: text('alternative_medications').array(),
+  lastChecked: timestamp('last_checked').defaultNow(),
+  expiresAt: timestamp('expires_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  patientMedicationIdx: index('idx_formulary_patient_medication').on(table.patientId, table.medicationNdc),
+  expiresIdx: index('idx_formulary_expires').on(table.expiresAt),
+}));
+
+// Prescription requests
+export const prescriptionRequest = pgTable('prescription_request', {
+  id: serial('id').primaryKey(),
+  patientId: integer('patient_id').notNull().references(() => patients.id),
+  clinicianId: integer('clinician_id').notNull().references(() => clinicians.id),
+  encounterId: integer('encounter_id'),
+  diagnosisCodes: varchar('diagnosis_codes', { length: 50 }).array(),
+  indication: text('indication'),
+  clinicalNotes: text('clinical_notes'),
+  medicationName: varchar('medication_name', { length: 255 }).notNull(),
+  medicationStrength: varchar('medication_strength', { length: 100 }),
+  dosageForm: varchar('dosage_form', { length: 100 }),
+  ndcCode: varchar('ndc_code', { length: 11 }),
+  dispensableDrugId: integer('dispensable_drug_id'),
+  quantity: decimal('quantity', { precision: 10, scale: 2 }),
+  daysSupply: integer('days_supply'),
+  refills: integer('refills').default(0),
+  directions: text('directions').notNull(),
+  prescriberNotes: text('prescriber_notes'),
+  noSubstitutions: boolean('no_substitutions').default(false),
+  requiresPriorAuth: boolean('requires_prior_auth').default(false),
+  priorAuthStatus: varchar('prior_auth_status', { length: 50 }),
+  priorAuthId: integer('prior_auth_id').references(() => priorAuths.id),
+  status: varchar('status', { length: 50 }).default('requested'),
+  priority: varchar('priority', { length: 20 }).default('routine'),
+  requestedBy: integer('requested_by').references(() => clinicians.id),
+  reviewedBy: integer('reviewed_by').references(() => clinicians.id),
+  approvedBy: integer('approved_by').references(() => clinicians.id),
+  preferredPharmacyId: integer('preferred_pharmacy_id'),
+  pharmacyNotes: text('pharmacy_notes'),
+  requestedAt: timestamp('requested_at').defaultNow(),
+  reviewedAt: timestamp('reviewed_at'),
+  approvedAt: timestamp('approved_at'),
+  prescribedAt: timestamp('prescribed_at'),
+  prescriptionId: integer('prescription_id').references(() => prescription.id),
+  dosespotPrescriptionId: integer('dosespot_prescription_id'),
+  billingCode: varchar('billing_code', { length: 20 }),
+  chargeAmount: decimal('charge_amount', { precision: 10, scale: 2 }),
+  isBillable: boolean('is_billable').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  createdBy: integer('created_by').references(() => clinicians.id),
+}, (table) => ({
+  patientIdIdx: index('idx_prescription_request_patient_id').on(table.patientId),
+  clinicianIdIdx: index('idx_prescription_request_clinician_id').on(table.clinicianId),
+  encounterIdIdx: index('idx_prescription_request_encounter_id').on(table.encounterId),
+  statusIdx: index('idx_prescription_request_status').on(table.status),
+  priorityIdx: index('idx_prescription_request_priority').on(table.priority),
+  requestedAtIdx: index('idx_prescription_request_requested_at').on(table.requestedAt),
+  priorAuthIdx: index('idx_prescription_request_prior_auth').on(table.requiresPriorAuth, table.priorAuthStatus),
+  prescriptionIdIdx: index('idx_prescription_request_prescription_id').on(table.prescriptionId),
+  preferredPharmacyIdFk: foreignKey({
+    columns: [table.preferredPharmacyId],
+    foreignColumns: [pharmacyNetwork.dosespotPharmacyId],
+  }),
+}));
+
+// Prescription request workflow history
+export const prescriptionRequestHistory = pgTable('prescription_request_history', {
+  id: serial('id').primaryKey(),
+  prescriptionRequestId: integer('prescription_request_id').notNull().references(() => prescriptionRequest.id),
+  fromStatus: varchar('from_status', { length: 50 }),
+  toStatus: varchar('to_status', { length: 50 }),
+  changedBy: integer('changed_by').references(() => clinicians.id),
+  reason: text('reason'),
+  notes: text('notes'),
+  changedAt: timestamp('changed_at').defaultNow(),
+}, (table) => ({
+  requestIdIdx: index('idx_prescription_request_history_request_id').on(table.prescriptionRequestId),
+  changedAtIdx: index('idx_prescription_request_history_changed_at').on(table.changedAt),
 }));
 
 // Patient diagnoses (encounter-specific)

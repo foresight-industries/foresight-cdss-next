@@ -1,6 +1,23 @@
 import { clerkClient as clerk } from '@clerk/express';
 
-exports.handler = async (event) => {
+interface AuthorizerEvent {
+    methodArn: string;
+    sessionId: string;
+    authorizationToken: string;
+    requestContext?: {
+        requestId: string;
+    };
+}
+
+interface PolicyContext {
+    userId: string;
+    email?: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    organizationId?: string;
+}
+
+exports.handler = async (event: AuthorizerEvent) => {
     console.log(
         'Authorizer request: methodArn=%s requestId=%s',
         event.methodArn,
@@ -33,7 +50,7 @@ exports.handler = async (event) => {
             email: user.emailAddresses[0]?.emailAddress,
             firstName: user.firstName,
             lastName: user.lastName,
-            organizationId: user.publicMetadata?.organizationId
+            organizationId: user.publicMetadata?.organizationId as string | undefined
         });
 
         console.log('Authorization successful for user:', session.userId);
@@ -45,7 +62,7 @@ exports.handler = async (event) => {
     }
 };
 
-function generatePolicy(principalId, effect, resource, context = {}) {
+function generatePolicy(principalId: string, effect: 'Allow' | 'Deny', resource: string, context: PolicyContext = {} as PolicyContext) {
     return {
         principalId,
         policyDocument: {

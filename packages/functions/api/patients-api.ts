@@ -1,8 +1,8 @@
-import { RDSDataClient } from '@aws-sdk/client-rds-data';
+// import { RDSDataClient } from '@aws-sdk/client-rds-data';
+//
+// const rdsDataClient = new RDSDataClient();
 
-const rdsDataClient = new RDSDataClient();
-
-exports.handler = async (event) => {
+exports.handler = async (event: any) => {
     console.log(
         'Patients API request received: method=%s resource=%s requestId=%s',
         event.httpMethod,
@@ -12,7 +12,6 @@ exports.handler = async (event) => {
 
     try {
         const { httpMethod, pathParameters, queryStringParameters, body } = event;
-        const path = event.resource;
 
         // Extract user context from authorizer
         const { userId, organizationId } = event.requestContext.authorizer;
@@ -57,20 +56,21 @@ exports.handler = async (event) => {
 
     } catch (error) {
         console.error('Patients API error:', error);
+        const err = error as any;
         return {
-            statusCode: error.statusCode || 500,
+            statusCode: err.statusCode || 500,
             headers: {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*',
             },
             body: JSON.stringify({
-                error: error.message || 'Internal server error',
+                error: err.message || 'Internal server error',
             }),
         };
     }
 };
 
-async function listPatients(queryParams: any = {}, organizationId) {
+async function listPatients(queryParams: any = {}, organizationId: any) {
     const { limit = 50, offset = 0, search } = queryParams;
 
     let sql = `
@@ -82,8 +82,8 @@ async function listPatients(queryParams: any = {}, organizationId) {
 
     const parameters = [
         { name: 'organizationId', value: { stringValue: organizationId } },
-        { name: 'limit', value: { longValue: parseInt(limit) } },
-        { name: 'offset', value: { longValue: parseInt(offset) } }
+        { name: 'limit', value: { longValue: Number.parseInt(limit) } },
+        { name: 'offset', value: { longValue: Number.parseInt(offset) } }
     ];
 
     if (search) {
@@ -93,15 +93,15 @@ async function listPatients(queryParams: any = {}, organizationId) {
 
     sql += ` ORDER BY last_name, first_name LIMIT :limit OFFSET :offset`;
 
-    const params = {
-        resourceArn: process.env.DATABASE_CLUSTER_ARN,
-        secretArn: process.env.DATABASE_SECRET_ARN,
-        database: process.env.DATABASE_NAME,
-        sql,
-        parameters
-    };
+    // const params = {
+    //     resourceArn: process.env.DATABASE_CLUSTER_ARN,
+    //     secretArn: process.env.DATABASE_SECRET_ARN,
+    //     database: process.env.DATABASE_NAME,
+    //     sql,
+    //     parameters
+    // };
 
-    console.log('Executing listPatients query: limit=%d offset=%d', parseInt(limit), parseInt(offset));
+    console.log('Executing listPatients query: limit=%d offset=%d', Number.parseInt(limit), Number.parseInt(offset));
     // const result = await rdsDataClient.executeStatement(params).promise();
 
     // Mock result for now
@@ -125,20 +125,20 @@ async function listPatients(queryParams: any = {}, organizationId) {
     };
 }
 
-async function getPatient(patientId, organizationId) {
-    const params = {
-        resourceArn: process.env.DATABASE_CLUSTER_ARN,
-        secretArn: process.env.DATABASE_SECRET_ARN,
-        database: process.env.DATABASE_NAME,
-        sql: `
-            SELECT * FROM patients
-            WHERE patient_id = :patientId AND organization_id = :organizationId
-        `,
-        parameters: [
-            { name: 'patientId', value: { stringValue: patientId } },
-            { name: 'organizationId', value: { stringValue: organizationId } }
-        ]
-    };
+async function getPatient(patientId: any, organizationId: any) {
+    // const params = {
+    //     resourceArn: process.env.DATABASE_CLUSTER_ARN,
+    //     secretArn: process.env.DATABASE_SECRET_ARN,
+    //     database: process.env.DATABASE_NAME,
+    //     sql: `
+    //         SELECT * FROM patients
+    //         WHERE patient_id = :patientId AND organization_id = :organizationId
+    //     `,
+    //     parameters: [
+    //         { name: 'patientId', value: { stringValue: patientId } },
+    //         { name: 'organizationId', value: { stringValue: organizationId } }
+    //     ]
+    // };
 
     console.log('Getting patient: patientId=%s', patientId);
     // const result = await rdsDataClient.executeStatement(params).promise();
@@ -157,31 +157,31 @@ async function getPatient(patientId, organizationId) {
     };
 }
 
-async function createPatient(patientData, organizationId, userId) {
+async function createPatient(patientData: any, organizationId: any, userId: any) {
     const patientId = `pat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const params = {
-        resourceArn: process.env.DATABASE_CLUSTER_ARN,
-        secretArn: process.env.DATABASE_SECRET_ARN,
-        database: process.env.DATABASE_NAME,
-        sql: `
-            INSERT INTO patients (patient_id, organization_id, first_name, last_name,
-                                date_of_birth, phone, email, insurance_id, created_by, created_at)
-            VALUES (:patientId, :organizationId, :firstName, :lastName, :dateOfBirth,
-                    :phone, :email, :insuranceId, :createdBy, NOW())
-        `,
-        parameters: [
-            { name: 'patientId', value: { stringValue: patientId } },
-            { name: 'organizationId', value: { stringValue: organizationId } },
-            { name: 'firstName', value: { stringValue: patientData.firstName } },
-            { name: 'lastName', value: { stringValue: patientData.lastName } },
-            { name: 'dateOfBirth', value: { stringValue: patientData.dateOfBirth } },
-            { name: 'phone', value: { stringValue: patientData.phone || '' } },
-            { name: 'email', value: { stringValue: patientData.email || '' } },
-            { name: 'insuranceId', value: { stringValue: patientData.insuranceId || '' } },
-            { name: 'createdBy', value: { stringValue: userId } }
-        ]
-    };
+    // const params = {
+    //     resourceArn: process.env.DATABASE_CLUSTER_ARN,
+    //     secretArn: process.env.DATABASE_SECRET_ARN,
+    //     database: process.env.DATABASE_NAME,
+    //     sql: `
+    //         INSERT INTO patients (patient_id, organization_id, first_name, last_name,
+    //                             date_of_birth, phone, email, insurance_id, created_by, created_at)
+    //         VALUES (:patientId, :organizationId, :firstName, :lastName, :dateOfBirth,
+    //                 :phone, :email, :insuranceId, :createdBy, NOW())
+    //     `,
+    //     parameters: [
+    //         { name: 'patientId', value: { stringValue: patientId } },
+    //         { name: 'organizationId', value: { stringValue: organizationId } },
+    //         { name: 'firstName', value: { stringValue: patientData.firstName } },
+    //         { name: 'lastName', value: { stringValue: patientData.lastName } },
+    //         { name: 'dateOfBirth', value: { stringValue: patientData.dateOfBirth } },
+    //         { name: 'phone', value: { stringValue: patientData.phone || '' } },
+    //         { name: 'email', value: { stringValue: patientData.email || '' } },
+    //         { name: 'insuranceId', value: { stringValue: patientData.insuranceId || '' } },
+    //         { name: 'createdBy', value: { stringValue: userId } }
+    //     ]
+    // };
 
     console.log('Creating patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();
@@ -193,30 +193,30 @@ async function createPatient(patientData, organizationId, userId) {
     };
 }
 
-async function updatePatient(patientId, patientData, organizationId, userId) {
-    const params = {
-        resourceArn: process.env.DATABASE_CLUSTER_ARN,
-        secretArn: process.env.DATABASE_SECRET_ARN,
-        database: process.env.DATABASE_NAME,
-        sql: `
-            UPDATE patients
-            SET first_name = :firstName, last_name = :lastName, date_of_birth = :dateOfBirth,
-                phone = :phone, email = :email, insurance_id = :insuranceId,
-                updated_by = :updatedBy, updated_at = NOW()
-            WHERE patient_id = :patientId AND organization_id = :organizationId
-        `,
-        parameters: [
-            { name: 'patientId', value: { stringValue: patientId } },
-            { name: 'organizationId', value: { stringValue: organizationId } },
-            { name: 'firstName', value: { stringValue: patientData.firstName } },
-            { name: 'lastName', value: { stringValue: patientData.lastName } },
-            { name: 'dateOfBirth', value: { stringValue: patientData.dateOfBirth } },
-            { name: 'phone', value: { stringValue: patientData.phone || '' } },
-            { name: 'email', value: { stringValue: patientData.email || '' } },
-            { name: 'insuranceId', value: { stringValue: patientData.insuranceId || '' } },
-            { name: 'updatedBy', value: { stringValue: userId } }
-        ]
-    };
+async function updatePatient(patientId: any, patientData: any, organizationId: any, userId: any) {
+    // const params = {
+    //     resourceArn: process.env.DATABASE_CLUSTER_ARN,
+    //     secretArn: process.env.DATABASE_SECRET_ARN,
+    //     database: process.env.DATABASE_NAME,
+    //     sql: `
+    //         UPDATE patients
+    //         SET first_name = :firstName, last_name = :lastName, date_of_birth = :dateOfBirth,
+    //             phone = :phone, email = :email, insurance_id = :insuranceId,
+    //             updated_by = :updatedBy, updated_at = NOW()
+    //         WHERE patient_id = :patientId AND organization_id = :organizationId
+    //     `,
+    //     parameters: [
+    //         { name: 'patientId', value: { stringValue: patientId } },
+    //         { name: 'organizationId', value: { stringValue: organizationId } },
+    //         { name: 'firstName', value: { stringValue: patientData.firstName } },
+    //         { name: 'lastName', value: { stringValue: patientData.lastName } },
+    //         { name: 'dateOfBirth', value: { stringValue: patientData.dateOfBirth } },
+    //         { name: 'phone', value: { stringValue: patientData.phone || '' } },
+    //         { name: 'email', value: { stringValue: patientData.email || '' } },
+    //         { name: 'insuranceId', value: { stringValue: patientData.insuranceId || '' } },
+    //         { name: 'updatedBy', value: { stringValue: userId } }
+    //     ]
+    // };
 
     console.log('Updating patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();
@@ -228,22 +228,22 @@ async function updatePatient(patientId, patientData, organizationId, userId) {
     };
 }
 
-async function deletePatient(patientId, organizationId, userId) {
-    const params = {
-        resourceArn: process.env.DATABASE_CLUSTER_ARN,
-        secretArn: process.env.DATABASE_SECRET_ARN,
-        database: process.env.DATABASE_NAME,
-        sql: `
-            UPDATE patients
-            SET deleted_at = NOW(), deleted_by = :deletedBy
-            WHERE patient_id = :patientId AND organization_id = :organizationId
-        `,
-        parameters: [
-            { name: 'patientId', value: { stringValue: patientId } },
-            { name: 'organizationId', value: { stringValue: organizationId } },
-            { name: 'deletedBy', value: { stringValue: userId } }
-        ]
-    };
+async function deletePatient(patientId: any, organizationId: any, userId: any) {
+    // const params = {
+    //     resourceArn: process.env.DATABASE_CLUSTER_ARN,
+    //     secretArn: process.env.DATABASE_SECRET_ARN,
+    //     database: process.env.DATABASE_NAME,
+    //     sql: `
+    //         UPDATE patients
+    //         SET deleted_at = NOW(), deleted_by = :deletedBy
+    //         WHERE patient_id = :patientId AND organization_id = :organizationId
+    //     `,
+    //     parameters: [
+    //         { name: 'patientId', value: { stringValue: patientId } },
+    //         { name: 'organizationId', value: { stringValue: organizationId } },
+    //         { name: 'deletedBy', value: { stringValue: userId } }
+    //     ]
+    // };
 
     console.log('Deleting patient: patientId=%s', patientId);
     // await rdsDataClient.executeStatement(params).promise();

@@ -19,7 +19,7 @@ import { organizations } from './schema';
 // WEBHOOK ENUMS
 // ============================================================================
 
-export const webhookEnvironmentEnum = pgEnum('webhook_environment', ['staging', 'production']);
+export const webhookEnvironmentEnum = pgEnum('webhook_environment', ['development', 'staging', 'production']);
 
 // HIPAA compliance enums
 export const phiDataClassificationEnum = pgEnum('phi_data_classification', [
@@ -50,7 +50,28 @@ export const webhookEventTypeEnum = pgEnum('webhook_event_type', [
   'claim.created',
   'claim.updated',
   'claim.submitted',
-  'payment.received',
+  'prior_auth.created',
+  'prior_auth.updated',
+  'prior_auth.submitted',
+  'prior_auth.approved',
+  'prior_auth.denied',
+  'prior_auth.pending',
+  'prior_auth.expired',
+  'prior_auth.cancelled',
+  'document.uploaded',
+  'document.processed',
+  'document.analysis.completed',
+  'document.deleted',
+  'clinician.created',
+  'clinician.updated',
+  'clinician.deleted',
+  'clinician.license.added',
+  'clinician.license.updated',
+  'clinician.license.expired',
+  'clinician.credentials.verified',
+  'clinician.status.changed',
+  'clinician.specialty.updated',
+  'clinician.npi.updated',
   'eligibility.checked',
   'user.deleted',
   'webhook.test'

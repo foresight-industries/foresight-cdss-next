@@ -1,14 +1,17 @@
 {
   "name": "@foresight-cdss-next/webhooks",
   "version": "1.0.0",
-  "description": "Webhook utilities for Foresight CDSS",
-  "type": "module",
+  "description": "Webhook utilities for Foresight RCM",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
+    "test": "echo 'No tests specified'"
   },
   "dependencies": {
     "@aws-sdk/client-eventbridge": "^3.0.0",
