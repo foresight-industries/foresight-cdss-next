@@ -127,6 +127,8 @@ export class GrafanaStack extends cdk.Stack {
       // Authentication providers
       authenticationProviders: ['AWS_SSO'], // Change to ['SAML'] if using SAML
 
+      pluginAdminEnabled: true,
+
       // Permission type - use CUSTOMER_MANAGED for more control
       permissionType: 'CUSTOMER_MANAGED',
       roleArn: this.serviceRole.roleArn,
@@ -147,13 +149,10 @@ export class GrafanaStack extends cdk.Stack {
       organizationalUnits: [], // Add your org units if using AWS SSO
 
       // Network access configuration for VPC (optional but recommended for HIPAA)
-      vpcConfiguration: props.stageName === 'prod' ? {
-        securityGroupIds: [], // Add your security groups
-        subnetIds: [], // Add your private subnet IDs
-      } : undefined,
+      // vpcConfiguration: undefined, // Can be configured later with specific security groups and subnets
 
       // Grafana version
-      grafanaVersion: '9.4', // Latest supported version
+      grafanaVersion: '10.4', // Latest supported version
 
       // Stack set name for multi-account (if needed)
       stackSetName: props.stageName === 'prod' ? `foresight-grafana-stackset-${props.stageName}` : undefined,
