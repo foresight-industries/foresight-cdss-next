@@ -220,5 +220,5 @@ async function handleClerkAuth(auth: any, req: any, url?: any, teamContext?: { o
 }
 
 export const config = {
-  matcher: [String.raw`/((?!.*\..*|_next).*)`, "/", String.raw`/(api|trpc)(.*)`],
+  matcher: ["/((?!.*\\..*|_next).*)", "/", "/(api|trpc)(.*)"],
 };
