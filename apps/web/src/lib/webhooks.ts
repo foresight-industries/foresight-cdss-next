@@ -1,4 +1,4 @@
-import { publishOrganizationEvent, publishUserEvent, publishTeamMemberEvent, publishDocumentEvent } from '@foresight-cdss-next/webhooks';
+import { publishOrganizationEvent, publishUserEvent, publishTeamMemberEvent, publishDocumentEvent } from '../../../../packages/webhooks/src/index';
 
 /**
  * Webhook Integration Utilities
