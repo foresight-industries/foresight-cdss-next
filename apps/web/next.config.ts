@@ -1,11 +1,13 @@
 import { withSentryConfig } from "@sentry/nextjs";
 import type { NextConfig } from 'next';
+import * as path from 'node:path';
 
 const nextConfig: NextConfig = {
   reactCompiler: false,
   turbopack: {
     resolveAlias: {
       "@": "src",
+      "@foresight-cdss-next/webhooks": path.join(__dirname, "../../packages/webhooks/src"),
     },
   },
   experimental: {

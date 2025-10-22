@@ -7,44 +7,44 @@ export {
   publishClaimEvent,
   publishDocumentEvent,
   publishTeamMemberEvent,
-} from './event-publisher.js';
+} from './event-publisher';
 
 // Signature Validation
 export {
   WebhookSignatureValidator,
   validateWebhookSignature,
   createWebhookValidationMiddleware,
-} from './signature-validator.js';
+} from './signature-validator';
 
 // Secret Rotation
 export {
   WebhookSecretRotationManager,
   handleSecretRotation,
-} from './secret-rotation.js';
+} from './secret-rotation';
 
 // HIPAA Compliance
 export {
   WebhookHipaaComplianceManager,
   PhiDataClassifier,
-} from './hipaa-compliance.js';
+} from './hipaa-compliance';
 
 // PHI Encryption
 export {
   PhiEncryptionManager,
   PhiFieldDetector,
-} from './phi-encryption.js';
+} from './phi-encryption';
 
 // Data Retention
 export {
   WebhookDataRetentionManager,
   RetentionPolicyScheduler,
-} from './data-retention.js';
+} from './data-retention';
 
 // HIPAA Webhook Processing
 export {
   HipaaWebhookProcessor,
   HipaaWebhookEventRouter,
-} from './hipaa-webhook-processor.js';
+} from './hipaa-webhook-processor';
 
 // Types - re-export from types file
 export type {
@@ -65,4 +65,4 @@ export type {
   WebhookDeliveryResult,
   RetentionPolicyResult,
   RetentionStatus,
-} from './types.js';
+} from './types';
