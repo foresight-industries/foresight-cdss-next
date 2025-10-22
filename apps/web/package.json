@@ -20,6 +20,7 @@
   "dependencies": {
     "@ai-sdk/google": "^2.0.23",
     "@ai-sdk/openai": "^2.0.52",
+    "@aws-sdk/client-appconfigdata": "^3.914.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.911.0",
     "@aws-sdk/client-eventbridge": "^3.911.0",
     "@aws-sdk/client-healthlake": "^3.913.0",

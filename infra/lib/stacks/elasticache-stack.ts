@@ -208,13 +208,13 @@ export class ElastiCacheStack extends cdk.Stack {
 
     // Outputs
     new cdk.CfnOutput(this, 'RedisClusterEndpoint', {
-      value: this.redisCluster.attrConfigurationEndPointAddress || this.redisCluster.attrPrimaryEndPointAddress,
+      value: this.redisCluster.attrPrimaryEndPointAddress,
       description: 'Redis cluster endpoint for cache access',
       exportName: `Foresight-Redis-Endpoint-${props.stageName}`,
     });
 
     new cdk.CfnOutput(this, 'RedisClusterPort', {
-      value: this.redisCluster.attrConfigurationEndPointPort || '6379',
+      value: this.redisCluster.attrPrimaryEndPointPort,
       description: 'Redis cluster port',
       exportName: `Foresight-Redis-Port-${props.stageName}`,
     });
