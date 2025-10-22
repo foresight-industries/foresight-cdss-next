@@ -20,6 +20,7 @@ export class DocumentProcessingStack extends cdk.Stack {
   public readonly processingQueue: sqs.Queue;
   public readonly documentProcessorFunction: lambda.Function;
   public readonly textractCompletionFunction: lambda.Function;
+  public readonly insuranceCardProcessorFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: DocumentProcessingStackProps) {
     super(scope, id, props);
@@ -142,6 +143,30 @@ export class DocumentProcessingStack extends cdk.Stack {
       },
     });
 
+    // Insurance card processor (triggered by S3 upload)
+    const insuranceCardProcessorRole = new iam.Role(this, 'InsuranceCardProcessorRole', {
+      roleName: `rcm-insurance-card-processor-role-${props.stageName}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
+    this.insuranceCardProcessorFunction = new lambdaNodejs.NodejsFunction(this, 'InsuranceCardProcessor', {
+      ...functionProps,
+      functionName: `rcm-insurance-card-processor-${props.stageName}`,
+      entry: '../packages/functions/insurance-card-processor/index.ts',
+      handler: 'handler',
+      role: insuranceCardProcessorRole,
+      timeout: cdk.Duration.minutes(5), // Shorter timeout for synchronous processing
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
+    });
+
     // Grant permissions to document processor
     documentProcessorRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -187,8 +212,21 @@ export class DocumentProcessingStack extends cdk.Stack {
       resources: [`arn:aws:s3:::${props.documentsBucketName}/*`],
     }));
 
-    // Grant database access to both functions
-    [documentProcessorRole, textractCompletionRole].forEach(role => {
+    // Grant permissions to insurance card processor
+    insuranceCardProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['textract:AnalyzeDocument'],
+      resources: ['*'],
+    }));
+
+    insuranceCardProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['s3:GetObject'],
+      resources: [`arn:aws:s3:::${props.documentsBucketName}/*`],
+    }));
+
+    // Grant database access to all functions
+    [documentProcessorRole, textractCompletionRole, insuranceCardProcessorRole].forEach(role => {
       role.addToPolicy(new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [

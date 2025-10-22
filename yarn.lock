@@ -25,6 +25,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@ai-sdk/google@npm:^2.0.23":
+  version: 2.0.23
+  resolution: "@ai-sdk/google@npm:2.0.23"
+  dependencies:
+    "@ai-sdk/provider": "npm:2.0.0"
+    "@ai-sdk/provider-utils": "npm:3.0.12"
+  peerDependencies:
+    zod: ^3.25.76 || ^4.1.8
+  checksum: 10c0/402b78f392196c3e23c75cc35fc1d701f9521b57aace2fb1bbae6a0d57bbb3894a778b0485305bd6674998403e44c3883dca2416f2d48377722351debead9f11
+  languageName: node
+  linkType: hard
+
 "@ai-sdk/openai@npm:^2.0.52":
   version: 2.0.52
   resolution: "@ai-sdk/openai@npm:2.0.52"
@@ -3841,6 +3853,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@foresight-cdss-next/web@workspace:apps/web"
   dependencies:
+    "@ai-sdk/google": "npm:^2.0.23"
     "@ai-sdk/openai": "npm:^2.0.52"
     "@aws-sdk/client-cloudwatch-logs": "npm:^3.911.0"
     "@aws-sdk/client-eventbridge": "npm:^3.911.0"

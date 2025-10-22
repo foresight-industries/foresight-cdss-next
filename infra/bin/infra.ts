@@ -174,4 +174,50 @@ for (const envName of ['staging', 'prod']) {
       suffix: '.jpeg',
     }
   );
+
+  // Insurance card processing notifications
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.insuranceCardProcessorFunction),
+    {
+      prefix: 'insurance-cards/',
+      suffix: '.pdf',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.insuranceCardProcessorFunction),
+    {
+      prefix: 'insurance-cards/',
+      suffix: '.png',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.insuranceCardProcessorFunction),
+    {
+      prefix: 'insurance-cards/',
+      suffix: '.jpg',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.insuranceCardProcessorFunction),
+    {
+      prefix: 'insurance-cards/',
+      suffix: '.jpeg',
+    }
+  );
+
+  storage.documentsBucket.addEventNotification(
+    s3.EventType.OBJECT_CREATED,
+    new s3notifications.LambdaDestination(documentProcessing.insuranceCardProcessorFunction),
+    {
+      prefix: 'insurance-cards/',
+      suffix: '.heic',
+    }
+  );
 }

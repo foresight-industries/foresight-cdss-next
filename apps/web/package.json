@@ -18,6 +18,7 @@
     "vercel:env:pull-dev": "yarn vercel env pull --environment preview .env.local"
   },
   "dependencies": {
+    "@ai-sdk/google": "^2.0.23",
     "@ai-sdk/openai": "^2.0.52",
     "@aws-sdk/client-cloudwatch-logs": "^3.911.0",
     "@aws-sdk/client-eventbridge": "^3.911.0",
