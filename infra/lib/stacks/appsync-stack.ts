@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import { Duration, Expiration } from 'aws-cdk-lib';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import {
   AmplifyGraphqlApi,
@@ -13,10 +14,14 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { join } from 'node:path';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
-import { Duration } from 'aws-cdk-lib';
+import { AppSyncAuthorizationType } from 'aws-cdk-lib/aws-appsync';
 
 if (!process.env.APPSYNC_CERT_ARN) {
   throw new Error('Missing APPSYNC_CERT_ARN environment variable');
+}
+
+if (!process.env.EVENTS_CERT_ARN) {
+  throw new Error('Missing EVENTS_CERT_ARN environment variable');
 }
 
 interface AppSyncStackProps extends cdk.StackProps {
@@ -130,10 +135,63 @@ export class AppSyncStack extends cdk.Stack {
     // Create resolvers for Real-time Analytics
     this.createAnalyticsResolvers();
 
-    // Create Event API for publish/subscribe functionality
-    this.createEventAPI();
+    // Create Event API for publish/subscribe functionality using native AppSync EventApi
+    const eventApi = new appsync.EventApi(this, 'HealthcareRCMEventApi', {
+      apiName: `healthcare-rcm-events-${props.stageName}`,
+      domainName: {
+        domainName: isProd
+          ? 'events.have-foresight.app'
+          : 'staging.events.have-foresight.app',
+        certificate: certmanager.Certificate.fromCertificateArn(
+          this,
+          'HealthcareRCMEventApiCertificate',
+          process.env.EVENTS_CERT_ARN as string, // Use dedicated events certificate
+        ),
+      },
+      authorizationConfig: {
+        connectionAuthModeTypes: [AppSyncAuthorizationType.API_KEY, AppSyncAuthorizationType.OIDC],
+        authProviders: [
+          {
+            apiKeyConfig: {
+              expires: Expiration.after(Duration.days(365)),
+              description: 'Healthcare RCM Event API Key for development',
+            },
+            authorizationType: AppSyncAuthorizationType.API_KEY,
+          },
+          {
+            authorizationType: AppSyncAuthorizationType.OIDC,
+            openIdConnectConfig: {
+              oidcProvider: process.env.CLERK_ISSUER_URL!,
+              clientId: process.env.CLERK_PUBLISHABLE_KEY!,
+            },
+          },
+        ],
+      },
+      logConfig: {
+        fieldLogLevel: appsync.AppSyncFieldLogLevel.ALL,
+        retention: logs.RetentionDays.ONE_MONTH,
+        role: iam.Role.fromRoleName(
+          this,
+          'HealthcareRCMEventApiLogRole',
+          'HealthcareRCMEventApiLogRole',
+        ),
+      },
+    });
 
-    // Outputs
+    // Outputs for EventApi
+    new cdk.CfnOutput(this, 'EventApiUrl', {
+      value: eventApi.appSyncDomainName,
+      description: 'Event API URL for real-time events',
+      exportName: `RCM-EventApiUrl-${props.stageName}`,
+    });
+
+    new cdk.CfnOutput(this, 'EventApiId', {
+      value: eventApi.apiId,
+      description: 'Event API ID',
+      exportName: `RCM-EventApiId-${props.stageName}`,
+    });
+
+    // Outputs for GraphQL API
     new cdk.CfnOutput(this, 'GraphQLApiUrl', {
       value: this.graphqlApi.graphqlUrl,
       description: 'GraphQL API URL',
@@ -575,30 +633,32 @@ export class AppSyncStack extends cdk.Stack {
 
   private createEventAPI(): void {
     // Create Lambda function for event publishing
-    const eventPublisherFunction = new lambdaNodejs.NodejsFunction(this, 'EventPublisherFunction', {
-      functionName: `rcm-event-publisher-${this.stackName}`,
-      runtime: lambda.Runtime.NODEJS_22_X,
-      handler: 'handler',
-      entry: join(__dirname, '../functions/event-publisher.ts'),
-      environment: {
-        GRAPHQL_API_ID: this.graphqlApi.apiId,
-        GRAPHQL_ENDPOINT: this.graphqlApi.graphqlUrl,
-        STAGE_NAME: this.node.tryGetContext('stageName') || 'dev',
+    const eventPublisherFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'EventPublisherFunction',
+      {
+        functionName: `rcm-event-publisher-${this.stackName}`,
+        runtime: lambda.Runtime.NODEJS_22_X,
+        handler: 'handler',
+        entry: join(__dirname, '../functions/event-publisher.ts'),
+        environment: {
+          GRAPHQL_API_ID: this.graphqlApi.apiId,
+          GRAPHQL_ENDPOINT: this.graphqlApi.graphqlUrl,
+          STAGE_NAME: this.node.tryGetContext('stageName') || 'dev',
+        },
+        timeout: Duration.seconds(30),
+        memorySize: 256,
       },
-      timeout: Duration.seconds(30),
-      memorySize: 256,
-    });
+    );
 
     // Grant the Lambda function permission to invoke AppSync
-    eventPublisherFunction.addToRolePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: [
-        'appsync:GraphQL',
-      ],
-      resources: [
-        `${this.graphqlApi.resources.graphqlApi.arn}/*`,
-      ],
-    }));
+    eventPublisherFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['appsync:GraphQL'],
+        resources: [`${this.graphqlApi.resources.graphqlApi.arn}/*`],
+      }),
+    );
 
     // Create Lambda data source for event publishing
     const eventLambdaDataSource = this.graphqlApi.addLambdaDataSource(
@@ -607,7 +667,7 @@ export class AppSyncStack extends cdk.Stack {
       {
         name: 'EventLambdaDataSource',
         description: 'Lambda data source for healthcare RCM event publishing',
-      }
+      },
     );
 
     // Create event publishing mutation resolver

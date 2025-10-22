@@ -53,7 +53,7 @@ export class BackupStack extends cdk.Stack {
           new iam.PolicyStatement({
             effect: iam.Effect.DENY,
             principals: [new iam.AnyPrincipal()],
-            actions: ['backup:DeleteBackupVault', 'backup:DeleteBackupPlan', 'backup:DeleteRecoveryPoint'],
+            actions: ['backup:DeleteBackupVault', 'backup:DeleteRecoveryPoint'],
             resources: ['*'],
             conditions: {
               StringNotEquals: {
@@ -74,7 +74,7 @@ export class BackupStack extends cdk.Stack {
         // Daily backups for critical healthcare data
         new backup.BackupPlanRule({
           ruleName: 'DailyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 31 : 60), // 7 years for prod (HIPAA)
+          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 30 : 120), // 120 days for prod
           moveToColdStorageAfter: props.stageName === 'staging' ? cdk.Duration.days(30) : undefined,
           scheduleExpression: events.Schedule.cron({
             minute: '0',
@@ -98,7 +98,7 @@ export class BackupStack extends cdk.Stack {
         // Weekly backups for additional redundancy
         new backup.BackupPlanRule({
           ruleName: 'WeeklyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 91 : 63),
+          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 180 : 150),
           moveToColdStorageAfter: cdk.Duration.days(props.stageName === 'prod' ? 90 : 60),
           scheduleExpression: events.Schedule.cron({
             minute: '0',
@@ -114,7 +114,7 @@ export class BackupStack extends cdk.Stack {
         // Monthly backups for long-term retention
         new backup.BackupPlanRule({
           ruleName: 'MonthlyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 31 : 60),
+          deleteAfter: cdk.Duration.days(120),
           moveToColdStorageAfter: cdk.Duration.days(30),
           scheduleExpression: events.Schedule.cron({
             minute: '0',
