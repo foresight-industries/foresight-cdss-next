@@ -17,7 +17,8 @@
   },
   "dependencies": {
     "@aws-sdk/credential-providers": "^3.911.0",
-    "@foresight-cdss-next/db": "workspace:*"
+    "@foresight-cdss-next/db": "workspace:*",
+    "drizzle-orm": "^0.44.6"
   },
   "devDependencies": {
     "@types/node": "*",

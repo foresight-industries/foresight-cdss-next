@@ -6,8 +6,7 @@ const nextConfig: NextConfig = {
   reactCompiler: false,
   turbopack: {
     resolveAlias: {
-      "@": "src",
-      "@foresight-cdss-next/webhooks": path.join(__dirname, "../../packages/webhooks/src"),
+      "@": "src"
     },
   },
   experimental: {
