@@ -133,18 +133,18 @@ export const useRealtimeStore = create<RealtimeState>()((set, get) => ({
     console.log(`Triggering AppSync mutation ${mutationName}:`, variables);
 
     try {
-      const { graphqlClient, UPDATE_CLAIM_STATUS, CREATE_PATIENT, CREATE_PRIOR_AUTH } = await import('@/lib/graphql/appsync-client');
+      const { graphqlClient, UPDATE_CLAIM_STATUS, CREATE_PATIENT, CREATE_PRIOR_AUTH } = await import('@/lib/graphql/amplify-gql-client');
 
       let result;
       switch (mutationName) {
         case 'updateClaimStatus':
-          result = await graphqlClient.request(UPDATE_CLAIM_STATUS, { input: variables });
+          result = await graphqlClient.graphql({ query: UPDATE_CLAIM_STATUS, variables: { input: variables } });
           break;
         case 'createPatient':
-          result = await graphqlClient.request(CREATE_PATIENT, { input: variables });
+          result = await graphqlClient.graphql({ query: CREATE_PATIENT, variables: { input: variables } });
           break;
         case 'createPriorAuth':
-          result = await graphqlClient.request(CREATE_PRIOR_AUTH, { input: variables });
+          result = await graphqlClient.graphql({ query: CREATE_PRIOR_AUTH, variables: { input: variables } });
           break;
         default:
           throw new Error(`Unknown mutation: ${mutationName}`);
@@ -164,7 +164,7 @@ export const useRealtimeStore = create<RealtimeState>()((set, get) => ({
         }));
       }
 
-      return result;
+      return result as { data: any };
     } catch (error) {
       console.error(`❌ Failed to execute mutation ${mutationName}:`, error);
       throw error;

@@ -8,7 +8,7 @@ import {
   type ClaimStatusChangeEvent,
   type RealtimeMetrics,
   type Patient,
-} from '@/lib/graphql/appsync-client';
+} from '@/lib/graphql/amplify-gql-client';
 
 type EHRSyncStatus = Record<string, 'error' | 'syncing' | 'idle'>;
 
@@ -47,26 +47,36 @@ export function useAppSyncSubscriptions({
     try {
       // Claim status change subscription
       if (enableClaimUpdates) {
-        const claimSubscription = subscribeToClaimStatusChanges(
-          organizationId,
-          (event: ClaimStatusChangeEvent) => {
-            console.log('Received claim status change:', event);
+        let claimSubscription;
+        const handleSubToClaims = async () => {
+          claimSubscription = await subscribeToClaimStatusChanges(
+            organizationId,
+            (event: ClaimStatusChangeEvent) => {
+              console.log('Received claim status change:', event);
 
-            // Add to event history
-            addAppSyncEvent({
-              subscriptionName: 'onClaimStatusChange',
-              data: event,
-              timestamp: new Date(),
-              eventId: `claim_${event.claimId}_${Date.now()}`,
-              eventType: 'claim_update',
-            });
+              // Add to event history
+              addAppSyncEvent({
+                subscriptionName: 'onClaimStatusChange',
+                data: event,
+                timestamp: new Date(),
+                eventId: `claim_${event.claimId}_${Date.now()}`,
+                eventType: 'claim_update',
+              });
 
-            // Emit custom event for components to listen
-            globalThis.dispatchEvent(
-              new CustomEvent('claimStatusChange', { detail: event })
-            );
-          }
-        );
+              // Emit custom event for components to listen
+              globalThis.dispatchEvent(
+                new CustomEvent('claimStatusChange', { detail: event })
+              );
+            }
+          );
+        }
+
+        handleSubToClaims();
+
+        if (!claimSubscription) {
+          console.error('Failed to establish claim status change subscription');
+          return;
+        }
 
         subscriptionsRef.current.set('claimStatusChange', claimSubscription);
         addAppSyncSubscription('claimStatusChange', {
@@ -81,34 +91,45 @@ export function useAppSyncSubscriptions({
 
       // Real-time metrics subscription
       if (enableMetricsUpdates) {
-        const metricsSubscription = subscribeToMetricsUpdates(
-          organizationId,
-          (metrics: RealtimeMetrics) => {
-            console.log('Received metrics update:', metrics);
+        let metricsSubscription;
 
-            // Update local metrics store
-            updateRealtimeMetrics({
-              activePAs: metrics.activePAs,
-              pendingClaims: metrics.pendingClaims,
-              ehrSyncStatus: metrics.ehrSyncStatus as EHRSyncStatus,
-              healthLakeJobs: metrics.healthLakeJobs,
-            });
+        const handleSubToMetrics = async () => {
+          metricsSubscription = subscribeToMetricsUpdates(
+            organizationId,
+            (metrics: RealtimeMetrics) => {
+              console.log('Received metrics update:', metrics);
 
-            // Add to event history
-            addAppSyncEvent({
-              subscriptionName: 'onMetricsUpdate',
-              data: metrics,
-              timestamp: new Date(),
-              eventId: `metrics_${Date.now()}`,
-              eventType: 'healthlake_sync',
-            });
+              // Update local metrics store
+              updateRealtimeMetrics({
+                activePAs: metrics.activePAs,
+                pendingClaims: metrics.pendingClaims,
+                ehrSyncStatus: metrics.ehrSyncStatus as EHRSyncStatus,
+                healthLakeJobs: metrics.healthLakeJobs,
+              });
 
-            // Emit custom event
-            window.dispatchEvent(
-              new CustomEvent('metricsUpdate', { detail: metrics })
-            );
-          }
-        );
+              // Add to event history
+              addAppSyncEvent({
+                subscriptionName: 'onMetricsUpdate',
+                data: metrics,
+                timestamp: new Date(),
+                eventId: `metrics_${Date.now()}`,
+                eventType: 'healthlake_sync',
+              });
+
+              // Emit custom event
+              globalThis.dispatchEvent(
+                new CustomEvent('metricsUpdate', { detail: metrics })
+              );
+            }
+          );
+        }
+
+        handleSubToMetrics();
+
+        if (!metricsSubscription) {
+          console.error('Failed to establish metrics subscription');
+          return;
+        }
 
         subscriptionsRef.current.set('metricsUpdate', metricsSubscription);
         addAppSyncSubscription('metricsUpdate', {
@@ -123,26 +144,37 @@ export function useAppSyncSubscriptions({
 
       // New patients subscription
       if (enableNewPatients) {
-        const newPatientsSubscription = subscribeToNewPatients(
-          organizationId,
-          (patient: Patient) => {
-            console.log('Received new patient:', patient);
+        let newPatientsSubscription;
 
-            // Add to event history
-            addAppSyncEvent({
-              subscriptionName: 'onNewPatient',
-              data: patient,
-              timestamp: new Date(),
-              eventId: `patient_${patient.id}_${Date.now()}`,
-              eventType: 'user_presence',
-            });
+        const handleSubToNewPatientsSubscription = async () => {
+          newPatientsSubscription = subscribeToNewPatients(
+            organizationId,
+            (patient: Patient) => {
+              console.log('Received new patient:', patient);
 
-            // Emit custom event
-            window.dispatchEvent(
-              new CustomEvent('newPatient', { detail: patient })
-            );
-          }
-        );
+              // Add to event history
+              addAppSyncEvent({
+                subscriptionName: 'onNewPatient',
+                data: patient,
+                timestamp: new Date(),
+                eventId: `patient_${patient.id}_${Date.now()}`,
+                eventType: 'user_presence',
+              });
+
+              // Emit custom event
+              globalThis.dispatchEvent(
+                new CustomEvent('newPatient', { detail: patient })
+              );
+            }
+          );
+        }
+
+        handleSubToNewPatientsSubscription();
+
+        if (!newPatientsSubscription) {
+          console.error('Failed to establish new patients subscription');
+          return;
+        }
 
         subscriptionsRef.current.set('newPatients', newPatientsSubscription);
         addAppSyncSubscription('newPatients', {

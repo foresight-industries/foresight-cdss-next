@@ -1,11 +1,16 @@
 import * as cdk from 'aws-cdk-lib';
-import * as appsync from 'aws-cdk-lib/aws-appsync';
+import * as logs from 'aws-cdk-lib/aws-logs';
+import {
+  AmplifyGraphqlApi,
+  AmplifyGraphqlDefinition,
+} from '@aws-amplify/graphql-api-construct';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 import { join } from 'node:path';
-import { SchemaFile } from 'aws-cdk-lib/aws-appsync';
+import * as appsync from 'aws-cdk-lib/aws-appsync';
+import { Duration } from 'aws-cdk-lib';
 
 if (!process.env.APPSYNC_CERT_ARN) {
   throw new Error('Missing APPSYNC_CERT_ARN environment variable');
@@ -20,7 +25,7 @@ interface AppSyncStackProps extends cdk.StackProps {
 export class AppSyncStack extends cdk.Stack {
   public readonly certificate: certmanager.ICertificate;
   public readonly appsyncDomainName: appsync.CfnDomainName;
-  public readonly graphqlApi: appsync.GraphqlApi;
+  public readonly graphqlApi: AmplifyGraphqlApi;
   public readonly domainAssoc: appsync.CfnDomainNameApiAssociation;
   public readonly rdsDataSource: appsync.RdsDataSource;
 
@@ -29,9 +34,9 @@ export class AppSyncStack extends cdk.Stack {
 
     const isProd = props.stageName === 'prod';
 
-    this.certificate = cdk.aws_certificatemanager.Certificate.fromCertificateArn(
+    this.certificate = certmanager.Certificate.fromCertificateArn(
       this,
-      "3fef5cb9-7261-491c-86be-8f57de7a523b",
+      '21e5c51c-ff87-4657-b314-c1513558fea1',
       process.env.APPSYNC_CERT_ARN as string,
     );
 
@@ -40,45 +45,41 @@ export class AppSyncStack extends cdk.Stack {
       'AppsyncDomainName',
       {
         certificateArn: this.certificate.certificateArn,
-        domainName: isProd ? 'api.have-foresight.app' : 'staging.api.have-foresight.app',
-      }
+        domainName: isProd
+          ? 'api.have-foresight.app'
+          : 'staging.api.have-foresight.app',
+      },
     );
 
     // Read GraphQL schema
     const schemaPath = join(__dirname, '../graphql/schema.graphql');
 
     // Create AppSync GraphQL API
-    this.graphqlApi = new appsync.GraphqlApi(this, 'HealthcareRCMApi', {
-      name: `healthcare-rcm-api-${props.stageName}`,
-      definition: appsync.Definition.fromSchema(SchemaFile.fromAsset(schemaPath)),
-      authorizationConfig: {
-        defaultAuthorization: {
-          authorizationType: appsync.AuthorizationType.OIDC,
-          openIdConnectConfig: {
-            oidcProvider: process.env.CLERK_ISSUER_URL!,
-            clientId: process.env.CLERK_PUBLISHABLE_KEY!,
-          },
+    this.graphqlApi = new AmplifyGraphqlApi(this, 'HealthcareRCMApi', {
+      apiName: `healthcare-rcm-api-${props.stageName}`,
+      definition: AmplifyGraphqlDefinition.fromFiles(schemaPath),
+
+      authorizationModes: {
+        defaultAuthorizationMode: appsync.AuthorizationType.OIDC,
+        oidcConfig: {
+          oidcIssuerUrl: process.env.CLERK_ISSUER_URL!,
+          clientId: process.env.CLERK_PUBLISHABLE_KEY!,
+          oidcProviderName: 'clerk',
+          tokenExpiryFromIssue: Duration.minutes(10),
+          tokenExpiryFromAuth: Duration.minutes(10),
         },
-        additionalAuthorizationModes: [
-          {
-            // API Key for development/testing
-            authorizationType: appsync.AuthorizationType.API_KEY,
-            apiKeyConfig: {
-              expires: cdk.Expiration.after(cdk.Duration.days(365)),
-              description: 'Healthcare RCM API Key for development',
-            },
-          },
-          {
-            // IAM for server-side operations
-            authorizationType: appsync.AuthorizationType.IAM,
-          },
-        ],
+        apiKeyConfig: {
+          expires: Duration.days(365),
+          description: 'Healthcare RCM API Key for development',
+        },
+        iamConfig: {
+          enableIamAuthorizationMode: true,
+        },
       },
-      logConfig: {
-        retention: cdk.aws_logs.RetentionDays.ONE_MONTH,
+      logging: {
+        retention: logs.RetentionDays.ONE_MONTH,
         fieldLogLevel: appsync.FieldLogLevel.ALL,
       },
-      xrayEnabled: true,
     });
 
     this.domainAssoc = new appsync.CfnDomainNameApiAssociation(
@@ -86,11 +87,13 @@ export class AppSyncStack extends cdk.Stack {
       'ForesightCfnDomainNameApiAssociation',
       {
         apiId: this.graphqlApi.apiId,
-        domainName: isProd ? 'api.have-foresight.app' : 'staging.api.have-foresight.app',
-      }
+        domainName: isProd
+          ? 'api.have-foresight.app'
+          : 'staging.api.have-foresight.app',
+      },
     );
 
-//  Required to ensure the resources are created in order
+    //  Required to ensure the resources are created in order
     this.domainAssoc.addDependency(this.appsyncDomainName);
 
     // Create RDS Data Source for Aurora PostgreSQL
@@ -102,9 +105,8 @@ export class AppSyncStack extends cdk.Stack {
       {
         name: 'RCMDatabaseDataSource',
         description: 'Healthcare RCM PostgreSQL Aurora Database',
-      }
+      },
     );
-
 
     // Grant necessary permissions for AppSync to access RDS Data API
     // The RDS data source automatically creates the necessary IAM permissions

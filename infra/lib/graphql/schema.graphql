@@ -1,14 +1,9 @@
 # Healthcare RCM Platform GraphQL Schema for AWS AppSync
 
-directive @aws_subscribe(mutations: [String!]!) on FIELD_DEFINITION
+# AWS scalar types are automatically provided by Amplify, so we don't redeclare them
+# The following types are available: AWSDate, AWSDateTime, AWSTimestamp, AWSJSON, AWSEmail, AWSPhone, AWSURL, AWSIPAddress
 
-# Scalars
-scalar AWSDate
-scalar AWSDateTime
-scalar AWSTimestamp
-scalar AWSJSON
-scalar AWSEmail
-scalar AWSPhone
+# AWS directives are automatically provided by Amplify
 
 # Core Types
 type Patient {

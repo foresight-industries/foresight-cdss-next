@@ -1,14 +1,35 @@
-// stores/workQueueStore.ts
 import { create } from "zustand";
 import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import type { Tables } from "@/types/database.types";
 import type { WorkQueueFilters } from "./types";
+
+// Create a simplified interface to avoid deep type instantiation
+interface WorkQueueItem {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string | null;
+  priority: number | null;
+  queue_type: string;
+  entity_id: string;
+  entity_type: string;
+  team_id: string;
+  assigned_to: string | null;
+  assigned_at: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  due_date: string | null;
+  sla_deadline: string | null;
+  auto_escalate: boolean | null;
+  metadata: Record<string, unknown> | null;
+  created_at: string | null;
+  updated_at: string;
+}
 
 interface WorkQueueState {
   // Queue Management
-  currentQueue: Tables<"work_queue">[];
-  activeItem: Tables<"work_queue"> | null;
+  currentQueue: WorkQueueItem[];
+  activeItem: WorkQueueItem | null;
   filters: WorkQueueFilters;
 
   // Productivity Tracking
@@ -24,8 +45,8 @@ interface WorkQueueState {
   batchMode: boolean;
 
   // Actions
-  setCurrentQueue: (items: Tables<"work_queue">[]) => void;
-  setActiveItem: (item: Tables<"work_queue"> | null) => void;
+  setCurrentQueue: (items: WorkQueueItem[]) => void;
+  setActiveItem: (item: WorkQueueItem | null) => void;
   setFilters: (filters: WorkQueueFilters) => void;
 
   completeItem: (itemId: string, completionTime: number) => void;
@@ -77,7 +98,7 @@ export const useWorkQueueStore = create<WorkQueueState>()(
       completeItem: (itemId, completionTime) =>
         set((state) => {
           state.currentQueue = state.currentQueue.filter(
-            (item: Tables<"work_queue">) => item.id !== itemId
+            item => item.id !== itemId
           );
           state.sessionStats.itemsCompleted++;
 
@@ -115,7 +136,7 @@ export const useWorkQueueStore = create<WorkQueueState>()(
       selectAll: () =>
         set((state) => {
           state.selectedItems = new Set(
-            state.currentQueue.map((item: Tables<"work_queue">) => item.id)
+            state.currentQueue.map((item) => item.id)
           );
         }),
 
