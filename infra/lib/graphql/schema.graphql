@@ -1,5 +1,7 @@
 # Healthcare RCM Platform GraphQL Schema for AWS AppSync
 
+directive @aws_subscribe(mutations: [String!]!) on FIELD_DEFINITION
+
 # Scalars
 scalar AWSDate
 scalar AWSDateTime
@@ -22,7 +24,7 @@ type Patient {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   claims: [Claim!]!
   appointments: [Appointment!]!
@@ -43,7 +45,7 @@ type Claim {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   patient: Patient!
   provider: Provider!
@@ -65,7 +67,7 @@ type ClaimLine {
   status: String!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   claim: Claim!
 }
@@ -84,7 +86,7 @@ type PriorAuth {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   patient: Patient!
   provider: Provider!
@@ -126,7 +128,7 @@ type InsurancePolicy {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   patient: Patient!
   payer: Payer!
@@ -144,7 +146,7 @@ type Appointment {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   patient: Patient!
   provider: Provider!
@@ -161,7 +163,7 @@ type RemittanceAdvice {
   organizationId: ID!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   claim: Claim!
 }
@@ -176,7 +178,7 @@ type Organization {
   email: AWSEmail
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   members: [TeamMember!]!
   patients: [Patient!]!
@@ -191,7 +193,7 @@ type TeamMember {
   permissions: [String!]!
   createdAt: AWSDateTime!
   updatedAt: AWSDateTime!
-  
+
   # Relationships
   organization: Organization!
 }
@@ -214,31 +216,8 @@ type HealthLakeJob {
   updatedAt: AWSDateTime!
 }
 
-# Event Types for Subscriptions
-type ClaimStatusChangeEvent {
-  claimId: ID!
-  oldStatus: ClaimStatus!
-  newStatus: ClaimStatus!
-  timestamp: AWSDateTime!
-  organizationId: ID!
-}
-
-type PriorAuthStatusChangeEvent {
-  priorAuthId: ID!
-  oldStatus: PriorAuthStatus!
-  newStatus: PriorAuthStatus!
-  timestamp: AWSDateTime!
-  organizationId: ID!
-}
-
-type EHRSyncEvent {
-  connectionId: ID!
-  status: String!
-  recordsProcessed: Int!
-  errors: [String!]!
-  timestamp: AWSDateTime!
-  organizationId: ID!
-}
+# Subscription Types
+union MutationResult = Patient | Claim | PriorAuth
 
 # Enums
 enum Gender {
@@ -365,23 +344,23 @@ type Query {
   getPatient(id: ID!): Patient
   listPatientsByOrganization(organizationId: ID!, limit: Int, nextToken: String): PaginatedPatients
   searchPatients(organizationId: ID!, searchTerm: String!, limit: Int): [Patient!]!
-  
-  # Claim Queries  
+
+  # Claim Queries
   getClaim(id: ID!): Claim
   listClaimsByOrganization(organizationId: ID!, limit: Int, nextToken: String): PaginatedClaims
   listClaimsByPatient(patientId: ID!, limit: Int, nextToken: String): PaginatedClaims
   listClaimsByStatus(organizationId: ID!, status: ClaimStatus!, limit: Int, nextToken: String): PaginatedClaims
-  
+
   # Prior Auth Queries
   getPriorAuth(id: ID!): PriorAuth
   listPriorAuthsByOrganization(organizationId: ID!, limit: Int, nextToken: String): PaginatedPriorAuths
   listPriorAuthsByPatient(patientId: ID!, limit: Int, nextToken: String): PaginatedPriorAuths
   listPriorAuthsByStatus(organizationId: ID!, status: PriorAuthStatus!, limit: Int, nextToken: String): PaginatedPriorAuths
-  
+
   # Organization Queries
   getOrganization(id: ID!): Organization
   listTeamMembers(organizationId: ID!): [TeamMember!]!
-  
+
   # Analytics and Metrics
   getRealtimeMetrics(organizationId: ID!): RealtimeMetrics
 }
@@ -392,16 +371,16 @@ type Mutation {
   createPatient(input: CreatePatientInput!): Patient!
   updatePatient(input: UpdatePatientInput!): Patient!
   deletePatient(id: ID!): Boolean!
-  
+
   # Claim Mutations
   createClaim(input: CreateClaimInput!): Claim!
   updateClaimStatus(input: UpdateClaimStatusInput!): Claim!
   submitClaim(id: ID!): Claim!
-  
+
   # Prior Auth Mutations
   createPriorAuth(input: CreatePriorAuthInput!): PriorAuth!
   updatePriorAuthStatus(input: UpdatePriorAuthStatusInput!): PriorAuth!
-  
+
   # Bulk Operations
   batchUpdateClaimStatuses(claims: [UpdateClaimStatusInput!]!): [Claim!]!
   batchCreatePatients(patients: [CreatePatientInput!]!): [Patient!]!
@@ -409,29 +388,17 @@ type Mutation {
 
 # Subscription Operations for Real-time Updates
 type Subscription {
-  # Claim real-time updates
-  onClaimStatusChange(organizationId: ID!): ClaimStatusChangeEvent
-    @aws_subscribe(mutations: ["updateClaimStatus", "submitClaim"])
-  
-  # Prior Auth real-time updates  
-  onPriorAuthStatusChange(organizationId: ID!): PriorAuthStatusChangeEvent
-    @aws_subscribe(mutations: ["updatePriorAuthStatus"])
-  
-  # EHR Sync real-time updates
-  onEHRSyncUpdate(organizationId: ID!): EHRSyncEvent
-    @aws_subscribe(mutations: ["triggerEHRSync"])
-  
-  # Real-time metrics updates
-  onMetricsUpdate(organizationId: ID!): RealtimeMetrics
-    @aws_subscribe(mutations: ["updateRealtimeMetrics"])
-  
-  # New patient notifications
-  onNewPatient(organizationId: ID!): Patient
-    @aws_subscribe(mutations: ["createPatient"])
+  # Patient subscriptions
+  onPatientChange(organizationId: ID!): Patient
+    @aws_subscribe(mutations: ["createPatient", "updatePatient"])
     
-  # New claim notifications
-  onNewClaim(organizationId: ID!): Claim
-    @aws_subscribe(mutations: ["createClaim"])
+  # Claim subscriptions  
+  onClaimChange(organizationId: ID!): Claim
+    @aws_subscribe(mutations: ["createClaim", "updateClaimStatus", "submitClaim"])
+    
+  # Prior Auth subscriptions
+  onPriorAuthChange(organizationId: ID!): PriorAuth
+    @aws_subscribe(mutations: ["createPriorAuth", "updatePriorAuthStatus"])
 }
 
 # Pagination Types
