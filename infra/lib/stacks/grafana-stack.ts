@@ -120,41 +120,41 @@ export class GrafanaStack extends cdk.Stack {
     this.workspace = new grafana.CfnWorkspace(this, 'ForesightRCMGrafanaWorkspace', {
       name: `foresight-rcm-grafana-${props.stageName}`,
       description: `Foresight RCM monitoring and observability workspace for ${props.stageName}`,
-      
+
       // Account access type - use AWS SSO if available, otherwise IAM
       accountAccessType: 'CURRENT_ACCOUNT',
-      
+
       // Authentication providers
       authenticationProviders: ['AWS_SSO'], // Change to ['SAML'] if using SAML
-      
+
       // Permission type - use CUSTOMER_MANAGED for more control
       permissionType: 'CUSTOMER_MANAGED',
       roleArn: this.serviceRole.roleArn,
-      
+
       // Data sources to enable
       dataSources: [
         'CLOUDWATCH',
         'XRAY',
         'AMAZON_OPENSEARCH_SERVICE', // If you add OpenSearch later
       ],
-      
+
       // Notification destinations (optional)
       notificationDestinations: [
         'SNS', // For alerting via SNS
       ],
-      
+
       // Organization units (if using AWS SSO)
       organizationalUnits: [], // Add your org units if using AWS SSO
-      
+
       // Network access configuration for VPC (optional but recommended for HIPAA)
       vpcConfiguration: props.stageName === 'prod' ? {
         securityGroupIds: [], // Add your security groups
         subnetIds: [], // Add your private subnet IDs
       } : undefined,
-      
+
       // Grafana version
       grafanaVersion: '9.4', // Latest supported version
-      
+
       // Stack set name for multi-account (if needed)
       stackSetName: props.stageName === 'prod' ? `foresight-grafana-stackset-${props.stageName}` : undefined,
     });
@@ -174,13 +174,13 @@ export class GrafanaStack extends cdk.Stack {
     });
 
     // Outputs
-    new cdk.CfnOutput(this, 'GrafanaWorkspaceId', {
+    new cdk.CfnOutput(this, 'GrafanaWorkspaceIdOutput', {
       value: this.workspace.attrId,
       description: 'Grafana Workspace ID',
       exportName: `Foresight-Grafana-WorkspaceId-${props.stageName}`,
     });
 
-    new cdk.CfnOutput(this, 'GrafanaWorkspaceUrl', {
+    new cdk.CfnOutput(this, 'GrafanaWorkspaceUrlOutput', {
       value: `https://${this.workspace.attrEndpoint}`,
       description: 'Grafana Workspace URL',
       exportName: `Foresight-Grafana-Url-${props.stageName}`,
@@ -218,7 +218,7 @@ export class GrafanaStack extends cdk.Stack {
           'Replication Lag',
         ],
       },
-      
+
       // Application performance dashboard
       application: {
         name: 'RCM Application Performance',
@@ -232,7 +232,7 @@ export class GrafanaStack extends cdk.Stack {
           'User Session Metrics',
         ],
       },
-      
+
       // Batch processing dashboard
       batch: {
         name: 'RCM Batch Processing',
@@ -246,7 +246,7 @@ export class GrafanaStack extends cdk.Stack {
           'SLA Compliance',
         ],
       },
-      
+
       // Business metrics dashboard
       business: {
         name: 'RCM Business Metrics',
@@ -260,7 +260,7 @@ export class GrafanaStack extends cdk.Stack {
           'Compliance Audit Metrics',
         ],
       },
-      
+
       // Security and compliance dashboard
       security: {
         name: 'RCM Security & Compliance',

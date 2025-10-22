@@ -1,6 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 
 interface ApplicationStackProps extends cdk.StackProps {
@@ -13,27 +12,14 @@ export class ApplicationStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApplicationStackProps) {
     super(scope, id, props);
 
-    // Create Application in Systems Manager
-    const application = new ssm.CfnResourceDataSync(this, 'ForesightRCMApplication', {
-      syncName: `foresight-rcm-${props.stageName}`,
-      syncFormat: 'JSON',
-      syncType: 'SyncFromSource',
-      syncSource: {
-        sourceRegions: ['us-east-1'],
-        sourceType: 'SingleAccountMultiRegions',
-        includeFutureRegions: true
-      },
-      bucketName: `Foresight Revenue Cycle Management Platform - ${props.stageName}`,
-      bucketRegion: 'us-east-1',
-      kmsKeyArn: 'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012',
-    });
-
-    this.applicationArn = application.attrSyncName;
+    // Create Application using Resource Groups (simpler approach)
+    // The Resource Groups below will provide the application organization
+    this.applicationArn = `arn:aws:resource-groups:${cdk.Aws.REGION}:${cdk.Aws.ACCOUNT_ID}:group/foresight-rcm-resources-${props.stageName}`;
 
     // Create Resource Group for all RCM resources
     new resourcegroups.CfnGroup(this, 'ForesightRCMResourceGroup', {
       name: `foresight-rcm-resources-${props.stageName}`,
-      description: `All AWS resources for Foresight RCM ${props.stageName} environment`,
+      description: `All AWS resources for Foresight ${props.stageName} environment`,
       resourceQuery: {
         type: 'TAG_FILTERS_1_0',
         query: {
@@ -69,8 +55,8 @@ export class ApplicationStack extends cdk.Stack {
       { name: 'compute', description: 'Lambda functions and Batch processing' },
       { name: 'cache', description: 'ElastiCache Redis for session and data caching' },
       { name: 'api', description: 'AppSync GraphQL API and resolvers' },
-      { name: 'monitoring', description: 'CloudWatch, CloudTrail, and observability resources' },
-      { name: 'security', description: 'IAM roles, KMS keys, and security resources' },
+      { name: 'monitoring', description: 'CloudWatch CloudTrail and observability resources' },
+      { name: 'security', description: 'IAM roles KMS keys and security resources' },
     ];
 
     for (const component of components) {
@@ -113,6 +99,12 @@ export class ApplicationStack extends cdk.Stack {
         ],
       });
     }
+
+    // Add AWS Systems Manager Application Manager cost tracking tags
+    cdk.Tags.of(this).add('AppManagerCFNStackKey', `foresight-rcm-${props.stageName}`);
+    cdk.Tags.of(this).add('Project', 'ForesightRCM');
+    cdk.Tags.of(this).add('Environment', props.stageName);
+    cdk.Tags.of(this).add('Component', 'application');
 
     // Outputs
     new cdk.CfnOutput(this, 'ApplicationArn', {

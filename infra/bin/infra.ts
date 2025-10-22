@@ -18,6 +18,10 @@ import { AppSyncStack } from '../lib/stacks/appsync-stack';
 import { CloudTrailStack } from '../lib/stacks/cloudtrail-stack';
 import { BatchStack } from '../lib/stacks/batch-stack';
 import { ElastiCacheStack } from '../lib/stacks/elasticache-stack';
+import { ApplicationStack } from '../lib/stacks/application-stack';
+import { AppConfigStack } from '../lib/stacks/appconfig-stack';
+import { BackupStack } from '../lib/stacks/backup-stack';
+import { GrafanaStack } from '../lib/stacks/grafana-stack';
 
 const app = new cdk.App();
 
@@ -139,6 +143,34 @@ for (const envName of ['staging', 'prod']) {
     databaseSecret: database.cluster.secret!,
   });
 
+  // Application organization and resource groups
+  const application = new ApplicationStack(app, `RCM-Application-${envName}`, {
+    env,
+    stageName: envName,
+  });
+
+  // Feature flags and configuration management
+  const appConfig = new AppConfigStack(app, `RCM-AppConfig-${envName}`, {
+    env,
+    stageName: envName,
+  });
+
+  // Backup and disaster recovery for HIPAA compliance
+  const backup = new BackupStack(app, `RCM-Backup-${envName}`, {
+    env,
+    stageName: envName,
+    databaseCluster: database.cluster,
+    documentsBucket: storage.documentsBucket,
+    kmsKey: storage.encryptionKey,
+    alertTopicArn: alerting.alarmTopic.topicArn,
+  });
+
+  // AWS Managed Grafana for observability and monitoring
+  const grafana = new GrafanaStack(app, `RCM-Grafana-${envName}`, {
+    env,
+    stageName: envName,
+  });
+
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
     env,
     stageName: envName,
@@ -177,11 +209,31 @@ for (const envName of ['staging', 'prod']) {
   // Batch jobs can use ElastiCache for distributed locks and query caching
   batch.addDependency(elastiCache);
   // CloudTrail has no dependencies as it's account-wide infrastructure
+  
+  // New stack dependencies
+  // Application stack has no dependencies - it's organizational only
+  // AppConfig has no dependencies - it's configuration management
+  backup.addDependency(database);
+  backup.addDependency(storage);
+  backup.addDependency(alerting); // For SNS notifications
+  grafana.addDependency(alerting); // For monitoring integration
+  
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);
   monitoring.addDependency(queues);
   monitoring.addDependency(webhooks);
+
+  // Add AWS Systems Manager Application Manager cost tracking tags to all stacks
+  const allStacks = [
+    database, storage, medicalInfra, alerting, elastiCache, queues, api, workflows, 
+    security, documentProcessing, webhooks, appSync, cloudTrail, batch, application, 
+    appConfig, backup, grafana, monitoring
+  ];
+  
+  allStacks.forEach(stack => {
+    cdk.Tags.of(stack).add('AppManagerCFNStackKey', `foresight-rcm-${envName}`);
+  });
 
   // Configure S3 event notifications after both stacks are created
   // This avoids cyclic dependencies between storage and document processing

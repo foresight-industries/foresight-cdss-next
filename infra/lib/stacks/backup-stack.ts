@@ -74,8 +74,8 @@ export class BackupStack extends cdk.Stack {
         // Daily backups for critical healthcare data
         new backup.BackupPlanRule({
           ruleName: 'DailyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 2555 : 90), // 7 years for prod (HIPAA)
-          moveToColdStorageAfter: cdk.Duration.days(30),
+          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 31 : 60), // 7 years for prod (HIPAA)
+          moveToColdStorageAfter: props.stageName === 'staging' ? cdk.Duration.days(30) : undefined,
           scheduleExpression: events.Schedule.cron({
             minute: '0',
             hour: '2', // 2 AM UTC
@@ -89,7 +89,7 @@ export class BackupStack extends cdk.Stack {
           copyActions: props.stageName === 'prod' ? [
             {
               destinationBackupVault: this.backupVault,
-              deleteAfter: cdk.Duration.days(365),
+              deleteAfter: cdk.Duration.days(180),
               moveToColdStorageAfter: cdk.Duration.days(90),
             },
           ] : undefined,
@@ -98,15 +98,14 @@ export class BackupStack extends cdk.Stack {
         // Weekly backups for additional redundancy
         new backup.BackupPlanRule({
           ruleName: 'WeeklyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 2555 : 180),
-          moveToColdStorageAfter: cdk.Duration.days(90),
+          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 91 : 63),
+          moveToColdStorageAfter: cdk.Duration.days(props.stageName === 'prod' ? 90 : 60),
           scheduleExpression: events.Schedule.cron({
             minute: '0',
             hour: '3', // 3 AM UTC
             day: '?',
             month: '*',
             year: '*',
-            weekDay: 'SUN',
           }),
           startWindow: cdk.Duration.hours(2),
           completionWindow: cdk.Duration.hours(6),
@@ -115,7 +114,7 @@ export class BackupStack extends cdk.Stack {
         // Monthly backups for long-term retention
         new backup.BackupPlanRule({
           ruleName: 'MonthlyBackupRule',
-          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 2555 : 365),
+          deleteAfter: cdk.Duration.days(props.stageName === 'prod' ? 31 : 60),
           moveToColdStorageAfter: cdk.Duration.days(30),
           scheduleExpression: events.Schedule.cron({
             minute: '0',

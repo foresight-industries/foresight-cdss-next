@@ -80,135 +80,59 @@ export class AppConfigStack extends cdk.Stack {
       ],
     });
 
-    // Create initial feature flags configuration
-    new appconfig.CfnHostedConfigurationVersion(this, 'InitialFeatureFlags', {
+    // Create initial feature flags configuration using proper AppConfig Feature Flags format
+    const latestConfigProfile = new appconfig.CfnHostedConfigurationVersion(this, 'InitialFeatureFlags', {
       applicationId: this.application.ref,
       configurationProfileId: this.featureFlagsProfile.ref,
       contentType: 'application/json',
       content: JSON.stringify({
         flags: {
-          // UI/UX Feature Flags
           newDashboardUI: {
-            name: 'newDashboardUI',
-            description: 'Enable new dashboard user interface',
-            enabled: props.stageName === 'prod' ? false : true, // Enable in staging first
+            name: 'newDashboardUI'
           },
           darkModeSupport: {
-            name: 'darkModeSupport',
-            description: 'Enable dark mode toggle in UI',
-            enabled: true,
+            name: 'darkModeSupport'
           },
-          advancedFiltering: {
-            name: 'advancedFiltering',
-            description: 'Enable advanced filtering options in tables',
-            enabled: true,
-          },
-
-          // Healthcare-specific Feature Flags
           priorAuthWorkflow: {
-            name: 'priorAuthWorkflow',
-            description: 'Enable prior authorization workflow features',
-            enabled: props.stageName === 'prod' ? true : true,
+            name: 'priorAuthWorkflow'
           },
           claimStatusRealtime: {
-            name: 'claimStatusRealtime',
-            description: 'Enable real-time claim status updates via AppSync',
-            enabled: true,
+            name: 'claimStatusRealtime'
           },
           bulkClaimProcessing: {
-            name: 'bulkClaimProcessing',
-            description: 'Enable bulk claim processing via AWS Batch',
-            enabled: props.stageName === 'prod' ? true : false,
+            name: 'bulkClaimProcessing'
           },
-
-          // Integration Feature Flags
-          healthLakeIntegration: {
-            name: 'healthLakeIntegration',
-            description: 'Enable AWS HealthLake FHIR integration',
-            enabled: false, // Disabled by default, enable when ready
-          },
-          comprehendMedical: {
-            name: 'comprehendMedical',
-            description: 'Enable AWS Comprehend Medical for document processing',
-            enabled: props.stageName === 'prod' ? false : true,
-          },
-
-          // Performance Feature Flags
           elastiCacheCaching: {
-            name: 'elastiCacheCaching',
-            description: 'Enable ElastiCache for API response caching',
-            enabled: true,
+            name: 'elastiCacheCaching'
           },
           apiRateLimiting: {
-            name: 'apiRateLimiting',
-            description: 'Enable API rate limiting with Redis',
-            enabled: props.stageName === 'prod' ? true : false,
-          },
-
-          // Experimental Features
-          aiClaimReview: {
-            name: 'aiClaimReview',
-            description: 'Enable AI-powered claim review suggestions',
-            enabled: false,
-          },
-          patientPortalV2: {
-            name: 'patientPortalV2',
-            description: 'Enable new patient portal interface',
-            enabled: false,
-          },
+            name: 'apiRateLimiting'
+          }
         },
         values: {
-          // Feature flag values and configurations
           newDashboardUI: {
-            enabled: props.stageName === 'prod' ? false : true,
-            variant: 'modern', // 'classic' | 'modern' | 'minimal'
+            enabled: props.stageName !== 'prod'
           },
           darkModeSupport: {
-            enabled: true,
-            defaultTheme: 'light', // 'light' | 'dark' | 'system'
-          },
-          advancedFiltering: {
-            enabled: true,
-            maxFilters: 10,
+            enabled: true
           },
           priorAuthWorkflow: {
-            enabled: props.stageName === 'prod' ? true : true,
-            autoApprovalThreshold: 1000, // Amount threshold for auto-approval
+            enabled: true
           },
           claimStatusRealtime: {
-            enabled: true,
-            pollingIntervalMs: 5000,
+            enabled: true
           },
           bulkClaimProcessing: {
-            enabled: props.stageName === 'prod' ? true : false,
-            batchSize: 100,
-          },
-          healthLakeIntegration: {
-            enabled: false,
-            endpoint: '', // Will be configured when enabled
-          },
-          comprehendMedical: {
-            enabled: props.stageName === 'prod' ? false : true,
-            confidenceThreshold: 0.8,
+            enabled: props.stageName === 'prod'
           },
           elastiCacheCaching: {
-            enabled: true,
-            defaultTtlSeconds: 300,
+            enabled: true
           },
           apiRateLimiting: {
-            enabled: props.stageName === 'prod' ? true : false,
-            requestsPerMinute: 100,
-          },
-          aiClaimReview: {
-            enabled: false,
-            modelVersion: 'v1',
-          },
-          patientPortalV2: {
-            enabled: false,
-            rolloutPercentage: 0,
-          },
+            enabled: props.stageName === 'prod'
+          }
         },
-        version: '1',
+        version: '1'
       }),
       description: 'Initial feature flags configuration',
     });
@@ -219,49 +143,48 @@ export class AppConfigStack extends cdk.Stack {
       configurationProfileId: this.configurationProfile.ref,
       contentType: 'application/json',
       content: JSON.stringify({
-        ui: {
-          appName: 'Foresight RCM',
-          theme: {
-            primaryColor: '#2563eb',
-            secondaryColor: '#64748b',
-            accentColor: '#06b6d4',
+        flags: {
+          appName: {
+            name: 'appName'
           },
-          pagination: {
-            defaultPageSize: 25,
-            pageSizeOptions: [10, 25, 50, 100],
+          primaryColor: {
+            name: 'primaryColor'
           },
-          notifications: {
-            autoCloseDelay: 5000,
-            maxNotifications: 5,
+          defaultPageSize: {
+            name: 'defaultPageSize'
           },
+          apiTimeout: {
+            name: 'apiTimeout'
+          },
+          validationLevel: {
+            name: 'validationLevel'
+          }
         },
-        api: {
-          timeout: 30000,
-          retryAttempts: 3,
-          retryDelay: 1000,
+        values: {
+          appName: {
+            enabled: true,
+            value: 'Foresight RCM'
+          },
+          primaryColor: {
+            enabled: true,
+            value: '#2563eb'
+          },
+          defaultPageSize: {
+            enabled: true,
+            value: 25
+          },
+          apiTimeout: {
+            enabled: true,
+            value: 30000
+          },
+          validationLevel: {
+            enabled: true,
+            value: 'strict'
+          }
         },
-        healthcare: {
-          claimSubmission: {
-            autoSaveInterval: 30000,
-            validationLevel: 'strict', // 'loose' | 'normal' | 'strict'
-          },
-          priorAuth: {
-            reminderDays: [7, 3, 1], // Days before expiration to send reminders
-            autoRenewalDays: 30,
-          },
-        },
-        integrations: {
-          redis: {
-            sessionTimeout: 3600,
-            cachePrefix: 'foresight:',
-          },
-          database: {
-            connectionTimeout: 10000,
-            queryTimeout: 30000,
-          },
-        },
+        version: '1'
       }),
-      description: 'Initial application configuration',
+      description: 'Initial RCM application configuration',
     });
 
     // Create deployment strategy
@@ -315,7 +238,7 @@ export class AppConfigStack extends cdk.Stack {
       functionName: `foresight-appconfig-retrieval-${props.stageName}`,
       runtime: lambda.Runtime.NODEJS_18_X,
       handler: 'handler',
-      entry: join(__dirname, '../lambda/appconfig-retrieval.ts'),
+      entry: join(__dirname, '../functions/appconfig-retrieval.ts'),
       role: this.retrievalRole,
       environment: {
         APPCONFIG_APPLICATION_ID: this.application.ref,
