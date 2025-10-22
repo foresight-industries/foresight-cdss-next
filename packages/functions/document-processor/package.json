@@ -1,19 +1,30 @@
 {
-  "name": "document-processor",
+  "name": "@foresight-cdss-next/functions-document-processor",
   "version": "1.0.0",
   "description": "Lambda function for processing documents with Textract",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "type": "commonjs",
+  "scripts": {
+    "build": "tsc",
+    "build:functions": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
+    "test": "echo 'No tests specified'"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.908.0",
     "@aws-sdk/client-s3": "^3.908.0",
     "@aws-sdk/client-textract": "^3.908.0",
-    "@foresight-cdss-next/db": "*",
-    "drizzle-orm": "^0.44.6"
+    "@foresight-cdss-next/db": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
-    "@types/node": "^24.7.2",
-    "typescript": "~5.8.2"
+    "@types/node": "*",
+    "typescript": "*"
   }
 }

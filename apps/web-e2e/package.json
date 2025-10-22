@@ -2,9 +2,13 @@
   "name": "@foresight-cdss-next/web-e2e",
   "version": "0.0.1",
   "private": true,
-  "nx": {
-    "implicitDependencies": [
-      "@foresight-cdss-next/web"
-    ]
+  "scripts": {
+    "build": "echo 'No build needed for e2e tests'",
+    "test": "cypress run",
+    "test:watch": "cypress open",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "cypress": "*"
   }
 }

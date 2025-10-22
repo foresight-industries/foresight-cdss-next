@@ -382,7 +382,7 @@ function generateEncounterUpdates(
 
     // Secondary diagnoses - combine additional codes/names
     if (!currentEncounter.secondaryDiagnoses || !settings.onlyPopulateEmptyFields) {
-      const secondaryDiagnoses = [];
+      const secondaryDiagnoses: string[] = [];
 
       // Add additional ICD-10 codes
       if (entities.icd10Codes.length > 1) {

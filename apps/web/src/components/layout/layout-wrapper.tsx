@@ -35,7 +35,7 @@ export function LayoutWrapper({ children }: Readonly<{ children: ReactNode }>) {
         {!isAuthPage ? (
           <div className="flex h-screen">
             {/* Sidebar Skeleton */}
-            <div className="w-64 bg-white border-r border-gray-200 p-4">
+            <div className="w-64 bg-sidebar border-r border-border p-4">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-2.5">
                   <Skeleton className="w-8 h-8 rounded-lg" />

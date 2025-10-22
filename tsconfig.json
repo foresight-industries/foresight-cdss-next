@@ -4,16 +4,38 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/web-e2e"
+      "path": "./packages/db"
+    },
+    {
+      "path": "./packages/webhooks"
+    },
+    {
+      "path": "./packages/functions/api"
+    },
+    {
+      "path": "./packages/functions/auth"
+    },
+    {
+      "path": "./packages/functions/document-processor"
+    },
+    {
+      "path": "./packages/functions/workers"
     },
     {
       "path": "./apps/web"
+    },
+    {
+      "path": "./apps/web-e2e"
     },
     {
       "path": "./infra"
     }
   ],
   "exclude": [
-    "supabase/functions/**/*"
+    "supabase/functions/**/*",
+    "node_modules",
+    ".next",
+    "dist",
+    "coverage"
   ]
 }

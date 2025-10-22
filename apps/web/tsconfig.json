@@ -15,6 +15,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "incremental": true,
+    "composite": false,
     "plugins": [
       {
         "name": "next"
@@ -56,5 +57,13 @@
     "eslint.config.cjs",
     "eslint.config.mjs",
     "../../supabase/functions/**/*"
+  ],
+  "references": [
+    {
+      "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/webhooks"
+    }
   ]
 }

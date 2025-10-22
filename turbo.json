@@ -1,43 +1,149 @@
 {
-  "$schema": "https://turborepo.com/schema.json",
-  "aliases": {
-    "start": "apps/web/start",
-    "build": "apps/web/build",
-    "dev": "apps/web/dev",
-    "lint": "apps/web/lint",
-    "test": "apps/web/test",
-    "typecheck": "apps/web/typecheck",
-    "components": "apps/web/components",
-    "hooks": "apps/web/hooks",
-    "lib": "apps/web/lib",
-    "pages": "apps/web/pages",
-    "public": "apps/web/public",
-    "styles": "apps/web/styles",
-    "utils": "apps/web/utils",
-    "vercel": "apps/web/vercel",
-    "vercel:env:pull": "apps/web/vercel:env:pull",
-    "vercel:env:pull-dev": "apps/web/vercel:env:pull-dev"
-  },
-  "rsc": true,
-  "style": "default",
-  "tailwind": {
-    "config": "",
-    "css": "apps/web/src/app/global.css",
-    "baseColor": "neutral",
-    "cssVariables": true,
-    "prefix": ""
-  },
+  "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        ".vercel/**",
+        "!.vercel/cache/**",
+        "tsconfig.tsbuildinfo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ]
     },
-    "check-types": {
-      "dependsOn": ["^check-types"]
+    "build:functions": {
+      "dependsOn": ["^build"],
+      "outputs": [
+        "dist/**",
+        "*.js",
+        "*.d.ts",
+        "tsconfig.tsbuildinfo"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ]
     },
     "dev": {
-      "persistent": true,
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "jest.config.*",
+        "vitest.config.*",
+        ".env*"
+      ]
+    },
+    "test:watch": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^build"],
+      "outputs": ["eslint-report.json"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".eslintrc*",
+        "eslint.config.*"
+      ]
+    },
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": ["eslint-report.json"]
+    },
+    "check-types": {
+      "dependsOn": ["^build"],
+      "outputs": ["tsconfig.tsbuildinfo"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "tsconfig*.json"
+      ]
+    },
+    "clean": {
       "cache": false
+    },
+    "db:generate": {
+      "dependsOn": ["^build"],
+      "outputs": ["src/schema.ts", "drizzle/**"],
+      "inputs": [
+        "drizzle.config.*",
+        ".env*"
+      ]
+    },
+    "db:push": {
+      "dependsOn": ["db:generate"],
+      "cache": false,
+      "inputs": [
+        "drizzle.config.*",
+        "src/schema.ts",
+        ".env*"
+      ]
+    },
+    "db:migrate": {
+      "dependsOn": ["^build", "db:generate"],
+      "cache": false,
+      "inputs": [
+        "drizzle.config.*",
+        "migrations/**",
+        ".env*"
+      ]
+    },
+    "db:studio": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    },
+    "format": {
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".prettierrc*",
+        "prettier.config.*"
+      ]
+    },
+    "format:check": {
+      "outputs": [],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".prettierrc*",
+        "prettier.config.*"
+      ]
+    },
+    "test:e2e": {
+      "dependsOn": ["@foresight-cdss-next/web#build"],
+      "cache": false,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "cypress.config.*",
+        ".env*"
+      ]
     }
-  }
+  },
+  "globalDependencies": [
+    ".env*",
+    "turbo.json",
+    "package.json",
+    "tsconfig.json"
+  ],
+  "globalEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "DATABASE_URL",
+    "AWS_REGION",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY"
+  ]
 }

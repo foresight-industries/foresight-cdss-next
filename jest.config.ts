@@ -1,6 +1,12 @@
 import type { Config } from 'jest';
-import { getJestProjectsAsync } from '@nx/jest';
 
 export default async (): Promise<Config> => ({
-  projects: await getJestProjectsAsync(),
+  projects: [
+    {
+      displayName: '@foresight-cdss-next/web',
+      moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
+      coverageDirectory: '../../coverage/apps/web',
+      testEnvironment: 'jsdom',
+    },
+  ],
 });

@@ -1,82 +1,209 @@
-# ForesightCdssNext
+# Foresight CDSS Next
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+A modern RCM automation system built with Next.js and Turborepo for healthcare prior authorization & claim management.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+## 🏗️ Architecture
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/next?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+This is a monorepo managed by [Turborepo](https://turbo.build) containing:
 
-## Finish your CI setup
+### Apps
+- **`apps/web`** - Next.js 15 application with React 19, Clerk authentication, and team-based routing
+- **`apps/web-e2e`** - Cypress end-to-end testing suite
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/kVaNpdMUK6)
+### Packages
+- **`packages/db`** - Drizzle ORM database schema and utilities for PostgreSQL
+- **`packages/webhooks`** - Shared webhook schemas and utilities
+- **`packages/functions/*`** - AWS Lambda functions for various services:
+  - `api` - API endpoints
+  - `batch-job` - Batch processing jobs
+  - `bulk-processor` - Bulk data processing
+  - `document-processor` - Document processing pipeline
+  - `workers` - Background worker functions
 
+### Infrastructure
+- **`infra/`** - AWS CDK infrastructure as code
 
-## Run tasks
+## 🚀 Quick Start
 
-To run the dev server for your app, use:
+### Prerequisites
+- Node.js 22+
+- Yarn package manager
+- PostgreSQL database
+- AWS credentials (for deployment)
 
-```sh
-npx nx dev foresight-cdss-next
+### Installation
+
+```bash
+# Clone the repository
+git clone <repository-url>
+cd foresight-cdss-next
+
+# Install dependencies
+yarn install
+
+# Build all packages
+yarn build
 ```
 
-To create a production bundle:
+### Development
 
-```sh
-npx nx build foresight-cdss-next
+```bash
+# Start development server for web app
+yarn dev
+
+# Run specific app
+yarn turbo dev --filter=@foresight-cdss-next/web
+
+# Run all tests
+yarn test
+
+# Run type checking
+yarn check-types
+
+# Run linting
+yarn lint
 ```
 
-To see all available targets to run for a project, run:
+## 📦 Tech Stack
 
-```sh
-npx nx show project foresight-cdss-next
+### Frontend
+- **Next.js 15** - React framework with App Router
+- **React 19** - UI library
+- **TypeScript** - Type safety
+- **Tailwind CSS 4** - Styling with design system
+- **Radix UI** - Accessible component primitives
+- **Clerk** - Authentication and user management
+- **Tanstack Query** - Server state management
+- **Zustand** - Client state management
+
+### Backend
+- **Drizzle ORM** - Type-safe database operations
+- **PostgreSQL** - Primary database
+- **AWS Lambda** - Serverless functions
+- **AWS CDK** - Infrastructure as code
+- **Redis** - Caching layer
+
+### Development Tools
+- **Turborepo** - Monorepo build system
+- **ESLint** - Code linting
+- **Prettier** - Code formatting
+- **Jest** - Unit testing
+- **Cypress** - E2E testing
+- **Sentry** - Error monitoring
+
+## 🏃‍♂️ Available Scripts
+
+### Root Level Commands
+```bash
+yarn build          # Build all packages and apps
+yarn dev            # Start development servers
+yarn test           # Run all tests
+yarn lint           # Lint all packages
+yarn format         # Format code with Prettier
+yarn clean          # Clean all build artifacts
+yarn check-types    # Run TypeScript type checking
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/next:app demo
+### Database Commands
+```bash
+yarn db:generate    # Generate database schema
+yarn db:push        # Push schema to database
+yarn db:migrate     # Run database migrations
+yarn db:studio      # Open Drizzle Studio
+yarn db:reset       # Reset database (development only)
 ```
 
-To generate a new library, use:
-
-```sh
-npx nx g @nx/react:lib mylib
+### Package-Specific Commands
+```bash
+# Run commands for specific packages
+yarn turbo build --filter=@foresight-cdss-next/web
+yarn turbo test --filter=@foresight-cdss-next/db
 ```
 
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
+## 🔧 Configuration
 
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Environment Variables
+Create `.env.local` files in the appropriate packages:
 
+```bash
+# Required for web app
+DATABASE_URL=postgresql://...
+CLERK_SECRET_KEY=...
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=...
+AWS_REGION=us-east-1
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+```
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Database Setup
+1. Set up PostgreSQL database
+2. Configure `DATABASE_URL` in environment variables
+3. Run migrations: `yarn db:migrate`
+4. Seed data: `yarn db:seed`
 
-## Install Nx Console
+## 📁 Project Structure
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+```
+foresight-cdss-next/
+├── apps/
+│   ├── web/                    # Next.js application
+│   │   ├── src/
+│   │   │   ├── app/           # App Router pages
+│   │   │   ├── components/    # Reusable components
+│   │   │   ├── lib/          # Utilities and configurations
+│   │   │   └── middleware.ts  # Next.js middleware
+│   │   └── package.json
+│   └── web-e2e/              # Cypress E2E tests
+├── packages/
+│   ├── db/                   # Database schema and utilities
+│   ├── webhooks/            # Webhook schemas
+│   └── functions/           # Lambda functions
+├── infra/                   # AWS CDK infrastructure
+├── turbo.json              # Turborepo configuration
+└── package.json           # Root workspace configuration
+```
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 🚦 CI/CD
 
-## Useful links
+The project uses Turborepo for efficient builds and caching:
 
-Learn more:
+- **Build Pipeline**: Builds are optimized with dependency graphs
+- **Caching**: Remote caching for faster builds
+- **Type Safety**: All packages are type-checked
+- **Testing**: Unit and E2E tests run in parallel
+- **Linting**: Code quality enforced across all packages
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/next?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+## 🔒 Security
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+- **Authentication**: Clerk handles user authentication and session management
+- **Authorization**: Team-based access control with middleware
+- **Database**: Parameterized queries prevent SQL injection
+- **Environment**: Secrets managed through environment variables
+- **Monitoring**: Sentry integration for error tracking
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Make changes and add tests
+4. Run tests: `yarn test`
+5. Run type checking: `yarn check-types`
+6. Run linting: `yarn lint`
+7. Commit changes: `git commit -m 'Add your feature'`
+8. Push to branch: `git push origin feature/your-feature`
+9. Create a Pull Request
+
+## 📝 License
+
+This project is proprietary and confidential.
+
+## 🆘 Support
+
+For support and questions:
+- Check the documentation in each package's README
+- Review the codebase structure and comments
+- Contact the development team
+
+---
+
+Built with ❤️ using Turborepo, Next.js, and modern web technologies.

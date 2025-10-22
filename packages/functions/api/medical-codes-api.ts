@@ -1,11 +1,21 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { sql } from 'drizzle-orm';
 
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+
+if (!process.env.DATABASE_NAME) {
+  throw new Error('DATABASE_NAME is not defined');
+}
+
+if (!process.env.DATABASE_SECRET_ARN) {
+  throw new Error('DATABASE_SECRET_ARN is not defined');
+}
+
+if (!process.env.DATABASE_CLUSTER_ARN) {
+  throw new Error('DATABASE_CLUSTER_ARN is not defined');
+}
 
 const db = drizzle(rdsClient, {
   database: process.env.DATABASE_NAME,

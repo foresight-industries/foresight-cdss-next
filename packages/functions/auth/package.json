@@ -1,16 +1,26 @@
 {
-  "name": "rcm-auth-functions",
+  "name": "@foresight-cdss-next/functions-auth",
   "version": "1.0.0",
-  "description": "RCM authentication Lambda functions",
-  "main": "index.js",
+  "description": "Authentication Lambda functions",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "echo 'Build complete'",
+    "build": "tsc",
+    "build:functions": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "check-types": "tsc --noEmit",
     "test": "echo 'No tests specified'"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@clerk/express": "^1.7.39"
+    "@clerk/express": "^1.7.39",
+    "@foresight-cdss-next/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "*",
+    "typescript": "*"
   }
 }
