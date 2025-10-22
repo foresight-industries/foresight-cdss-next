@@ -6,23 +6,19 @@
     "moduleResolution": "bundler",
     "lib": ["ES2022"],
     "outDir": "./dist",
-    "rootDir": ".",
+    "rootDir": "./src",
     "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "emitDeclarationOnly": false,
     "incremental": true,
-    "tsBuildInfoFile": "./tsconfig.tsbuildinfo",
-    "customConditions": null
+    "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
   "include": [
-    "**/*.ts",
-    "**/*.js"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist"
-  ],
-  "references": [
-    {
-      "path": "../../db"
-    }
   ]
 }

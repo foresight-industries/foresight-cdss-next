@@ -10,7 +10,7 @@ import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { insurancePolicies, payers } from '@foresight-cdss-next/db/src/schema';
 import { eq, and } from 'drizzle-orm';
-import { validateDocument, quickValidateDocument } from '../shared/rekognition-validator';
+import { validateDocument, quickValidateDocument } from '../shared';
 
 const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });

@@ -10,10 +10,11 @@ import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { documents } from '@foresight-cdss-next/db/src/schema';
 import { eq } from 'drizzle-orm';
-import { quickValidateDocument } from '../shared/rekognition-validator';
 
-const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
-const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
+const { quickValidateDocument } = require('@foresight-cdss-next/functions-lambda-shared');
+
+const textractClient = new TextractClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
 
 if (!process.env.DATABASE_NAME) {
   throw new Error('DATABASE_NAME is not defined');
@@ -60,13 +61,13 @@ export const handler: S3Handler = async (event: S3Event) => {
       // Step 1: Quick validation with Rekognition
       console.log('Performing quick document validation...');
       const validationResult = await quickValidateDocument(bucket, key);
-      
+
       if (!validationResult.isValid) {
         console.warn(`Document validation failed for ${key}: ${validationResult.reason}`);
         await updateDocumentStatus(documentId, 'failed', `Document validation failed: ${validationResult.reason}`);
         continue; // Skip to next document
       }
-      
+
       console.log('Document validation passed, proceeding with Textract...');
 
       // Step 2: Determine if we need full analysis or just text detection

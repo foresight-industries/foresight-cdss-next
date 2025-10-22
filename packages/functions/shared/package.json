@@ -5,6 +5,16 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "commonjs",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js"
+    },
+    "./rekognition-validator": {
+      "types": "./dist/rekognition-validator.d.ts",
+      "require": "./dist/rekognition-validator.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "build:functions": "tsc",

@@ -1,5 +1,7 @@
 import { SecretsManagerClient, UpdateSecretCommand, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import { RDSDataClient, ExecuteStatementCommand, BeginTransactionCommand, CommitTransactionCommand, RollbackTransactionCommand } from '@aws-sdk/client-rds-data';
+import { EventBridgeClient, PutEventsCommand } from '@aws-sdk/client-eventbridge';
+import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import * as crypto from 'node:crypto';
 
 interface RotationConfig {
@@ -7,6 +9,9 @@ interface RotationConfig {
   databaseClusterArn: string;
   databaseSecretArn: string;
   databaseName: string;
+  eventBusName?: string;
+  cleanupQueueUrl?: string;
+  gracePeriodHours?: number;
 }
 
 interface WebhookSecretData {
@@ -24,16 +29,18 @@ interface WebhookSecretData {
 export class WebhookSecretRotationManager {
   private readonly secretsClient: SecretsManagerClient;
   private readonly rdsClient: RDSDataClient;
+  private readonly eventBridgeClient: EventBridgeClient;
+  private readonly sqsClient: SQSClient;
   private readonly config: RotationConfig;
 
   constructor(config: RotationConfig) {
     this.config = config;
-    this.secretsClient = new SecretsManagerClient({
-      region: config.region || process.env.AWS_REGION || 'us-east-1',
-    });
-    this.rdsClient = new RDSDataClient({
-      region: config.region || process.env.AWS_REGION || 'us-east-1',
-    });
+    const region = config.region || process.env.AWS_REGION || 'us-east-1';
+    
+    this.secretsClient = new SecretsManagerClient({ region });
+    this.rdsClient = new RDSDataClient({ region });
+    this.eventBridgeClient = new EventBridgeClient({ region });
+    this.sqsClient = new SQSClient({ region });
   }
 
   /**
@@ -373,15 +380,127 @@ export class WebhookSecretRotationManager {
    * Schedule cleanup of old secret after grace period
    */
   private async scheduleSecretCleanup(secretId: string): Promise<void> {
-    // In a production environment, you would schedule this with EventBridge or similar
-    // For now, we'll just log the intention
-    console.log(`Scheduled cleanup for old secret ${secretId} after grace period`);
+    const gracePeriodHours = this.config.gracePeriodHours || 24;
+    const cleanupTime = new Date();
+    cleanupTime.setHours(cleanupTime.getHours() + gracePeriodHours);
 
-    // TODO: Implement actual scheduling mechanism
-    // This could be done with:
-    // - EventBridge scheduled rule
-    // - Lambda with delayed execution
-    // - SQS with delay
+    console.log(`Scheduling cleanup for secret ${secretId} at ${cleanupTime.toISOString()}`);
+
+    try {
+      // Primary approach: EventBridge scheduled event
+      if (this.config.eventBusName) {
+        await this.scheduleViaEventBridge(secretId, cleanupTime);
+        return;
+      }
+
+      // Fallback approach: SQS with delayed delivery
+      if (this.config.cleanupQueueUrl) {
+        await this.scheduleViaSQS(secretId, gracePeriodHours);
+        return;
+      }
+
+      // Last resort: Log for manual cleanup
+      console.warn(`No scheduling mechanism configured. Manual cleanup required for secret ${secretId} after ${cleanupTime.toISOString()}`);
+      
+    } catch (error) {
+      console.error(`Failed to schedule cleanup for secret ${secretId}:`, error);
+      // Don't throw - cleanup scheduling is not critical to rotation success
+    }
+  }
+
+  /**
+   * Schedule cleanup via EventBridge (preferred method)
+   */
+  private async scheduleViaEventBridge(secretId: string, cleanupTime: Date): Promise<void> {
+    const eventDetail = {
+      action: 'cleanup-secret',
+      secretId,
+      scheduledFor: cleanupTime.toISOString(),
+      source: 'webhook-secret-rotation',
+    };
+
+    await this.eventBridgeClient.send(new PutEventsCommand({
+      Entries: [
+        {
+          Source: 'webhook.secret-rotation',
+          DetailType: 'Secret Cleanup Scheduled',
+          Detail: JSON.stringify(eventDetail),
+          EventBusName: this.config.eventBusName,
+          // EventBridge rules can be configured to trigger at the scheduled time
+          Time: new Date(), // Immediate delivery, rule handles scheduling
+        },
+      ],
+    }));
+
+    console.log(`Scheduled EventBridge event for secret cleanup: ${secretId}`);
+  }
+
+  /**
+   * Schedule cleanup via SQS with delay (fallback method)
+   */
+  private async scheduleViaSQS(secretId: string, gracePeriodHours: number): Promise<void> {
+    const delaySeconds = gracePeriodHours * 3600; // Convert hours to seconds
+    const maxSqsDelay = 900; // SQS max delay is 15 minutes
+
+    if (delaySeconds <= maxSqsDelay) {
+      // Direct SQS delay
+      await this.sqsClient.send(new SendMessageCommand({
+        QueueUrl: this.config.cleanupQueueUrl!,
+        MessageBody: JSON.stringify({
+          action: 'cleanup-secret',
+          secretId,
+          scheduledFor: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+        }),
+        DelaySeconds: delaySeconds,
+      }));
+      
+      console.log(`Scheduled SQS message for secret cleanup: ${secretId} (delay: ${delaySeconds}s)`);
+    } else {
+      // For longer delays, send immediate message with future timestamp
+      // Consumer should check timestamp before processing
+      await this.sqsClient.send(new SendMessageCommand({
+        QueueUrl: this.config.cleanupQueueUrl!,
+        MessageBody: JSON.stringify({
+          action: 'cleanup-secret',
+          secretId,
+          scheduledFor: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+          processAfter: new Date(Date.now() + delaySeconds * 1000).toISOString(),
+        }),
+      }));
+      
+      console.log(`Scheduled SQS message for secret cleanup: ${secretId} (process after: ${new Date(Date.now() + delaySeconds * 1000).toISOString()})`);
+    }
+  }
+
+  /**
+   * Process cleanup event (to be called by EventBridge or SQS consumer)
+   */
+  async processSecretCleanup(secretId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Get current secret data to check if it still has a previousKey
+      const secretData = await this.getSecretValue(secretId);
+      
+      if (!secretData.previousKey) {
+        console.log(`Secret ${secretId} has no previousKey to clean up`);
+        return { success: true };
+      }
+
+      // Remove the previousKey from the secret
+      const cleanedSecretData: WebhookSecretData = {
+        ...secretData,
+        previousKey: undefined,
+      };
+
+      await this.updateExistingSecret(secretId, cleanedSecretData);
+      
+      console.log(`Successfully cleaned up previousKey for secret ${secretId}`);
+      return { success: true };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`Failed to cleanup secret ${secretId}:`, error);
+      return { success: false, error: errorMessage };
+    }
   }
 }
 
@@ -396,12 +515,18 @@ export async function handleSecretRotation(event: any): Promise<any> {
     databaseClusterArn,
     databaseSecretArn,
     databaseName,
+    eventBusName,
+    cleanupQueueUrl,
+    gracePeriodHours,
   } = event;
 
   const rotationManager = new WebhookSecretRotationManager({
     databaseClusterArn,
     databaseSecretArn,
     databaseName,
+    eventBusName,
+    cleanupQueueUrl,
+    gracePeriodHours,
   });
 
   if (webhookConfigId) {
@@ -413,4 +538,28 @@ export async function handleSecretRotation(event: any): Promise<any> {
   } else {
     throw new Error('Either webhookConfigId or organizationId must be provided');
   }
+}
+
+/**
+ * Lambda function handler for secret cleanup events (EventBridge/SQS)
+ */
+export async function handleSecretCleanup(event: any): Promise<any> {
+  const {
+    secretId,
+    databaseClusterArn,
+    databaseSecretArn,
+    databaseName,
+  } = event.detail || event; // Support both EventBridge and direct invocation
+
+  if (!secretId) {
+    throw new Error('secretId is required for cleanup operation');
+  }
+
+  const rotationManager = new WebhookSecretRotationManager({
+    databaseClusterArn,
+    databaseSecretArn,
+    databaseName,
+  });
+
+  return await rotationManager.processSecretCleanup(secretId);
 }
