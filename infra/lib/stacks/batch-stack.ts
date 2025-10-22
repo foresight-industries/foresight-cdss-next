@@ -167,7 +167,6 @@ export class BatchStack extends cdk.Stack {
     this.batchComputeEnvironment = new batch.CfnComputeEnvironment(this, 'BatchComputeEnvironment', {
       type: 'MANAGED',
       state: 'ENABLED',
-      computeEnvironmentName: `foresight-compute-env-${props.stageName}`,
       serviceRole: batchServiceRole.roleArn,
       computeResources: {
         type: 'EC2',
@@ -194,7 +193,6 @@ export class BatchStack extends cdk.Stack {
 
     // Create job queues for different types of processing
     this.claimProcessingQueue = new batch.CfnJobQueue(this, 'ClaimProcessingQueue', {
-      jobQueueName: `foresight-claim-processing-${props.stageName}`,
       state: 'ENABLED',
       priority: 100,
       computeEnvironmentOrder: [
@@ -206,7 +204,6 @@ export class BatchStack extends cdk.Stack {
     });
 
     this.ediProcessingQueue = new batch.CfnJobQueue(this, 'EdiProcessingQueue', {
-      jobQueueName: `foresight-edi-processing-${props.stageName}`,
       state: 'ENABLED',
       priority: 80,
       computeEnvironmentOrder: [
@@ -218,7 +215,6 @@ export class BatchStack extends cdk.Stack {
     });
 
     this.reportingQueue = new batch.CfnJobQueue(this, 'ReportingQueue', {
-      jobQueueName: `foresight-reporting-${props.stageName}`,
       state: 'ENABLED',
       priority: 60,
       computeEnvironmentOrder: [
@@ -253,7 +249,7 @@ export class BatchStack extends cdk.Stack {
 
     // Create sample job definitions for common RCM tasks
     new batch.CfnJobDefinition(this, 'ClaimProcessingJobDefinition', {
-      jobDefinitionName: `foresight-claim-processing-${props.stageName}`,
+      // Remove custom name to allow updates
       type: 'container',
       platformCapabilities: ['EC2'],
       containerProperties: {
@@ -298,7 +294,7 @@ export class BatchStack extends cdk.Stack {
     });
 
     new batch.CfnJobDefinition(this, 'EdiProcessingJobDefinition', {
-      jobDefinitionName: `foresight-edi-processing-${props.stageName}`,
+      // Remove custom name to allow updates
       type: 'container',
       platformCapabilities: ['EC2'],
       containerProperties: {
@@ -343,7 +339,6 @@ export class BatchStack extends cdk.Stack {
     });
 
     new batch.CfnJobDefinition(this, 'ReportingJobDefinition', {
-      jobDefinitionName: `foresight-reporting-${props.stageName}`,
       type: 'container',
       platformCapabilities: ['EC2'],
       containerProperties: {
