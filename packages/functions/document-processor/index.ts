@@ -10,6 +10,7 @@ import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { documents } from '@foresight-cdss-next/db/src/schema';
 import { eq } from 'drizzle-orm';
+import { quickValidateDocument } from '../shared/rekognition-validator';
 
 const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -56,7 +57,19 @@ export const handler: S3Handler = async (event: S3Event) => {
       const documentId = pathParts[1];
       const fileName = pathParts[pathParts.length - 1];
 
-      // Determine if we need full analysis or just text detection
+      // Step 1: Quick validation with Rekognition
+      console.log('Performing quick document validation...');
+      const validationResult = await quickValidateDocument(bucket, key);
+      
+      if (!validationResult.isValid) {
+        console.warn(`Document validation failed for ${key}: ${validationResult.reason}`);
+        await updateDocumentStatus(documentId, 'failed', `Document validation failed: ${validationResult.reason}`);
+        continue; // Skip to next document
+      }
+      
+      console.log('Document validation passed, proceeding with Textract...');
+
+      // Step 2: Determine if we need full analysis or just text detection
       const needsAnalysis = isComplexDocument(fileName);
 
       // Update document status to processing

@@ -10,6 +10,7 @@ import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { insurancePolicies, payers } from '@foresight-cdss-next/db/src/schema';
 import { eq, and } from 'drizzle-orm';
+import { validateDocument, quickValidateDocument } from '../shared/rekognition-validator';
 
 const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
 const rdsClient = new RDSDataClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -334,7 +335,41 @@ export const handler: S3Handler = async (event: S3Event) => {
 
       console.log(`Processing for patient: ${patientId}, organization: ${organizationId}`);
 
-      // Analyze document with Textract
+      // Step 1: Validate document with Rekognition
+      console.log('Starting Rekognition validation...');
+      const validationResult = await validateDocument({
+        bucket,
+        key,
+        documentType: 'insurance_card',
+        minTextConfidence: 80,
+        checkForFaces: false, // Insurance cards may not have faces
+        checkForInappropriateContent: true,
+        validateDocumentStructure: true
+      });
+
+      console.log('Validation result:', {
+        isValid: validationResult.isValid,
+        confidence: validationResult.confidence,
+        issues: validationResult.issues,
+        metadata: validationResult.metadata
+      });
+
+      // Stop processing if validation fails
+      if (!validationResult.isValid) {
+        console.error(`Document validation failed for ${key}:`, validationResult.issues);
+        throw new Error(`Document validation failed: ${validationResult.issues.join(', ')}`);
+      }
+
+      // Log validation metadata for monitoring
+      if (validationResult.metadata) {
+        console.log('Document quality metrics:', {
+          textConfidence: validationResult.metadata.textConfidence,
+          documentQuality: validationResult.metadata.documentQuality,
+          suspiciousContent: validationResult.metadata.suspiciousContent
+        });
+      }
+
+      // Step 2: Proceed with Textract analysis only if validation passes
       const analyzeParams: AnalyzeDocumentCommandInput = {
         Document: {
           S3Object: {
