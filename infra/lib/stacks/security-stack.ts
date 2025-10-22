@@ -175,10 +175,50 @@ export class SecurityStack extends cdk.Stack {
       },
     };
 
+    // Healthcare-specific data protection rule
+    const healthcareDataProtectionRule: wafv2.CfnWebACL.RuleProperty = {
+      name: 'HealthcareDataProtectionRule',
+      priority: 5,
+      statement: {
+        orStatement: {
+          statements: [
+            {
+              regexMatchStatement: {
+                fieldToMatch: { body: { oversizeHandling: 'MATCH' } },
+                regexString: '\\b\\d{3}-\\d{2}-\\d{4}\\b|\\bMRN[0-9]{6,10}\\b', // SSN and MRN patterns
+                textTransformations: [{
+                  priority: 0,
+                  type: 'LOWERCASE',
+                }],
+              },
+            },
+            {
+              regexMatchStatement: {
+                fieldToMatch: { queryString: {} },
+                regexString: '\\b(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/\\d{4}\\b', // DOB patterns
+                textTransformations: [{
+                  priority: 0,
+                  type: 'URL_DECODE',
+                }],
+              },
+            },
+          ],
+        },
+      },
+      action: {
+        block: {},
+      },
+      visibilityConfig: {
+        sampledRequestsEnabled: true,
+        cloudWatchMetricsEnabled: true,
+        metricName: 'HealthcareDataProtectionRule',
+      },
+    };
+
     // Size constraint rule (prevent large payloads)
     const sizeConstraintRule: wafv2.CfnWebACL.RuleProperty = {
       name: 'SizeConstraintRule',
-      priority: 5,
+      priority: 6,
       statement: {
         sizeConstraintStatement: {
           fieldToMatch: { body: { oversizeHandling: 'MATCH' } },
@@ -263,6 +303,7 @@ export class SecurityStack extends cdk.Stack {
         geoBlockRule,
         sqliRule,
         xssRule,
+        healthcareDataProtectionRule,
         sizeConstraintRule,
         awsManagedRulesCommonRuleSet,
         awsManagedRulesKnownBadInputsRuleSet,

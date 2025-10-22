@@ -54,7 +54,7 @@ async function getCachedConfiguration(
   return result;
 }
 
-export default async function GET(req: NextApiRequest, res: NextApiResponse) {
+export async function GET(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -183,7 +183,7 @@ export default async function GET(req: NextApiRequest, res: NextApiResponse) {
 }
 
 // Health check endpoint
-export async function healthCheck() {
+export async function POST(req: NextApiRequest, res: NextApiResponse) {
   return {
     status: 'healthy',
     timestamp: new Date().toISOString(),

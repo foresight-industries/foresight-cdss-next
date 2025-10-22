@@ -1,5 +1,5 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { AppConfigDataClient, GetConfigurationCommand } from '@aws-sdk/client-appconfigdata';
+import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import { AppConfigDataClient, GetLatestConfigurationCommand } from '@aws-sdk/client-appconfigdata';
 
 const client = new AppConfigDataClient({ region: process.env.AWS_REGION });
 
@@ -30,55 +30,45 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
 
     // Extract client token from headers or generate one
     const clientId = event.headers['x-client-id'] || `web-client-${Date.now()}`;
-    
+
+    const appConfigCommand = new GetLatestConfigurationCommand({
+      ConfigurationToken: clientId
+    });
+
+    const tokenV1 = await client.send(appConfigCommand);
+
     // Get feature flags
-    const featureFlagsCommand = new GetConfigurationCommand({
-      Application: applicationId,
-      Environment: environment,
-      Configuration: featureFlagsProfile,
-      ClientId: clientId,
-      ClientConfigurationVersion: event.headers['x-feature-flags-version'],
+    const featureFlagsCommand = new GetLatestConfigurationCommand({
+      ConfigurationToken: tokenV1.NextPollConfigurationToken
     });
 
-    // Get app configuration
-    const appConfigCommand = new GetConfigurationCommand({
-      Application: applicationId,
-      Environment: environment,
-      Configuration: configurationProfile,
-      ClientId: clientId,
-      ClientConfigurationVersion: event.headers['x-app-config-version'],
-    });
-
-    const [featureFlagsResponse, appConfigResponse] = await Promise.all([
-      client.send(featureFlagsCommand),
-      client.send(appConfigCommand),
-    ]);
+    const appConfigResponse = await client.send(featureFlagsCommand);
 
     // Parse feature flags
     let featureFlags = {};
-    if (featureFlagsResponse.Content) {
-      const content = new TextDecoder().decode(featureFlagsResponse.Content);
+    if (appConfigResponse.Configuration) {
+      const content = new TextDecoder().decode(appConfigResponse.Configuration);
       const parsed = JSON.parse(content);
-      
+
       // Transform AppConfig feature flags format to simpler format
       featureFlags = Object.keys(parsed.flags || {}).reduce((acc, flagName) => {
         const flag = parsed.flags[flagName];
         const value = parsed.values?.[flagName] || {};
-        
+
         acc[flagName] = {
           name: flagName,
           enabled: flag.enabled && value.enabled !== false,
           ...value, // Include additional configuration
         };
-        
+
         return acc;
       }, {} as Record<string, FeatureFlag>);
     }
 
     // Parse app configuration
     let configuration = {};
-    if (appConfigResponse.Content) {
-      const content = new TextDecoder().decode(appConfigResponse.Content);
+    if (appConfigResponse.Configuration) {
+      const content = new TextDecoder().decode(appConfigResponse.Configuration);
       configuration = JSON.parse(content);
     }
 
@@ -98,15 +88,15 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
         'Access-Control-Allow-Methods': 'GET,OPTIONS',
         'Cache-Control': 'max-age=60', // Cache for 1 minute
         // Include configuration versions for client-side caching
-        'X-Feature-Flags-Version': featureFlagsResponse.ConfigurationVersion || '',
-        'X-App-Config-Version': appConfigResponse.ConfigurationVersion || '',
+        'X-Feature-Flags-Version': appConfigResponse.VersionLabel ?? '',
+        'X-App-Config-Version': appConfigResponse.VersionLabel ?? '',
       },
       body: JSON.stringify(response),
     };
 
   } catch (error) {
     console.error('Error retrieving AppConfig:', error);
-    
+
     return {
       statusCode: 500,
       headers: {

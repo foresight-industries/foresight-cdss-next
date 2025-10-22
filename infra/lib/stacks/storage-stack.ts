@@ -50,11 +50,21 @@ export class StorageStack extends cdk.Stack {
           noncurrentVersionExpiration: cdk.Duration.days(90),
         },
         {
-          id: 'move-to-ia',
-          transitions: [{
-            storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-            transitionAfter: cdk.Duration.days(30),
-          }],
+          id: 'optimize-storage-costs',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(90),
+            },
+            {
+              storageClass: s3.StorageClass.DEEP_ARCHIVE,
+              transitionAfter: cdk.Duration.days(365),
+            },
+          ],
         },
       ],
       cors: [{
@@ -93,11 +103,21 @@ export class StorageStack extends cdk.Stack {
           expiration: cdk.Duration.days(7),
         },
         {
-          id: 'move-to-ia',
-          transitions: [{
-            storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-            transitionAfter: cdk.Duration.days(30),
-          }],
+          id: 'optimize-storage-costs',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(90),
+            },
+            {
+              storageClass: s3.StorageClass.DEEP_ARCHIVE,
+              transitionAfter: cdk.Duration.days(365),
+            },
+          ],
         },
       ],
       enforceSSL: true,

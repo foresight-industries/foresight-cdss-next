@@ -61,8 +61,8 @@ export class ElastiCacheStack extends cdk.Stack {
       replicationGroupId: `foresight-redis-${props.stageName}`,
       replicationGroupDescription: `Foresight Redis cluster for ${props.stageName}`,
 
-      // Node configuration
-      cacheNodeType: props.stageName === 'prod' ? 'cache.t3.medium' : 'cache.t3.micro',
+      // Node configuration - Right-sized for workload
+      cacheNodeType: props.stageName === 'prod' ? 'cache.t3.small' : 'cache.t3.micro',
       numCacheClusters: props.stageName === 'prod' ? 2 : 1, // Multi-AZ for prod
       multiAzEnabled: props.stageName === 'prod',
 

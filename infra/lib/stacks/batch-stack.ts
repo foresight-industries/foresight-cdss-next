@@ -174,7 +174,9 @@ export class BatchStack extends cdk.Stack {
         minvCpus: 0,
         maxvCpus: 100,
         desiredvCpus: 0,
-        instanceTypes: ['m5.large', 'm5.xlarge', 'c5.large', 'c5.xlarge'],
+        allocationStrategy: 'SPOT_CAPACITY_OPTIMIZED', // Use Spot instances for 70% savings
+        bidPercentage: 80, // Bid up to 80% of On-Demand price
+        instanceTypes: ['m5.large', 'm5.xlarge', 'c5.large', 'c5.xlarge', 'm5a.large', 'c5a.large'], // Add more instance types
         subnets: props.vpc.privateSubnets.map(subnet => subnet.subnetId),
         securityGroupIds: [batchSecurityGroup.securityGroupId],
         instanceRole: batchInstanceProfile.attrArn,

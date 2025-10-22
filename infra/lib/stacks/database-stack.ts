@@ -30,7 +30,7 @@ export class DatabaseStack extends cdk.Stack {
     // VPC with public and private subnets
     this.vpc = new ec2.Vpc(this, 'VPC', {
       maxAzs: 2,
-      natGateways: props.stageName === 'prod' ? 2 : 1,
+      natGateways: 1, // 1 NAT Gateway
       subnetConfiguration: [
         {
           name: 'public',
