@@ -15,6 +15,8 @@ import { DocumentProcessingStack } from '../lib/stacks/document-processing-stack
 import { MedicalInfrastructure } from '../lib/medical-infrastructure';
 import { WebhookStack } from '../lib/stacks/webhook-stack';
 import { AppSyncStack } from '../lib/stacks/appsync-stack';
+import { CloudTrailStack } from '../lib/stacks/cloudtrail-stack';
+import { BatchStack } from '../lib/stacks/batch-stack';
 
 const app = new cdk.App();
 
@@ -113,6 +115,21 @@ for (const envName of ['staging', 'prod']) {
     databaseSecret: database.cluster.secret!,
   });
 
+  // CloudTrail for audit logging and HIPAA compliance
+  const cloudTrail = new CloudTrailStack(app, `RCM-CloudTrail-${envName}`, {
+    env,
+    stageName: envName,
+  });
+
+  // AWS Batch for bulk processing (claims, EDI, reporting)
+  const batch = new BatchStack(app, `RCM-Batch-${envName}`, {
+    env,
+    stageName: envName,
+    vpc: database.vpc,
+    databaseCluster: database.cluster,
+    databaseSecret: database.cluster.secret!,
+  });
+
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
     env,
     stageName: envName,
@@ -141,6 +158,8 @@ for (const envName of ['staging', 'prod']) {
   documentProcessing.addDependency(database);
   webhooks.addDependency(database);
   appSync.addDependency(database);
+  batch.addDependency(database);
+  // CloudTrail has no dependencies as it's account-wide infrastructure
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);
