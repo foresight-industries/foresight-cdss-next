@@ -1,6 +1,4 @@
 import { create } from "zustand";
-import { subscribeWithSelector } from "zustand/middleware";
-import { immer } from "zustand/middleware/immer";
 import { Tables } from "@/types/database.types";
 import { ClaimFilters, PAFilters } from "@/stores/types";
 
@@ -32,40 +30,32 @@ interface AppState {
 
   // Actions
   setCurrentTeam: (team: Tables<"team">) => void;
-  setActiveFilters: (type: "claims" | "pa", filters: any) => void;
+  setActiveFilters: (type: "claims" | "pa", filters: ClaimFilters | PAFilters) => void;
   toggleSidebar: () => void;
 }
 
-export const useAppStore = create<AppState>()(
-  subscribeWithSelector(
-    immer((set) => ({
-      currentTeam: null,
-      teamMember: null,
-      sidebarOpen: true,
-      activeWorkQueue: null,
-      activeClaimFilters: {},
-      activePAFilters: {},
-      selectedPatientId: null,
-      subscriptions: new Set(),
+export const useAppStore = create<AppState>()((set) => ({
+  currentTeam: null,
+  teamMember: null,
+  sidebarOpen: true,
+  activeWorkQueue: null,
+  activeClaimFilters: {},
+  activePAFilters: {},
+  selectedPatientId: null,
+  subscriptions: new Set(),
 
-      setCurrentTeam: (team) =>
-        set((state) => {
-          state.currentTeam = team;
-        }),
+  setCurrentTeam: (team: Tables<"team">) =>
+    set((state) => ({ ...state, currentTeam: team })),
 
-      setActiveFilters: (type, filters) =>
-        set((state) => {
-          if (type === "claims") {
-            state.activeClaimFilters = filters;
-          } else {
-            state.activePAFilters = filters;
-          }
-        }),
+  setActiveFilters: (type: "claims" | "pa", filters: ClaimFilters | PAFilters) =>
+    set((state) => ({
+      ...state,
+      ...(type === "claims" 
+        ? { activeClaimFilters: filters as ClaimFilters }
+        : { activePAFilters: filters as PAFilters }
+      )
+    })),
 
-      toggleSidebar: () =>
-        set((state) => {
-          state.sidebarOpen = !state.sidebarOpen;
-        }),
-    }))
-  )
-);
+  toggleSidebar: () =>
+    set((state) => ({ ...state, sidebarOpen: !state.sidebarOpen })),
+}));

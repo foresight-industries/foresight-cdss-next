@@ -2,6 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
+import * as apigatewayv1 from 'aws-cdk-lib/aws-apigateway';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
@@ -9,6 +10,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 import { CacheStack } from './cache-stack';
 import { MedicalDataStack } from './medical-data-stack';
@@ -129,7 +131,7 @@ export class ApiStack extends cdk.Stack {
     // Create API Gateway v2 domain name
     const customDomain = new apigateway.DomainName(this, 'RestApiCustomDomain', {
       domainName: apiDomainName,
-      certificate: certificate,
+      certificate,
     });
 
     this.httpApi = new apigateway.HttpApi(this, 'HttpApi', {
@@ -147,6 +149,63 @@ export class ApiStack extends cdk.Stack {
         domainName: customDomain,
       },
     });
+
+    // Create CloudWatch log role for API Gateway (global setting)
+    const apiGatewayCloudWatchRole = new iam.Role(this, 'ApiGatewayCloudWatchRole', {
+      assumedBy: new iam.ServicePrincipal('apigateway.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonAPIGatewayPushToCloudWatchLogs'),
+      ],
+    });
+
+    // Set the CloudWatch log role for API Gateway (global account setting)
+    new apigatewayv1.CfnAccount(this, 'ApiGatewayAccount', {
+      cloudWatchRoleArn: apiGatewayCloudWatchRole.roleArn,
+    });
+
+    // Create CloudWatch log group for API Gateway access logs
+    const apiLogGroup = new logs.LogGroup(this, 'ApiAccessLogs', {
+      logGroupName: `/aws/apigateway/rcm-api-${props.stageName}`,
+      retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Configure stage with logging
+    const defaultStage = this.httpApi.defaultStage?.node.defaultChild as apigateway.CfnStage;
+    if (defaultStage) {
+      defaultStage.accessLogSettings = {
+        destinationArn: apiLogGroup.logGroupArn,
+        format: JSON.stringify({
+          requestId: '$context.requestId',
+          requestTime: '$context.requestTime',
+          httpMethod: '$context.httpMethod',
+          resourcePath: '$context.resourcePath',
+          status: '$context.status',
+          error: {
+            message: '$context.error.message',
+            messageString: '$context.error.messageString',
+          },
+          responseLength: '$context.responseLength',
+          responseLatency: '$context.responseLatency',
+          integrationLatency: '$context.integrationLatency',
+          ip: '$context.identity.sourceIp',
+          userAgent: '$context.identity.userAgent',
+          principalId: '$context.authorizer.principalId',
+        }),
+      };
+
+      defaultStage.defaultRouteSettings = {
+        throttlingBurstLimit: 100,
+        throttlingRateLimit: 50,
+      };
+    }
+
+    // Note: HTTP API (API Gateway v2) has built-in throttling via defaultRouteSettings above
+    // For more advanced usage plans, you would need to use REST API (API Gateway v1)
+    // Current throttling is configured at the stage level with:
+    // - Rate limit: 50 requests/second
+    // - Burst limit: 100 requests
+    // These can be monitored via CloudWatch metrics
 
     // Patient API Lambda - Using NodejsFunction for better bundling
     const patientsRole = createFunctionRole('PatientsFunction');
