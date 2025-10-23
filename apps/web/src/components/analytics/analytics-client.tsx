@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { Calendar, TrendingUp, TrendingDown, Users, Clock, Target, BarChart3 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,18 @@ import { Button } from '@/components/ui/button';
 import { useStatusDistribution } from '@/hooks/use-dashboard-data';
 import { initialClaims } from '@/data/claims';
 import type { AnalyticsData } from '@/lib/analytics-data';
+import { getTopDenialReasons, analyzeDenialReasons, type DenialReasonAnalysis } from '@/data/denial-reasons';
+import { DenialReasonDetail } from '@/components/analytics/denial-reason-detail';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+} from 'recharts';
 
 // Lazy load heavy components
 const RCMStageAnalytics = lazy(() => import('@/components/analytics/rcm-stage-analytics').then(module => ({ default: module.RCMStageAnalytics })));
@@ -74,9 +86,43 @@ const combinedAutomationTrends = [
   },
 ];
 
+// Volume trends data with tab-based filtering
+const volumeTrendData = [
+  { month: 'May', epa: 46, claims: 28 },
+  { month: 'Jun', epa: 58, claims: 35 },
+  { month: 'Jul', epa: 67, claims: 41 },
+  { month: 'Aug', epa: 72, claims: 44 },
+  { month: 'Sep', epa: 81, claims: 49 },
+  { month: 'Oct', epa: 89, claims: 53 },
+];
+
+// Submission outcomes mock data
+const getSubmissionOutcomes = (activeTab: 'all' | 'claims' | 'pas') => {
+  if (activeTab === 'all') {
+    return [
+      { category: 'Successful', value: 298, fill: '#22c55e' },
+      { category: 'Rejected', value: 32, fill: '#ef4444' },
+      { category: 'Pending Review', value: 18, fill: '#f59e0b' },
+    ];
+  } else if (activeTab === 'claims') {
+    return [
+      { category: 'Successful', value: 164, fill: '#22c55e' },
+      { category: 'Scrubber Rejects', value: 14, fill: '#ef4444' },
+      { category: 'Missing Info', value: 8, fill: '#f59e0b' },
+    ];
+  } else {
+    return [
+      { category: 'Approved', value: 134, fill: '#22c55e' },
+      { category: 'Rejected', value: 18, fill: '#ef4444' },
+      { category: 'Pending Review', value: 4, fill: '#f59e0b' },
+    ];
+  }
+};
+
 export function AnalyticsClient({ data }: Readonly<AnalyticsClientProps>) {
   const [selectedTimeRange, setSelectedTimeRange] = useState("30d");
   const [activeTab, setActiveTab] = useState<"all" | "claims" | "pas">("all");
+  const [selectedDenialReason, setSelectedDenialReason] = useState<DenialReasonAnalysis | null>(null);
   const { data: distribution } = useStatusDistribution();
 
   const {
@@ -86,6 +132,91 @@ export function AnalyticsClient({ data }: Readonly<AnalyticsClientProps>) {
     combinedPayerData,
     realStatusDistribution,
   } = data;
+
+  // Pre-process denial reasons data to avoid hooks in render
+  const denialReasonsData = useMemo(() => {
+    // Mix of real data and demo data to show both claims and PAs
+    const realDenials = getTopDenialReasons(initialClaims);
+    const demoDenials = [
+      { reason: 'Missing indication detail', count: 14, code: 'MISSING_INDICATION', source: 'claims' as const },
+      { reason: 'Eligibility not verified', count: 9, code: 'ELIGIBILITY_NOT_VERIFIED', source: 'claims' as const },
+      { reason: 'Medical necessity not demonstrated', count: 8, code: '197', source: 'pa' as const },
+      { reason: 'Incorrect POS/modifiers', count: 7, code: 'INCORRECT_MODIFIERS', source: 'claims' as const },
+      { reason: 'Incomplete clinical documentation', count: 6, code: 'INCOMPLETE_DOCS', source: 'pa' as const },
+      { reason: 'Expired authorization', count: 5, code: 'EXPIRED_AUTHORIZATION', source: 'claims' as const },
+      { reason: 'Treatment guidelines not met', count: 4, code: 'TREATMENT_GUIDELINES', source: 'pa' as const },
+      { reason: 'Non-formulary medication', count: 3, code: 'NON_FORMULARY', source: 'pa' as const },
+    ];
+    // Combine and sort by count
+    const allDenials = [...realDenials.map(r => ({ ...r, source: 'pa' as const })), ...demoDenials];
+    return allDenials.sort((a, b) => b.count - a.count);
+  }, []);
+
+  // Create dynamic volume trend data and config based on active tab (matching dashboard)
+  const { volumeTrend, chartTitle, chartDescription, barElements } = useMemo(() => {
+    const title =
+      activeTab === "all"
+        ? "Volume trends (last 6 months)"
+        : activeTab === "claims"
+        ? "Claims volume trends (last 6 months)"
+        : "Prior auth volume trends (last 6 months)";
+
+    const description =
+      activeTab === "all"
+        ? "Stacked view of ePA and claim throughput"
+        : activeTab === "claims"
+        ? "Claims volume over time"
+        : "Prior auth (ePA) volume over time";
+
+    let bars;
+    if (activeTab === "all") {
+      bars = [
+        <Bar
+          key="epa"
+          dataKey="epa"
+          name="ePA volume"
+          stackId="total"
+          fill="#6366f1"
+          radius={[4, 4, 0, 0]}
+        />,
+        <Bar
+          key="claims"
+          dataKey="claims"
+          name="Claims volume"
+          stackId="total"
+          fill="#22c55e"
+          radius={[4, 4, 0, 0]}
+        />,
+      ];
+    } else if (activeTab === "claims") {
+      bars = [
+        <Bar
+          key="claims"
+          dataKey="claims"
+          name="Claims volume"
+          fill="#22c55e"
+          radius={[4, 4, 0, 0]}
+        />,
+      ];
+    } else {
+      bars = [
+        <Bar
+          key="epa"
+          dataKey="epa"
+          name="ePA volume"
+          fill="#6366f1"
+          radius={[4, 4, 0, 0]}
+        />,
+      ];
+    }
+
+    return {
+      volumeTrend: volumeTrendData,
+      chartTitle: title,
+      chartDescription: description,
+      barElements: bars,
+    };
+  }, [activeTab]);
 
   // Handle anchor navigation for A/R details
   useEffect(() => {
@@ -948,6 +1079,219 @@ export function AnalyticsClient({ data }: Readonly<AnalyticsClientProps>) {
                 ))}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* New Analytics Sections from Dashboard */}
+
+      {/* Volume Trends Chart */}
+      <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+        <Card className="p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              {chartTitle}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {chartDescription}
+            </p>
+          </div>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={volumeTrend}>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#e5e7eb"
+                />
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  stroke="#6b7280"
+                />
+                <YAxis axisLine={false} tickLine={false} stroke="#6b7280" />
+                <Tooltip formatter={(value: number) => `${value} items`} />
+                <Legend />
+                {barElements}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Top Denial Reasons with Full Functionality */}
+        <Card className="p-6">
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Top denial reasons -{" "}
+              {activeTab === "all"
+                ? "Merged View"
+                : activeTab === "claims"
+                ? "Claims Only"
+                : "PAs Only"}
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {activeTab === "all"
+                ? "Combined denial reasons from both Claims and Prior Authorizations"
+                : "Most common reasons for denials in this category"}
+            </p>
+          </div>
+          {selectedDenialReason ? (
+            <DenialReasonDetail
+              analysis={selectedDenialReason}
+              onBack={() => setSelectedDenialReason(null)}
+            />
+          ) : (
+            <ul className="space-y-3">
+              {denialReasonsData
+                .filter((item) => {
+                  if (activeTab === "claims") return item.source === "claims";
+                  if (activeTab === "pas") return item.source === "pa";
+                  return true;
+                })
+                .slice(0, 4)
+                .map((item, index) => {
+                  const analyses = analyzeDenialReasons(initialClaims);
+                  let analysis = analyses.find(a => a.reason.description === item.reason);
+
+                  // Create fallback analysis for demo data that doesn't exist in real claims
+                  if (!analysis) {
+                    analysis = {
+                      reason: {
+                        code: item.code || 'DEMO',
+                        category: item.source === 'claims' ? 'Claims Processing' : 'Prior Authorization',
+                        description: item.reason,
+                        commonCause: `Common cause for ${item.reason}`,
+                        resolution: {
+                          title: `Resolve ${item.reason}`,
+                          description: `Steps to resolve ${item.reason}`,
+                          steps: [`Step 1 for ${item.reason}`, `Step 2 for ${item.reason}`],
+                          timeframe: '3-5 business days',
+                          canAutomate: Math.random() > 0.5,
+                          priority: ['high', 'medium', 'low'][Math.floor(Math.random() * 3)] as 'high' | 'medium' | 'low',
+                          preventionTips: [`Prevention tip 1 for ${item.reason}`, `Prevention tip 2 for ${item.reason}`]
+                        }
+                      },
+                      claimCount: item.count,
+                      totalAmount: item.count * 150, // Demo amount
+                      averageDaysInAR: Math.floor(Math.random() * 30) + 10,
+                      payerBreakdown: [
+                        { payer: 'Demo Payer 1', count: Math.floor(item.count * 0.6), amount: item.count * 90 },
+                        { payer: 'Demo Payer 2', count: Math.floor(item.count * 0.4), amount: item.count * 60 }
+                      ],
+                      claims: [] // Empty for demo
+                    };
+                  }
+
+                  const appliedFixes = Math.floor(Math.random() * 3); // Demo data for applied fixes
+
+                  return (
+                    <li
+                      key={`${item.reason}-${index}`}
+                      className="flex items-center justify-between text-sm p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer transition-colors"
+                      onClick={() => {
+                        if (analysis) {
+                          setSelectedDenialReason(analysis);
+                        }
+                      }}
+                    >
+                      <div className="flex flex-col items-start gap-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-900 dark:text-gray-100 font-medium">
+                            {item.reason}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              item.source === "claims"
+                                ? "border-green-200 bg-green-50 text-green-700"
+                                : "border-purple-200 bg-purple-50 text-purple-700"
+                            }
+                          >
+                            {item.source === "claims" ? "Claims" : "PA"}
+                          </Badge>
+                          {appliedFixes > 0 && (
+                            <Badge
+                              variant="outline"
+                              className="border-blue-200 bg-blue-50 text-blue-700"
+                            >
+                              {appliedFixes} fixes applied
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">
+                          Click for detailed analysis →
+                        </span>
+                      </div>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                        {item.count}
+                      </span>
+                    </li>
+                  );
+                })}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* Submission Outcomes Chart */}
+      <Card className="p-6">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            {activeTab === "all"
+              ? "Combined Submission Outcomes"
+              : activeTab === "claims"
+              ? "Claims Submission Outcomes"
+              : "Prior Auth Outcomes"}
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            {activeTab === "all"
+              ? "Combined claims and PA submission performance"
+              : activeTab === "claims"
+              ? "Claims pipeline performance with absolute numbers"
+              : "PA submission performance with absolute numbers"}
+          </p>
+        </div>
+        <div className="h-48">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={getSubmissionOutcomes(activeTab)}
+              layout="vertical"
+              margin={{ left: 80 }}
+              barCategoryGap="20%"
+            >
+              <YAxis
+                dataKey="category"
+                type="category"
+                tickLine={false}
+                tickMargin={10}
+                axisLine={true}
+              />
+              <XAxis type="number" axisLine={true} tickLine={false} />
+              <Tooltip />
+              <Bar dataKey="value" fill="#22c55e" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
+          {getSubmissionOutcomes(activeTab).map((outcome, index) => (
+            <div key={index} className="text-center">
+              <div className="flex items-center justify-center gap-2">
+                <div
+                  className="w-3 h-3 rounded"
+                  style={{ backgroundColor: outcome.fill }}
+                ></div>
+                <span className="font-medium">{outcome.category}</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {outcome.value}{" "}
+                {activeTab === "all"
+                  ? "total"
+                  : activeTab === "claims"
+                  ? "claims"
+                  : "pas"}
+              </p>
+            </div>
+          ))}
         </div>
       </Card>
 
