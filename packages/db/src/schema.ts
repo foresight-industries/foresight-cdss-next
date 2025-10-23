@@ -499,6 +499,10 @@ export const claims = pgTable('claim', {
   clearinghouseId: uuid('clearinghouse_id'),
   batchId: uuid('batch_id'),
 
+  // Denial reason tracking
+  fixesApplied: json('fixes_applied'),
+  fixHistory: json('fix_history'),
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -2203,8 +2207,9 @@ export const priorAuthAppeals = pgTable('prior_auth_appeal', {
 export const denialTracking = pgTable('denial_tracking', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  claimId: uuid('claim_id').references(() => claims.id).notNull(),
+  claimId: uuid('claim_id').references(() => claims.id),
   claimLineId: uuid('claim_line_id').references(() => claimLines.id),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id),
 
   // Denial details
   denialDate: date('denial_date').notNull(),
@@ -2228,6 +2233,7 @@ export const denialTracking = pgTable('denial_tracking', {
   resolutionMethod: varchar('resolution_method', { length: 50 }), // appeal, corrected_claim, write_off
   resolutionAmount: decimal('resolution_amount', { precision: 10, scale: 2 }),
   resolutionNotes: text('resolution_notes'),
+  autoFixAttempted: boolean('auto_fix_attempted').default(false),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
