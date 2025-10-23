@@ -203,6 +203,9 @@ export class GrafanaStack extends cdk.Stack {
       // Permission type - use SERVICE_MANAGED for simpler setup
       permissionType: 'SERVICE_MANAGED',
 
+      // Workspace role ARN - required for CURRENT_ACCOUNT access type
+      roleArn: this.serviceRole.roleArn,
+
       // Data sources to enable
       dataSources: [
         'CLOUDWATCH',
