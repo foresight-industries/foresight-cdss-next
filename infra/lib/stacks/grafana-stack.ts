@@ -2,15 +2,18 @@ import * as cdk from 'aws-cdk-lib';
 import * as grafana from 'aws-cdk-lib/aws-grafana';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import { Construct } from 'constructs';
 
 interface GrafanaStackProps extends cdk.StackProps {
   stageName: string;
+  vpc?: ec2.IVpc;
 }
 
 export class GrafanaStack extends cdk.Stack {
   public readonly workspace: grafana.CfnWorkspace;
   public readonly serviceRole: iam.Role;
+  public readonly grafanaSecurityGroup?: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: GrafanaStackProps) {
     super(scope, id, props);
@@ -116,6 +119,74 @@ export class GrafanaStack extends cdk.Stack {
       },
     });
 
+    // Configure VPC networking if VPC is provided (recommended for HIPAA compliance)
+    let vpcConfiguration: any = undefined;
+
+    if (props.vpc) {
+      // Create security group for Grafana workspace
+      this.grafanaSecurityGroup = new ec2.SecurityGroup(this, 'GrafanaSecurityGroup', {
+        vpc: props.vpc,
+        description: 'Security group for AWS Managed Grafana workspace - HIPAA compliant',
+        allowAllOutbound: false, // Explicit outbound rules for compliance
+      });
+
+      // Allow HTTPS outbound for AWS API calls and Grafana operations
+      this.grafanaSecurityGroup.addEgressRule(
+        ec2.Peer.anyIpv4(),
+        ec2.Port.tcp(443),
+        'HTTPS outbound for AWS APIs and external data sources'
+      );
+
+      // Allow HTTP outbound for non-sensitive operations (if needed)
+      this.grafanaSecurityGroup.addEgressRule(
+        ec2.Peer.anyIpv4(),
+        ec2.Port.tcp(80),
+        'HTTP outbound for non-sensitive operations'
+      );
+
+      // Allow DNS resolution
+      this.grafanaSecurityGroup.addEgressRule(
+        ec2.Peer.anyIpv4(),
+        ec2.Port.udp(53),
+        'DNS resolution'
+      );
+
+      this.grafanaSecurityGroup.addEgressRule(
+        ec2.Peer.anyIpv4(),
+        ec2.Port.tcp(53),
+        'DNS over TCP'
+      );
+
+      // Allow NTP for time synchronization (important for compliance)
+      this.grafanaSecurityGroup.addEgressRule(
+        ec2.Peer.anyIpv4(),
+        ec2.Port.udp(123),
+        'NTP for time synchronization'
+      );
+
+      // Create VPC endpoints for enhanced security (avoid internet routing)
+      this.createVpcEndpoints(props.vpc);
+
+      // Use private subnets for Grafana deployment
+      const privateSubnets = props.vpc.privateSubnets.slice(0, 2); // Use first 2 AZs for redundancy
+
+      vpcConfiguration = {
+        securityGroupIds: [this.grafanaSecurityGroup.securityGroupId],
+        subnetIds: privateSubnets.map(subnet => subnet.subnetId),
+      };
+
+      // Store VPC configuration in Parameter Store for reference
+      new ssm.StringParameter(this, 'GrafanaVpcConfig', {
+        parameterName: `/foresight/grafana/${props.stageName}/vpc-config`,
+        stringValue: JSON.stringify({
+          vpcId: props.vpc.vpcId,
+          securityGroupId: this.grafanaSecurityGroup.securityGroupId,
+          subnetIds: privateSubnets.map(subnet => subnet.subnetId),
+        }),
+        description: 'Grafana VPC configuration for HIPAA compliance',
+      });
+    }
+
     // Create AWS Managed Grafana workspace
     this.workspace = new grafana.CfnWorkspace(this, 'ForesightRCMGrafanaWorkspace', {
       name: `foresight-rcm-grafana-${props.stageName}`,
@@ -143,8 +214,8 @@ export class GrafanaStack extends cdk.Stack {
         'SNS', // For alerting via SNS
       ],
 
-      // Network access configuration for VPC (optional but recommended for HIPAA)
-      // vpcConfiguration: undefined, // Can be configured later with specific security groups and subnets
+      // Network access configuration for VPC (configured for HIPAA compliance)
+      vpcConfiguration,
 
       // Grafana version
       grafanaVersion: '10.4', // Latest supported version
@@ -185,6 +256,15 @@ export class GrafanaStack extends cdk.Stack {
       description: 'Grafana Service Role ARN',
       exportName: `Foresight-Grafana-ServiceRole-${props.stageName}`,
     });
+
+    // Output security group if VPC is configured
+    if (this.grafanaSecurityGroup) {
+      new cdk.CfnOutput(this, 'GrafanaSecurityGroupId', {
+        value: this.grafanaSecurityGroup.securityGroupId,
+        description: 'Grafana Security Group ID',
+        exportName: `Foresight-Grafana-SecurityGroup-${props.stageName}`,
+      });
+    }
 
     // Add tags for cost tracking and compliance
     cdk.Tags.of(this).add('Project', 'ForesightRCM');
@@ -269,5 +349,77 @@ export class GrafanaStack extends cdk.Stack {
         ],
       },
     };
+  }
+
+  /**
+   * Create VPC endpoints for enhanced security and reduced internet traffic
+   */
+  private createVpcEndpoints(vpc: ec2.IVpc): { [key: string]: ec2.InterfaceVpcEndpoint } {
+    const endpoints: { [key: string]: ec2.InterfaceVpcEndpoint } = {};
+
+    // CloudWatch Logs endpoint for log ingestion
+    endpoints.cloudWatchLogs = vpc.addInterfaceEndpoint('GrafanaCloudWatchLogsEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_LOGS,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // CloudWatch endpoint for metrics
+    endpoints.cloudWatch = vpc.addInterfaceEndpoint('GrafanaCloudWatchEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.CLOUDWATCH_MONITORING,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // X-Ray endpoint for distributed tracing
+    endpoints.xray = vpc.addInterfaceEndpoint('GrafanaXRayEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.XRAY,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // SNS endpoint for alerting
+    endpoints.sns = vpc.addInterfaceEndpoint('GrafanaSNSEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SNS,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // STS endpoint for AWS authentication
+    endpoints.sts = vpc.addInterfaceEndpoint('GrafanaSTSEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.STS,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // EC2 endpoint for instance metadata
+    endpoints.ec2 = vpc.addInterfaceEndpoint('GrafanaEC2Endpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.EC2,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    // SSM endpoint for parameter store access
+    endpoints.ssm = vpc.addInterfaceEndpoint('GrafanaSSMEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SSM,
+      subnets: {
+        subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS,
+      },
+      securityGroups: this.grafanaSecurityGroup ? [this.grafanaSecurityGroup] : undefined,
+    });
+
+    return endpoints;
   }
 }
