@@ -2,352 +2,1224 @@
 
 ## Overview
 
-The frontend is built with Next.js 14 using the App Router, TypeScript, TailwindCSS, and shadcn/ui components. It provides a comprehensive claims management interface with real-time data synchronization.
+The frontend is built with Next.js 15 using the App Router, TypeScript, TailwindCSS 4, and shadcn/ui components. It provides a comprehensive claims management and prior authorization interface with real-time data synchronization, keyboard-first workflows, and intelligent automation.
+
+## Table of Contents
+
+1. [Core Features & Routes](#core-features--routes)
+2. [Claims Management Interface](#claims-management-interface)
+3. [Prior Authorization Queue](#prior-authorization-queue)
+4. [Analytics & Insights](#analytics--insights)
+5. [Credentialing Tracker](#credentialing-tracker)
+6. [State Management](#state-management)
+7. [User Workflows](#user-workflows)
+8. [Component Architecture](#component-architecture)
+9. [Design System](#design-system)
+10. [Performance Optimizations](#performance-optimizations)
+
+## Core Features & Routes
+
+### Application Routes
+
+All feature routes are scoped under `/team/[slug]/` for multi-tenancy:
+
+- `/team/[slug]` - Dashboard with EPA queue and claims overview
+- `/team/[slug]/claims` - Claims Workbench (main interface)
+- `/team/[slug]/queue` - Prior Authorization Queue
+- `/team/[slug]/pre-encounters` - Pre-encounter management
+- `/team/[slug]/analytics` - Performance analytics and insights
+- `/team/[slug]/credentialing` - Credentialing tracker
+- `/team/[slug]/billing` - Billing management
+- `/team/[slug]/audit-trail` - Audit log viewer
+- `/team/[slug]/bulk-ops` - Bulk operations interface
+- `/team/[slug]/settings/*` - Configuration pages
+  - `/settings` - General settings
+  - `/settings/ehr` - EHR integration configuration
+  - `/settings/payers` - Payer management
+  - `/settings/webhooks` - Webhook configuration
+  - `/settings/field-mappings` - Field mapping templates
 
 ## Claims Management Interface
 
 ### Claims Workbench
-**Route:** `/team/[slug]/claims`
-**File:** `src/app/team/[slug]/claims/page.tsx`
+**Route:** `/team/[slug]/claims`  
+**File:** `apps/web/src/app/team/[slug]/claims/page.tsx`
 
-The main claims list interface displaying encounters and claims with:
+The main claims processing interface with automation-first design.
 
-- **Data Grid**: Sortable table showing claim details (patient, DOS, payer, status, amounts)
-- **Filtering**: Status-based filtering (needs review, rejections, all)
-- **Search**: Real-time search across claim data
-- **Actions**: Submit, view details, and bulk operations
-- **Status Indicators**: Visual status badges and confidence scores
+#### Key Features
 
-**Current Data Source:** Uses React Query to fetch from Supabase with some mock data for demonstration.
+**1. Intelligent Queue Management**
+- **Default Sort**: "Requires Review" claims surface first, ordered by impact
+- **High $ First Toggle**: Sort by highest charge amount to prioritize cash flow
+  - Visual indicator when active with "Active" badge
+  - Automatically disables when manual column sorting is used
+  - Tooltip: "Sort the queue by highest charge amount first"
+- **Filtering**: Status-based (needs review, all, rejections, denials)
+- **Search**: Real-time search across patient names, claim numbers, payers
+- **Pagination**: Efficient loading for large claim volumes
+
+**2. Keyboard Navigation** (Power User Features)
+- **↓ / ↑ (Arrow Keys)**: Navigate through claims list
+- **J / K**: Vim-style navigation (down/up)
+- **Enter or O**: Open focused claim detail sheet
+- **Escape**: Close detail sheet and restore focus
+- **Smart Input Protection**: Navigation disabled when typing in search/filters
+- **Visual Feedback**: Focused row highlighted with `bg-muted/50` and `ring-2 ring-primary/20`
+- **ARIA Support**: `aria-selected="true"` for accessibility
+- **Seamless Detail Navigation**: Navigate to next/previous claims while detail is open
+
+**3. Data Grid**
+Sortable table displaying:
+- Patient name and demographics
+- Service date (Date of Service)
+- Payer information
+- Claim status with color-coded badges
+- Total charge amount
+- Confidence scores (AI validation)
+- Action buttons
+
+**4. Batch Operations**
+- Multi-select claims with checkboxes
+- Bulk actions: Submit, Validate, Export
+- Loading states for concurrent operations
+- Progress indicators
+
+**5. Status Indicators**
+
+Color-coded badges for claim status:
+```typescript
+STATUS_BADGE_VARIANTS = {
+  'draft': 'secondary',
+  'ready_to_submit': 'default',
+  'submitted': 'info',
+  'awaiting_277ca': 'warning',
+  'accepted_277ca': 'success',
+  'rejected_277ca': 'destructive',
+  'paid': 'success',
+  'denied': 'destructive',
+  'needs_review': 'warning',
+}
+```
+
+Labels:
+- `draft` → "Draft"
+- `ready_to_submit` → "Ready to Submit"
+- `awaiting_277ca` → "Awaiting 277CA"
+- `accepted_277ca` → "Accepted"
+- `rejected_277ca` → "Rejected"
+- `paid` → "Paid"
+- `denied` → "Denied"
+
+#### Implementation Details
+
+**State Management:**
+```typescript
+// Focus tracking for keyboard navigation
+const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+
+// High-dollar-first toggle
+const [dollarFirstMode, setDollarFirstMode] = useState(false);
+
+// Submission loading states
+const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
+```
+
+**Sorting Logic:**
+```typescript
+const filteredClaims = useMemo(() => {
+  let sorted = [...claims];
+  
+  // Dollar-first mode takes precedence
+  if (dollarFirstMode) {
+    sorted.sort((a, b) => b.total_amount - a.total_amount);
+    return sorted;
+  }
+  
+  // Manual column sorting
+  if (sortConfig.key) {
+    sorted.sort((a, b) => {
+      // Column-specific sorting logic
+    });
+  }
+  
+  return sorted;
+}, [claims, dollarFirstMode, sortConfig]);
+```
+
+**Keyboard Event Handler:**
+```typescript
+useEffect(() => {
+  const handleKeyDown = (e: KeyboardEvent) => {
+    const activeElement = document.activeElement;
+    const isInputFocused = activeElement?.tagName === 'INPUT' || 
+                          activeElement?.tagName === 'TEXTAREA';
+    
+    if (isInputFocused) return; // Don't interfere with input
+    
+    switch(e.key) {
+      case 'ArrowDown':
+      case 'j':
+        e.preventDefault();
+        // Navigate down logic
+        break;
+      case 'ArrowUp':
+      case 'k':
+        e.preventDefault();
+        // Navigate up logic
+        break;
+      case 'Enter':
+      case 'o':
+        // Open detail sheet
+        break;
+      case 'Escape':
+        // Close detail sheet
+        break;
+    }
+  };
+  
+  window.addEventListener('keydown', handleKeyDown);
+  return () => window.removeEventListener('keydown', handleKeyDown);
+}, [focusedIndex, selectedClaim, claims]);
+```
 
 ### Claim Detail Sheet
-Sliding panel that opens from the claims list showing:
-- Patient demographics and insurance information
-- Claim lines with procedure codes and amounts  
-- Validation results and confidence scores
-- State history and denial tracking
-- Action buttons for submission and appeals
+
+Sliding panel component that opens from the right side of the claims list.
+
+**File:** `apps/web/src/components/claims/claim-detail-sheet.tsx`
+
+#### Content Sections
+
+**1. Header**
+- Claim number and status badge
+- Patient name and date of birth
+- Quick action buttons (Submit, Resubmit, Close)
+
+**2. Patient & Insurance Information**
+- Demographics (name, DOB, MRN)
+- Insurance details (payer, policy number, group number)
+- Subscriber relationship
+
+**3. Provider & Service Details**
+- Rendering provider (NPI, name, specialty)
+- Service date and place of service
+- Encounter type (office visit, telemedicine, etc.)
+
+**4. Claim Lines (Procedure Details)**
+```typescript
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>CPT Code</TableHead>
+      <TableHead>Description</TableHead>
+      <TableHead>Diagnosis Pointers</TableHead>
+      <TableHead>Units</TableHead>
+      <TableHead>Charge</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {claimLines.map(line => (
+      <TableRow key={line.id}>
+        <TableCell>{line.cpt_code}</TableCell>
+        <TableCell>{line.description}</TableCell>
+        <TableCell>{line.diagnosis_pointers.join(', ')}</TableCell>
+        <TableCell>{line.units}</TableCell>
+        <TableCell>${line.charge_amount}</TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+**5. Validation Results**
+- Confidence scores by field
+- Validation warnings and errors
+- AI suggestions with confidence levels
+- Rule-based check results
+
+**6. Clearinghouse Errors** (for rejected claims)
+```typescript
+{claim.status === 'rejected_277ca' && scrubbingResults?.length > 0 && (
+  <Alert variant="destructive">
+    <AlertTriangle className="h-4 w-4" />
+    <AlertTitle>Clearinghouse Errors</AlertTitle>
+    <AlertDescription>
+      <ul className="list-disc pl-4 space-y-1">
+        {scrubbingResults.map(error => (
+          <li key={error.id}>
+            <span className="font-medium">{error.field_path}:</span> {error.message}
+          </li>
+        ))}
+      </ul>
+    </AlertDescription>
+  </Alert>
+)}
+```
+
+**7. State History Timeline**
+Complete audit trail of status changes:
+- Timestamp
+- Actor (user or system)
+- Status transition
+- Notes and details
+
+**8. Action Buttons**
+
+Dynamic button states based on claim status:
+```typescript
+// Submit button
+<Button
+  onClick={() => handleSubmit(claim.id)}
+  disabled={
+    claim.status !== 'ready_to_submit' || 
+    submittingClaims.has(claim.id)
+  }
+>
+  {submittingClaims.has(claim.id) ? 'Submitting...' : 'Submit & Listen'}
+</Button>
+
+// Resubmit button (for rejected/denied claims)
+<Button
+  onClick={() => handleResubmit(claim.id)}
+  disabled={!['rejected_277ca', 'denied'].includes(claim.status)}
+>
+  Resubmit Corrected
+</Button>
+```
+
+### Claim Submission Workflow
+
+**Step-by-Step Process:**
+
+1. **User Initiates Submission**
+   - Clicks "Submit & Listen" button in detail sheet or workbench
+   - Button immediately shows loading state
+
+2. **Loading State Management**
+   ```typescript
+   const triggerSubmit = async (claimId: string) => {
+     setSubmittingClaims(prev => new Set(prev).add(claimId));
+     
+     try {
+       const { data, error } = await supabase.functions.invoke('submit-claim-batch', {
+         body: { 
+           claimIds: [claimId], 
+           clearinghouseId: 'CLAIM_MD', 
+           userId 
+         }
+       });
+       
+       if (error) throw error;
+       
+       // Show success message
+       toast.success('Claim submitted successfully');
+       
+       // Refresh claim data
+       await refetchClaims();
+     } catch (error) {
+       toast.error(`Submission failed: ${error.message}`);
+     } finally {
+       setSubmittingClaims(prev => {
+         const next = new Set(prev);
+         next.delete(claimId);
+         return next;
+       });
+     }
+   };
+   ```
+
+3. **Backend Processing** (see Backend.md for details)
+   - Validation check (95% readiness threshold)
+   - JSON claim file generation (837P format)
+   - Clearinghouse submission (Claim.MD)
+   - Database updates with external IDs
+
+4. **Response Handling**
+   - Success: Status updates to `awaiting_277ca` or `accepted_277ca`
+   - Rejection: Status updates to `rejected_277ca`, errors displayed
+   - Network error: Error message shown, claim remains in previous status
+
+5. **UI Updates**
+   - React Query invalidates claim cache
+   - Status badge updates with new color
+   - Detail sheet refreshes with latest data
+   - Toast notification confirms outcome
+
+## Prior Authorization Queue
+
+**Route:** `/team/[slug]/queue`  
+**File:** `apps/web/src/app/team/[slug]/queue/page.tsx`
+
+### Features
+
+**Queue Display**
+- List of pending prior authorization requests
+- Patient and provider information
+- Medication or procedure requiring auth
+- Payer and submission status
+- Priority indicators
+
+**ePA Status Tracking**
+- Pending: Awaiting payer review
+- Approved: Authorization granted
+- Denied: Authorization rejected
+- Expired: Authorization period ended
+- Cancelled: Request withdrawn
+
+**Clinical Q&A Provenance**
+- Track whether assessment came from structured data vs LLM extraction
+- Show confidence scores for AI-extracted information
+- Clear labeling: "From assessment line 1" vs "From clinical notes (AI)"
+
+**Auto-Retry Logic**
+- Configurable retry policies (A→B→C strategy)
+- Automatic resubmission when denied based on rules
+- Attempt tracking and limit enforcement
+
+**Integration Points**
+- Gate Rx release in EHR until approval
+- Automatic notifications to prescribing provider
+- Documentation attachment workflow
+
+### Implementation Status
+
+- ✅ Queue interface implemented
+- ✅ Status tracking in database
+- 🔄 Provenance tracking UI in progress
+- 📋 Auto-retry automation planned
+- 📋 EHR gating integration planned
+
+## Analytics & Insights
+
+**Route:** `/team/[slug]/analytics`  
+**File:** `apps/web/src/app/team/[slug]/analytics/page.tsx`
+
+### RCM Stage Analytics
+
+**Component:** `apps/web/src/components/analytics/rcm-stage-analytics.tsx`
+
+Visualizes claim processing pipeline performance:
+
+**Key Metrics Cards:**
+```typescript
+<Card>
+  <CardHeader>
+    <CardTitle>Average Total Processing</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="text-3xl font-bold">{avgTotalDays} days</div>
+    <p className="text-sm text-muted-foreground">
+      From build to payment
+    </p>
+  </CardContent>
+</Card>
+```
+
+**Stage Duration Chart:**
+- Horizontal bar chart showing average days per stage
+- Stages: Build → Submit, Submit → Outcome, Accepted → Paid
+- Color-coded bars (indigo, green, sky)
+- Recharts implementation with responsive design
+
+**Initial Outcomes Pie Chart:**
+- Breakdown of submission results (accepted/rejected/denied)
+- Percentage and count for each category
+- Interactive legend
+
+**Final Collection Rate:**
+- Success rate visualization (paid vs unpaid)
+- Overall collection percentage
+- Visual indicator of financial performance
+
+**Analytics Computation:**
+```typescript
+// apps/web/src/utils/stage-analytics.ts
+export function computeStageAnalytics(claims: ClaimWithHistory[]) {
+  // Calculate average durations
+  const buildToSubmitDays = calculateAverageDays(
+    claims,
+    'ready_to_submit',
+    'submitted'
+  );
+  
+  const submitToOutcomeDays = calculateAverageDays(
+    claims,
+    'submitted',
+    ['accepted_277ca', 'rejected_277ca', 'denied']
+  );
+  
+  const acceptedToPaidDays = calculateAverageDays(
+    claims,
+    'accepted_277ca',
+    'paid'
+  );
+  
+  // Calculate success rates
+  const totalSubmitted = claims.filter(c => 
+    c.status !== 'draft' && c.status !== 'ready_to_submit'
+  ).length;
+  
+  const accepted = claims.filter(c => 
+    c.status === 'accepted_277ca'
+  ).length;
+  
+  const paid = claims.filter(c => 
+    c.status === 'paid'
+  ).length;
+  
+  return {
+    avgBuildToSubmit: buildToSubmitDays,
+    avgSubmitToOutcome: submitToOutcomeDays,
+    avgAcceptedToPaid: acceptedToPaidDays,
+    avgTotalProcessing: buildToSubmitDays + submitToOutcomeDays + acceptedToPaidDays,
+    initialAcceptanceRate: (accepted / totalSubmitted) * 100,
+    finalCollectionRate: (paid / totalSubmitted) * 100,
+    totalClaims: claims.length,
+  };
+}
+```
+
+### Payer Performance Analysis
+
+**Combined Claims & PA View:**
+- Performance metrics across both workflows
+- Average claims processing time per payer
+- Average PA approval time per payer
+- Claims acceptance rate
+- PA approval rate
+- Overall performance score (Excellent/Good/Needs Attention)
+
+**Visual Components:**
+- Performance comparison table
+- Volume trend charts (stacked bar chart showing EPA vs Claims volume)
+- Success rate indicators with color coding
+
+**Top Denial Reasons:**
+- Merged view of denial reasons across all claims
+- Count and percentage for each reason
+- Financial impact estimates
+- Drill-down capability by payer
+
+### Automation & Quality Metrics
+
+**Automation Rate Over Time:**
+- Line chart showing percentage of claims auto-handled
+- Monthly or weekly granularity
+- Quality score overlay (accuracy of automation)
+
+**Processing Time Trends:**
+- Week-over-week comparison
+- Target vs actual time
+- Bottleneck identification
+
+**Volume Trends:**
+- Total items processed (EPA + Claims)
+- Breakdown by type
+- Historical comparison
+
+## Credentialing Tracker
+
+**Route:** `/team/[slug]/credentialing`  
+**File:** `apps/web/src/app/team/[slug]/credentialing/page.tsx`
+
+### Features
+
+**State/Payer Status Matrix:**
+```typescript
+<Table>
+  <TableHeader>
+    <TableRow>
+      <TableHead>State</TableHead>
+      <TableHead>Payer</TableHead>
+      <TableHead>Status</TableHead>
+      <TableHead>Next Step</TableHead>
+      <TableHead>Contact Method</TableHead>
+      <TableHead>Actions</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {credentialingRecords.map(record => (
+      <TableRow key={record.id}>
+        <TableCell>{record.state}</TableCell>
+        <TableCell>{record.payer}</TableCell>
+        <TableCell>
+          <Badge variant={getStatusVariant(record.status)}>
+            {record.status}
+          </Badge>
+        </TableCell>
+        <TableCell>{record.nextStep}</TableCell>
+        <TableCell>{record.contactMethod}</TableCell>
+        <TableCell>
+          <Button size="sm" onClick={() => updateStatus(record.id)}>
+            Update
+          </Button>
+        </TableCell>
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+**Status Values:**
+- `Active`: Credentialing complete
+- `In Progress`: Pending steps (e.g., awaiting CAQH attestation)
+- `Requested`: Submission made, awaiting confirmation
+- `Planned`: Future initiative
+
+**Contact Methods:**
+- Portal (online submission)
+- Email
+- Phone
+- Rep visit at office
+
+**Summary Cards:**
+```typescript
+<div className="grid grid-cols-4 gap-4">
+  <Card>
+    <CardHeader>
+      <CardTitle>Active</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="text-3xl font-bold">{activeCount}</div>
+      <p className="text-sm text-muted-foreground">
+        Credentialing Complete
+      </p>
+    </CardContent>
+  </Card>
+  {/* Repeat for In Progress, Requested, Planned */}
+</div>
+```
+
+**Filtering & Search:**
+- Filter by state
+- Filter by payer
+- Filter by status
+- Search by payer name
 
 ## State Management
 
-### Zustand Store - ClaimSlice
-**File:** `src/stores/entities/claimStore.ts`
+### Zustand Stores
 
-Centralized state management for claims-related data with the following structure:
-
-**State Properties:**
-- `claims[]`: Array of claim records
-- `selectedClaim`: Currently selected claim
-- `claimLines{}`: Keyed by claim ID, stores procedure lines
-- `claimAttachments{}`: File attachments by claim ID
-- `claimValidations{}`: Validation results by claim ID
-- `claimStateHistory{}`: Status change history by claim ID
-- `scrubberResults{}`: Clearinghouse feedback by claim ID
-- `denialTracking{}`: Denial and appeal records by claim ID
-
-**Key Actions:**
-- `submitClaim(claimId, userId)`: Updates claim status to "submitted"
-- `resubmitClaim(claimId, userId)`: Updates status to "appealing" 
-- `fetchClaims()`: Loads claims from Supabase
-- CRUD operations for all related entities
-
-**Current Behavior:**
-- Submit actions only update database status fields
-- State history entries are added to local state but not persisted to database
-- No actual external submission occurs
-
-### React Query Integration
-**File:** `src/hooks/claims/useClaimWorkflow.ts`
-
-Provides reactive data fetching and caching with:
-
-**`useClaimWorkflow(claimId)` Hook:**
-- Fetches complete claim data with related entities (patient, payer, lines, validations, denials)
-- Returns optimistically updated submission mutation
-- Implements proper error handling and rollback
-
-**Query Structure:**
-```typescript
-claim.select(`
-  *,
-  encounter:encounter_id (
-    *,
-    patient:patient_id (
-      id, profile_id,
-      patient_profile!inner (first_name, last_name, birth_date),
-      insurance_policy (*)
-    )
-  ),
-  payer:payer_id (id, name, external_payer_id),
-  claim_line (*),
-  claim_validation (*),
-  denial_tracking (*)
-`)
+**Store Architecture:**
+```
+src/stores/
+├── entities/
+│   ├── claimStore.ts          # Claims data and actions
+│   ├── priorAuthStore.ts      # Prior auth data
+│   └── patientStore.ts        # Patient data
+├── ui/
+│   ├── navigationStore.ts     # UI navigation state
+│   └── modalStore.ts          # Modal management
+└── index.ts                   # Combined store exports
 ```
 
-## User Workflow - Claim Submission
-
-### Current Implementation
-1. **Validation Check**: Calls `get_claim_readiness_score` RPC to verify claim is ready
-2. **Readiness Requirement**: Score must be ≥95% to proceed
-3. **Optimistic Update**: Immediately updates UI to show "submitted" status  
-4. **Database Update**: Updates claim record with:
-   - `status = "submitted"`
-   - `submitted_at = current_timestamp`
-   - `attempt_count += 1`
-5. **State Management**: Updates local Zustand store
-6. **History Tracking**: Adds entry to local state history (not persisted)
-
-### Code Flow
-**Submit Button Click:**
-1. `useClaimWorkflow.ts` - `submitClaim.mutate()` called
-2. Validation via `supabase.rpc("get_claim_readiness_score")`
-3. Database update via `supabase.from("claim").update()`
-4. Optimistic UI update via React Query cache manipulation
-5. Store update via `claimStore.submitClaim()`
-
-**Error Handling:**
-- Validation failures throw "Claim not ready for submission"
-- Database errors trigger optimistic update rollback
-- UI shows error messages and reverts to previous state
-
-### Complete Phase 5 Implementation - Full Backend Integration
-
-**End-to-End Submission Workflow:**
-The frontend now provides complete integration with the Claim.MD submission infrastructure:
-
-1. **User Action**: User clicks Submit/Resubmit in Claims workbench or detail view
-2. **Loading State**: Button disabled with "Submitting..." text, visual loading indicators
-3. **Backend Call**: `supabase.functions.invoke("submit-claim-batch")` with claim IDs and user context
-4. **Real-time Processing**: Backend handles validation, claim generation, and clearinghouse submission
-5. **Response Handling**: Different feedback based on actual submission outcomes
-6. **Status Updates**: Claims show real status (`awaiting_277ca`, `accepted_277ca`, `rejected_277ca`)
-7. **Error Display**: Clearinghouse rejections displayed with specific error details
-
-**Complete Implementation Changes:**
-- **✅ Loading States**: Set-based state management tracks concurrent submissions
-- **✅ User Feedback**: Alert system provides specific success/error messages
-- **✅ Backend Integration**: All submission workflows use real backend functions
-- **✅ Error Display**: Enhanced clearinghouse error sections with realistic examples
-- **✅ Eliminated Simulation**: Removed all fake timeouts and optimistic status updates
-- **✅ Pure Backend Calls**: Resubmission logic uses identical backend integration
-
-**Comprehensive Error Handling:**
-- **Clearinghouse Errors**: Detailed rejection reasons with field paths and error codes
-- **Validation Errors**: Pre-submission validation issues from `claim_validation` table  
-- **Network Errors**: Connection and function call failures with retry guidance
-- **Loading States**: Visual indicators prevent user confusion during processing
-
-## Complete User Workflow - Claim Submission
-
-### Step-by-Step User Journey
-
-#### 1. Navigation and Claim Discovery
-- **Access**: User navigates to `/team/[slug]/claims` workbench
-- **Overview**: Data grid displays all claims with status filtering and search
-- **Identification**: Users can identify ready-to-submit claims by green "Ready to Submit" badges
-- **Selection**: Click on claim row or use bulk selection for multiple claims
-
-#### 2. Claim Detail Review
-- **Detail View**: Click claim opens ClaimDetailSheet sliding panel on right
-- **Information Display**:
-  - Patient demographics and insurance details
-  - Provider information and service dates  
-  - CPT codes, diagnosis codes, and charge amounts
-  - Validation results and confidence scores
-  - AI suggestions for improvements (if any)
-- **Action Buttons**: "Submit & Listen" and "Resubmit corrected" buttons available
-
-#### 3. Submission Process
-- **Initiation**: User clicks "Submit & Listen" button
-- **Loading State**: 
-  - Button disabled and text changes to "Submitting..."
-  - Loading state prevents double-clicks and shows progress
-- **Backend Processing**: System calls `submit-claim-batch` function
-- **Real-time Feedback**: User sees processing status immediately
-
-#### 4. Response Handling
-**Success Scenarios:**
-- **Accepted**: Alert shows "Claim submitted successfully and accepted by clearinghouse"
-- **Status Update**: Claim badge changes to green "Accepted" in the table
-- **Next Steps**: Claim forwarded to payer for review
-
-**Rejection Scenarios:**
-- **Rejected**: Alert shows "Claim was rejected by clearinghouse. See errors highlighted below"
-- **Status Update**: Claim badge changes to red "Rejected" 
-- **Error Display**: Clearinghouse errors section appears with detailed feedback
-- **Correction Path**: "Resubmit corrected" button enabled for fixes
-
-**Error Scenarios:**
-- **Network Issues**: Alert shows specific network error message
-- **Validation Failures**: Alert explains readiness score or missing data issues
-- **System Errors**: General error message with guidance to retry
-
-#### 5. Error Review and Correction
-- **Error Section**: Clearinghouse errors displayed with:
-  - Field-specific error codes (e.g., "277CA-001")
-  - Field paths showing exactly what needs fixing
-  - Human-readable descriptions for each issue
-- **Fix Application**: Users can apply AI suggestions or manually correct data
-- **Resubmission**: "Resubmit corrected" uses identical backend workflow
-
-### UI Response Behavior
-
-#### Loading States and Visual Feedback
-- **Submit Button**: 
-  - Normal: "Submit & Listen" (enabled)
-  - Loading: "Submitting..." (disabled, loading indicator)
-  - Success: Returns to normal state with updated claim status
-- **Status Indicators**: Real-time badge updates reflect actual backend status
-- **Progress Tracking**: Multiple concurrent submissions tracked independently
-
-#### Error Display Components
-- **Clearinghouse Errors**: 
-  - Red-bordered section with warning icons
-  - Detailed error list with field paths and codes
-  - Clear descriptions for user understanding
-- **Validation Warnings**: Pre-submission issues shown in validation section
-- **Network Errors**: System-level alerts for connectivity issues
-
-## Component Architecture and Implementation
-
-### Core Components Modified for Phase 5
-
-#### Claims Workbench (`src/app/team/[slug]/claims/page.tsx`)
-**Key Enhancements:**
-- **`submittingClaims` State**: Set-based tracking of concurrent submissions
-- **`triggerSubmit` Function**: Real backend integration with loading management
-- **Error Handling**: Comprehensive try/catch with user-friendly alerts
-- **Loading Management**: Proper cleanup in finally blocks
-
-**Critical Implementation Details:**
+**Claim Store Structure:**
 ```typescript
-const [submittingClaims, setSubmittingClaims] = useState<Set<string>>(new Set());
+// src/stores/entities/claimStore.ts
+interface ClaimSlice {
+  // State
+  claims: Claim[];
+  selectedClaim: Claim | null;
+  claimLines: Record<string, ClaimLine[]>;
+  claimValidations: Record<string, ClaimValidation>;
+  claimStateHistory: Record<string, ClaimStateHistory[]>;
+  scrubbingResults: Record<string, ScrubbingResult[]>;
+  denialTracking: Record<string, DenialTracking>;
+  
+  // Actions
+  setClaims: (claims: Claim[]) => void;
+  setSelectedClaim: (claim: Claim | null) => void;
+  updateClaimStatus: (claimId: string, status: ClaimStatus) => void;
+  addStateHistory: (claimId: string, entry: ClaimStateHistory) => void;
+  
+  // Async actions
+  fetchClaims: (organizationId: string) => Promise<void>;
+  submitClaim: (claimId: string, userId: string) => Promise<void>;
+  resubmitClaim: (claimId: string, userId: string) => Promise<void>;
+}
+```
 
-const triggerSubmit = async (claimId: string, auto = false) => {
-  setSubmittingClaims(prev => new Set(prev).add(claimId));
+**Store Implementation Pattern:**
+```typescript
+export const useClaimStore = create<ClaimSlice>((set, get) => ({
+  claims: [],
+  selectedClaim: null,
+  claimLines: {},
+  // ... other state
   
-  const { data, error } = await supabase.functions.invoke("submit-claim-batch", {
-    body: { claimIds: [claimId], clearinghouseId: "CLAIM_MD", userId }
-  });
+  setClaims: (claims) => set({ claims }),
   
-  // Handle response and update UI accordingly
+  updateClaimStatus: (claimId, status) => set((state) => ({
+    claims: state.claims.map(claim =>
+      claim.id === claimId ? { ...claim, status } : claim
+    ),
+  })),
+  
+  fetchClaims: async (organizationId) => {
+    const { data, error } = await supabase
+      .from('claim')
+      .select('*')
+      .eq('organization_id', organizationId);
+    
+    if (data) {
+      set({ claims: data });
+    }
+  },
+}));
+```
+
+### React Query Integration
+
+**Query Key Factory:**
+```typescript
+// src/lib/query/keys.ts
+export const queryKeys = {
+  claims: {
+    all: ['claims'] as const,
+    lists: () => [...queryKeys.claims.all, 'list'] as const,
+    list: (filters: string) => [...queryKeys.claims.lists(), filters] as const,
+    details: () => [...queryKeys.claims.all, 'detail'] as const,
+    detail: (id: string) => [...queryKeys.claims.details(), id] as const,
+    validations: (id: string) => [...queryKeys.claims.detail(id), 'validations'] as const,
+    history: (id: string) => [...queryKeys.claims.detail(id), 'history'] as const,
+  },
+  priorAuths: {
+    // Similar structure
+  },
 };
 ```
 
-#### ClaimDetailSheet Component
-**Enhanced Features:**
-- **Loading Props**: Receives `submittingClaims` prop for button states
-- **Dynamic Buttons**: Text changes based on submission state
-- **Error Sections**: Enhanced clearinghouse error display
-- **Action Integration**: Submit/resubmit both use real backend calls
+**Custom Hooks:**
+```typescript
+// src/hooks/claims/useClaimWorkflow.ts
+export function useClaimWorkflow(claimId: string) {
+  // Fetch claim with all relationships
+  const claimQuery = useQuery({
+    queryKey: queryKeys.claims.detail(claimId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('claim')
+        .select(`
+          *,
+          patient:patient_id (*),
+          provider:provider_id (*),
+          payer:payer_id (*),
+          claim_line (*),
+          claim_validation (*),
+          claim_state_history (*),
+          scrubbing_result (*),
+          denial_tracking (*)
+        `)
+        .eq('id', claimId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+  
+  // Submit mutation
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      return await supabase.functions.invoke('submit-claim-batch', {
+        body: { claimIds: [claimId] },
+      });
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries(queryKeys.claims.detail(claimId));
+      queryClient.invalidateQueries(queryKeys.claims.lists());
+    },
+  });
+  
+  return {
+    claim: claimQuery.data,
+    isLoading: claimQuery.isLoading,
+    error: claimQuery.error,
+    submit: submitMutation.mutate,
+    isSubmitting: submitMutation.isPending,
+  };
+}
+```
 
-**Visual Enhancements:**
-- Submit buttons show "Submitting..." during processing
-- Disabled state prevents multiple concurrent submissions
-- Error sections appear contextually for rejected claims
+**Optimistic Updates Pattern:**
+```typescript
+const updateMutation = useMutation({
+  mutationFn: updateClaimFn,
+  onMutate: async (updatedClaim) => {
+    // Cancel outgoing queries
+    await queryClient.cancelQueries(queryKeys.claims.detail(claimId));
+    
+    // Snapshot previous value
+    const previous = queryClient.getQueryData(queryKeys.claims.detail(claimId));
+    
+    // Optimistically update
+    queryClient.setQueryData(queryKeys.claims.detail(claimId), updatedClaim);
+    
+    // Return context for rollback
+    return { previous };
+  },
+  onError: (err, variables, context) => {
+    // Rollback on error
+    if (context?.previous) {
+      queryClient.setQueryData(
+        queryKeys.claims.detail(claimId),
+        context.previous
+      );
+    }
+  },
+  onSettled: () => {
+    // Always refetch after mutation
+    queryClient.invalidateQueries(queryKeys.claims.detail(claimId));
+  },
+});
+```
 
-#### Status Management Components
-- **STATUS_LABELS**: Maps all new clearinghouse statuses to display text
-- **STATUS_BADGE_VARIANTS**: Color coding for accepted/rejected states
-- **Conditional Logic**: Proper enable/disable for action buttons
+## User Workflows
 
-### UI Library Integration
-Built on **shadcn/ui** components providing:
-- Consistent design system for all status indicators
-- Accessible form controls for submission actions
-- Pre-built data table components with sorting/filtering
-- Modal and sheet overlays for claim details
-- Button and badge variants with loading states
+### Complete Claim Submission Journey
 
-## Data Fetching Patterns
+**1. Discovery & Selection**
+- User navigates to `/team/[slug]/claims`
+- Views claims sorted by "Needs Review" priority
+- Optionally enables "High $ First" for cash flow focus
+- Uses search/filters to find specific claims
+- Identifies claims with "Ready to Submit" status (green badge)
 
-### React Query Keys
-**File:** `src/lib/query/keys.ts`
+**2. Claim Review**
+- Clicks on claim row or presses Enter/O with keyboard navigation
+- ClaimDetailSheet slides in from right
+- Reviews patient demographics and insurance
+- Examines procedure lines with CPT codes and charges
+- Checks validation results and confidence scores
+- Reviews AI suggestions if any
 
-Structured query key factory for:
-- `claims.list()`: All claims for a team
-- `claims.detail(id)`: Individual claim with relations
-- `claims.validations(id)`: Validation results
-- `claims.history(id)`: State change history
+**3. Validation Check**
+- System automatically shows readiness score (must be ≥95%)
+- Validation warnings highlighted in yellow
+- Errors highlighted in red with suggestions
+- User can apply AI suggestions or manually correct
 
-### Optimistic Updates
-Submit mutations use optimistic updates to provide immediate feedback:
-1. Cancel ongoing queries
-2. Store current data as rollback point
-3. Immediately update cache with expected new state
-4. Execute actual mutation
-5. Rollback on error or invalidate on success
+**4. Submission**
+- User clicks "Submit & Listen" button
+- Button immediately shows "Submitting..." state
+- Backend processes claim (see Backend.md for details)
+- User sees loading indicator in both detail sheet and workbench row
 
-### Mock Data Integration
-For development and demo purposes, some endpoints return mock data mixed with real database queries.
+**5. Response Handling**
 
-## Status Management and Display
+**Success Path:**
+- Toast notification: "Claim submitted successfully"
+- Status badge updates to green "Accepted"
+- Detail sheet refreshes with updated information
+- Claim moves down in queue (no longer needs review)
 
-### Enhanced Status Values
-The UI now handles expanded claim status values to support Claim.MD integration workflow:
+**Rejection Path:**
+- Toast notification: "Claim was rejected by clearinghouse"
+- Status badge updates to red "Rejected"
+- Clearinghouse errors section appears with detailed feedback
+- "Resubmit Corrected" button becomes enabled
+- User reviews specific error messages with field paths
 
-**Clearinghouse Status Values:**
-- `accepted_277ca`: Displayed as "Accepted" with green styling - indicates claim was accepted by clearinghouse and forwarded to payer
-- `rejected_277ca`: Displayed as "Rejected" with red styling - indicates clearinghouse found issues preventing payer submission
-- `awaiting_277ca`: Displayed as "Awaiting 277CA" with indigo styling - waiting for clearinghouse acknowledgment
+**6. Error Correction** (if rejected)
+- User reviews clearinghouse error messages
+- Applies suggested fixes or manually corrects data
+- Clicks "Resubmit Corrected"
+- System follows same submission flow
 
-**Status Display Implementation:**
-- **STATUS_LABELS**: Maps status enum values to user-friendly display text
-- **STATUS_BADGE_VARIANTS**: Defines color schemes for each status (green for accepted, red for rejected/denied)
-- **Status Logic**: UI components already handle the new statuses correctly:
-  - `accepted_277ca` treated as success state (green)
-  - `rejected_277ca` treated as error state (red) 
-  - Both statuses enable "Resubmit corrected" button functionality
+**7. Denial Handling** (if payer denies)
+- Denial playbook automatically processes based on CARC/RARC code
+- Auto-resubmit strategy: Fixes applied and claim resubmitted automatically
+- Manual review strategy: User notified to review claim
+- Notify strategy: Alert sent, no immediate action required
 
-### External ID Fields
-The UI is prepared to handle new database fields but does not currently display them:
-- `external_claim_id`: Claim.MD claim identifier (not displayed in current UI)
-- `batch_id`: Claim.MD batch upload identifier (not displayed in current UI)
+### Keyboard Navigation Workflow
 
-These fields are stored in the database and available for future display requirements.
+**Sequential Claim Processing:**
+1. Load claims workbench
+2. Press ↓ or J to focus first claim
+3. Press Enter to open detail sheet
+4. Review claim details
+5. Press ↓ or J to move to next claim (detail updates in place)
+6. Continue reviewing without closing detail
+7. Press Escape when done to return to list view
+8. Focus restored to last viewed claim
 
-### Scrubbing Results Integration
-**Future Implementation:** The UI framework supports displaying scrubbing results from the `scrubbing_result` table:
-- Error display patterns already exist for validation issues
-- Badge and alert components ready for clearinghouse error messages
-- Detailed error views can show field-specific rejection reasons
+**Benefits:**
+- No mouse required for claim processing
+- Faster navigation for power users
+- Reduced RSI risk from excessive clicking
+- Professional workflow similar to email clients
 
-## Production Readiness Status
+## Component Architecture
 
-### Completed Integration (Phase 5)
-- **✅ Backend Integration**: All submission workflows use real Supabase Edge Functions
-- **✅ Real Status Updates**: Claims reflect actual submission outcomes from backend
-- **✅ Comprehensive Error Handling**: Network, validation, and clearinghouse errors properly handled
-- **✅ Loading States**: Visual feedback during submission processes
-- **✅ User Feedback**: Alert system provides specific success/error messages
-- **✅ Eliminated Simulation**: Removed all fake timeouts and optimistic status updates
+### Component Hierarchy
 
-### Ready for Live Claim.MD Integration
-The frontend is fully prepared for live clearinghouse integration:
-- **Submit Workflows**: Complete backend function integration ready for live API
-- **Error Display**: Framework ready to show real clearinghouse rejection details
-- **Status Management**: Handles all Claim.MD-specific status progressions
-- **Data Refresh**: React Query invalidation ensures UI shows latest backend state
+```
+<Page>
+  <ClaimsWorkbench>
+    <Toolbar>
+      <SearchInput />
+      <FilterSelect />
+      <HighDollarToggle />
+      <BatchActionButtons />
+    </Toolbar>
+    
+    <DataGrid>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <SortableColumn />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {claims.map(claim => (
+            <ClaimRow 
+              key={claim.id}
+              claim={claim}
+              isFocused={focusedIndex === index}
+              onClick={handleRowClick}
+            />
+          ))}
+        </TableBody>
+      </Table>
+    </DataGrid>
+    
+    <ClaimDetailSheet 
+      claim={selectedClaim}
+      open={!!selectedClaim}
+      onOpenChange={setSelectedClaim}
+    >
+      <SheetHeader>
+        <ClaimStatusBadge />
+        <ActionButtons />
+      </SheetHeader>
+      
+      <SheetContent>
+        <PatientInfoSection />
+        <ProviderInfoSection />
+        <ClaimLinesTable />
+        <ValidationSection />
+        <ClearinghouseErrorsSection />
+        <StateHistoryTimeline />
+      </SheetContent>
+    </ClaimDetailSheet>
+  </ClaimsWorkbench>
+</Page>
+```
 
-### Current Limitations
+### Reusable Components
 
-#### Live API Integration
-- **HTTP Client**: `submitToClearinghouse` function needs actual Claim.MD HTTP implementation
-- **Schema Verification**: JSON structure requires validation against Claim.MD API documentation
-- **Response Processing**: Real 277CA acknowledgment processing not yet implemented
+**Status Badge:**
+```typescript
+// src/components/ui/status-badge.tsx
+interface StatusBadgeProps {
+  status: ClaimStatus | PriorAuthStatus;
+  size?: 'sm' | 'md' | 'lg';
+}
 
-#### Production Considerations
-- **Error Recovery**: Enhanced retry logic for failed submissions
-- **Performance**: Optimization for high-volume concurrent submissions
-- **Monitoring**: User-facing status for system health and submission queues
+export function StatusBadge({ status, size = 'md' }: StatusBadgeProps) {
+  const variant = STATUS_BADGE_VARIANTS[status];
+  const label = STATUS_LABELS[status];
+  
+  return (
+    <Badge variant={variant} className={cn('', sizeClasses[size])}>
+      {label}
+    </Badge>
+  );
+}
+```
 
-### Next Steps for Full Production
+**Confidence Score Indicator:**
+```typescript
+// src/components/ui/confidence-indicator.tsx
+export function ConfidenceIndicator({ score }: { score: number }) {
+  const color = score >= 95 ? 'green' : score >= 85 ? 'yellow' : 'red';
+  const label = score >= 95 ? 'High' : score >= 85 ? 'Medium' : 'Low';
+  
+  return (
+    <div className="flex items-center gap-2">
+      <Progress value={score} className={`w-20 h-2 ${color}`} />
+      <span className="text-sm font-medium">{score}%</span>
+      <Badge variant={color}>{label}</Badge>
+    </div>
+  );
+}
+```
 
-The frontend implementation is complete. **Only the HTTP API call to Claim.MD needs to be implemented** in the backend `submitToClearinghouse` function to enable live claim submission.
+**Loading States:**
+```typescript
+// src/components/ui/loading-button.tsx
+export function LoadingButton({ 
+  isLoading, 
+  children, 
+  ...props 
+}: ButtonProps & { isLoading: boolean }) {
+  return (
+    <Button disabled={isLoading} {...props}>
+      {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {children}
+    </Button>
+  );
+}
+```
 
-**Remaining Work:**
-1. Implement actual Claim.MD HTTP client in backend
-2. Process real 277CA responses and update claim statuses  
-3. Enhanced error mapping from live API responses
-4. Production monitoring and alerting setup
+## Design System
+
+### Color Palette
+
+**Status Colors:**
+- Success: `green-600` (accepted, paid, approved)
+- Warning: `yellow-600` (awaiting, needs review)
+- Destructive: `red-600` (rejected, denied)
+- Info: `blue-600` (submitted, in progress)
+- Secondary: `gray-600` (draft, inactive)
+
+**Chart Colors:**
+- Primary: `indigo-600`
+- Secondary: `green-600`
+- Tertiary: `sky-600`
+- Quaternary: `orange-600`
+- Quinary: `purple-600`
+
+### Typography
+
+**Font System:**
+- **Default**: System font stack (San Francisco, Segoe UI, etc.)
+- **Monospace**: For claim numbers, codes, identifiers
+
+**Size Scale:**
+- `text-xs`: 12px - Helper text, captions
+- `text-sm`: 14px - Secondary text, table cells
+- `text-base`: 16px - Body text, form inputs
+- `text-lg`: 18px - Section headers
+- `text-xl`: 20px - Card titles
+- `text-2xl`: 24px - Page headers
+- `text-3xl`: 30px - Large metrics
+
+### Spacing
+
+**Consistent Spacing Scale:**
+- `gap-1`: 4px
+- `gap-2`: 8px
+- `gap-4`: 16px
+- `gap-6`: 24px
+- `gap-8`: 32px
+- `gap-12`: 48px
+
+### Component Variants
+
+**Badge Variants:**
+- `default`: Neutral gray for standard items
+- `success`: Green for positive states
+- `warning`: Yellow for attention needed
+- `destructive`: Red for errors/denials
+- `info`: Blue for informational states
+- `secondary`: Muted gray for less important items
+
+**Button Variants:**
+- `default`: Primary action button (indigo)
+- `secondary`: Secondary action (gray)
+- `destructive`: Dangerous actions (red)
+- `outline`: Ghost-style button
+- `ghost`: Minimal styling
+- `link`: Link-styled button
+
+## Performance Optimizations
+
+### Rendering Optimizations
+
+**1. Memoization:**
+```typescript
+const filteredClaims = useMemo(() => {
+  return claims.filter(claim => {
+    // Expensive filtering logic
+  }).sort((a, b) => {
+    // Expensive sorting logic
+  });
+}, [claims, filterConfig, sortConfig]);
+```
+
+**2. Virtualization** (for large lists):
+```typescript
+// Not yet implemented, but planned for 1000+ claims
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+const rowVirtualizer = useVirtualizer({
+  count: claims.length,
+  getScrollElement: () => tableRef.current,
+  estimateSize: () => 50, // Row height
+  overscan: 10,
+});
+```
+
+**3. Code Splitting:**
+```typescript
+// Heavy components lazy loaded
+const ClaimDetailSheet = lazy(() => import('./claim-detail-sheet'));
+const AnalyticsDashboard = lazy(() => import('./analytics-dashboard'));
+```
+
+### Data Fetching Optimizations
+
+**1. Prefetching:**
+```typescript
+// Prefetch next claim on hover
+const prefetchNextClaim = (claimId: string) => {
+  queryClient.prefetchQuery({
+    queryKey: queryKeys.claims.detail(claimId),
+    queryFn: () => fetchClaimDetails(claimId),
+  });
+};
+
+<ClaimRow 
+  onMouseEnter={() => prefetchNextClaim(claim.id)}
+/>
+```
+
+**2. Stale-While-Revalidate:**
+```typescript
+const claimsQuery = useQuery({
+  queryKey: queryKeys.claims.lists(),
+  queryFn: fetchClaims,
+  staleTime: 30000, // 30 seconds
+  cacheTime: 300000, // 5 minutes
+});
+```
+
+**3. Parallel Fetching:**
+```typescript
+const [claimsQuery, payersQuery, providersQuery] = useQueries({
+  queries: [
+    { queryKey: ['claims'], queryFn: fetchClaims },
+    { queryKey: ['payers'], queryFn: fetchPayers },
+    { queryKey: ['providers'], queryFn: fetchProviders },
+  ],
+});
+```
+
+### Bundle Size Optimizations
+
+**Tree Shaking:**
+- Import only used components from libraries
+- Avoid importing entire icon libraries
+
+**Dynamic Imports:**
+```typescript
+// Heavy dependencies loaded on demand
+const Recharts = dynamic(() => import('recharts'), { ssr: false });
+```
+
+**Image Optimization:**
+- Next.js Image component with automatic optimization
+- WebP format with fallbacks
+- Lazy loading below the fold
+
+## Accessibility Features
+
+### ARIA Labels
+- All interactive elements have descriptive labels
+- Status changes announced to screen readers
+- Form validation errors associated with inputs
+
+### Keyboard Accessibility
+- Tab order follows visual layout
+- Focus visible indicators on all interactive elements
+- Keyboard shortcuts documented and accessible
+- Skip links for navigation
+
+### Color Contrast
+- All text meets WCAG AA standards (4.5:1 minimum)
+- Interactive elements have sufficient contrast
+- Focus indicators visible at 3:1 contrast ratio
+
+### Screen Reader Support
+- Semantic HTML structure
+- Landmarks for navigation
+- Live regions for dynamic updates
+- Descriptive button labels
+
+## Testing Strategy
+
+### Unit Tests (Jest)
+- Component rendering tests
+- Business logic functions (sorting, filtering, analytics)
+- State management actions
+- Utility functions
+
+**Example Test:**
+```typescript
+// apps/web/specs/claims-sorting.spec.ts
+describe('High Dollar First Sorting', () => {
+  it('sorts claims by total amount in descending order', () => {
+    const claims = [
+      { id: '1', total_amount: 100 },
+      { id: '2', total_amount: 500 },
+      { id: '3', total_amount: 250 },
+    ];
+    
+    const sorted = sortClaimsByAmount(claims);
+    
+    expect(sorted[0].id).toBe('2');
+    expect(sorted[1].id).toBe('3');
+    expect(sorted[2].id).toBe('1');
+  });
+});
+```
+
+### Integration Tests
+- User workflows (claim submission, denial processing)
+- Component interactions
+- API integration
+
+**Example Test:**
+```typescript
+// apps/web/specs/denial-playbook-integration.spec.tsx
+describe('Denial Playbook Integration', () => {
+  it('auto-resubmits claim when matching playbook rule found', async () => {
+    const claim = createMockClaim({ status: 'denied' });
+    const playbook = createMockPlaybook({ strategy: 'auto_resubmit' });
+    
+    render(<ClaimsWorkbench claims={[claim]} playbooks={[playbook]} />);
+    
+    await waitFor(() => {
+      expect(screen.getByText(/Auto-resubmitted/i)).toBeInTheDocument();
+    });
+  });
+});
+```
+
+### E2E Tests (Cypress)
+- Complete user journeys
+- Cross-browser testing
+- Real API interactions
+
+## Future Enhancements
+
+### Planned Features
+- **Auto-scroll**: Automatically scroll focused row into view during keyboard navigation
+- **Bulk Edit**: Edit multiple claims simultaneously
+- **Advanced Filters**: Save and share filter configurations
+- **Custom Views**: User-defined column arrangements and sorting
+- **Keyboard Shortcuts Panel**: On-screen overlay showing available shortcuts (press ?)
+- **Claim Templates**: Pre-fill common claim types
+- **Real-time Collaboration**: See other users viewing/editing claims
+- **Mobile Responsive**: Optimized interface for tablets and phones
+
+### Performance Improvements
+- Virtual scrolling for 10,000+ claims
+- Web Workers for heavy computations
+- Service Worker for offline support
+- Progressive Web App capabilities
+
+### UX Enhancements
+- Undo/Redo for claim edits
+- Keyboard shortcut customization
+- Dark mode support
+- Personalized dashboard widgets
+- Advanced search with natural language
+
+---
+
+**This frontend architecture provides a modern, accessible, and efficient interface for healthcare RCM workflows, with a focus on automation, keyboard-first design, and user productivity.**
