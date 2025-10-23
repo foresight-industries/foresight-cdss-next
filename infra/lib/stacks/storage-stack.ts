@@ -9,6 +9,7 @@ interface StorageStackProps extends cdk.StackProps {
 
 export class StorageStack extends cdk.Stack {
   public readonly documentsBucket: s3.Bucket;
+  public readonly healthLakeBucket: s3.Bucket;
   public readonly encryptionKey: kms.Key;
 
   constructor(scope: Construct, id: string, props: StorageStackProps) {
@@ -49,11 +50,21 @@ export class StorageStack extends cdk.Stack {
           noncurrentVersionExpiration: cdk.Duration.days(90),
         },
         {
-          id: 'move-to-ia',
-          transitions: [{
-            storageClass: s3.StorageClass.INFREQUENT_ACCESS,
-            transitionAfter: cdk.Duration.days(30),
-          }],
+          id: 'optimize-storage-costs',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(90),
+            },
+            {
+              storageClass: s3.StorageClass.DEEP_ARCHIVE,
+              transitionAfter: cdk.Duration.days(365),
+            },
+          ],
         },
       ],
       cors: [{
@@ -72,6 +83,49 @@ export class StorageStack extends cdk.Stack {
       autoDeleteObjects: props.stageName !== 'prod',
     });
 
+    // S3 bucket for HealthLake data import/export
+    this.healthLakeBucket = new s3.Bucket(this, 'HealthLakeBucket', {
+      bucketName: `rcm-healthlake-${props.stageName}-${cdk.Stack.of(this).account}`,
+      encryption: s3.BucketEncryption.KMS,
+      encryptionKey: this.encryptionKey,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      versioned: true,
+      serverAccessLogsBucket: auditBucket,
+      serverAccessLogsPrefix: 'healthlake-access/',
+      lifecycleRules: [
+        {
+          id: 'delete-old-versions',
+          noncurrentVersionExpiration: cdk.Duration.days(30),
+        },
+        {
+          id: 'delete-temp-files',
+          prefix: 'temp/',
+          expiration: cdk.Duration.days(7),
+        },
+        {
+          id: 'optimize-storage-costs',
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: cdk.Duration.days(30),
+            },
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: cdk.Duration.days(90),
+            },
+            {
+              storageClass: s3.StorageClass.DEEP_ARCHIVE,
+              transitionAfter: cdk.Duration.days(365),
+            },
+          ],
+        },
+      ],
+      enforceSSL: true,
+      removalPolicy: props.stageName === 'prod'
+        ? cdk.RemovalPolicy.RETAIN
+        : cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: props.stageName !== 'prod',
+    });
 
     // Outputs
     new cdk.CfnOutput(this, 'DocumentsBucketName', {
@@ -82,6 +136,11 @@ export class StorageStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'KMSKeyId', {
       value: this.encryptionKey.keyId,
       exportName: `RCM-KMSKeyId-${props.stageName}`,
+    });
+
+    new cdk.CfnOutput(this, 'HealthLakeBucketName', {
+      value: this.healthLakeBucket.bucketName,
+      exportName: `RCM-HealthLakeBucket-${props.stageName}`,
     });
   }
 }

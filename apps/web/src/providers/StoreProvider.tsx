@@ -9,7 +9,7 @@ export function StoreProvider({
   children,
 }: Readonly<{ children: ReactNode }>) {
   const { user } = useUser();
-  const clearChannels = useRealtimeStore((s) => s.clearChannels);
+  const clearSubscriptions = useRealtimeStore((s) => s.clearSubscriptions);
 
   useEffect(() => {
     // Initialize session from Clerk auth and AWS database
@@ -53,9 +53,9 @@ export function StoreProvider({
 
     // Cleanup on unmount
     return () => {
-      clearChannels();
+      clearSubscriptions();
     };
-  }, [user, clearChannels]); // Added user to dependencies
+  }, [user, clearSubscriptions]); // Added user to dependencies
 
   return <>{children}</>;
 }

@@ -272,6 +272,7 @@ export const organizations = pgTable('organization', {
 
   // Settings
   settings: json('settings').$type<Record<string, any>>().default({}),
+  status: varchar('status', { length: 20 }).default('active'),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -606,6 +607,34 @@ export const documents = pgTable('document', {
   isProcessed: boolean('is_processed').default(false),
   ocrText: text('ocr_text'),
   metadata: json('metadata').$type<Record<string, any>>().default({}),
+
+  // Enhanced processing tracking
+  uploadId: uuid('upload_id').unique(), // External reference for API clients
+  processingStatus: varchar('processing_status', { length: 20 }).default('uploaded'), // uploaded, validating, processing, completed, failed
+  processingStartedAt: timestamp('processing_started_at'),
+  processingCompletedAt: timestamp('processing_completed_at'),
+
+  // Validation results (from Rekognition)
+  validationResult: json('validation_result').$type<{
+    isValid: boolean;
+    confidence: number;
+    issues: string[];
+    metadata?: {
+      textConfidence?: number;
+      documentQuality?: 'high' | 'medium' | 'low';
+      suspiciousContent?: boolean;
+    };
+  }>(),
+
+  // Extraction results (from Textract)
+  extractedData: json('extracted_data').$type<Record<string, any>>(),
+
+  // Error information
+  errorMessage: text('error_message'),
+  errorDetails: json('error_details'),
+
+  // Retry information
+  retryCount: integer('retry_count').default(0),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -6626,40 +6655,6 @@ export const emTimeRules = pgTable('em_time_rule', {
   activeIdx: index('em_time_rule_active_idx').on(table.isActive),
 }));
 
-// FHIR Resource tracking
-export const fhirResources = pgTable('fhir_resource', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-
-  // FHIR details
-  resourceType: varchar('resource_type', { length: 50 }).notNull(), // Patient, Claim, etc.
-  resourceId: varchar('resource_id', { length: 100 }).notNull(),
-  version: varchar('version', { length: 10 }).default('R4'),
-
-  // Source system
-  sourceSystem: varchar('source_system', { length: 100 }).notNull(),
-  sourceId: varchar('source_id', { length: 100 }),
-
-  // Resource content
-  resourceData: jsonb('resource_data').notNull(),
-  lastModified: timestamp('last_modified').notNull(),
-
-  // Sync status
-  syncStatus: varchar('sync_status', { length: 20 }).default('pending'), // pending, synced, error
-  syncError: text('sync_error'),
-  lastSyncAt: timestamp('last_sync_at'),
-
-  // Audit fields
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
-}, (table) => ({
-  orgIdx: index('fhir_resource_org_idx').on(table.organizationId),
-  resourceTypeIdx: index('fhir_resource_type_idx').on(table.resourceType),
-  resourceIdIdx: index('fhir_resource_id_idx').on(table.resourceId),
-  sourceSystemIdx: index('fhir_resource_source_system_idx').on(table.sourceSystem),
-  syncStatusIdx: index('fhir_resource_sync_status_idx').on(table.syncStatus),
-  lastModifiedIdx: index('fhir_resource_last_modified_idx').on(table.lastModified),
-}));
 
 // Field Mapping Templates for EHR integration
 export const fieldMappingTemplates = pgTable('field_mapping_template', {
@@ -7141,9 +7136,6 @@ export type NewApiVersion = InferInsertModel<typeof apiVersions>;
 export type EmTimeRule = InferSelectModel<typeof emTimeRules>;
 export type NewEmTimeRule = InferInsertModel<typeof emTimeRules>;
 
-export type FhirResource = InferSelectModel<typeof fhirResources>;
-export type NewFhirResource = InferInsertModel<typeof fhirResources>;
-
 export type FieldMappingTemplate = InferSelectModel<typeof fieldMappingTemplates>;
 export type NewFieldMappingTemplate = InferInsertModel<typeof fieldMappingTemplates>;
 
@@ -7370,3 +7362,188 @@ export type NewDatabaseConnectionLog = InferInsertModel<typeof databaseConnectio
 
 export type DatabaseQueryLog = InferSelectModel<typeof databaseQueryLogs>;
 export type NewDatabaseQueryLog = InferInsertModel<typeof databaseQueryLogs>;
+
+// ============================================================================
+// ENHANCED EHR INTEGRATION & FHIR-COMPLIANT DATA MODELS
+// ============================================================================
+
+// FHIR Resource Tracking (extends existing ehrConnections)
+export const fhirResources = pgTable('fhir_resource', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  ehrConnectionId: uuid('ehr_connection_id').references(() => ehrConnections.id).notNull(),
+
+  // FHIR Resource Identity
+  fhirId: text('fhir_id').notNull(), // Original FHIR resource ID from EHR
+  resourceType: varchar('resource_type', { length: 50 }).notNull(), // Patient, Encounter, Observation, etc.
+  resourceVersion: varchar('resource_version', { length: 20 }).default('1'),
+
+  // Local Mapping
+  localEntityId: uuid('local_entity_id'), // Maps to patients.id, encounters.id, etc.
+  localEntityType: varchar('local_entity_type', { length: 50 }), // 'patient', 'encounter', etc.
+
+  // FHIR Data
+  fhirData: json('fhir_data').$type<Record<string, any>>().notNull(), // Complete FHIR resource
+  extractedData: json('extracted_data').$type<Record<string, any>>(), // Normalized data for local use
+
+  // Synchronization
+  lastSyncAt: timestamp('last_sync_at').defaultNow(),
+  syncStatus: varchar('sync_status', { length: 20 }).default('synced'), // synced, pending, error, conflict
+  syncConflicts: json('sync_conflicts').$type<Record<string, any>>().default({}),
+
+  // Metadata
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('fhir_resource_org_idx').on(table.organizationId),
+  ehrIdx: index('fhir_resource_ehr_idx').on(table.ehrConnectionId),
+  fhirIdIdx: index('fhir_resource_fhir_id_idx').on(table.fhirId),
+  typeIdx: index('fhir_resource_type_idx').on(table.resourceType),
+  localEntityIdx: index('fhir_resource_local_entity_idx').on(table.localEntityId),
+  syncStatusIdx: index('fhir_resource_sync_status_idx').on(table.syncStatus),
+  // Composite index for EHR + FHIR ID uniqueness
+  ehrFhirIdIdx: index('fhir_resource_ehr_fhir_id_unique_idx').on(table.ehrConnectionId, table.fhirId, table.resourceType),
+}));
+
+// EHR Sync Jobs & Status
+export const ehrSyncJobs = pgTable('ehr_sync_job', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  ehrConnectionId: uuid('ehr_connection_id').references(() => ehrConnections.id).notNull(),
+
+  // Job Configuration
+  jobType: varchar('job_type', { length: 30 }).notNull(), // 'full_sync', 'incremental_sync', 'patient_sync', 'encounter_sync'
+  resourceTypes: json('resource_types').$type<string[]>().default([]), // ['Patient', 'Encounter', 'Observation']
+  filters: json('filters').$type<Record<string, any>>().default({}), // Date ranges, patient lists, etc.
+
+  // Job Status
+  status: varchar('status', { length: 20 }).default('pending'), // pending, running, completed, failed, cancelled
+  progress: integer('progress').default(0), // 0-100
+  totalResources: integer('total_resources').default(0),
+  processedResources: integer('processed_resources').default(0),
+  successfulResources: integer('successful_resources').default(0),
+  failedResources: integer('failed_resources').default(0),
+
+  // Timing
+  startedAt: timestamp('started_at'),
+  completedAt: timestamp('completed_at'),
+  estimatedDuration: integer('estimated_duration'), // seconds
+
+  // Results & Errors
+  result: json('result').$type<{
+    summary: Record<string, number>;
+    errors: Array<{ resourceType: string; fhirId: string; error: string; }>;
+    warnings: Array<{ resourceType: string; fhirId: string; warning: string; }>;
+  }>(),
+  errorMessage: text('error_message'),
+
+  // Retry Logic
+  retryCount: integer('retry_count').default(0),
+  maxRetries: integer('max_retries').default(3),
+  nextRetryAt: timestamp('next_retry_at'),
+
+  // Audit
+  triggeredBy: varchar('triggered_by', { length: 50 }).default('system'), // 'system', 'manual', 'webhook'
+  triggeredByUserId: uuid('triggered_by_user_id').references(() => teamMembers.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('ehr_sync_job_org_idx').on(table.organizationId),
+  ehrIdx: index('ehr_sync_job_ehr_idx').on(table.ehrConnectionId),
+  statusIdx: index('ehr_sync_job_status_idx').on(table.status),
+  createdIdx: index('ehr_sync_job_created_idx').on(table.createdAt),
+  retryIdx: index('ehr_sync_job_retry_idx').on(table.nextRetryAt),
+}));
+
+// EHR Webhook Events for real-time updates
+export const ehrWebhookEvents = pgTable('ehr_webhook_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  ehrConnectionId: uuid('ehr_connection_id').references(() => ehrConnections.id).notNull(),
+
+  // Event Details
+  eventType: varchar('event_type', { length: 50 }).notNull(), // 'patient.created', 'encounter.updated', etc.
+  eventId: text('event_id'), // EHR's event ID if provided
+  resourceType: varchar('resource_type', { length: 50 }).notNull(),
+  resourceId: text('resource_id').notNull(), // FHIR resource ID
+
+  // Payload
+  payload: json('payload').$type<Record<string, any>>().notNull(),
+  headers: json('headers').$type<Record<string, string>>().default({}),
+
+  // Processing
+  processed: boolean('processed').default(false),
+  processedAt: timestamp('processed_at'),
+  processingError: text('processing_error'),
+
+  // Audit
+  receivedAt: timestamp('received_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('ehr_webhook_event_org_idx').on(table.organizationId),
+  ehrIdx: index('ehr_webhook_event_ehr_idx').on(table.ehrConnectionId),
+  eventTypeIdx: index('ehr_webhook_event_type_idx').on(table.eventType),
+  processedIdx: index('ehr_webhook_event_processed_idx').on(table.processed),
+  receivedIdx: index('ehr_webhook_event_received_idx').on(table.receivedAt),
+}));
+
+// Cross-Provider Analytics View
+export const crossProviderAnalytics = pgTable('cross_provider_analytics', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Aggregation Details
+  aggregationType: varchar('aggregation_type', { length: 30 }).notNull(), // 'daily', 'weekly', 'monthly'
+  aggregationDate: date('aggregation_date').notNull(),
+
+  // Provider Context
+  organizationIds: json('organization_ids').$type<string[]>().notNull(), // Array of org IDs included
+  totalProviders: integer('total_providers').notNull(),
+
+  // Patient Metrics
+  totalPatients: integer('total_patients').default(0),
+  newPatients: integer('new_patients').default(0),
+  activePatients: integer('active_patients').default(0),
+
+  // Encounter Metrics
+  totalEncounters: integer('total_encounters').default(0),
+  uniqueEncounterTypes: json('unique_encounter_types').$type<string[]>().default([]),
+  averageEncounterDuration: integer('average_encounter_duration'), // minutes
+
+  // Prior Authorization Metrics
+  totalPriorAuths: integer('total_prior_auths').default(0),
+  approvedPriorAuths: integer('approved_prior_auths').default(0),
+  deniedPriorAuths: integer('denied_prior_auths').default(0),
+  pendingPriorAuths: integer('pending_prior_auths').default(0),
+  averageProcessingTime: integer('average_processing_time'), // hours
+
+  // Document Metrics
+  totalDocuments: integer('total_documents').default(0),
+  processedDocuments: integer('processed_documents').default(0),
+  failedDocuments: integer('failed_documents').default(0),
+
+  // EHR Integration Metrics
+  activeEhrConnections: integer('active_ehr_connections').default(0),
+  syncedResources: integer('synced_resources').default(0),
+  syncErrors: integer('sync_errors').default(0),
+
+  // Performance Metrics
+  systemUptime: decimal('system_uptime', { precision: 5, scale: 2 }), // percentage
+  averageResponseTime: integer('average_response_time'), // milliseconds
+
+  // Metadata
+  calculatedAt: timestamp('calculated_at').defaultNow().notNull(),
+  dataFreshnessHours: integer('data_freshness_hours').default(0), // How old is the source data
+}, (table) => ({
+  typeIdx: index('cross_provider_analytics_type_idx').on(table.aggregationType),
+  dateIdx: index('cross_provider_analytics_date_idx').on(table.aggregationDate),
+  calculatedIdx: index('cross_provider_analytics_calculated_idx').on(table.calculatedAt),
+}));
+
+export type FhirResource = InferSelectModel<typeof fhirResources>;
+export type NewFhirResource = InferInsertModel<typeof fhirResources>;
+export type EhrSyncJob = InferSelectModel<typeof ehrSyncJobs>;
+export type NewEhrSyncJob = InferInsertModel<typeof ehrSyncJobs>;
+export type EhrWebhookEvent = InferSelectModel<typeof ehrWebhookEvents>;
+export type NewEhrWebhookEvent = InferInsertModel<typeof ehrWebhookEvents>;
+export type CrossProviderAnalytics = InferSelectModel<typeof crossProviderAnalytics>;
+export type NewCrossProviderAnalytics = InferInsertModel<typeof crossProviderAnalytics>;
+

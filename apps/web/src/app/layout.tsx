@@ -8,6 +8,10 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import type { Metadata } from "next";
+import { Amplify } from 'aws-amplify';
+import config from '../../../../aws-exports';
+
+Amplify.configure(config);
 
 export const metadata: Metadata = {
   title: "Foresight RCM Dashboard",

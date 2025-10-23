@@ -3,6 +3,7 @@
   "compilerOptions": {
     "jsx": "preserve",
     "noEmit": true,
+    "declaration": true,
     "emitDeclarationOnly": false,
     "esModuleInterop": true,
     "resolveJsonModule": true,

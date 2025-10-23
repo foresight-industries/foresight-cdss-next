@@ -25,11 +25,48 @@ export class MedicalDataStack extends Stack {
       `foresight-${props.environment}-medical-codes`
     );
 
-    // Import existing Redis backup bucket (don't interfere with Redis backups)
-    this.redisBackupBucket = s3.Bucket.fromBucketName(
-      this,
-      'RedisBackupBucket',
-      `foresight-${props.environment}-medical-codes-backup`
+    // Create Redis Cloud backup bucket with proper Redis.io permissions
+    this.redisBackupBucket = new s3.Bucket(this, 'RedisBackupBucket', {
+      bucketName: `foresight-${props.environment}-medical-codes-backup`,
+      versioned: true,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      publicReadAccess: false,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      lifecycleRules: [
+        {
+          id: 'RedisBackupLifecycle',
+          enabled: true,
+          transitions: [
+            {
+              storageClass: s3.StorageClass.INFREQUENT_ACCESS,
+              transitionAfter: Duration.days(30),
+            },
+            {
+              storageClass: s3.StorageClass.GLACIER,
+              transitionAfter: Duration.days(90),
+            },
+          ],
+          // Keep Redis backups for 2 years
+          expiration: Duration.days(730),
+        },
+      ],
+      removalPolicy: RemovalPolicy.RETAIN, // Always retain Redis backups
+      autoDeleteObjects: false, // Never auto-delete Redis backup objects
+    });
+
+    // Add Redis Cloud (Redis.io) backup access policy as per Redis documentation
+    this.redisBackupBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'RedisCloudBackupsAccess',
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.ArnPrincipal('arn:aws:iam::168085023892:root')], // Redis Cloud AWS account
+        actions: [
+          's3:PutObject',
+          's3:GetObject',
+          's3:DeleteObject',
+        ],
+        resources: [`${this.redisBackupBucket.bucketArn}/*`],
+      })
     );
 
     // Create new backup bucket for Comprehend Medical

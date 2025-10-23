@@ -26,8 +26,8 @@ const dosespotSupplySchema = z.object({
     DaysSupply: z.number(),
     PharmacyId: z.number(),
   }),
-  clinicianId: z.string().uuid().optional(),
-  organizationId: z.string().uuid().optional(),
+  clinicianId: z.uuid().optional(),
+  organizationId: z.uuid().optional(),
 });
 
 // POST /api/services/dosespot/supply/add-and-send - Add and send supply through DoseSpot
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       clinician = clinicianData;
     }
 
-    if (!clinician || !clinician.dosespotProviderId) {
+    if (!clinician?.dosespotProviderId) {
       return Response.json({
         error: 'Clinician not found or not authorized',
         message: 'Clinician must have a valid DoseSpot provider ID'

@@ -1,10 +1,17 @@
-// stores/useAppStore.ts
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { Tables } from "@/types/database.types";
-import { RealtimeChannel } from "@supabase/supabase-js";
 import { ClaimFilters, PAFilters } from "@/stores/types";
+
+// AWS EventBridge subscription for real-time updates
+interface EventBridgeSubscription {
+  id: string;
+  eventSource: string;
+  detailType: string;
+  handler: (event: any) => void;
+  active: boolean;
+}
 
 interface AppState {
   // User & Team
@@ -21,7 +28,7 @@ interface AppState {
   selectedPatientId: number | null;
 
   // Real-time subscriptions
-  subscriptions: Set<RealtimeChannel>;
+  subscriptions: Set<EventBridgeSubscription>;
 
   // Actions
   setCurrentTeam: (team: Tables<"team">) => void;

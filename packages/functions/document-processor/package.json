@@ -14,13 +14,14 @@
     "test": "echo 'No tests specified'"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.908.0",
     "@aws-sdk/client-s3": "^3.908.0",
     "@aws-sdk/client-textract": "^3.908.0",
-    "@foresight-cdss-next/db": "workspace:*"
+    "@foresight-cdss-next/db": "workspace:*",
+    "@foresight-cdss-next/functions-lambda-shared": "workspace:*"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",

@@ -66,5 +66,8 @@
     "packages/functions/*",
     "packages/webhooks"
   ],
-  "packageManager": "yarn@4.10.3"
+  "packageManager": "yarn@4.10.3",
+  "dependencies": {
+    "aws-amplify": "^6.15.7"
+  }
 }

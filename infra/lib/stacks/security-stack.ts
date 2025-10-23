@@ -29,6 +29,7 @@ export class SecurityStack extends cdk.Stack {
         id: 'delete-old-logs',
         expiration: cdk.Duration.days(90),
       }],
+      enforceSSL: true,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
     });
 
@@ -44,6 +45,29 @@ export class SecurityStack extends cdk.Stack {
       resources: [wafLogsBucket.bucketArn],
     }));
 
+    const wafLogsFirehoseKey = new kms.CfnKey(this, 'WAFLogsFirehoseKey', {
+      description: 'KMS key for encrypting WAF logs stream',
+      enableKeyRotation: true,
+      keyPolicy: new iam.PolicyDocument({
+        statements: [
+          new iam.PolicyStatement({
+            sid: 'EnableRootPermissions',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.AccountRootPrincipal()],
+            actions: ['kms:*'],
+            resources: ['*'],
+          }),
+          new iam.PolicyStatement({
+            sid: 'AllowApplicationAccess',
+            effect: iam.Effect.ALLOW,
+            principals: [new iam.ServicePrincipal('firehose.amazonaws.com')],
+            actions: ['kms:Encrypt', 'kms:Decrypt', 'kms:ReEncrypt*'],
+            resources: ['*'],
+          }),
+        ],
+      }),
+    });
+
     const wafLogsFirehose = new kinesisfirehose.CfnDeliveryStream(this, 'WAFLogsFirehose', {
       deliveryStreamName: `aws-waf-logs-rcm-${props.stageName}`,
       deliveryStreamType: 'DirectPut',
@@ -53,6 +77,16 @@ export class SecurityStack extends cdk.Stack {
         prefix: 'waf-logs/',
         errorOutputPrefix: 'waf-logs-errors/',
         compressionFormat: 'GZIP',
+        encryptionConfiguration: {
+          kmsEncryptionConfig: {
+            awskmsKeyArn: wafLogsFirehoseKey.attrArn
+          },
+        },
+        cloudWatchLoggingOptions: {
+          enabled: true,
+          logGroupName: `/aws/waf/${props.stageName}`,
+          logStreamName: 'waf-logs',
+        }
       },
     });
 
@@ -175,10 +209,50 @@ export class SecurityStack extends cdk.Stack {
       },
     };
 
+    // Healthcare-specific data protection rule
+    const healthcareDataProtectionRule: wafv2.CfnWebACL.RuleProperty = {
+      name: 'HealthcareDataProtectionRule',
+      priority: 5,
+      statement: {
+        orStatement: {
+          statements: [
+            {
+              regexMatchStatement: {
+                fieldToMatch: { body: { oversizeHandling: 'MATCH' } },
+                regexString: '\\b\\d{3}-\\d{2}-\\d{4}\\b|\\bMRN[0-9]{6,10}\\b', // SSN and MRN patterns
+                textTransformations: [{
+                  priority: 0,
+                  type: 'LOWERCASE',
+                }],
+              },
+            },
+            {
+              regexMatchStatement: {
+                fieldToMatch: { queryString: {} },
+                regexString: '\\b(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])/\\d{4}\\b', // DOB patterns
+                textTransformations: [{
+                  priority: 0,
+                  type: 'URL_DECODE',
+                }],
+              },
+            },
+          ],
+        },
+      },
+      action: {
+        block: {},
+      },
+      visibilityConfig: {
+        sampledRequestsEnabled: true,
+        cloudWatchMetricsEnabled: true,
+        metricName: 'HealthcareDataProtectionRule',
+      },
+    };
+
     // Size constraint rule (prevent large payloads)
     const sizeConstraintRule: wafv2.CfnWebACL.RuleProperty = {
       name: 'SizeConstraintRule',
-      priority: 5,
+      priority: 6,
       statement: {
         sizeConstraintStatement: {
           fieldToMatch: { body: { oversizeHandling: 'MATCH' } },
@@ -263,6 +337,7 @@ export class SecurityStack extends cdk.Stack {
         geoBlockRule,
         sqliRule,
         xssRule,
+        healthcareDataProtectionRule,
         sizeConstraintRule,
         awsManagedRulesCommonRuleSet,
         awsManagedRulesKnownBadInputsRuleSet,

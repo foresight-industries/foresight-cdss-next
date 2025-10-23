@@ -20,6 +20,7 @@ export class DocumentProcessingStack extends cdk.Stack {
   public readonly processingQueue: sqs.Queue;
   public readonly documentProcessorFunction: lambda.Function;
   public readonly textractCompletionFunction: lambda.Function;
+  public readonly insuranceCardProcessorFunction: lambda.Function;
 
   constructor(scope: Construct, id: string, props: DocumentProcessingStackProps) {
     super(scope, id, props);
@@ -142,6 +143,30 @@ export class DocumentProcessingStack extends cdk.Stack {
       },
     });
 
+    // Insurance card processor (triggered by S3 upload)
+    const insuranceCardProcessorRole = new iam.Role(this, 'InsuranceCardProcessorRole', {
+      roleName: `rcm-insurance-card-processor-role-${props.stageName}`,
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      managedPolicies: [
+        iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaBasicExecutionRole'),
+      ],
+    });
+
+    this.insuranceCardProcessorFunction = new lambdaNodejs.NodejsFunction(this, 'InsuranceCardProcessor', {
+      ...functionProps,
+      functionName: `rcm-insurance-card-processor-${props.stageName}`,
+      entry: '../packages/functions/insurance-card-processor/index.ts',
+      handler: 'handler',
+      role: insuranceCardProcessorRole,
+      timeout: cdk.Duration.minutes(5), // Shorter timeout for synchronous processing
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
+      },
+    });
+
     // Grant permissions to document processor
     documentProcessorRole.addToPolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -150,6 +175,17 @@ export class DocumentProcessingStack extends cdk.Stack {
         'textract:StartDocumentTextDetection',
         'textract:GetDocumentAnalysis',
         'textract:GetDocumentTextDetection',
+      ],
+      resources: ['*'],
+    }));
+
+    documentProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'rekognition:DetectText',
+        'rekognition:DetectModerationLabels',
+        'rekognition:DetectFaces',
+        'rekognition:DetectDocumentText',
       ],
       resources: ['*'],
     }));
@@ -187,8 +223,32 @@ export class DocumentProcessingStack extends cdk.Stack {
       resources: [`arn:aws:s3:::${props.documentsBucketName}/*`],
     }));
 
-    // Grant database access to both functions
-    [documentProcessorRole, textractCompletionRole].forEach(role => {
+    // Grant permissions to insurance card processor
+    insuranceCardProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['textract:AnalyzeDocument'],
+      resources: ['*'],
+    }));
+
+    insuranceCardProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'rekognition:DetectText',
+        'rekognition:DetectModerationLabels',
+        'rekognition:DetectFaces',
+        'rekognition:DetectDocumentText',
+      ],
+      resources: ['*'],
+    }));
+
+    insuranceCardProcessorRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ['s3:GetObject'],
+      resources: [`arn:aws:s3:::${props.documentsBucketName}/*`],
+    }));
+
+    // Grant database access to all functions
+    [documentProcessorRole, textractCompletionRole, insuranceCardProcessorRole].forEach(role => {
       role.addToPolicy(new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
@@ -204,6 +264,20 @@ export class DocumentProcessingStack extends cdk.Stack {
         effect: iam.Effect.ALLOW,
         actions: ['secretsmanager:GetSecretValue'],
         resources: [props.database.secret?.secretArn ?? ''],
+      }));
+
+      // Grant CloudWatch metrics permissions for monitoring
+      role.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'cloudwatch:PutMetricData',
+        ],
+        resources: ['*'],
+        conditions: {
+          StringEquals: {
+            'cloudwatch:namespace': 'RCM/DocumentProcessing',
+          },
+        },
       }));
     });
 
@@ -242,6 +316,44 @@ export class DocumentProcessingStack extends cdk.Stack {
       threshold: 1,
       evaluationPeriods: 1,
       alarmDescription: 'Messages in document processing DLQ',
+    });
+
+    // Insurance card processing alarms
+    const insuranceCardFailures = new cdk.aws_cloudwatch.Alarm(this, 'InsuranceCardFailures', {
+      metric: this.insuranceCardProcessorFunction.metricErrors(),
+      threshold: 3,
+      evaluationPeriods: 2,
+      alarmDescription: 'Insurance card processing failures',
+    });
+
+    // Custom metric for validation failures (logged by Lambda functions)
+    const validationFailuresMetric = new cdk.aws_cloudwatch.Metric({
+      metricName: 'ValidationFailures',
+      namespace: 'RCM/DocumentProcessing',
+      statistic: cdk.aws_cloudwatch.Statistic.SUM,
+      period: cdk.Duration.minutes(5),
+    });
+
+    const validationFailures = new cdk.aws_cloudwatch.Alarm(this, 'ValidationFailures', {
+      metric: validationFailuresMetric,
+      threshold: 10,
+      evaluationPeriods: 2,
+      alarmDescription: 'High number of document validation failures - possible fraud attempt or quality issues',
+    });
+
+    // Custom metric for low confidence extractions
+    const lowConfidenceMetric = new cdk.aws_cloudwatch.Metric({
+      metricName: 'LowConfidenceExtractions', 
+      namespace: 'RCM/DocumentProcessing',
+      statistic: cdk.aws_cloudwatch.Statistic.SUM,
+      period: cdk.Duration.minutes(5),
+    });
+
+    const lowConfidenceAlarm = new cdk.aws_cloudwatch.Alarm(this, 'LowConfidenceExtractions', {
+      metric: lowConfidenceMetric,
+      threshold: 5,
+      evaluationPeriods: 3,
+      alarmDescription: 'High number of low confidence document extractions - may indicate quality issues',
     });
 
     // Outputs

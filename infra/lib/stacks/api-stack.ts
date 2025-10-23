@@ -4,6 +4,7 @@ import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayIntegrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as apigatewayAuthorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
+import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -113,6 +114,24 @@ export class ApiStack extends cdk.Stack {
       }
     );
 
+    // Custom domain setup - reuse the certificate from AppSync stack
+    const apiDomainName = props.stageName === 'prod'
+      ? 'rest.have-foresight.app'
+      : 'staging.rest.have-foresight.app';
+
+    // Import existing certificate (same as AppSync)
+    const certificate = certmanager.Certificate.fromCertificateArn(
+      this,
+      'ApiCertificate',
+      `arn:aws:acm:us-east-1:914689160411:certificate/2c6d895e-bf26-49ee-ae3a-d408901b00d2`
+    );
+
+    // Create API Gateway v2 domain name
+    const customDomain = new apigateway.DomainName(this, 'RestApiCustomDomain', {
+      domainName: apiDomainName,
+      certificate: certificate,
+    });
+
     this.httpApi = new apigateway.HttpApi(this, 'HttpApi', {
       apiName: `rcm-api-${props.stageName}`,
       corsPreflight: {
@@ -124,6 +143,9 @@ export class ApiStack extends cdk.Stack {
         allowCredentials: true,
       },
       defaultAuthorizer: authorizer,
+      defaultDomainMapping: {
+        domainName: customDomain,
+      },
     });
 
     // Patient API Lambda - Using NodejsFunction for better bundling
@@ -407,6 +429,13 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiEndpoint', {
       value: this.httpApi.apiEndpoint,
       exportName: `RCM-ApiEndpoint-${props.stageName}`,
+    });
+
+    // Output custom domain
+    new cdk.CfnOutput(this, 'RestApiDomainOutput', {
+      value: `https://${apiDomainName}`,
+      description: 'API Gateway custom domain URL',
+      exportName: `RCM-ApiCustomDomain-${props.stageName}`,
     });
   }
 }
