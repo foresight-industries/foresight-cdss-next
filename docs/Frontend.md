@@ -91,25 +91,29 @@ Color-coded badges for claim status:
 ```typescript
 STATUS_BADGE_VARIANTS = {
   'draft': 'secondary',
-  'ready_to_submit': 'default',
+  'ready_for_submission': 'default',
   'submitted': 'info',
-  'awaiting_277ca': 'warning',
-  'accepted_277ca': 'success',
-  'rejected_277ca': 'destructive',
+  'accepted': 'success',
+  'rejected': 'destructive',
   'paid': 'success',
   'denied': 'destructive',
+  'pending': 'warning',
   'needs_review': 'warning',
+  'appeal_required': 'warning',
 }
 ```
 
-Labels:
+Labels (from actual database schema):
 - `draft` → "Draft"
-- `ready_to_submit` → "Ready to Submit"
-- `awaiting_277ca` → "Awaiting 277CA"
-- `accepted_277ca` → "Accepted"
-- `rejected_277ca` → "Rejected"
+- `ready_for_submission` → "Ready to Submit"
+- `submitted` → "Submitted"
+- `accepted` → "Accepted"
+- `rejected` → "Rejected"
 - `paid` → "Paid"
 - `denied` → "Denied"
+- `pending` → "Pending"
+- `needs_review` → "Needs Review"
+- `appeal_required` → "Appeal Required"
 
 #### Implementation Details
 
@@ -238,17 +242,17 @@ Sliding panel component that opens from the right side of the claims list.
 - AI suggestions with confidence levels
 - Rule-based check results
 
-**6. Clearinghouse Errors** (for rejected claims)
+**6. Validation Errors** (for claims needing review)
 ```typescript
-{claim.status === 'rejected_277ca' && scrubbingResults?.length > 0 && (
-  <Alert variant="destructive">
+{claim.status === 'needs_review' && validationErrors?.length > 0 && (
+  <Alert variant="warning">
     <AlertTriangle className="h-4 w-4" />
-    <AlertTitle>Clearinghouse Errors</AlertTitle>
+    <AlertTitle>Validation Issues</AlertTitle>
     <AlertDescription>
       <ul className="list-disc pl-4 space-y-1">
-        {scrubbingResults.map(error => (
+        {validationErrors.map(error => (
           <li key={error.id}>
-            <span className="font-medium">{error.field_path}:</span> {error.message}
+            <span className="font-medium">{error.field}:</span> {error.message}
           </li>
         ))}
       </ul>
@@ -256,6 +260,8 @@ Sliding panel component that opens from the right side of the claims list.
   </Alert>
 )}
 ```
+
+**Note:** Clearinghouse integration planned but not yet implemented in backend.
 
 **7. State History Timeline**
 Complete audit trail of status changes:
@@ -282,11 +288,13 @@ Dynamic button states based on claim status:
 // Resubmit button (for rejected/denied claims)
 <Button
   onClick={() => handleResubmit(claim.id)}
-  disabled={!['rejected_277ca', 'denied'].includes(claim.status)}
+  disabled={!['rejected', 'denied'].includes(claim.status)}
 >
   Resubmit Corrected
 </Button>
 ```
+
+**Note:** Full submission workflow with resubmit logic planned for future implementation.
 
 ### Claim Submission Workflow
 
@@ -336,9 +344,11 @@ Dynamic button states based on claim status:
    - Database updates with external IDs
 
 4. **Response Handling**
-   - Success: Status updates to `awaiting_277ca` or `accepted_277ca`
-   - Rejection: Status updates to `rejected_277ca`, errors displayed
+   - Success: Status updates to `submitted` or `accepted` (when backend implemented)
+   - Rejection: Status updates to `rejected`, errors displayed
    - Network error: Error message shown, claim remains in previous status
+   
+   **Note:** Current implementation has basic status updates. Full clearinghouse integration (837P/277CA) planned for future implementation.
 
 5. **UI Updates**
    - React Query invalidates claim cache
@@ -446,22 +456,22 @@ export function computeStageAnalytics(claims: ClaimWithHistory[]) {
   const submitToOutcomeDays = calculateAverageDays(
     claims,
     'submitted',
-    ['accepted_277ca', 'rejected_277ca', 'denied']
+    ['accepted', 'rejected', 'denied']
   );
   
   const acceptedToPaidDays = calculateAverageDays(
     claims,
-    'accepted_277ca',
+    'accepted',
     'paid'
   );
   
   // Calculate success rates
   const totalSubmitted = claims.filter(c => 
-    c.status !== 'draft' && c.status !== 'ready_to_submit'
+    c.status !== 'draft' && c.status !== 'ready_for_submission'
   ).length;
   
   const accepted = claims.filter(c => 
-    c.status === 'accepted_277ca'
+    c.status === 'accepted'
   ).length;
   
   const paid = claims.filter(c => 

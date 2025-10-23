@@ -392,19 +392,9 @@ Primary claim header table storing claim-level information.
   // Clearinghouse integration
   clearinghouseId: uuid
   batchId: uuid
-  externalClaimId: varchar(100)  // Claim.MD claim ID
-  externalBatchId: varchar(100)  // Claim.MD batch ID
   
-  // AI & Validation
-  confidence: decimal(5,2)       // Overall confidence score
-  fieldConfidences: jsonb        // Per-field confidence scores
-  issues: text[]                 // Current validation issues
-  autoSubmitted: boolean DEFAULT false
-  
-  // Processing
-  attemptCount: integer DEFAULT 0
-  lastSubmissionAttempt: timestamp
-  nextRetryAt: timestamp
+  // Note: Additional fields like externalClaimId, confidence scores, and attempt tracking
+  // are planned for future Claim.MD integration but not yet in schema
   
   // Audit
   createdAt: timestamp DEFAULT now()
@@ -415,27 +405,16 @@ Primary claim header table storing claim-level information.
 }
 ```
 
-**Status Enum Values:**
+**Status Enum Values (from actual database schema):**
 ```typescript
 enum claim_status {
-  // Pre-submission
   'draft',                 // Initial state, incomplete
-  'ready_to_submit',       // Passed validation, ready for submission
-  
-  // Clearinghouse workflow
-  'submitted',             // Sent to clearinghouse
-  'awaiting_277ca',        // Waiting for clearinghouse acknowledgment
-  'accepted_277ca',        // Accepted by clearinghouse, forwarded to payer
-  'rejected_277ca',        // Rejected by clearinghouse, needs correction
-  
-  // Payer workflow
-  'in_review',             // Under payer review
-  'approved',              // Approved by payer but not yet paid
+  'ready_for_submission',  // Passed validation, ready for submission
+  'submitted',             // Sent to clearinghouse/payer
+  'accepted',              // Accepted by payer
+  'rejected',              // Rejected by clearinghouse or payer
   'paid',                  // Payment received
-  'denied',                // Payer denied payment (handled via ERA)
-  'partially_paid',        // Partial payment received
-  
-  // Special states
+  'denied',                // Payer denied payment
   'pending',               // General pending state
   'needs_review',          // Requires manual review
   'appeal_required'        // Denial requires appeal
@@ -1851,206 +1830,83 @@ HIPAA compliance audit logging for webhook PHI transmission.
 
 **Location:** `packages/functions/`
 
-#### `submit-claim-batch`
-**File:** `packages/functions/workers/submit-claim-batch.ts`
+#### `claims-api`
+**File:** `packages/functions/api/claims-api.ts`
 
-**Purpose:** Generate claim files and submit to Claim.MD clearinghouse.
+**Purpose:** RESTful API for claim CRUD operations.
 
-**Current Status:** ✅ Complete infrastructure, 🔄 API integration pending
+**Current Status:** ✅ Implemented - Basic create, read, update, delete operations
 
-**Implementation:**
+**Key Operations:**
 
-1. **Input Validation:**
+1. **GET /claims** - List claims for organization
+2. **GET /claims/{id}** - Get single claim with details
+3. **POST /claims** - Create new claim
+4. **PUT /claims/{id}** - Update existing claim
+5. **DELETE /claims/{id}** - Soft delete claim
+
+**Example Create Claim:**
 ```typescript
-{
-  claimIds: string[],           // Array of claim IDs to submit
-  clearinghouseId: string,      // 'CLAIM_MD'
-  userId: string,               // User initiating submission
-  organizationId: string        // Organization context
-}
-```
-
-2. **Readiness Check:**
-- Calls `get_claim_readiness_score(claim_id)` for each claim
-- Requires ≥95% confidence score
-- Returns validation errors if not ready
-
-3. **Claim File Generation:**
-```typescript
-// Generate 837P-format JSON for Claim.MD
-async function generate837P(claimId: string): Promise<ClaimFile> {
-  // Comprehensive database joins
-  const claim = await db
-    .select()
-    .from(claims)
-    .leftJoin(encounters, eq(claims.encounterId, encounters.id))
-    .leftJoin(patients, eq(encounters.patientId, patients.id))
-    .leftJoin(providers, eq(encounters.providerId, providers.id))
-    .leftJoin(payers, eq(claims.payerId, payers.id))
-    .leftJoin(claimLines, eq(claims.id, claimLines.claimId))
-    .where(eq(claims.id, claimId))
-    .execute();
+async function createClaim(claimData, organizationId, userId) {
+  const claimId = `clm_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   
-  // Build claim file structure
-  return {
-    BatchId: uuid(),
-    Claims: [{
-      ClaimId: claim.id,
-      ProviderNPI: provider.npi || process.env.DEFAULT_PROVIDER_NPI,
-      ProviderTaxId: provider.taxId || process.env.DEFAULT_PROVIDER_TAX_ID,
-      PatientFirstName: patient.firstName,
-      PatientLastName: patient.lastName,
-      PatientDOB: patient.dateOfBirth,
-      PayerId: payer.payerId,
-      ServiceDate: claim.serviceDate,
-      PlaceOfService: determineP OS(encounter.encounterType),
-      ServiceLines: claimLines.map(line => ({
-        ProcedureCode: line.cptCode,
-        ChargeAmount: line.chargeAmount,
-        Units: line.units,
-        Modifiers: line.modifiers,
-        DiagnosisPointers: line.diagnosisPointers
-      })),
-      DiagnosisCodes: encounter.diagnoses.map(d => ({
-        DiagnosisCode: d.icd10Code,
-        Sequence: d.sequence
-      }))
-    }]
+  const newClaim = {
+    id: claimId,
+    organizationId,
+    patientId: claimData.patientId,
+    providerId: claimData.providerId,
+    payerId: claimData.payerId,
+    serviceDate: claimData.serviceDate,
+    totalCharges: claimData.amount.toString(),
+    status: (claimData.submit ? 'submitted' : 'draft'),
+    createdBy: userId
   };
-}
-```
-
-4. **Clearinghouse Submission:**
-```typescript
-// Currently stubbed - needs HTTP client implementation
-async function submitToClearinghouse(claimFile: ClaimFile): Promise<Response> {
-  const response = await fetch(`${CLAIM_MD_BASE_URL}/submit`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${CLAIM_MD_API_KEY}`
-    },
-    body: JSON.stringify(claimFile)
-  });
   
-  return response.json();
+  await db.insert(claims).values(newClaim);
+  
+  return newClaim;
 }
 ```
 
-5. **Database Updates:**
-```typescript
-// Update claim with external IDs
-await db.update(claims)
-  .set({
-    status: 'awaiting_277ca',
-    externalClaimId: response.claimId,
-    externalBatchId: response.batchId,
-    attemptCount: sql`${claims.attemptCount} + 1`,
-    lastSubmissionAttempt: new Date(),
-    submissionDate: new Date()
-  })
-  .where(eq(claims.id, claimId));
+#### `claims-processor`
+**File:** `packages/functions/workers/claims-processor.ts`
 
-// Add state history entry
-await db.insert(claimStateHistory).values({
-  claimId,
-  fromState: 'ready_to_submit',
-  toState: 'awaiting_277ca',
-  actor: userId,
-  actorType: 'user',
-  reason: 'Manual submission via UI',
-  occurredAt: new Date()
-});
-```
+**Purpose:** Process claims from SQS queue for batch operations.
 
-**Environment Variables:**
-```bash
-CLAIM_MD_API_KEY=<api_key>
-CLAIM_MD_BASE_URL=https://api.claimmd.com
-DEFAULT_PROVIDER_NPI=1234567890
-DEFAULT_PROVIDER_TAX_ID=12-3456789
-```
-
-#### `validate-claim`
-**File:** `packages/functions/workers/validate-claim.ts`
-
-**Purpose:** Run comprehensive validation rules against a claim.
-
-**Validation Rules:**
-1. **NPI Validation**: Verify provider NPI is valid and active
-2. **Taxonomy Verification**: Check provider specialty matches service
-3. **Timely Filing**: Ensure claim submitted within filing window
-4. **Duplicate Detection**: Check for duplicate claim submissions
-5. **Authorization Requirements**: Verify PA when required
-6. **Medical Necessity**: Check diagnosis supports procedure
-7. **Coding Compliance**: Validate CPT/ICD-10 combinations
-8. **Place of Service**: Verify POS matches encounter type
-9. **Modifier Requirements**: Check required modifiers present
-10. **Licensure Matching**: Verify TX provider → TX patient
-
-**Output:**
-```typescript
-{
-  confidenceScore: 0.96,
-  overallStatus: 'valid',
-  errors: [],
-  warnings: [
-    {
-      field: 'provider_taxonomy',
-      code: 'TAXONOMY_MISMATCH',
-      message: 'Provider taxonomy does not match service type',
-      severity: 'warning',
-      confidence: 0.87
-    }
-  ],
-  rulesEvaluated: 10,
-  autoFixed: []
-}
-```
-
-#### `process-denial`
-**File:** `packages/functions/workers/process-denial.ts`
-
-**Purpose:** Process denied claims through denial playbook.
+**Current Status:** ✅ Implemented - Basic batch processing framework
 
 **Workflow:**
-1. Extract CARC/RARC codes from ERA
-2. Find matching denial playbook rule
-3. Execute strategy (auto-resubmit, manual review, notify)
-4. Apply fixes if auto-resubmit
-5. Update claim status and state history
-6. Send notifications as configured
+1. Receive claims from SQS queue
+2. Process each claim (placeholder logic)
+3. Handle failures with batch item failures
+4. Return processing results
 
-**Strategy Execution:**
+#### `submit-claim` (workflow)
+**File:** `packages/functions/workflows/submit-claim.ts`
+
+**Purpose:** Mock claim submission workflow for Step Functions.
+
+**Current Status:** 📋 Planned - Currently returns mock data, needs real implementation
+
+**Mock Response:**
 ```typescript
-async function executeDenialPlaybook(claim: Claim, denial: DenialTracking) {
-  // Find matching playbook rule
-  const rule = await findMatchingRule(denial.carcCode, denial.payerId);
-  
-  if (!rule) {
-    return { action: 'manual_review', reason: 'No matching playbook rule' };
-  }
-  
-  switch (rule.strategy) {
-    case 'auto_resubmit':
-      if (claim.attemptCount < rule.maxRetryAttempts) {
-        await applyFixes(claim, rule.fixInstructions);
-        await submitClaim(claim.id);
-        return { action: 'auto_resubmitted', attempts: claim.attemptCount + 1 };
-      }
-      return { action: 'max_attempts_reached', escalate: true };
-      
-    case 'manual_review':
-      await flagForReview(claim);
-      await notifyUsers(rule.notifyUsers, claim);
-      return { action: 'flagged_for_review' };
-      
-    case 'notify':
-      await notifyUsers(rule.notifyUsers, claim);
-      return { action: 'notification_sent' };
+{
+  claimId: 'CLM-{timestamp}-{random}',
+  status: 'submitted',
+  submittedAt: ISO timestamp,
+  payerResponse: {
+    confirmationNumber: 'CONF-{random}',
+    expectedProcessingDays: 1-30
   }
 }
 ```
+
+**Note:** This is a placeholder for future Claim.MD integration. Real implementation would include:
+- Claim validation rules
+- 837P file generation
+- HTTP client for clearinghouse API
+- 277CA response processing
+- Database updates with external IDs
 
 #### `phi-access-log`
 **File:** `packages/functions/auth/phi-access-log.ts`

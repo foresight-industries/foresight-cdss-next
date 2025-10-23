@@ -54,7 +54,7 @@ This is a monorepo managed by [Turborepo](https://turbo.build) with a modern ful
 - **Status Indicators**: Visual badges with clear provenance (Rule vs LLM source labeling)
 - **Seamless RCM Workflow Integration**: Gate Rx release in EHR until ePA approved
 
-**Current State**: Complete frontend and backend infrastructure. Claim file generation fully implemented. API integration to Claim.MD clearinghouse ready for live connection (HTTP client implementation pending).
+**Current State**: Complete UI implementation with keyboard navigation and batch operations. Basic API endpoints for CRUD operations. Claim.MD integration infrastructure designed but not yet implemented - requires claim file generation, validation logic, and HTTP client for clearinghouse communication.
 
 ### 2. Prior Authorization (ePA) System 🔄 **Partially Implemented**
 
@@ -150,12 +150,12 @@ This is a monorepo managed by [Turborepo](https://turbo.build) with a modern ful
 
 | Feature Area | Frontend | Backend | Integration | Notes |
 |-------------|----------|---------|-------------|-------|
-| **Claims Workbench** | ✅ Complete | ✅ Complete | 🔄 Ready | Claim.MD HTTP client pending |
+| **Claims Workbench** | ✅ Complete | ✅ Complete | 📋 Planned | UI complete, API integration needed |
 | **High $ First Sort** | ✅ Complete | N/A | N/A | Client-side sorting |
 | **Keyboard Navigation** | ✅ Complete | N/A | N/A | Full shortcut support |
-| **Batch Operations** | ✅ Complete | ✅ Complete | ✅ Complete | Multi-claim actions |
-| **Claim Validation** | ✅ Complete | ✅ Complete | ✅ Complete | 95% threshold enforcement |
-| **Claim Submission** | ✅ Complete | ✅ Complete | 🔄 Ready | 837P generation complete |
+| **Batch Operations** | ✅ Complete | 🔄 Partial | 📋 Planned | UI ready, backend processing needed |
+| **Claim Validation** | 🔄 Partial | 📋 Planned | 📋 Planned | UI ready, validation rules not implemented |
+| **Claim Submission** | ✅ Complete | 📋 Planned | 📋 Planned | UI complete, backend submission not built |
 | **Denial Playbook** | ✅ Complete | ✅ Complete | ✅ Complete | Auto-resubmit functional |
 | **RCM Analytics** | ✅ Complete | ✅ Complete | ✅ Complete | Stage tracking & charts |
 | **Payer Analytics** | ✅ Complete | ✅ Complete | ✅ Complete | Performance comparison |
