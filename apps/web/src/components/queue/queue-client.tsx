@@ -22,7 +22,67 @@ import {
 import { PADetails } from "@/components/pa/pa-details";
 import { PriorAuthSubmissionModal } from '@/components/queue/prior-auth-submission-modal';
 import type { QueueData } from '@/types/queue';
-import { useQueueData } from '@/hooks/use-queue-data';
+// Demo data for PA queue
+const generateDemoQueueData = (): QueueData => {
+  const statuses = ['needs-review', 'auto-processing', 'auto-approved', 'denied'] as const;
+  const payers = ['Aetna', 'UnitedHealth', 'Cigna', 'Anthem'];
+  const medications = ['Adalimumab (Humira)', 'Etanercept (Enbrel)', 'Infliximab (Remicade)', 'Rituximab (Rituxan)', 'Bevacizumab (Avastin)', 'Trastuzumab (Herceptin)'];
+  const conditions = ['Rheumatoid Arthritis', 'Crohn\'s Disease', 'Psoriasis', 'Non-Hodgkin Lymphoma', 'Breast Cancer', 'Colorectal Cancer'];
+  const attempts = ['Initial', 'Appeal', 'Resubmission', 'Peer-to-Peer'];
+  
+  const patients = [
+    'Sarah Johnson', 'Michael Chen', 'Emily Rodriguez', 'David Wilson', 'Jessica Brown',
+    'Christopher Lee', 'Amanda Davis', 'Matthew Garcia', 'Lauren Martinez', 'Ryan Thompson',
+    'Samantha Anderson', 'James Taylor', 'Nicole White', 'Andrew Jackson', 'Megan Harris',
+    'Kevin Clark', 'Rachel Lewis', 'Daniel Robinson', 'Ashley Walker', 'Brandon Hall'
+  ];
+
+  const items = Array.from({ length: 45 }, (_, i) => {
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    const payer = payers[Math.floor(Math.random() * payers.length)];
+    const medication = medications[Math.floor(Math.random() * medications.length)];
+    const condition = conditions[Math.floor(Math.random() * conditions.length)];
+    const patient = patients[Math.floor(Math.random() * patients.length)];
+    const attempt = attempts[Math.floor(Math.random() * attempts.length)];
+    
+    // Create more realistic timestamps
+    const daysAgo = Math.floor(Math.random() * 30);
+    const hoursAgo = Math.floor(Math.random() * 24);
+    const updatedAt = new Date(Date.now() - (daysAgo * 24 * 60 * 60 * 1000) - (hoursAgo * 60 * 60 * 1000));
+
+    return {
+      id: `PA-${String(i + 1).padStart(4, '0')}`,
+      patientId: `PT-${String(i + 1).padStart(4, '0')}`,
+      patientName: patient,
+      medication,
+      conditions: condition,
+      payer,
+      status,
+      attempt,
+      updatedAt: updatedAt.toISOString(),
+    };
+  });
+
+  // Sort to prioritize needs-review items
+  items.sort((a, b) => {
+    if (a.status === "needs-review" && b.status !== "needs-review") return -1;
+    if (b.status === "needs-review" && a.status !== "needs-review") return 1;
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+
+  return {
+    items,
+    statusCounts: {
+      'needs-review': items.filter(i => i.status === 'needs-review').length,
+      'auto-processing': items.filter(i => i.status === 'auto-processing').length,
+      'auto-approved': items.filter(i => i.status === 'auto-approved').length,
+      'denied': items.filter(i => i.status === 'denied').length,
+    },
+    payerCounts: {},
+    medicationCounts: {},
+    totalItems: items.length
+  };
+};
 
 type SortField = 'id' | 'patientName' | 'medication' | 'payer' | 'status' | 'updatedAt';
 type SortDirection = 'asc' | 'desc' | null;
@@ -94,27 +154,16 @@ export default function QueueClient({ data: initialData }: Readonly<QueueClientP
   const [submissionModalOpen, setSubmissionModalOpen] = useState(false);
   const [selectedItemForSubmission, setSelectedItemForSubmission] = useState<any>(null);
 
-  // Use real-time queue data with auto-refresh
-  const {
-    data: queueDataResponse,
-    loading: isLoading,
-    error,
-    refetch,
-    // updateFilters
-  } = useQueueData({
-    initialData,
-    filters: {
-      status: filters.status !== 'all' ? filters.status : undefined,
-      payer: filters.payer !== 'all' ? filters.payer : undefined,
-    },
-    autoRefresh: true,
-    refreshInterval: 30000, // Refresh every 30 seconds
-  });
-
-  console.log(isClosing)
-
-  // Get queue data items
-  const queueData = queueDataResponse?.items || initialData.items || [];
+  // Use demo data instead of real-time data
+  const demoData = useMemo(() => generateDemoQueueData(), []);
+  const queueData = demoData.items;
+  const isLoading = false;
+  const error = null;
+  
+  // Mock refetch function for submission modal
+  const refetch = () => {
+    // No-op for demo mode
+  };
 
   const filteredData = useMemo(() => {
     const filtered = queueData.filter((item) => {
