@@ -121,23 +121,21 @@ export class GrafanaStack extends cdk.Stack {
       name: `foresight-rcm-grafana-${props.stageName}`,
       description: `Foresight RCM monitoring and observability workspace for ${props.stageName}`,
 
-      // Account access type - use AWS SSO if available, otherwise IAM
+      // Account access type - use current account access
       accountAccessType: 'CURRENT_ACCOUNT',
 
-      // Authentication providers - use SAML for standard AWS account access
-      authenticationProviders: ['SAML'],
+      // Authentication providers - simplified approach
+      authenticationProviders: ['AWS_SSO'],
 
       pluginAdminEnabled: true,
 
-      // Permission type - use CUSTOMER_MANAGED for more control
-      permissionType: 'CUSTOMER_MANAGED',
-      roleArn: this.serviceRole.roleArn,
+      // Permission type - use SERVICE_MANAGED for simpler setup
+      permissionType: 'SERVICE_MANAGED',
 
       // Data sources to enable
       dataSources: [
         'CLOUDWATCH',
         'XRAY',
-        'AMAZON_OPENSEARCH_SERVICE', // If you add OpenSearch later
       ],
 
       // Notification destinations (optional)

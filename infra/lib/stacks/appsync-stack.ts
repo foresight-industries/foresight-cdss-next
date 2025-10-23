@@ -216,7 +216,7 @@ export class AppSyncStack extends cdk.Stack {
       environment: {
         APPSYNC_DLQ_URL: appsyncDlq.queueUrl,
         EVENT_API_DLQ_URL: eventApiDlq.queueUrl,
-        ALERT_TOPIC_ARN: props.alertTopicArn || '',
+        ALERT_TOPIC_ARN: props.alertTopicArn ?? '',
         STAGE_NAME: props.stageName,
       },
     });
@@ -244,7 +244,7 @@ export class AppSyncStack extends cdk.Stack {
       timeout: Duration.seconds(30),
       memorySize: 256,
       environment: {
-        ALERT_TOPIC_ARN: props.alertTopicArn || '',
+        ALERT_TOPIC_ARN: props.alertTopicArn ?? '',
         STAGE_NAME: props.stageName,
       },
     });
