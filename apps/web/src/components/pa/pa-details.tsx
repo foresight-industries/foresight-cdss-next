@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Clock, User, Building2, Pill, FileText, AlertCircle, CheckCircle, XCircle, Download, Edit, MessageSquare, Save, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Clock, User, Building2, Pill, FileText, AlertCircle, CheckCircle, XCircle, Download, Edit, MessageSquare, Save, ChevronLeft, ChevronRight, X as XIcon, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { epaQueueItems, type EpaQueueItem } from '@/data/epa-queue';
 
 interface PADetailsProps {
@@ -413,9 +414,6 @@ export function PADetails({
   disableNext,
   initialAction,
 }: Readonly<PADetailsProps>) {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "clinical" | "timeline" | "documents"
-  >("overview");
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [paData, setPaData] = useState(() => getPAData(paId));
@@ -425,7 +423,7 @@ export function PADetails({
     Array<{ id: string; text: string; timestamp: string; user: string }>
   >([]);
 
-  const StatusIcon = statusConfig[paData.status].icon;
+  const open = !!paId;
 
   // Update data when paId changes
   useEffect(() => {
@@ -442,7 +440,7 @@ export function PADetails({
           setShowEditModal(true);
           break;
         case "documents":
-          setActiveTab("documents");
+          // Documents section is now always visible in the main view
           break;
         case "notes":
           setShowNoteModal(true);
@@ -461,378 +459,328 @@ export function PADetails({
     }).format(new Date(dateString));
   };
 
+  if (!onClose) {
+    return null;
+  }
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Header - Fixed */}
-      <div className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Navigation buttons */}
-            <div className="flex items-center space-x-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPrev}
-                disabled={disablePrev}
-                className="h-8 w-8 p-0"
-                aria-label="Previous PA"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onNext}
-                disabled={disableNext}
-                className="h-8 w-8 p-0"
-                aria-label="Next PA"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
+    <>
+    <DialogPrimitive.Root open={open} onOpenChange={onClose}>
+      <DialogPrimitive.Portal>
+        {/* Custom overlay that respects sidebar */}
+        <DialogPrimitive.Overlay 
+          className="fixed inset-0 left-[256px] bg-black/30 z-[49] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        />
+        
+        {/* Custom positioned content */}
+        <DialogPrimitive.Content
+          className="fixed left-[calc(256px+2rem)] top-6 right-6 bottom-6 z-50 bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          onEscapeKeyDown={onClose}
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+          {/* Header Section - Sticky */}
+          <div className="flex-shrink-0 sticky top-0 bg-background z-10 border-b">
+            <div className="px-8 py-4">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                {/* Left side: Navigation arrows */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onPrev}
+                    disabled={disablePrev}
+                    className="h-8 w-8 p-0"
+                    aria-label="Previous PA"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onNext}
+                    disabled={disableNext}
+                    className="h-8 w-8 p-0"
+                    aria-label="Next PA"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
 
-            <div className="space-y-1 flex-1">
-              <h1 className="text-2xl font-bold">{paData.id}</h1>
-              <p className="text-muted-foreground">
-                {paData.patient.name} • {paData.medication.name}
-              </p>
-            </div>
-          </div>
+                {/* Center: PA ID and Status */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <DialogPrimitive.Title className="text-2xl font-bold text-foreground">
+                      {paData.id}
+                    </DialogPrimitive.Title>
+                    <Badge
+                      variant="outline"
+                      className={cn("text-xs", statusConfig[paData.status].color)}
+                    >
+                      {statusConfig[paData.status].label}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-6 mt-1 text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">{paData.patient.name}</span>
+                    <span>{paData.medication.name}</span>
+                  </div>
+                </div>
 
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <StatusIcon className="w-5 h-5" />
-              <Badge
-                variant="outline"
-                className={statusConfig[paData.status].color}
-              >
-                {statusConfig[paData.status].label}
-              </Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="flex space-x-3">
-          <Button variant="outline" size="sm">
-            <Download className="w-4 h-4 mr-2" />
-            Export PDF
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowEditModal(true)}
-          >
-            <Edit className="w-4 h-4 mr-2" />
-            Edit Details
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowNoteModal(true)}
-          >
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Add Note
-          </Button>
-        </div>
-      </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 h-full overflow-y-auto px-8">
-        <div className="p-8">
-          {/* Tab Navigation */}
-          <Tabs
-            value={activeTab}
-            onValueChange={(value) => setActiveTab(value as any)}
-          >
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Overview</TabsTrigger>
-              <TabsTrigger value="clinical">Clinical</TabsTrigger>
-              <TabsTrigger value="timeline">Timeline</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-            </TabsList>
-
-            {/* Tab Content */}
-            <TabsContent value="overview" className="mt-6">
-              <div className="grid grid-cols-1 gap-6">
-                {/* Patient Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <User className="w-5 h-5 text-muted-foreground mr-2" />
-                      Patient Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Name</p>
-                        <p className="font-medium">{paData.patient.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Patient ID
-                        </p>
-                        <p className="font-medium">{paData.patient.id}</p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-sm text-muted-foreground">Age</p>
-                          <p className="font-medium">{paData.patient.age}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">
-                            Gender
-                          </p>
-                          <p className="font-medium">{paData.patient.gender}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Conditions
-                        </p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {paData.patient.conditions.map((condition, index) => (
-                            <Badge
-                              key={index}
-                              variant="secondary"
-                              className="text-xs"
-                            >
-                              {condition}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Contact</p>
-                        <p className="text-sm">{paData.patient.phone}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {paData.patient.address}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Medication Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Pill className="w-5 h-5 text-muted-foreground mr-2" />
-                      Medication Details
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Brand Name
-                        </p>
-                        <p className="font-medium">{paData.medication.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Generic Name
-                        </p>
-                        <p className="font-medium">
-                          {paData.medication.genericName}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Strength
-                        </p>
-                        <p className="font-medium">
-                          {paData.medication.strength}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Dosage</p>
-                        <p className="text-sm">{paData.medication.dosage}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Quantity
-                        </p>
-                        <p className="font-medium">
-                          {paData.medication.quantity}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">NDC</p>
-                        <p className="font-medium">{paData.medication.ndc}</p>
-                      </div>
-                      <div>
-                        <Badge
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 border-blue-200"
-                        >
-                          {paData.medication.priority}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Provider Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Building2 className="w-5 h-5 text-muted-foreground mr-2" />
-                      Provider
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Name</p>
-                        <p className="font-medium">{paData.provider.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">NPI</p>
-                        <p className="font-medium">{paData.provider.npi}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Clinic</p>
-                        <p className="text-sm">{paData.provider.clinic}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {paData.provider.address}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {paData.provider.phone}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Payer Information */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <FileText className="w-5 h-5 text-muted-foreground mr-2" />
-                      Insurance
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm text-muted-foreground">Payer</p>
-                        <p className="font-medium">{paData.payer.name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Plan</p>
-                        <p className="font-medium">{paData.payer.planName}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">
-                          Member ID
-                        </p>
-                        <p className="font-medium">{paData.payer.memberId}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Group #</p>
-                        <p className="text-sm font-medium">
-                          {paData.payer.groupNumber}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="clinical" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">
-                  Clinical Questions & AI Responses
-                </h3>
-                <div className="space-y-4">
-                  {paData.clinicalQuestions.map((item, index) => (
-                    <Card key={index}>
-                      <CardContent className="p-6">
-                        <div className="flex justify-between items-start mb-3">
-                          <h4 className="font-medium">{item.question}</h4>
-                          <Badge
-                            variant="outline"
-                            className={
-                              item.confidence >= 95
-                                ? "bg-green-50 text-green-700 border-green-200"
-                                : item.confidence >= 85
-                                ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                                : "bg-red-50 text-red-700 border-red-200"
-                            }
-                          >
-                            {item.confidence}%
-                          </Badge>
-                        </div>
-                        <p className="text-foreground">{item.answer}</p>
-                      </CardContent>
-                    </Card>
-                  ))}
+                {/* Right side: Action Buttons */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowEditModal(true)}
+                  >
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onClose}
+                    className="h-8 w-8 p-0"
+                    aria-label="Close"
+                  >
+                    <XIcon className="w-5 h-5" />
+                  </Button>
                 </div>
               </div>
-            </TabsContent>
+            </div>
+          </div>
 
-            <TabsContent value="timeline" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Processing Timeline</h3>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="space-y-6">
-                      {paData.timeline.map((item, index) => (
-                        <div key={index} className="flex items-start space-x-4">
-                          <div
-                            className={`w-3 h-3 rounded-full mt-1 ${
-                              item.status === "completed"
-                                ? "bg-green-500"
-                                : item.status === "in-progress"
-                                ? "bg-blue-500"
-                                : "bg-muted"
-                            }`}
-                          ></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between">
-                              <p className="font-medium">{item.event}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {formatDate(item.timestamp)}
-                              </p>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              by {item.user}
+          {/* Scrollable Content */}
+          <ScrollArea className="flex-1 overflow-y-auto">
+            <div className="px-8 py-6 space-y-4">
+              {/* Patient & Provider - Two Column Layout */}
+              <section className="grid gap-4 lg:grid-cols-2">
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <User className="h-4 w-4" /> Patient Information
+                  </h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Name</div>
+                      <div className="font-semibold text-foreground">{paData.patient.name}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Patient ID</div>
+                      <div className="font-medium text-foreground">{paData.patient.id}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Age</div>
+                      <div className="font-medium text-foreground">{paData.patient.age}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Gender</div>
+                      <div className="font-medium text-foreground">{paData.patient.gender}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-1">Conditions</div>
+                      <div className="flex flex-wrap gap-1">
+                        {paData.patient.conditions.map((condition, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="text-xs"
+                          >
+                            {condition}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Building2 className="h-4 w-4" /> Provider
+                  </h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Name</div>
+                      <div className="font-semibold text-foreground">{paData.provider.name}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">NPI</div>
+                      <div className="font-medium text-foreground">{paData.provider.npi}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Clinic</div>
+                      <div className="font-medium text-foreground">{paData.provider.clinic}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Contact</div>
+                      <div className="text-sm text-foreground">{paData.provider.phone}</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Medication & Insurance - Two Column Layout */}
+              <section className="grid gap-4 lg:grid-cols-2">
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <Pill className="h-4 w-4" /> Medication Details
+                  </h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Brand Name</div>
+                      <div className="font-semibold text-foreground">{paData.medication.name}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Generic Name</div>
+                      <div className="font-medium text-foreground">{paData.medication.genericName}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Strength</div>
+                      <div className="font-medium text-foreground">{paData.medication.strength}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Quantity</div>
+                      <div className="font-medium text-foreground">{paData.medication.quantity}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Dosage</div>
+                      <div className="text-sm text-foreground">{paData.medication.dosage}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">NDC</div>
+                      <div className="font-medium text-foreground font-mono text-xs">{paData.medication.ndc}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Priority</div>
+                      <Badge
+                        variant="outline"
+                        className="bg-blue-50 text-blue-700 border-blue-200 text-xs"
+                      >
+                        {paData.medication.priority}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <FileText className="h-4 w-4" /> Insurance
+                  </h3>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Payer</div>
+                      <div className="font-semibold text-foreground">{paData.payer.name}</div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Plan</div>
+                      <div className="font-medium text-foreground">{paData.payer.planName}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Member ID</div>
+                      <div className="font-medium text-foreground">{paData.payer.memberId}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-muted-foreground mb-0.5">Group #</div>
+                      <div className="font-medium text-foreground">{paData.payer.groupNumber}</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              {/* Clinical Questions & AI Responses */}
+              <section className="bg-muted/20 rounded-xl p-5 space-y-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <AlertCircle className="h-4 w-4" /> Clinical Questions & AI Responses
+                </h3>
+                <div className="space-y-3">
+                  {paData.clinicalQuestions.map((item, index) => (
+                    <div key={index} className="bg-background border border-border/60 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="font-medium text-sm text-foreground">{item.question}</h4>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-xs flex-shrink-0 ml-2",
+                            item.confidence >= 95
+                              ? "bg-green-50 text-green-700 border-green-200"
+                              : item.confidence >= 85
+                              ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                              : "bg-red-50 text-red-700 border-red-200"
+                          )}
+                        >
+                          {item.confidence}%
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-foreground">{item.answer}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {/* Timeline & Documents - Side by Side */}
+              <section className="grid gap-4 lg:grid-cols-2">
+                {/* Timeline */}
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <History className="h-4 w-4" /> Processing Timeline
+                  </h3>
+                  <div className="space-y-3">
+                    {paData.timeline.slice(0, 3).map((item, index) => (
+                      <div key={index} className="flex items-start gap-3 p-3 bg-background border border-border/60 rounded-lg">
+                        <div
+                          className={cn(
+                            "w-3 h-3 rounded-full mt-1 flex-shrink-0",
+                            item.status === "completed"
+                              ? "bg-green-500"
+                              : item.status === "in-progress"
+                              ? "bg-blue-500"
+                              : "bg-muted"
+                          )}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="font-semibold text-sm text-foreground">{item.event}</p>
+                            <p className="text-xs text-muted-foreground whitespace-nowrap">
+                              {formatDate(item.timestamp)}
                             </p>
                           </div>
+                          <p className="text-xs text-muted-foreground">by {item.user}</p>
                         </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-            <TabsContent value="documents" className="mt-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Supporting Documents</h3>
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="text-center py-8">
-                      <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                      <p className="text-muted-foreground">
-                        No documents uploaded yet
-                      </p>
-                      <Button variant="ghost" className="mt-4">
-                        <Download className="w-4 h-4 mr-2" />
-                        Upload Document
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
+                {/* Documents */}
+                <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <FileText className="h-4 w-4" /> Supporting Documents
+                  </h3>
+                  <div className="bg-background border border-border/60 rounded-lg p-6 text-center">
+                    <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No documents uploaded yet
+                    </p>
+                    <Button variant="outline" size="sm">
+                      <Download className="w-4 h-4 mr-2" />
+                      Upload Document
+                    </Button>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </ScrollArea>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
 
-          {/* Edit Details Modal */}
-          <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+    {/* Edit Details Modal */}
+    <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Edit PA Details</DialogTitle>
@@ -1026,8 +974,6 @@ export function PADetails({
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
-    </div>
+        </>
   );
 }
