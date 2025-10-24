@@ -1,6 +1,7 @@
 import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
-import { priorAuthOrchestrator } from '../../db/src/services';
+// Import only the types and factory function to avoid bundling Browserbase dependencies
+import type { PriorAuthSubmissionRequest, OrchestrationResult } from '../../db/src/services/prior-auth-orchestrator';
 
 interface SubmissionConfig {
   payer_id: string;
@@ -523,13 +524,15 @@ async function submitViaPortal(payload: SubmissionPayload, config: SubmissionCon
 
     console.log(`📝 Submitting PA via Browserbase with automation level: ${automationLevel}`);
 
-    // Execute Browserbase automation
-    const automationResult = await priorAuthOrchestrator.submitPriorAuth({
+    // In Lambda environment, we can't bundle Browserbase dependencies
+    // Instead, we'll delegate portal automation to a separate service or queue
+    const automationResult = await delegatePortalAutomation({
       priorAuthId,
       organizationId,
       automationLevel,
       formData,
       priority: payload.priority === 'stat' ? 'urgent' : 'medium',
+      payerId: config.payer_id,
     });
 
     if (automationResult.success) {
@@ -855,6 +858,121 @@ async function getDiagnosisDescription(diagnosisCode: string): Promise<string> {
     return result.records?.[0]?.[0]?.stringValue || 'Diagnosis description not available';
   } catch (error) {
     return 'Diagnosis description not available';
+  }
+}
+
+async function delegatePortalAutomation(request: {
+  priorAuthId: string;
+  organizationId: string;
+  automationLevel: string;
+  formData: any;
+  priority: string;
+  payerId: string;
+}): Promise<OrchestrationResult> {
+  console.log('🔄 Delegating portal automation to external service...');
+
+  try {
+    // Option 1: Send to a dedicated automation queue/service
+    const automationQueueUrl = process.env.BROWSERBASE_AUTOMATION_QUEUE_URL;
+    
+    if (automationQueueUrl) {
+      const automationMessage = {
+        type: 'browserbase_portal_automation',
+        timestamp: new Date().toISOString(),
+        request,
+      };
+
+      await sqsClient.send(new SendMessageCommand({
+        QueueUrl: automationQueueUrl,
+        MessageBody: JSON.stringify(automationMessage),
+        MessageAttributes: {
+          'priority': {
+            DataType: 'String',
+            StringValue: request.priority
+          },
+          'payer': {
+            DataType: 'String',
+            StringValue: request.payerId
+          },
+          'automation_level': {
+            DataType: 'String',
+            StringValue: request.automationLevel
+          }
+        }
+      }));
+
+      console.log('✅ Portal automation request queued successfully');
+
+      // Return a pending result - the automation service will update the status
+      return {
+        success: false, // Not complete yet
+        priorAuthId: request.priorAuthId,
+        status: 'requires_intervention',
+        humanInterventionRequired: true,
+        workflowId: `AUTO_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+        interventionId: `QUEUE_${Date.now()}`,
+        error: 'Portal automation queued for processing by dedicated service',
+        nextSteps: [
+          'Monitor automation queue for progress',
+          'Check back for status updates',
+          'Manual intervention available if automation fails'
+        ]
+      };
+    }
+
+    // Option 2: Call external automation service API
+    const automationServiceUrl = process.env.BROWSERBASE_AUTOMATION_SERVICE_URL;
+    
+    if (automationServiceUrl) {
+      const response = await fetch(`${automationServiceUrl}/submit-prior-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.AUTOMATION_SERVICE_API_KEY}`,
+        },
+        body: JSON.stringify(request),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ External automation service responded successfully');
+        return result;
+      } else {
+        console.error('❌ External automation service failed:', response.statusText);
+      }
+    }
+
+    // Option 3: Fallback - return failure to trigger manual processing
+    console.log('⚠️ No automation service configured, falling back to manual processing');
+    
+    return {
+      success: false,
+      priorAuthId: request.priorAuthId,
+      status: 'failed',
+      error: 'Portal automation service not available - Lambda environment cannot run Browserbase',
+      humanInterventionRequired: true,
+      nextSteps: [
+        'Configure external automation service',
+        'Process manually via payer portal',
+        'Contact technical support for automation setup'
+      ]
+    };
+
+  } catch (error) {
+    console.error('🚨 Error delegating portal automation:', error);
+    
+    return {
+      success: false,
+      priorAuthId: request.priorAuthId,
+      status: 'failed',
+      error: `Automation delegation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      humanInterventionRequired: true,
+      nextSteps: [
+        'Check automation service configuration',
+        'Verify queue/API connectivity',
+        'Process manually as fallback'
+      ]
+    };
   }
 }
 

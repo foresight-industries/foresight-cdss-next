@@ -277,9 +277,9 @@ export class PriorAuthOrchestrator {
       const validatedDocs = await this.validateDocuments(documents);
 
       // Run document upload automation
-      const uploadResult = await this.uploadAdditionalDocuments(
-        priorAuthId,
+      const uploadResult = await this.automation.uploadDocuments(
         organizationId,
+        priorAuthId,
         validatedDocs
       );
 
