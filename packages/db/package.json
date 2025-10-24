@@ -29,9 +29,12 @@
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.908.0",
     "@aws-sdk/client-secrets-manager": "^3.908.0",
+    "@browserbasehq/stagehand": "^2.5.2",
     "drizzle-orm": "^0.44.6",
     "drizzle-zod": "^0.8.3",
     "pg": "^8.16.3",
+    "playwright": "^1.56.1",
+    "twilio": "^5.10.3",
     "zod": "^4.1.12"
   },
   "devDependencies": {
