@@ -27,13 +27,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import {
@@ -198,227 +191,132 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
   });
 
   return (
-    <Sheet open={open} onOpenChange={onClose}>
-      <SheetContent className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0" side="right">
-        <SheetHeader className="flex-shrink-0 space-y-6 p-8 pb-6 border-b">
-          <div className="flex items-start justify-between gap-8">
-            {/* Navigation Controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onPrev}
-                disabled={disablePrev}
-                className="h-8 w-8 p-0"
-                aria-label="Previous claim"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onNext}
-                disabled={disableNext}
-                className="h-8 w-8 p-0"
-                aria-label="Next claim"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Button>
-            </div>
-
-            <div className="space-y-3 flex-1">
-              <div className="flex items-center justify-center gap-3">
-                <SheetTitle className="text-2xl font-semibold text-foreground">
-                  {claim.id}
-                </SheetTitle>
-                <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
-                  {STATUS_LABELS[claim.status]}
-                </Badge>
-                {claim.auto_submitted && claim.status === "accepted_277ca" && (
-                  <span className="flex items-center gap-1 text-sm text-emerald-600">
-                    <CheckCircle2 className="h-4 w-4" /> Auto-submitted
-                  </span>
-                )}
-                {claim.status === "denied" && claim.state_history.some(entry => entry.note?.includes("playbook")) && (
-                  <span className="flex items-center gap-1 text-sm text-blue-600">
-                    <Sparkles className="h-4 w-4" /> Denial Playbook Active
-                  </span>
-                )}
+    <>
+      {/* Custom overlay that respects sidebar */}
+      {open && (
+        <div 
+          className="fixed inset-0 left-[256px] bg-black/30 z-[49]"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
+      <Dialog open={open} onOpenChange={onClose}>
+        <DialogContent 
+          className="fixed left-[calc(256px+2rem)] top-6 right-6 bottom-6 max-w-none h-auto p-0 flex flex-col rounded-2xl shadow-2xl z-50"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
+        <div className="flex-shrink-0 sticky top-0 bg-background z-10 border-b">
+          <div className="px-8 py-4">
+            <div className="flex items-start justify-between gap-4 mb-2">
+              {/* Left side: Navigation arrows */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onPrev}
+                  disabled={disablePrev}
+                  className="h-8 w-8 p-0"
+                  aria-label="Previous claim"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onNext}
+                  disabled={disableNext}
+                  className="h-8 w-8 p-0"
+                  aria-label="Next claim"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
               </div>
-              <SheetDescription className="flex flex-wrap items-center justify-center gap-3 text-sm">
-                <span>Charge {formatCurrency(claim.total_amount)}</span>
-                <span>Attempt #{claim.attempt_count}</span>
-              </SheetDescription>
-            </div>
 
-            {/* Spacer to balance the layout */}
-            <div className="w-20"></div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => onApplyAllFixes(claim.id)}
-              disabled={claim.suggested_fixes.every((fix) => fix.applied)}
-            >
-              Apply All Fixes
-            </Button>
-            <Button
-              onClick={() => onSubmit(claim.id)}
-              disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || claim.status === "awaiting_277ca" || submittingClaims.has(claim.id)}
-            >
-              {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onResubmit(claim.id)}
-              disabled={!(claim.status === "rejected_277ca" || claim.status === "denied") || submittingClaims.has(claim.id)}
-            >
-              {submittingClaims.has(claim.id) ? "Submitting..." : "Resubmit corrected"}
-            </Button>
+              {/* Center: Claim ID and Status */}
+              <div className="flex-1">
+                <div className="flex items-center gap-3">
+                  <DialogTitle className="text-2xl font-bold text-foreground">
+                    {claim.id}
+                  </DialogTitle>
+                  <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
+                    {STATUS_LABELS[claim.status]}
+                  </Badge>
+                  {claim.auto_submitted && claim.status === "accepted_277ca" && (
+                    <span className="flex items-center gap-1 text-sm text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" /> Auto-submitted
+                    </span>
+                  )}
+                  {claim.status === "denied" && claim.state_history.some(entry => entry.note?.includes("playbook")) && (
+                    <span className="flex items-center gap-1 text-sm text-blue-600">
+                      <Sparkles className="h-4 w-4" /> Denial Playbook Active
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-6 mt-1 text-sm text-muted-foreground">
+                  <span className="font-medium text-foreground">Charge {formatCurrency(claim.total_amount)}</span>
+                  <span>Attempt #{claim.attempt_count}</span>
+                </div>
+              </div>
+
+              {/* Right side: Action Buttons */}
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => onApplyAllFixes(claim.id)}
+                  disabled={claim.suggested_fixes.every((fix) => fix.applied)}
+                  size="sm"
+                >
+                  Apply All Fixes
+                </Button>
+                <Button
+                  onClick={() => onSubmit(claim.id)}
+                  disabled={blockingIssues > 0 || claim.status === "submitted" || claim.status === "accepted_277ca" || claim.status === "awaiting_277ca" || submittingClaims.has(claim.id)}
+                  size="sm"
+                  className="bg-teal-600 hover:bg-teal-700"
+                >
+                  {submittingClaims.has(claim.id) ? "Submitting..." : "Submit & Listen"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() => onResubmit(claim.id)}
+                  disabled={!(claim.status === "rejected_277ca" || claim.status === "denied") || submittingClaims.has(claim.id)}
+                  size="sm"
+                >
+                  {submittingClaims.has(claim.id) ? "Submitting..." : "Resubmit corrected"}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onClose}
+                  className="h-8 w-8 p-0"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
           </div>
-        </SheetHeader>
-        <ScrollArea className="flex-1 h-full overflow-y-auto px-8">
-          <div className="space-y-10 p-8">
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <FileText className="h-4 w-4" /> Patient & Encounter
-                </h3>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Patient</span>
-                    <span className="font-medium text-right">{claim.patient.name}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Encounter</span>
-                    <span className="font-medium text-right">{claim.encounter_id}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">State</span>
-                    <span className="font-medium text-right">{claim.state}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Provider</span>
-                    <span className="font-medium text-right">{claim.provider}</span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Date of service</span>
-                    <span className="font-medium text-right">
-                      {new Date(claim.dos).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-start justify-between gap-4">
-                    <span className="text-muted-foreground flex-shrink-0">Visit type</span>
-                    <span className="font-medium text-right">{claim.visit_type}</span>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <ListChecks className="h-4 w-4" /> Payer & Coverage
-                </h3>
-                <div className="grid gap-2 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Payer</span>
-                    <span className="font-medium">{claim.payer.name}</span>
-                  </div>
-                  {claim.member_id && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Member ID</span>
-                      <span className="font-medium">{claim.member_id}</span>
-                    </div>
-                  )}
-                  {claim.eligibility_note && (
-                    <div className="rounded border border-dashed border-muted-foreground/30 bg-muted/40 p-3 text-xs text-muted-foreground">
-                      {claim.eligibility_note}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
+        </div>
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Codes
-              </h3>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    ICD-10
-                  </h4>
-                  <div className="flex flex-wrap gap-2">
-                    {claim.codes.icd10.map((code) => (
-                      <Badge key={code} variant="secondary">
-                        {code}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    CPT/HCPCS
-                  </h4>
-                  <div className="space-y-2">
-                    {claim.codes.cpt.map((line) => (
-                      <div
-                        key={line.code}
-                        className="flex items-center justify-between rounded border border-border/60 bg-background p-3 text-sm"
-                      >
-                        <div>
-                          <div className="font-medium">{line.code}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {line.description}
-                          </div>
-                          {line.modifiers && line.modifiers.length > 0 && (
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Modifiers: {line.modifiers.join(", ")}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right text-sm font-medium">
-                          {formatCurrency(line.amount)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">
-                    Place of Service
-                  </h4>
-                  <Badge variant="outline" className="px-3 py-1 text-sm">
-                    {claim.codes.pos}
-                  </Badge>
-                </div>
-                {claim.codes.hcpcs && claim.codes.hcpcs.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-semibold text-muted-foreground">
-                      HCPCS
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {claim.codes.hcpcs.map((code) => (
-                        <Badge key={code} variant="secondary">
-                          {code}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
-
+        <ScrollArea className="flex-1 overflow-y-auto">
+          <div className="px-8 py-6 space-y-4">
+            {/* Needs Action Section - Moved to Top */}
             {claim.status === "needs_review" && (Object.entries(claim.field_confidences || {}).some(([, confidence]) => confidence < threshold) ||
               claim.suggested_fixes.some(fix => !fix.applied && !claim.field_confidences?.[fix.field])) && (
               <section className="space-y-4">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <AlertCircle className="h-4 w-4" /> Needs Action
-                </h3>
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 space-y-4">
+                <div className="rounded-lg border-2 border-amber-200 bg-amber-50 p-5 space-y-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-amber-200 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertCircle className="h-4 w-4 text-amber-800" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground text-base mb-1">NEEDS ACTION</h3>
+                      <p className="text-sm text-amber-800 font-medium">
+                        The following fields require attention before this claim can be submitted:
+                      </p>
+                    </div>
+                  </div>
                   <div className="space-y-3">
-                    <p className="text-sm text-amber-800 font-medium">
-                      The following fields require attention before this claim can be submitted:
-                    </p>
-                    <div className="space-y-3">
                       {/* Show fields that are below confidence threshold */}
                       {Object.entries(claim.field_confidences || {})
                         .filter(([field, confidence]) => confidence < threshold)
@@ -674,40 +572,165 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
               </section>
             )}
 
-            <section className="space-y-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Validation Results
-              </h3>
-              <div className="space-y-2">
-                {claim.validation_results.map((result) => {
-                  const Icon =
-                    result.severity === "pass"
-                      ? ShieldCheck
-                      : result.severity === "warn"
-                      ? AlertTriangle
-                      : X;
-                  const color =
-                    result.severity === "pass"
-                      ? "text-emerald-600"
-                      : result.severity === "warn"
-                      ? "text-amber-600"
-                      : "text-red-600";
-                  return (
-                    <div
-                      key={`${result.rule}-${result.field ?? "general"}`}
-                      className="flex items-start gap-3 rounded border border-border/60 bg-muted/20 p-3 text-sm"
-                    >
-                      <Icon className={cn("h-4 w-4 mt-0.5", color)} />
-                      <div>
-                        <div className="font-medium">{result.rule}</div>
-                        <p className="text-xs text-muted-foreground">
-                          {result.message}
-                        </p>
-                      </div>
+            {/* Patient & Encounter + Payer & Coverage - Two Column Layout */}
+            <section className="grid gap-4 lg:grid-cols-2">
+              <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <FileText className="h-4 w-4" /> Patient & Encounter
+                </h3>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-2.5">
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Patient</div>
+                    <div className="font-semibold text-foreground">{claim.patient.name}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Encounter</div>
+                    <div className="font-medium text-foreground">{claim.encounter_id}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Provider</div>
+                    <div className="font-medium text-foreground">{claim.provider}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">State</div>
+                    <div className="font-medium text-foreground">{claim.state}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Date of service</div>
+                    <div className="font-medium text-foreground">
+                      {new Date(claim.dos).toLocaleDateString()}
                     </div>
-                  );
-                })}
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-0.5">Visit type</div>
+                    <div className="font-medium text-foreground">{claim.visit_type}</div>
+                  </div>
+                </div>
               </div>
+
+              <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ListChecks className="h-4 w-4" /> Payer & Coverage
+                </h3>
+                <div>
+                  <div className="text-xs text-muted-foreground mb-0.5">Payer</div>
+                  <div className="font-semibold text-foreground mb-2">{claim.payer.name}</div>
+                  {claim.member_id && (
+                    <div className="mb-2">
+                      <div className="text-xs text-muted-foreground mb-0.5">Member ID</div>
+                      <div className="font-medium text-foreground">{claim.member_id}</div>
+                    </div>
+                  )}
+                  {claim.eligibility_note && (
+                    <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="text-xs text-blue-700 font-medium">{claim.eligibility_note}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Codes Section - All in One Row */}
+            <section className="bg-muted/20 rounded-xl p-5 space-y-3">
+              <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                <ListChecks className="h-4 w-4" /> Codes
+              </h3>
+              <div className="grid grid-cols-12 gap-4">
+                {/* ICD-10 */}
+                <div className="col-span-2">
+                  <div className="text-xs text-muted-foreground mb-1">ICD-10</div>
+                  <div className="flex flex-wrap gap-1">
+                    {claim.codes.icd10.map((code) => (
+                      <span key={code} className="font-mono font-semibold text-foreground text-sm">
+                        {code}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* CPT/HCPCS */}
+                <div className="col-span-8">
+                  <div className="text-xs text-muted-foreground mb-1">CPT/HCPCS</div>
+                  <div className="space-y-2">
+                    {claim.codes.cpt.map((line) => (
+                      <div
+                        key={line.code}
+                        className="flex items-center justify-between p-3 bg-background border border-border/60 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="font-mono font-semibold text-foreground">{line.code}</div>
+                          <div className="text-sm text-muted-foreground">{line.description}</div>
+                        </div>
+                        <div className="font-bold text-foreground text-lg">{formatCurrency(line.amount)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Place of Service */}
+                <div className="col-span-2">
+                  <div className="text-xs text-muted-foreground mb-1">Place of Service</div>
+                  <div className="font-semibold text-foreground">{claim.codes.pos}</div>
+                </div>
+              </div>
+              
+              {claim.codes.hcpcs && claim.codes.hcpcs.length > 0 && (
+                <div className="pt-2">
+                  <div className="text-xs text-muted-foreground mb-1">HCPCS</div>
+                  <div className="flex flex-wrap gap-2">
+                    {claim.codes.hcpcs.map((code) => (
+                      <Badge key={code} variant="secondary">
+                        {code}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Validation Results - More Compact */}
+            <section className="space-y-2">
+              {claim.validation_results.map((result) => {
+                const Icon =
+                  result.severity === "pass"
+                    ? ShieldCheck
+                    : result.severity === "warn"
+                    ? AlertTriangle
+                    : X;
+                const bgColor =
+                  result.severity === "pass"
+                    ? "bg-emerald-50 border-emerald-200"
+                    : result.severity === "warn"
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-red-50 border-red-200";
+                const iconColor =
+                  result.severity === "pass"
+                    ? "text-emerald-600"
+                    : result.severity === "warn"
+                    ? "text-amber-600"
+                    : "text-red-600";
+                const textColor =
+                  result.severity === "pass"
+                    ? "text-emerald-900"
+                    : result.severity === "warn"
+                    ? "text-amber-900"
+                    : "text-red-900";
+                return (
+                  <div
+                    key={`${result.rule}-${result.field ?? "general"}`}
+                    className={cn("flex items-start gap-3 rounded-xl border p-4", bgColor)}
+                  >
+                    <Icon className={cn("h-5 w-5 flex-shrink-0", iconColor)} />
+                    <div className="flex-1">
+                      <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                        <AlertTriangle className="h-4 w-4" /> Validation Results
+                      </h3>
+                      <div className={cn("font-semibold text-sm", textColor)}>{result.rule}</div>
+                      <div className="text-sm text-muted-foreground">{result.message}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </section>
 
             {suggestionsToShow.length > 0 && (
@@ -749,9 +772,10 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
               </section>
             )}
 
-            <section className="space-y-3">
+            {/* Chart Note - More Compact */}
+            <section className="bg-muted/20 rounded-xl p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <FileText className="h-4 w-4" /> Chart Note
                 </h3>
                 {(() => {
@@ -761,8 +785,8 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
                   );
 
                   return hasHighlightedSources ? (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>Show sources</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Show sources</span>
                       <Switch
                         checked={showSources}
                         onCheckedChange={(checked) =>
@@ -773,26 +797,28 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
                   ) : null;
                 })()}
               </div>
-              <div className="space-y-3 rounded border border-border/60 bg-muted/10 p-4 text-sm leading-relaxed">
-                {claim.chart_note.paragraphs.map((paragraph, index) => (
-                  <p key={index} className="space-x-1">
-                    {paragraph.map((segment, idx) =>
-                      segment.highlight && showSources ? (
-                        <mark
-                          key={idx}
-                          className="rounded bg-amber-100 px-1 py-0.5"
-                        >
-                          {segment.text}
-                        </mark>
-                      ) : (
-                        <span key={idx}>{segment.text}</span>
-                      )
-                    )}
-                  </p>
-                ))}
-                <p className="text-xs text-muted-foreground">
+              <div className="bg-background border border-border/60 rounded-lg p-3">
+                <div className="space-y-2 text-sm leading-relaxed text-foreground">
+                  {claim.chart_note.paragraphs.map((paragraph, index) => (
+                    <p key={index} className="space-x-1">
+                      {paragraph.map((segment, idx) =>
+                        segment.highlight && showSources ? (
+                          <mark
+                            key={idx}
+                            className="rounded bg-amber-100 px-1"
+                          >
+                            {segment.text}
+                          </mark>
+                        ) : (
+                          <span key={idx}>{segment.text}</span>
+                        )
+                      )}
+                    </p>
+                  ))}
+                </div>
+                <div className="text-xs text-muted-foreground mt-2">
                   Attending: {claim.chart_note.provider}
-                </p>
+                </div>
               </div>
             </section>
 
@@ -894,151 +920,140 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
               </section>
             )}
 
-            <section className="space-y-3">
-              <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                <History className="h-4 w-4" /> Timeline & Audit
-              </h3>
-              <div className="space-y-3">
-                {claim.state_history
-                  .slice()
-                  .sort(
-                    (a, b) =>
-                      new Date(b.at).getTime() - new Date(a.at).getTime()
-                  )
-                  .map((entry, index) => (
-                    <div
-                      key={`${entry.state}-${index}`}
-                      className="flex items-start justify-between rounded border border-border/60 bg-background p-3 text-sm"
-                    >
-                      <div>
-                        <div className="font-medium">
-                          {STATUS_LABELS[entry.state]}
-                        </div>
-                        {entry.note && (
-                          <div className="text-xs text-muted-foreground">
-                            {entry.note}
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {new Date(entry.at).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </section>
-
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  <DollarSign className="h-4 w-4" /> Payments
+            {/* Timeline & Payments - Side by Side */}
+            <section className="grid gap-4 lg:grid-cols-2">
+              {/* Timeline & Audit */}
+              <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <History className="h-4 w-4" /> Timeline & Audit
                 </h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAddPayment(true)}
-                  disabled={claim.status !== 'accepted_277ca' && claim.status !== 'paid'}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Payment
-                </Button>
-              </div>
-
-              {/* Current Payment Status */}
-              <div className="p-3 bg-muted/20 rounded-lg">
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Claim Total:</span>
-                  <span className="font-medium">{formatCurrency(claim.total_amount)}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm">
-                  <span className="text-muted-foreground">Total Paid:</span>
-                  <span className="font-medium">
-                    {claim.payments && claim.payments.length > 0
-                      ? formatCurrency(claim.payments.reduce((sum, payment) => sum + payment.amount, 0))
-                      : formatCurrency(0)
-                    }
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm pt-1 border-t mt-1">
-                  <span className="text-muted-foreground">Balance:</span>
-                  <span className={`font-semibold ${calculateClaimBalance(claim) === 0 ? 'text-green-600' : 'text-foreground'}`}>
-                    {formatCurrency(calculateClaimBalance(claim))}
-                  </span>
-                </div>
-              </div>
-
-              {/* Payment Records */}
-              {claim.payments && claim.payments.length > 0 ? (
                 <div className="space-y-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground">Payment History</h4>
-                  <div className="space-y-3">
+                  {claim.state_history
+                    .slice()
+                    .sort(
+                      (a, b) =>
+                        new Date(b.at).getTime() - new Date(a.at).getTime()
+                    )
+                    .slice(0, 3)
+                    .map((entry, index) => (
+                      <div
+                        key={`${entry.state}-${index}`}
+                        className="flex items-start justify-between gap-3 p-3 bg-background border border-border/60 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <div className="font-semibold text-foreground text-sm">
+                            {STATUS_LABELS[entry.state]}
+                          </div>
+                          {entry.note && (
+                            <div className="text-xs text-muted-foreground">
+                              {entry.note}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground text-right whitespace-nowrap">
+                          {new Date(entry.at).toLocaleDateString()}<br/>
+                          {new Date(entry.at).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+
+              {/* Payments */}
+              <div className="bg-muted/20 rounded-xl p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    <DollarSign className="h-4 w-4" /> Payments
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowAddPayment(true)}
+                    disabled={claim.status !== 'accepted_277ca' && claim.status !== 'paid'}
+                    className="flex items-center gap-1 h-7 text-xs text-teal-600 hover:text-teal-700"
+                  >
+                    <Plus className="w-3 h-3" />
+                    Add Payment
+                  </Button>
+                </div>
+                
+                <div className="bg-background border border-border/60 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Claim Total:</span>
+                    <span className="font-bold text-xl text-foreground">{formatCurrency(claim.total_amount)}</span>
+                  </div>
+                  {claim.payments && claim.payments.length > 0 && (
+                    <>
+                      <div className="flex justify-between items-center text-sm mt-1">
+                        <span className="text-muted-foreground">Total Paid:</span>
+                        <span className="font-medium">
+                          {formatCurrency(claim.payments.reduce((sum, payment) => sum + payment.amount, 0))}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm pt-1 border-t mt-1">
+                        <span className="text-muted-foreground">Balance:</span>
+                        <span className={`font-semibold ${calculateClaimBalance(claim) === 0 ? 'text-green-600' : 'text-foreground'}`}>
+                          {formatCurrency(calculateClaimBalance(claim))}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Payment History */}
+                {claim.payments && claim.payments.length > 0 && (
+                  <div className="space-y-2">
                     {claim.payments
                       .slice()
                       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                      .slice(0, 2)
                       .map((payment) => (
                         <div
                           key={payment.id}
-                          className="flex items-start justify-between rounded border border-border/60 bg-background p-3 text-sm"
+                          className="flex items-start justify-between gap-2 p-2 bg-background border border-border/60 rounded-lg text-xs"
                         >
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <div className="font-semibold text-green-600">
-                                {formatCurrency(payment.amount)}
-                              </div>
-                              <div className="text-muted-foreground text-xs">
-                                from {payment.payer}
-                              </div>
+                            <div className="font-semibold text-green-600">
+                              {formatCurrency(payment.amount)}
                             </div>
-                            {payment.reference && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Ref: {payment.reference}
-                              </div>
-                            )}
-                            {payment.note && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {payment.note}
-                              </div>
-                            )}
+                            <div className="text-muted-foreground">
+                              from {payment.payer}
+                            </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-muted-foreground whitespace-nowrap">
                             {new Date(payment.date).toLocaleDateString()}
                           </div>
                         </div>
                       ))}
                   </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-sm text-muted-foreground border border-dashed border-border/60 rounded-lg">
-                  No payments recorded yet
-                </div>
-              )}
-
-              {/* Add Payment Form Modal */}
-              <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="sr-only">Add Payment</DialogTitle>
-                  </DialogHeader>
-                  <AddPaymentForm
-                    claim={claim}
-                    onPaymentAdded={async (paymentData) => {
-                      const updatedClaim = addPaymentToClaim(
-                        claim,
-                        paymentData.amount,
-                        paymentData.payer,
-                        paymentData.reference,
-                        paymentData.note
-                      );
-
-                      onUpdateClaim(claim.id, () => updatedClaim);
-                      setShowAddPayment(false);
-                    }}
-                    onCancel={() => setShowAddPayment(false)}
-                  />
-                </DialogContent>
-              </Dialog>
+                )}
+              </div>
             </section>
+
+            {/* Add Payment Form Modal */}
+            <Dialog open={showAddPayment} onOpenChange={setShowAddPayment}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="sr-only">Add Payment</DialogTitle>
+                </DialogHeader>
+                <AddPaymentForm
+                  claim={claim}
+                  onPaymentAdded={async (paymentData) => {
+                    const updatedClaim = addPaymentToClaim(
+                      claim,
+                      paymentData.amount,
+                      paymentData.payer,
+                      paymentData.reference,
+                      paymentData.note
+                    );
+
+                    onUpdateClaim(claim.id, () => updatedClaim);
+                    setShowAddPayment(false);
+                  }}
+                  onCancel={() => setShowAddPayment(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
             {claim.attachments && claim.attachments.length > 0 && (
               <section className="space-y-3">
@@ -1062,7 +1077,8 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
             )}
           </div>
         </ScrollArea>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
