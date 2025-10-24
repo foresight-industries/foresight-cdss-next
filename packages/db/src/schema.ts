@@ -471,6 +471,61 @@ export const insurancePolicies = pgTable('insurance_policy', {
   policyIdx: index('insurance_policy_policy_idx').on(table.policyNumber),
 }));
 
+// Payer Prior Auth Questions
+export const payerPriorAuthQuestions = pgTable('payer_prior_auth_question', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  question: text('question').notNull(),
+
+  // Question metadata
+  questionKey: varchar('question_key', { length: 100 }).notNull(),
+  questionText: text('question_text').notNull(),
+  questionType: varchar('question_type', { length: 50 }).notNull(),
+
+  isRequired: boolean('is_required').default(true).notNull(),
+  displayOrder: integer('display_order').default(0).notNull(),
+
+  formSection: varchar('form_section', { length: 50 }).notNull(),
+  conditionalLogic: jsonb('conditional_logic'),
+  validationRules: jsonb('validation_rules'),
+  helpText: text('help_text'),
+  placeholderText: varchar('placeholder_text', { length: 255 }),
+
+  autoPopulateSource: varchar('auto_populate_source', { length: 50 }),
+  autoPopulateLogic: jsonb('auto_populate_logic'),
+
+  version: integer('version').default(1).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  effectiveDate: timestamp('effective_date').defaultNow().notNull(),
+  expirationDate: timestamp('expiration_date'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+}, (table) => ({
+  payerIdx: index('payer_prior_auth_question_payer_idx').on(table.payerId),
+  questionIdx: index('payer_prior_auth_question_question_idx').on(table.questionKey),
+}));
+
+// Payer question options (select/multi-select opts)
+export const payerQuestionOptions = pgTable('payer_question_option', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionId: uuid('question_id').references(() => payerPriorAuthQuestions.id).notNull(),
+  optionValue: varchar('option_value', { length: 255 }).notNull(),
+  optionLabel: text('option_text').notNull(),
+
+  displayOrder: integer('display_order').default(0).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  triggersQuestions: jsonb('triggers_question'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.payerPriorAuthQuestionId),
+}));
+
 // Claims
 export const claims = pgTable('claim', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -2245,6 +2300,7 @@ export const denialTracking = pgTable('denial_tracking', {
   orgIdx: index('denial_tracking_org_idx').on(table.organizationId),
   claimIdx: index('denial_tracking_claim_idx').on(table.claimId),
   claimLineIdx: index('denial_tracking_claim_line_idx').on(table.claimLineId),
+  priorAuthIdx: index('denial_tracking_claim_idx').on(table.claimId),
   statusIdx: index('denial_tracking_status_idx').on(table.status),
   categoryIdx: index('denial_tracking_category_idx').on(table.denialCategory),
   denialDateIdx: index('denial_tracking_denial_date_idx').on(table.denialDate),

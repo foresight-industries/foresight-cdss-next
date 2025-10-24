@@ -55,11 +55,11 @@ export async function GET(request: NextRequest) {
       eq(denialTracking.organizationId, organizationId),
       isNotNull(denialTracking.resolutionMethod) // Only resolved denials
     ];
-    
+
     if (startDate) {
       whereConditions.push(gte(denialTracking.denialDate, startDate));
     }
-    
+
     if (endDate) {
       whereConditions.push(lte(denialTracking.denialDate, endDate));
     }
@@ -130,10 +130,10 @@ export async function GET(request: NextRequest) {
         resolutionMethod: row.resolutionMethod || 'unknown',
         totalAttempts: row.totalAttempts || 0,
         successfulResolutions: resolvedCount,
-        successRate: row.totalAttempts > 0 ? 
+        successRate: row.totalAttempts > 0 ?
           Math.round((resolvedCount / row.totalAttempts) * 100) : 0,
         totalRecoveredAmount: Number(row.totalRecoveredAmount) || 0,
-        avgRecoveryAmount: row.totalAttempts > 0 ? 
+        avgRecoveryAmount: row.totalAttempts > 0 ?
           Math.round((Number(row.totalRecoveredAmount) || 0) / row.totalAttempts) : 0,
         avgResolutionDays: null, // Simplified for now
         entityBreakdown: {
@@ -145,14 +145,14 @@ export async function GET(request: NextRequest) {
     });
 
     // Calculate automation metrics from resolution methods
-    const automatedMethods = ['automated_resubmit', 'automated_appeal', 'auto_corrected_claim'];
+    const automatedMethods = new Set(['automated_resubmit', 'automated_appeal', 'auto_corrected_claim']);
     const automatedResolutions = formattedFixesAnalytics
-      .filter(fix => automatedMethods.includes(fix.resolutionMethod))
+      .filter(fix => automatedMethods.has(fix.resolutionMethod))
       .reduce((sum, fix) => sum + fix.totalAttempts, 0);
-    
+
     const totalResolutions = formattedFixesAnalytics
       .reduce((sum, fix) => sum + fix.totalAttempts, 0);
-    
+
     const manualResolutions = totalResolutions - automatedResolutions;
 
     // Format automation metrics
@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
       automationRate: totalResolutions > 0 ?
         Math.round((automatedResolutions / totalResolutions) * 100) : 0,
       topAutomatedFixes: formattedFixesAnalytics
-        .filter(fix => automatedMethods.includes(fix.resolutionMethod))
+        .filter(fix => automatedMethods.has(fix.resolutionMethod))
         .slice(0, 5)
         .map(fix => ({
           method: fix.resolutionMethod,
