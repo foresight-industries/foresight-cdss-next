@@ -154,10 +154,6 @@ export default function PreEncountersClient({ data }: Readonly<PreEncountersClie
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             Pre-Encounter Checks
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage eligibility verification and pre-visit issues for upcoming
-            appointments
-          </p>
         </div>
         <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
           <div className="flex items-center gap-2">

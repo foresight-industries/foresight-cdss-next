@@ -459,9 +459,6 @@ console.log(isClosing)
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
             PA Queue
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage and review prior authorization requests
-          </p>
         </header>
         <div className="flex gap-2">
           <Button size="sm">
