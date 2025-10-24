@@ -13,9 +13,68 @@ import { cn } from '@/lib/utils';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { epaQueueItems, type EpaQueueItem } from '@/data/epa-queue';
 
+// Define the PA data structure
+interface PAData {
+  id: string;
+  status: 'needs-review' | 'auto-processing' | 'auto-approved' | 'denied';
+  confidence: number;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    name: string;
+    id: string;
+    dateOfBirth: string;
+    age: number;
+    gender: string;
+    address: string;
+    phone: string;
+    conditions: string[];
+  };
+  medication: {
+    name: string;
+    genericName: string;
+    strength: string;
+    dosage: string;
+    quantity: string;
+    ndc: string;
+    priority: string;
+  };
+  provider: {
+    name: string;
+    npi: string;
+    clinic: string;
+    address: string;
+    phone: string;
+  };
+  payer: {
+    name: string;
+    planName: string;
+    memberId: string;
+    groupNumber: string;
+    subscriberId: string;
+  };
+  attempt: {
+    current: number;
+    total: number;
+    previousDenials: string[];
+  };
+  timeline: Array<{
+    timestamp: string;
+    event: string;
+    user: string;
+    status: string;
+  }>;
+  clinicalQuestions: Array<{
+    question: string;
+    answer: string;
+    confidence: number;
+  }>;
+}
+
 interface PADetailsProps {
-  paId: string;
-  onClose?: () => void;
+  pa: PAData | EpaQueueItem | null;
+  open: boolean;
+  onClose: () => void;
   onPrev?: () => void;
   onNext?: () => void;
   disablePrev?: boolean;
@@ -23,8 +82,13 @@ interface PADetailsProps {
   initialAction?: 'edit' | 'documents' | 'notes';
 }
 
+// Helper to check if object has PAData structure
+const isPAData = (obj: any): obj is PAData => {
+  return obj && typeof obj === 'object' && 'patient' in obj && 'medication' in obj && 'provider' in obj && 'payer' in obj;
+};
+
 // Get PA data from queue items, with enhanced mock data for detailed view
-const getPAData = (id: string) => {
+const getPAData = (id: string): PAData => {
   // Find the queue item by ID
   const queueItem: EpaQueueItem | undefined = epaQueueItems.find(item => item.id === id);
 
@@ -406,7 +470,8 @@ const statusConfig = {
 } as const;
 
 export function PADetails({
-  paId,
+  pa,
+  open,
   onClose,
   onPrev,
   onNext,
@@ -416,21 +481,25 @@ export function PADetails({
 }: Readonly<PADetailsProps>) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
-  const [paData, setPaData] = useState(() => getPAData(paId));
-  const [editData, setEditData] = useState(paData);
   const [newNote, setNewNote] = useState("");
   const [notes, setNotes] = useState<
     Array<{ id: string; text: string; timestamp: string; user: string }>
   >([]);
 
-  const open = !!paId;
+  // Convert pa to PAData format if needed
+  const [paData, setPaData] = useState<PAData | null>(() => 
+    pa ? (isPAData(pa) ? pa : getPAData(pa.id)) : null
+  );
+  const [editData, setEditData] = useState<PAData | null>(paData);
 
-  // Update data when paId changes
+  // Update data when pa changes
   useEffect(() => {
-    const newData = getPAData(paId);
-    setPaData(newData);
-    setEditData(newData);
-  }, [paId]);
+    if (pa) {
+      const newPaData = isPAData(pa) ? pa : getPAData(pa.id);
+      setPaData(newPaData);
+      setEditData(newPaData);
+    }
+  }, [pa]);
 
   // Handle initial action when component opens
   useEffect(() => {
@@ -459,7 +528,7 @@ export function PADetails({
     }).format(new Date(dateString));
   };
 
-  if (!onClose) {
+  if (!paData) {
     return null;
   }
 
@@ -789,6 +858,7 @@ export function PADetails({
                 </DialogDescription>
               </DialogHeader>
 
+              {editData && (
               <div className="space-y-6 py-4">
                 {/* Patient Information */}
                 <div className="space-y-4">
@@ -872,6 +942,7 @@ export function PADetails({
                   </div>
                 </div>
               </div>
+              )}
 
               <DialogFooter>
                 <Button
@@ -882,9 +953,11 @@ export function PADetails({
                 </Button>
                 <Button
                   onClick={() => {
-                    setPaData(editData);
-                    setShowEditModal(false);
-                    alert("Changes saved successfully!");
+                    if (editData) {
+                      setPaData(editData);
+                      setShowEditModal(false);
+                      alert("Changes saved successfully!");
+                    }
                   }}
                 >
                   <Save className="w-4 h-4 mr-2" />
