@@ -485,13 +485,13 @@ export const payerPriorAuthQuestions = pgTable('payer_prior_auth_question', {
   isRequired: boolean('is_required').default(true).notNull(),
   displayOrder: integer('display_order').default(0).notNull(),
 
-  formSection: varchar('form_section', { length: 50 }).notNull(),
+  formSection: varchar('form_section', { length: 100 }).notNull(),
   conditionalLogic: jsonb('conditional_logic'),
   validationRules: jsonb('validation_rules'),
   helpText: text('help_text'),
   placeholderText: varchar('placeholder_text', { length: 255 }),
 
-  autoPopulateSource: varchar('auto_populate_source', { length: 50 }),
+  autoPopulateSource: varchar('auto_populate_source', { length: 100 }),
   autoPopulateLogic: jsonb('auto_populate_logic'),
 
   version: integer('version').default(1).notNull(),
@@ -517,13 +517,57 @@ export const payerQuestionOptions = pgTable('payer_question_option', {
 
   displayOrder: integer('display_order').default(0).notNull(),
   isDefault: boolean('is_default').default(false).notNull(),
-  triggersQuestions: jsonb('triggers_question'),
+  triggersQuestions: jsonb('triggers_questions'),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({
-  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.payerPriorAuthQuestionId),
+  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.questionId),
+}));
+
+export const priorAuthQuestionResponses = pgTable('prior_auth_question_response', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  questionId: uuid('question_id').references(() => payerPriorAuthQuestions.id).notNull(),
+
+  responseValue: text('response_value'),
+  responseSource: varchar('response_source', { length: 50 }),
+  confidenceScore: decimal('confidence_score', { precision: 3, scale: 2 }),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.questionId),
+}));
+
+export const payerPriorAuthForms = pgTable('payer_prior_auth_form', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+
+  formName: varchar('form_name', { length: 255 }).notNull(),
+  formVersion: varchar('form_version', { length: 50 }).notNull(),
+  submissionMethod: varchar('submission_method', { length: 50 }).notNull(),
+
+  portalUrl: text('portal_url'),
+  formSelector: varchar('form_selector', { length: 255 }),
+  submissionEndpoint: text('submission_endpoint'),
+
+  requiredAttachments: jsonb('required_attachments'),
+  maxFileSizeMb: integer('max_file_size_mb').default(10),
+  allowedFileTypes: text('allowed_file_types').array(),
+
+  autoSubmitEnabled: boolean('auto_submit_enabled').default(false),
+  presubmitReviewRequired: boolean('presubmit_review_required').default(true),
+
+  isActive: boolean('is_active').default(true),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerIdx: index('payer_prior_auth_form_payer_idx').on(table.payerId),
 }));
 
 // Claims
