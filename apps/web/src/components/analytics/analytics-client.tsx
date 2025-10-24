@@ -238,9 +238,6 @@ export function AnalyticsClient({ data }: Readonly<AnalyticsClientProps>) {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
           Analytics
         </h1>
-        <p className="text-gray-600 dark:text-gray-400">
-          Performance insights and trends for PA automation and RCM analytics
-        </p>
       </div>
 
       {/* Sub-tab navigation */}

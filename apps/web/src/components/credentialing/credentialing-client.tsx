@@ -193,10 +193,6 @@ export default function CredentialingClient({ data }: Readonly<CredentialingClie
         <h1 className="text-3xl font-bold text-foreground">
           Credentialing Tracker
         </h1>
-        <p className="text-muted-foreground mt-1">
-          Multi-state payer credentialing status — keep operations moving across
-          all markets.
-        </p>
       </header>
 
       {/* Status Overview Cards */}

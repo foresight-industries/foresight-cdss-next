@@ -13,12 +13,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { PADetails } from "@/components/pa/pa-details";
 import { PriorAuthSubmissionModal } from '@/components/queue/prior-auth-submission-modal';
 import type { QueueData } from '@/types/queue';
@@ -465,9 +459,6 @@ console.log(isClosing)
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100">
             PA Queue
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Manage and review prior authorization requests
-          </p>
         </header>
         <div className="flex gap-2">
           <Button size="sm">
@@ -1052,64 +1043,47 @@ console.log(isClosing)
         </CardContent>
       </Card>
 
-      {/* PA Details Sheet */}
-      <Sheet
+      {/* PA Details Modal */}
+      <PADetails
+        pa={selectedPaId ? filteredData.find((item) => item.id === selectedPaId) || null : null}
         open={!!selectedPaId}
-        onOpenChange={(open) => {
-          if (!open) {
-            handleClosePA();
+        onClose={handleClosePA}
+        onPrev={() => {
+          const currentIndex = filteredData.findIndex(
+            (item) => item.id === selectedPaId
+          );
+          if (currentIndex > 0) {
+            const prevPA = filteredData[currentIndex - 1];
+            setInitialAction(undefined); // Clear action when navigating
+            handleOpenPA(prevPA.id);
+            setFocusedIndex(currentIndex - 1);
           }
         }}
-      >
-        <SheetContent
-          side="right"
-          className="w-full xs:min-w-[600px] lg:min-w-[600px] max-w-[80vw] xs:max-w-[80vw] lg:max-w-[45vw] flex flex-col p-0"
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>Prior Authorization Details</SheetTitle>
-          </SheetHeader>
-          {selectedPaId && (
-            <PADetails
-              paId={selectedPaId}
-              onPrev={() => {
-                const currentIndex = filteredData.findIndex(
-                  (item) => item.id === selectedPaId
-                );
-                if (currentIndex > 0) {
-                  const prevPA = filteredData[currentIndex - 1];
-                  setInitialAction(undefined); // Clear action when navigating
-                  handleOpenPA(prevPA.id);
-                  setFocusedIndex(currentIndex - 1);
-                }
-              }}
-              onNext={() => {
-                const currentIndex = filteredData.findIndex(
-                  (item) => item.id === selectedPaId
-                );
-                if (currentIndex < filteredData.length - 1) {
-                  const nextPA = filteredData[currentIndex + 1];
-                  setInitialAction(undefined); // Clear action when navigating
-                  handleOpenPA(nextPA.id);
-                  setFocusedIndex(currentIndex + 1);
-                }
-              }}
-              disablePrev={(() => {
-                const currentIndex = filteredData.findIndex(
-                  (item) => item.id === selectedPaId
-                );
-                return currentIndex <= 0;
-              })()}
-              disableNext={(() => {
-                const currentIndex = filteredData.findIndex(
-                  (item) => item.id === selectedPaId
-                );
-                return currentIndex >= filteredData.length - 1;
-              })()}
-              initialAction={initialAction}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+        onNext={() => {
+          const currentIndex = filteredData.findIndex(
+            (item) => item.id === selectedPaId
+          );
+          if (currentIndex < filteredData.length - 1) {
+            const nextPA = filteredData[currentIndex + 1];
+            setInitialAction(undefined); // Clear action when navigating
+            handleOpenPA(nextPA.id);
+            setFocusedIndex(currentIndex + 1);
+          }
+        }}
+        disablePrev={(() => {
+          const currentIndex = filteredData.findIndex(
+            (item) => item.id === selectedPaId
+          );
+          return currentIndex <= 0;
+        })()}
+        disableNext={(() => {
+          const currentIndex = filteredData.findIndex(
+            (item) => item.id === selectedPaId
+          );
+          return currentIndex >= filteredData.length - 1;
+        })()}
+        initialAction={initialAction}
+      />
 
       {/* Prior Auth Submission Modal */}
       <PriorAuthSubmissionModal

@@ -1255,10 +1255,6 @@ console.log(isClosing);
           <h1 className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
             Claims Workbench
           </h1>
-          <p>
-            Automation-first queue that surfaces only claims requiring human
-            attention.
-          </p>
         </header>
 
         {/* Search and Filters */}
