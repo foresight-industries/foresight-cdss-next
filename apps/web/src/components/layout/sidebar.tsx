@@ -18,7 +18,6 @@ import {
   HelpCircle,
   FileText,
   FolderOpen,
-  Hamburger,
   CalendarCheck,
   ChevronRight,
   ChevronLeft,
