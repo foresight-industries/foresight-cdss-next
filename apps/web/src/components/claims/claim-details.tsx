@@ -29,6 +29,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import {
   type Claim,
   STATUS_LABELS,
@@ -191,53 +192,52 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
   });
 
   return (
-    <>
-      {/* Custom overlay that respects sidebar */}
-      {open && (
-        <div 
-          className="fixed inset-0 left-[256px] bg-black/30 z-[49]"
-          onClick={onClose}
-          aria-hidden="true"
+    <DialogPrimitive.Root open={open} onOpenChange={onClose}>
+      <DialogPrimitive.Portal>
+        {/* Custom overlay that respects sidebar */}
+        <DialogPrimitive.Overlay 
+          className="fixed inset-0 left-[256px] bg-black/30 z-[49] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
         />
-      )}
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent 
-          className="!fixed !left-[calc(256px+2rem)] !top-6 !right-6 !bottom-6 !max-w-none !w-auto !h-auto p-0 !flex !flex-col rounded-2xl shadow-2xl z-50 !transform-none"
+        
+        {/* Custom positioned content */}
+        <DialogPrimitive.Content
+          className="fixed left-[calc(256px+2rem)] top-6 right-6 bottom-6 z-50 bg-background rounded-2xl shadow-2xl flex flex-col overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95"
+          onEscapeKeyDown={onClose}
           onPointerDownOutside={(e) => e.preventDefault()}
         >
-        <div className="flex-shrink-0 sticky top-0 bg-background z-10 border-b">
-          <div className="px-8 py-4">
-            <div className="flex items-start justify-between gap-4 mb-2">
-              {/* Left side: Navigation arrows */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onPrev}
-                  disabled={disablePrev}
-                  className="h-8 w-8 p-0"
-                  aria-label="Previous claim"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onNext}
-                  disabled={disableNext}
-                  className="h-8 w-8 p-0"
-                  aria-label="Next claim"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
+          <div className="flex-shrink-0 sticky top-0 bg-background z-10 border-b">
+            <div className="px-8 py-4">
+              <div className="flex items-start justify-between gap-4 mb-2">
+                {/* Left side: Navigation arrows */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onPrev}
+                    disabled={disablePrev}
+                    className="h-8 w-8 p-0"
+                    aria-label="Previous claim"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={onNext}
+                    disabled={disableNext}
+                    className="h-8 w-8 p-0"
+                    aria-label="Next claim"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </Button>
+                </div>
 
-              {/* Center: Claim ID and Status */}
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  <DialogTitle className="text-2xl font-bold text-foreground">
-                    {claim.id}
-                  </DialogTitle>
+                {/* Center: Claim ID and Status */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <DialogPrimitive.Title className="text-2xl font-bold text-foreground">
+                      {claim.id}
+                    </DialogPrimitive.Title>
                   <Badge className={cn("text-xs", STATUS_BADGE_VARIANTS[claim.status])}>
                     {STATUS_LABELS[claim.status]}
                   </Badge>
@@ -1076,8 +1076,8 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
             )}
           </div>
         </ScrollArea>
-      </DialogContent>
-    </Dialog>
-    </>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 };
