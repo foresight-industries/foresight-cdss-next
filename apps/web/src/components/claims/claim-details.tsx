@@ -548,23 +548,22 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
                         </div>
                       )}
                     </div>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      onClick={() => onSaveAndContinue(claim.id)}
-                      disabled={submittingClaims.has(claim.id)}
-                    >
-                      {submittingClaims.has(claim.id) ? "Submitting..." : "Save & Continue"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="border-amber-300 text-amber-700 hover:bg-amber-50"
-                      onClick={() => onAddNote(claim.id)}
-                      disabled={submittingClaims.has(claim.id)}
-                    >
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        size="sm"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                        onClick={() => onSaveAndContinue(claim.id)}
+                        disabled={submittingClaims.has(claim.id)}
+                      >
+                        {submittingClaims.has(claim.id) ? "Submitting..." : "Save & Continue"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                        onClick={() => onAddNote(claim.id)}
+                        disabled={submittingClaims.has(claim.id)}
+                      >
                       Add Note
                     </Button>
                   </div>
