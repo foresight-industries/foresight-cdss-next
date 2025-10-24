@@ -20,6 +20,7 @@ import {
   FolderOpen,
   Hamburger,
   CalendarCheck,
+  ChevronRight,
 } from "lucide-react";
 import { useUser, useClerk } from '@clerk/nextjs';
 import {
@@ -81,22 +82,27 @@ export function Sidebar({ sidebarOpen, onToggleSidebar }: Readonly<SidebarProps>
         isCollapsed ? "justify-center p-6" : "justify-between p-4"
       )}>
         {isCollapsed ? (
-          <SidebarTrigger className="p-2 rounded-lg hover:bg-accent transition-colors cursor-pointer shrink-0">
-            <Hamburger className="size-10 shrink-0 text-muted-foreground" />
+          <SidebarTrigger className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent transition-colors cursor-pointer shrink-0">
+            <Image
+              src="/android-chrome-192x192.png"
+              alt="Foresight Logo"
+              width={32}
+              height={32}
+              className="rounded-lg shrink-0"
+            />
+            <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
           </SidebarTrigger>
         ) : (
           <>
-            <Link href="/" className="flex items-center gap-2.5 min-w-0 flex-1">
+            <Link href="/" className="flex items-center min-w-0 flex-1 px-2">
               <Image
-                src="/android-chrome-192x192.png"
+                src="/word-logo.png"
                 alt="Foresight Logo"
-                width={32}
-                height={32}
-                className="rounded-lg shrink-0"
+                width={200}
+                height={50}
+                className="w-full h-auto object-contain"
+                priority
               />
-              <span className="text-xl font-semibold text-primary">
-                Foresight RCM
-              </span>
             </Link>
             <SidebarTrigger className="p-2 rounded-lg hover:bg-accent transition-colors cursor-pointer shrink-0">
               <Hamburger className="size-10 shrink-0 text-muted-foreground" />
