@@ -8,6 +8,14 @@
     "rootDir": ".",
     "composite": true,
     "incremental": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "emitDeclarationOnly": false,
+    "noEmit": false,
     "tsBuildInfoFile": "./tsconfig.tsbuildinfo"
   },
   "include": [

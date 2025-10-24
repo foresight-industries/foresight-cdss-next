@@ -1,4 +1,4 @@
-import { eq, and, lt } from 'drizzle-orm';
+import { eq, and, lt, isNull, or } from 'drizzle-orm';
 import { db } from '../connection';
 import {
   portalSessions,
@@ -7,6 +7,7 @@ import {
   PortalSession
 } from '../schema';
 import { twilioSMSService } from './twilio-sms';
+import { randomUUID } from 'node:crypto';
 
 export interface BrowserbaseConfig {
   apiKey: string;
@@ -22,12 +23,30 @@ export interface PortalAuthResult {
   error?: string;
 }
 
+export interface SessionLock {
+  sessionId: string;
+  lockToken: string;
+  lockExpiresAt: Date;
+  acquired: boolean;
+}
+
 export class PortalSessionManager {
-  private browserbaseConfig: BrowserbaseConfig;
-  private activeSessions: Map<string, PortalSession> = new Map();
+  private readonly browserbaseConfig: BrowserbaseConfig;
+  private readonly activeSessions: Map<string, PortalSession> = new Map();
+  private readonly activeLocks: Map<string, SessionLock> = new Map();
+  private readonly lockExpirationMinutes: number = 30;
+  private readonly instanceId: string;
 
   constructor(browserbaseConfig: BrowserbaseConfig) {
     this.browserbaseConfig = browserbaseConfig;
+    this.instanceId = this.generateInstanceId();
+    
+    // Start background task to refresh locks and cleanup expired ones
+    this.startLockMaintenance();
+  }
+
+  private generateInstanceId(): string {
+    return `portal-session-${process.pid}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   async createSession(
@@ -48,18 +67,27 @@ export class PortalSessionManager {
 
       // Check for existing active session
       const existingSession = await this.getActiveSession(organizationId, payerId);
-      if (existingSession && await this.isSessionValid(existingSession.id)) {
-        return {
-          success: true,
-          sessionId: existingSession.id,
-          requiresSMS: false
-        };
+      if (existingSession) {
+        // Try to acquire lock on existing session
+        const lockResult = await this.acquireSessionLock(existingSession.id);
+        if (lockResult.acquired && await this.isSessionValid(existingSession.id)) {
+          return {
+            success: true,
+            sessionId: existingSession.id,
+            requiresSMS: false
+          };
+        }
+        // If we can't acquire lock, continue to create new session
       }
 
       // Create new Browserbase session
       const browserbaseSession = await this.createBrowserbaseSession();
 
-      // Create portal session record
+      // Generate lock token for new session
+      const lockToken = randomUUID();
+      const lockExpiry = new Date(Date.now() + this.lockExpirationMinutes * 60 * 1000);
+
+      // Create portal session record with initial lock
       const newSession: NewPortalSession = {
         organizationId,
         payerId,
@@ -71,6 +99,10 @@ export class PortalSessionManager {
         keepAliveIntervalMinutes: options.keepAliveIntervalMinutes ?? 5,
         maxSessionAgeHours: options.maxSessionAgeHours ?? 8,
         portalUserAgent: browserbaseSession.userAgent,
+        lockToken,
+        lockedBy: this.instanceId,
+        lockExpiresAt: lockExpiry,
+        lockAcquiredAt: new Date(),
       };
 
       const [session] = await db
@@ -78,10 +110,16 @@ export class PortalSessionManager {
         .values(newSession)
         .returning();
 
-      // Start authentication process
-      const authResult = await this.authenticateSession(session.id);
+      // Register lock in memory
+      this.activeLocks.set(session.id, {
+        sessionId: session.id,
+        lockToken,
+        lockExpiresAt: lockExpiry,
+        acquired: true
+      });
 
-      return authResult;
+      // Start authentication process
+      return await this.authenticateSession(session.id);
 
     } catch (error) {
       console.error('Error creating portal session:', error);
@@ -93,12 +131,18 @@ export class PortalSessionManager {
   }
 
   async authenticateSession(sessionId: string): Promise<PortalAuthResult> {
-    const session = await this.getSession(sessionId);
-    if (!session) {
-      return { success: false, error: 'Session not found' };
+    // Ensure we have a lock on this session
+    const lockResult = await this.acquireSessionLock(sessionId);
+    if (!lockResult.acquired) {
+      return { success: false, error: 'Could not acquire session lock - another instance may be using this session' };
     }
 
     try {
+      const session = await this.getSession(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
       // Get credentials
       const credentials = await db
         .select()
@@ -116,20 +160,20 @@ export class PortalSessionManager {
       const browser = await this.getBrowserInstance(session.browserbaseSessionId);
 
       // Navigate to login page
-      await browser.goto(credential.portalUrl);
+      await browser.page.goto(credential.portalUrl);
 
       // Fill login form
-      await browser.fill('[name="username"], [name="email"], #username, #email', credential.username);
-      await browser.fill('[name="password"], #password', this.decryptPassword(credential.encryptedPassword));
+      await browser.page.fill('[name="username"], [name="email"], #username, #email', credential.username);
+      await browser.page.fill('[name="password"], #password', this.decryptPassword(credential.encryptedPassword));
 
       // Submit login form
-      await browser.click('[type="submit"], button[type="submit"], .login-button, #login-button');
+      await browser.page.click('[type="submit"], button[type="submit"], .login-button, #login-button');
 
       // Wait for response
-      await browser.waitForLoadState();
+      await browser.page.waitForLoadState();
 
       // Check if SMS verification is required
-      const smsRequired = await this.checkForSMSPrompt(browser);
+      const smsRequired = await this.checkForSMSPrompt(browser.page);
 
       if (smsRequired) {
         // Update session status
@@ -148,12 +192,23 @@ export class PortalSessionManager {
           };
         }
 
-        // Create SMS attempt
-        const smsAttemptId = await twilioSMSService.createSMSAuthAttempt(
-          smsConfig.id,
-          smsConfig.twilioPhoneNumber,
-          sessionId
-        );
+        // Start OTP capture for CoverMyMeds
+        const otpResult = await twilioSMSService.startOTPCapture(smsConfig.id, {
+          phoneNumber: smsConfig.twilioPhoneNumber,
+          organizationId: session.organizationId,
+          payerId: session.payerId,
+          sessionId,
+          purpose: 'covermymeds_auth'
+        });
+
+        if (!otpResult.success) {
+          return {
+            success: false,
+            error: otpResult.error || 'Failed to start OTP capture'
+          };
+        }
+
+        const smsAttemptId = otpResult.attemptId;
 
         return {
           success: false,
@@ -164,7 +219,7 @@ export class PortalSessionManager {
       }
 
       // Check if login was successful
-      const loginSuccess = await this.verifyLoginSuccess(browser);
+      const loginSuccess = await this.verifyLoginSuccess(browser.page);
 
       if (loginSuccess) {
         await this.updateSessionStatus(sessionId, 'authenticated');
@@ -188,6 +243,9 @@ export class PortalSessionManager {
         success: false,
         error: error instanceof Error ? error.message : 'Authentication error'
       };
+    } finally {
+      // Always release the lock when done
+      await this.releaseSessionLock(sessionId);
     }
   }
 
@@ -196,21 +254,21 @@ export class PortalSessionManager {
     smsAttemptId: string
   ): Promise<PortalAuthResult> {
     try {
-      // Wait for SMS code
-      const smsResult = await twilioSMSService.waitForSMSCode(smsAttemptId, 300000);
+      // Get the received OTP code from CoverMyMeds
+      const otpResult = await twilioSMSService.getReceivedOTP(smsAttemptId);
 
-      if (!smsResult.success) {
-        if (smsResult.error?.includes('timeout')) {
+      if (!otpResult.success) {
+        if (otpResult.error?.includes('timeout')) {
           // Request human intervention
           await twilioSMSService.requestHumanIntervention(
             smsAttemptId,
-            'SMS authentication timeout - manual intervention required'
+            'OTP capture timeout - manual intervention required'
           );
         }
-        return { success: false, error: smsResult.error };
+        return { success: false, error: otpResult.error };
       }
 
-      // Get browser instance and enter SMS code
+      // Get browser instance and enter OTP code
       const session = await this.getSession(sessionId);
       if (!session) {
         return { success: false, error: 'Session not found' };
@@ -218,22 +276,15 @@ export class PortalSessionManager {
 
       const browser = await this.getBrowserInstance(session.browserbaseSessionId);
 
-      // Find SMS input field and enter code
-      await browser.fill('[name="code"], [name="sms"], [name="verification"], #sms-code, #verification-code', smsResult.code!);
-      await browser.click('[type="submit"], .verify-button, #verify-button');
+      // Find OTP input field and enter code
+      await browser.page.fill('[name="code"], [name="sms"], [name="verification"], #sms-code, #verification-code', otpResult.otpCode!);
+      await browser.page.click('[type="submit"], .verify-button, #verify-button');
 
       // Wait for verification
-      await browser.waitForLoadState();
-
-      // Verify SMS code with our service
-      const verifyResult = await twilioSMSService.verifySMSCode(smsAttemptId, smsResult.code!);
-
-      if (!verifyResult.success) {
-        return { success: false, error: verifyResult.error };
-      }
+      await browser.page.waitForLoadState();
 
       // Check if authentication is now complete
-      const loginSuccess = await this.verifyLoginSuccess(browser);
+      const loginSuccess = await this.verifyLoginSuccess(browser.page);
 
       if (loginSuccess) {
         await this.updateSessionStatus(sessionId, 'authenticated');
@@ -246,7 +297,7 @@ export class PortalSessionManager {
 
         return { success: true, sessionId };
       } else {
-        return { success: false, error: 'SMS verification succeeded but login still failed' };
+        return { success: false, error: 'OTP verification succeeded but login still failed' };
       }
 
     } catch (error) {
@@ -254,6 +305,65 @@ export class PortalSessionManager {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'SMS authentication error'
+      };
+    }
+  }
+
+  async completeSMSAuthenticationWithManualEntry(
+    sessionId: string,
+    smsAttemptId: string,
+    manualOTP: string,
+    enteredBy: string
+  ): Promise<PortalAuthResult> {
+    try {
+      // Record manual OTP entry
+      const recordResult = await twilioSMSService.recordManualOTPEntry(
+        smsAttemptId,
+        manualOTP,
+        enteredBy
+      );
+
+      if (!recordResult.success) {
+        return { success: false, error: recordResult.error };
+      }
+
+      // Get browser instance and enter manual OTP code
+      const session = await this.getSession(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      const browser = await this.getBrowserInstance(session.browserbaseSessionId);
+
+      // Find OTP input field and enter code
+      await browser.page.fill('[name="code"], [name="sms"], [name="verification"], #sms-code, #verification-code', manualOTP);
+      await browser.page.click('[type="submit"], .verify-button, #verify-button');
+
+      // Wait for verification
+      await browser.page.waitForLoadState();
+
+      // Check if authentication is now complete
+      const loginSuccess = await this.verifyLoginSuccess(browser.page);
+
+      if (loginSuccess) {
+        await this.updateSessionStatus(sessionId, 'authenticated');
+        await this.saveSessionCookies(sessionId, browser);
+
+        // Start keep-alive if enabled
+        if (session.keepAliveEnabled) {
+          this.startKeepAlive(sessionId);
+        }
+
+        return { success: true, sessionId };
+      } else {
+        return { success: false, error: 'Manual OTP entry succeeded but login still failed' };
+      }
+
+    } catch (error) {
+      console.error('Error completing manual SMS authentication:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Manual SMS authentication error'
       };
     }
   }
@@ -278,7 +388,7 @@ export class PortalSessionManager {
 
   async isSessionValid(sessionId: string): Promise<boolean> {
     const session = await this.getSession(sessionId);
-    if (!session || !session.isActive) {
+    if (!session?.isActive) {
       return false;
     }
 
@@ -300,8 +410,7 @@ export class PortalSessionManager {
 
       if (inactiveTime > inactivityThreshold) {
         // Try to refresh the session
-        const refreshResult = await this.refreshSession(sessionId);
-        return refreshResult;
+        return await this.refreshSession(sessionId);
       }
     }
 
@@ -316,7 +425,7 @@ export class PortalSessionManager {
       const browser = await this.getBrowserInstance(session.browserbaseSessionId);
 
       // Perform a simple action to check if session is still valid
-      await browser.evaluate(() => {
+      await browser.page.evaluate(() => {
         document.dispatchEvent(new Event('mousemove'));
       });
 
@@ -341,19 +450,24 @@ export class PortalSessionManager {
         await this.terminateBrowserbaseSession(session.browserbaseSessionId);
       }
 
-      // Update database record
+      // Update database record and clear lock
       await db
         .update(portalSessions)
         .set({
           isActive: false,
           terminatedAt: new Date(),
           terminationReason: reason,
+          lockToken: null,
+          lockedBy: null,
+          lockExpiresAt: null,
+          lockAcquiredAt: null,
           updatedAt: new Date(),
         })
         .where(eq(portalSessions.id, sessionId));
 
-      // Remove from active sessions cache
+      // Remove from caches
       this.activeSessions.delete(sessionId);
+      this.activeLocks.delete(sessionId);
 
     } catch (error) {
       console.error('Error terminating session:', error);
@@ -419,16 +533,45 @@ export class PortalSessionManager {
     return await response.json();
   }
 
+  /**
+   * Get browser instance for a session (public method for workflow integration)
+   */
+  async getBrowserForSession(sessionId: string): Promise<any> {
+    const session = await this.getSession(sessionId);
+    if (!session) {
+      throw new Error(`Session not found: ${sessionId}`);
+    }
+    
+    if (!session.browserbaseSessionId) {
+      throw new Error(`No browser session ID found for session: ${sessionId}`);
+    }
+    
+    return await this.getBrowserInstance(session.browserbaseSessionId);
+  }
+
   private async getBrowserInstance(browserbaseSessionId: string): Promise<any> {
     // TODO: Implement actual browser connection to Browserbase
     // This would return a Playwright/Puppeteer-like interface
-    return {
-      goto: async (url: string) => { /* Navigate to URL */ },
-      fill: async (selector: string, value: string) => { /* Fill form field */ },
-      click: async (selector: string) => { /* Click element */ },
-      waitForLoadState: async () => { /* Wait for page load */ },
-      evaluate: async (fn: Function) => { /* Execute JS in browser */ },
+    const mockBrowser = {
+      page: {
+        goto: async (url: string) => { console.log(`Navigate to: ${url}`); },
+        fill: async (selector: string, value: string) => { console.log(`Fill ${selector}: ${value}`); },
+        click: async (selector: string) => { console.log(`Click: ${selector}`); },
+        type: async (selector: string, text: string) => { console.log(`Type ${text} in ${selector}`); },
+        waitForSelector: async (selector: string) => { return true; },
+        waitForLoadState: async () => { console.log('Wait for load state'); },
+        evaluate: async (fn: Function, ...args: any[]) => { return fn(...args); },
+        $: async (selector: string) => { return { textContent: () => 'mock-content' }; },
+        screenshot: async () => { return Buffer.from('mock-screenshot'); },
+        textContent: async (selector: string) => { return 'mock-text-content'; }
+      },
+      context: () => ({
+        cookies: async () => [{ name: 'session', value: 'mock-session-id' }]
+      })
     };
+    
+    console.log(`Getting browser instance for session: ${browserbaseSessionId}`);
+    return mockBrowser;
   }
 
   private async checkForSMSPrompt(browser: any): Promise<boolean> {
@@ -449,8 +592,8 @@ export class PortalSessionManager {
       try {
         const element = await browser.$(selector);
         if (element) return true;
-      } catch (e) {
-        // Continue checking other selectors
+      } catch (error) {
+        console.debug('SMS selector check failed:', selector, error);
       }
     }
 
@@ -473,8 +616,8 @@ export class PortalSessionManager {
       try {
         const element = await browser.$(selector);
         if (element) return true;
-      } catch (e) {
-        // Continue checking other selectors
+      } catch (error) {
+        console.debug('SMS selector check failed:', selector, error);
       }
     }
 
@@ -520,7 +663,7 @@ export class PortalSessionManager {
 
   private startKeepAlive(sessionId: string): void {
     const session = this.activeSessions.get(sessionId);
-    if (!session || !session.keepAliveEnabled) return;
+    if (!session?.keepAliveEnabled) return;
 
     const intervalMs = (session.keepAliveIntervalMinutes || 5) * 60 * 1000;
 
@@ -547,6 +690,182 @@ export class PortalSessionManager {
       });
     } catch (error) {
       console.error('Error terminating Browserbase session:', error);
+    }
+  }
+
+  // ============================================================================
+  // DISTRIBUTED LOCKING METHODS
+  // ============================================================================
+
+  private async acquireSessionLock(sessionId: string, timeoutMs: number = 30000): Promise<SessionLock> {
+    const lockToken = randomUUID();
+    const lockExpiry = new Date(Date.now() + this.lockExpirationMinutes * 60 * 1000);
+    const startTime = Date.now();
+
+    while (Date.now() - startTime < timeoutMs) {
+      try {
+        // Try to acquire lock using atomic update
+        const result = await db
+          .update(portalSessions)
+          .set({
+            lockToken,
+            lockedBy: this.instanceId,
+            lockExpiresAt: lockExpiry,
+            lockAcquiredAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(
+            and(
+              eq(portalSessions.id, sessionId),
+              or(
+                isNull(portalSessions.lockToken), // No existing lock
+                lt(portalSessions.lockExpiresAt, new Date()) // Expired lock
+              )
+            )
+          )
+          .returning({ id: portalSessions.id });
+
+        if (result.length > 0) {
+          // Successfully acquired lock
+          const lock: SessionLock = {
+            sessionId,
+            lockToken,
+            lockExpiresAt: lockExpiry,
+            acquired: true
+          };
+          this.activeLocks.set(sessionId, lock);
+          return lock;
+        }
+
+        // Lock acquisition failed, wait before retrying
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error('Error acquiring session lock:', error);
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    // Timeout reached
+    return {
+      sessionId,
+      lockToken: '',
+      lockExpiresAt: new Date(),
+      acquired: false
+    };
+  }
+
+  private async releaseSessionLock(sessionId: string): Promise<boolean> {
+    try {
+      const lock = this.activeLocks.get(sessionId);
+      if (!lock) {
+        return true; // Already released
+      }
+
+      // Release lock in database
+      await db
+        .update(portalSessions)
+        .set({
+          lockToken: null,
+          lockedBy: null,
+          lockExpiresAt: null,
+          lockAcquiredAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(portalSessions.id, sessionId),
+            eq(portalSessions.lockToken, lock.lockToken)
+          )
+        );
+
+      // Remove from memory
+      this.activeLocks.delete(sessionId);
+      return true;
+    } catch (error) {
+      console.error('Error releasing session lock:', error);
+      return false;
+    }
+  }
+
+  private async refreshLock(sessionId: string): Promise<boolean> {
+    try {
+      const lock = this.activeLocks.get(sessionId);
+      if (!lock?.acquired) {
+        return false;
+      }
+
+      const newExpiry = new Date(Date.now() + this.lockExpirationMinutes * 60 * 1000);
+      
+      const result = await db
+        .update(portalSessions)
+        .set({
+          lockExpiresAt: newExpiry,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(portalSessions.id, sessionId),
+            eq(portalSessions.lockToken, lock.lockToken)
+          )
+        )
+        .returning({ id: portalSessions.id });
+
+      if (result.length > 0) {
+        lock.lockExpiresAt = newExpiry;
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Error refreshing session lock:', error);
+      return false;
+    }
+  }
+
+  private startLockMaintenance(): void {
+    // Refresh active locks every 10 minutes
+    setInterval(async () => {
+      for (const [sessionId, lock] of this.activeLocks) {
+        if (lock.acquired) {
+          const refreshed = await this.refreshLock(sessionId);
+          if (!refreshed) {
+            console.warn(`Failed to refresh lock for session ${sessionId}`);
+            this.activeLocks.delete(sessionId);
+          }
+        }
+      }
+    }, 10 * 60 * 1000);
+
+    // Cleanup expired locks every 5 minutes
+    setInterval(async () => {
+      await this.cleanupExpiredLocks();
+    }, 5 * 60 * 1000);
+  }
+
+  private async cleanupExpiredLocks(): Promise<number> {
+    try {
+      const result = await db
+        .update(portalSessions)
+        .set({
+          lockToken: null,
+          lockedBy: null,
+          lockExpiresAt: null,
+          lockAcquiredAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            lt(portalSessions.lockExpiresAt, new Date()),
+            eq(portalSessions.isActive, true)
+          )
+        )
+        .returning({ id: portalSessions.id });
+
+      console.log(`Cleaned up ${result.length} expired session locks`);
+      return result.length;
+    } catch (error) {
+      console.error('Error cleaning up expired locks:', error);
+      return 0;
     }
   }
 

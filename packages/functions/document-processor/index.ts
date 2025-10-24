@@ -8,7 +8,7 @@ import {
 } from '@aws-sdk/client-textract';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
-import { documents } from '@foresight-cdss-next/db/src/schema';
+import { documents } from '@foresight-cdss-next/db/schema';
 import { eq } from 'drizzle-orm';
 
 const { quickValidateDocument } = require('@foresight-cdss-next/functions-lambda-shared');

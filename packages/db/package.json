@@ -3,6 +3,44 @@
   "version": "1.0.0",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema.d.ts",
+      "default": "./dist/schema.js"
+    },
+    "./validation": {
+      "types": "./dist/validation.d.ts",
+      "default": "./dist/validation.js"
+    },
+    "./services/twilio-sms": {
+      "types": "./dist/services/twilio-sms.d.ts",
+      "default": "./dist/services/twilio-sms.js"
+    },
+    "./services/compliance-audit": {
+      "types": "./dist/services/compliance-audit.d.ts",
+      "default": "./dist/services/compliance-audit.js"
+    },
+    "./services/bot-avoidance": {
+      "types": "./dist/services/bot-avoidance.d.ts",
+      "default": "./dist/services/bot-avoidance.js"
+    },
+    "./services/portal-automation-config": {
+      "types": "./dist/services/portal-automation-config.d.ts",
+      "default": "./dist/services/portal-automation-config.js"
+    },
+    "./services/portal-session": {
+      "types": "./dist/services/portal-session.d.ts",
+      "default": "./dist/services/portal-session.js"
+    },
+    "./services/workflow-integration": {
+      "types": "./dist/services/workflow-integration.d.ts",
+      "default": "./dist/services/workflow-integration.js"
+    }
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
