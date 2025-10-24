@@ -283,6 +283,41 @@ export const organizations = pgTable('organization', {
   slugIdx: index('organization_slug_idx').on(table.slug),
 }));
 
+// Organization Prior Auth Settings
+export const organizationPaSettings = pgTable('organization_pa_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  
+  // Default documents for PA submissions
+  defaultDocuments: jsonb('default_documents').$type<string[]>().default([]),
+  autoAttachEnabled: boolean('auto_attach_enabled').default(true).notNull(),
+  
+  // Document categories for different submission types
+  documentCategories: jsonb('document_categories').$type<Record<string, string[]>>().default({}),
+  
+  // Settings for different payers (override defaults per payer)
+  payerSpecificSettings: jsonb('payer_specific_settings').$type<Record<string, {
+    defaultDocuments?: string[];
+    autoAttachEnabled?: boolean;
+    documentCategories?: Record<string, string[]>;
+  }>>().default({}),
+  
+  // Metadata
+  description: text('description'),
+  isActive: boolean('is_active').default(true).notNull(),
+  
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  organizationIdx: index('organization_pa_settings_org_idx').on(table.organizationId),
+  isActiveIdx: index('organization_pa_settings_active_idx').on(table.isActive),
+  // One settings record per organization
+  organizationUnique: unique('organization_pa_settings_org_unique').on(table.organizationId),
+}));
+
 // Team members (users within organizations)
 export const teamMembers = pgTable('team_member', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -471,6 +506,105 @@ export const insurancePolicies = pgTable('insurance_policy', {
   policyIdx: index('insurance_policy_policy_idx').on(table.policyNumber),
 }));
 
+// Payer Prior Auth Questions
+export const payerPriorAuthQuestions = pgTable('payer_prior_auth_question', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  question: text('question').notNull(),
+
+  // Question metadata
+  questionKey: varchar('question_key', { length: 100 }).notNull(),
+  questionText: text('question_text').notNull(),
+  questionType: varchar('question_type', { length: 50 }).notNull(),
+
+  isRequired: boolean('is_required').default(true).notNull(),
+  displayOrder: integer('display_order').default(0).notNull(),
+
+  formSection: varchar('form_section', { length: 100 }).notNull(),
+  conditionalLogic: jsonb('conditional_logic'),
+  validationRules: jsonb('validation_rules'),
+  helpText: text('help_text'),
+  placeholderText: varchar('placeholder_text', { length: 255 }),
+
+  autoPopulateSource: varchar('auto_populate_source', { length: 100 }),
+  autoPopulateLogic: jsonb('auto_populate_logic'),
+
+  version: integer('version').default(1).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  effectiveDate: timestamp('effective_date').defaultNow().notNull(),
+  expirationDate: timestamp('expiration_date'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  deletedAt: timestamp('deleted_at'),
+}, (table) => ({
+  payerIdx: index('payer_prior_auth_question_payer_idx').on(table.payerId),
+  questionIdx: index('payer_prior_auth_question_question_idx').on(table.questionKey),
+}));
+
+// Payer question options (select/multi-select opts)
+export const payerQuestionOptions = pgTable('payer_question_option', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  questionId: uuid('question_id').references(() => payerPriorAuthQuestions.id).notNull(),
+  optionValue: varchar('option_value', { length: 255 }).notNull(),
+  optionLabel: text('option_text').notNull(),
+
+  displayOrder: integer('display_order').default(0).notNull(),
+  isDefault: boolean('is_default').default(false).notNull(),
+  triggersQuestions: jsonb('triggers_questions'),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.questionId),
+}));
+
+export const priorAuthQuestionResponses = pgTable('prior_auth_question_response', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  questionId: uuid('question_id').references(() => payerPriorAuthQuestions.id).notNull(),
+
+  responseValue: text('response_value'),
+  responseSource: varchar('response_source', { length: 50 }),
+  confidenceScore: decimal('confidence_score', { precision: 3, scale: 2 }),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerPriorAuthQuestionIdx: index('payer_question_option_payer_prior_auth_question_idx').on(table.questionId),
+}));
+
+export const payerPriorAuthForms = pgTable('payer_prior_auth_form', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+
+  formName: varchar('form_name', { length: 255 }).notNull(),
+  formVersion: varchar('form_version', { length: 50 }).notNull(),
+  submissionMethod: varchar('submission_method', { length: 50 }).notNull(),
+
+  portalUrl: text('portal_url'),
+  formSelector: varchar('form_selector', { length: 255 }),
+  submissionEndpoint: text('submission_endpoint'),
+
+  requiredAttachments: jsonb('required_attachments'),
+  maxFileSizeMb: integer('max_file_size_mb').default(10),
+  allowedFileTypes: text('allowed_file_types').array(),
+
+  autoSubmitEnabled: boolean('auto_submit_enabled').default(false),
+  presubmitReviewRequired: boolean('presubmit_review_required').default(true),
+
+  isActive: boolean('is_active').default(true),
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  payerIdx: index('payer_prior_auth_form_payer_idx').on(table.payerId),
+}));
+
 // Claims
 export const claims = pgTable('claim', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -498,6 +632,10 @@ export const claims = pgTable('claim', {
   // Processing
   clearinghouseId: uuid('clearinghouse_id'),
   batchId: uuid('batch_id'),
+
+  // Denial reason tracking
+  fixesApplied: json('fixes_applied'),
+  fixHistory: json('fix_history'),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -2203,8 +2341,9 @@ export const priorAuthAppeals = pgTable('prior_auth_appeal', {
 export const denialTracking = pgTable('denial_tracking', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  claimId: uuid('claim_id').references(() => claims.id).notNull(),
+  claimId: uuid('claim_id').references(() => claims.id),
   claimLineId: uuid('claim_line_id').references(() => claimLines.id),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id),
 
   // Denial details
   denialDate: date('denial_date').notNull(),
@@ -2228,6 +2367,7 @@ export const denialTracking = pgTable('denial_tracking', {
   resolutionMethod: varchar('resolution_method', { length: 50 }), // appeal, corrected_claim, write_off
   resolutionAmount: decimal('resolution_amount', { precision: 10, scale: 2 }),
   resolutionNotes: text('resolution_notes'),
+  autoFixAttempted: boolean('auto_fix_attempted').default(false),
 
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -2239,6 +2379,7 @@ export const denialTracking = pgTable('denial_tracking', {
   orgIdx: index('denial_tracking_org_idx').on(table.organizationId),
   claimIdx: index('denial_tracking_claim_idx').on(table.claimId),
   claimLineIdx: index('denial_tracking_claim_line_idx').on(table.claimLineId),
+  priorAuthIdx: index('denial_tracking_claim_idx').on(table.claimId),
   statusIdx: index('denial_tracking_status_idx').on(table.status),
   categoryIdx: index('denial_tracking_category_idx').on(table.denialCategory),
   denialDateIdx: index('denial_tracking_denial_date_idx').on(table.denialDate),
@@ -7538,6 +7679,283 @@ export const crossProviderAnalytics = pgTable('cross_provider_analytics', {
   calculatedIdx: index('cross_provider_analytics_calculated_idx').on(table.calculatedAt),
 }));
 
+// SMS Authentication for Portal Access
+export const smsAuthConfigs = pgTable('sms_auth_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+
+  // Phone number configuration
+  twilioPhoneNumber: varchar('twilio_phone_number', { length: 20 }).notNull(),
+  twilioAccountSid: varchar('twilio_account_sid', { length: 100 }).notNull(),
+  twilioAuthToken: varchar('twilio_auth_token', { length: 100 }).notNull(), // Encrypted
+
+  // SMS behavior settings
+  codeExpirationSeconds: integer('code_expiration_seconds').default(300), // 5 minutes
+  maxRetryAttempts: integer('max_retry_attempts').default(3),
+  cooldownPeriodSeconds: integer('cooldown_period_seconds').default(60),
+
+  // Automation settings
+  autoProcessSMS: boolean('auto_process_sms').default(true),
+  humanFallbackEnabled: boolean('human_fallback_enabled').default(true),
+  humanFallbackTimeoutSeconds: integer('human_fallback_timeout_seconds').default(300),
+
+  // Status and monitoring
+  isActive: boolean('is_active').default(true),
+  lastTestedAt: timestamp('last_tested_at'),
+  testStatus: varchar('test_status', { length: 20 }), // success, failed, pending
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('sms_auth_config_org_idx').on(table.organizationId),
+  payerIdx: index('sms_auth_config_payer_idx').on(table.payerId),
+  activeIdx: index('sms_auth_config_active_idx').on(table.isActive),
+  uniqueOrgPayer: unique('sms_auth_config_org_payer_unique').on(table.organizationId, table.payerId),
+}));
+
+// Track SMS authentication attempts and codes
+export const smsAuthAttempts = pgTable('sms_auth_attempt', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  smsConfigId: uuid('sms_config_id').references(() => smsAuthConfigs.id).notNull(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id),
+  sessionId: varchar('session_id', { length: 100 }), // Browserbase session ID
+
+  // SMS details
+  phoneNumber: varchar('phone_number', { length: 20 }).notNull(),
+  smsCode: varchar('sms_code', { length: 10 }), // The actual code received
+  twilioMessageSid: varchar('twilio_message_sid', { length: 100 }),
+
+  // Attempt tracking
+  attemptNumber: integer('attempt_number').default(1),
+  status: varchar('status', { length: 20 }).notNull(), // pending, received, verified, expired, failed
+  codeEnteredAt: timestamp('code_entered_at'),
+  verificationResult: varchar('verification_result', { length: 20 }), // success, invalid_code, expired, failed
+
+  // Timing
+  requestedAt: timestamp('requested_at').defaultNow().notNull(),
+  receivedAt: timestamp('received_at'),
+  expiresAt: timestamp('expires_at').notNull(),
+
+  // Error handling
+  errorMessage: text('error_message'),
+  requiresHumanIntervention: boolean('requires_human_intervention').default(false),
+  humanNotifiedAt: timestamp('human_notified_at'),
+  humanResolvedAt: timestamp('human_resolved_at'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  configIdx: index('sms_auth_attempt_config_idx').on(table.smsConfigId),
+  priorAuthIdx: index('sms_auth_attempt_prior_auth_idx').on(table.priorAuthId),
+  sessionIdx: index('sms_auth_attempt_session_idx').on(table.sessionId),
+  statusIdx: index('sms_auth_attempt_status_idx').on(table.status),
+  expiresIdx: index('sms_auth_attempt_expires_idx').on(table.expiresAt),
+}));
+
+// Portal session management for persistent authentication
+export const portalSessions = pgTable('portal_session', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  portalCredentialId: uuid('portal_credential_id').references(() => payerPortalCredentials.id).notNull(),
+
+  // Browserbase session details
+  browserbaseSessionId: varchar('browserbase_session_id', { length: 100 }).unique().notNull(),
+  browserbaseProxyUrl: text('browserbase_proxy_url'),
+
+  // Authentication status
+  authenticationStatus: varchar('authentication_status', { length: 20 }).notNull(),
+  // pending_login, sms_required, authenticated, expired, failed
+  lastAuthenticatedAt: timestamp('last_authenticated_at'),
+  lastActivityAt: timestamp('last_activity_at'),
+
+  // Session management
+  keepAliveEnabled: boolean('keep_alive_enabled').default(true),
+  keepAliveIntervalMinutes: integer('keep_alive_interval_minutes').default(5),
+  maxSessionAgeHours: integer('max_session_age_hours').default(8),
+
+  // Portal-specific data
+  portalSessionCookies: jsonb('portal_session_cookies'), // Store session cookies
+  portalUserAgent: varchar('portal_user_agent', { length: 500 }),
+  portalFingerprint: jsonb('portal_fingerprint'), // Browser fingerprint data
+
+  // Automation context
+  currentWorkflowId: uuid('current_workflow_id'),
+  lastAutomationAction: varchar('last_automation_action', { length: 100 }),
+  automationPaused: boolean('automation_paused').default(false),
+  pauseReason: text('pause_reason'),
+
+  // Session lifecycle
+  isActive: boolean('is_active').default(true),
+  terminatedAt: timestamp('terminated_at'),
+  terminationReason: varchar('termination_reason', { length: 100 }),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('portal_session_org_idx').on(table.organizationId),
+  payerIdx: index('portal_session_payer_idx').on(table.payerId),
+  credentialIdx: index('portal_session_credential_idx').on(table.portalCredentialId),
+  statusIdx: index('portal_session_status_idx').on(table.authenticationStatus),
+  activeIdx: index('portal_session_active_idx').on(table.isActive),
+  lastActivityIdx: index('portal_session_last_activity_idx').on(table.lastActivityAt),
+}));
+
+// Prior auth automation workflows
+export const priorAuthWorkflows = pgTable('prior_auth_workflow', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  portalSessionId: uuid('portal_session_id').references(() => portalSessions.id),
+
+  // Workflow configuration
+  workflowType: varchar('workflow_type', { length: 50 }).notNull(),
+  // submit_new, check_status, upload_documents, respond_to_request
+  automationLevel: varchar('automation_level', { length: 20 }).notNull(),
+  // full_auto, human_in_loop, manual_review_required
+
+  // Current workflow state
+  currentStep: varchar('current_step', { length: 100 }).notNull(),
+  totalSteps: integer('total_steps').notNull(),
+  completedSteps: integer('completed_steps').default(0),
+
+  // Workflow status
+  status: varchar('status', { length: 20 }).notNull(),
+  // pending, in_progress, waiting_sms, waiting_human, completed, failed, cancelled
+
+  // Execution details
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  lastStepCompletedAt: timestamp('last_step_completed_at'),
+  estimatedCompletionAt: timestamp('estimated_completion_at'),
+  completedAt: timestamp('completed_at'),
+
+  // Error handling and human intervention
+  errorCount: integer('error_count').default(0),
+  lastErrorMessage: text('last_error_message'),
+  humanInterventionRequired: boolean('human_intervention_required').default(false),
+  humanInterventionReason: text('human_intervention_reason'),
+  humanNotifiedAt: timestamp('human_notified_at'),
+  humanResolvedAt: timestamp('human_resolved_at'),
+
+  // Results and tracking
+  submissionResult: jsonb('submission_result'), // Portal response, confirmation numbers, etc.
+  documentsUploaded: text('documents_uploaded').array(), // Array of uploaded document names
+  formDataSubmitted: jsonb('form_data_submitted'), // The actual form data that was submitted
+
+  // Retry and fallback configuration
+  maxRetryAttempts: integer('max_retry_attempts').default(3),
+  retryAttempts: integer('retry_attempts').default(0),
+  fallbackToManual: boolean('fallback_to_manual').default(true),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('prior_auth_workflow_org_idx').on(table.organizationId),
+  priorAuthIdx: index('prior_auth_workflow_prior_auth_idx').on(table.priorAuthId),
+  sessionIdx: index('prior_auth_workflow_session_idx').on(table.portalSessionId),
+  statusIdx: index('prior_auth_workflow_status_idx').on(table.status),
+  typeIdx: index('prior_auth_workflow_type_idx').on(table.workflowType),
+  humanInterventionIdx: index('prior_auth_workflow_human_intervention_idx').on(table.humanInterventionRequired),
+}));
+
+// Workflow step execution logs
+export const workflowStepLogs = pgTable('workflow_step_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workflowId: uuid('workflow_id').references(() => priorAuthWorkflows.id).notNull(),
+
+  // Step details
+  stepName: varchar('step_name', { length: 100 }).notNull(),
+  stepNumber: integer('step_number').notNull(),
+  stepType: varchar('step_type', { length: 50 }).notNull(),
+  // navigation, form_fill, file_upload, sms_auth, verification, wait
+
+  // Execution details
+  startedAt: timestamp('started_at').defaultNow().notNull(),
+  completedAt: timestamp('completed_at'),
+  duration: integer('duration'), // milliseconds
+
+  // Step status and results
+  status: varchar('status', { length: 20 }).notNull(), // pending, in_progress, completed, failed, skipped
+  result: jsonb('result'), // Step-specific result data
+
+  // Browser automation details
+  browserActions: jsonb('browser_actions'), // Array of browser actions taken
+  screenshotUrls: text('screenshot_urls').array(), // Screenshots taken during step
+  domSnapshot: text('dom_snapshot'), // DOM state if needed for debugging
+
+  // Error handling
+  errorMessage: text('error_message'),
+  errorType: varchar('error_type', { length: 50 }), // timeout, element_not_found, validation_error
+  retryAttempt: integer('retry_attempt').default(0),
+
+  // Human intervention
+  pausedForHuman: boolean('paused_for_human').default(false),
+  humanInstructions: text('human_instructions'),
+  humanResponse: text('human_response'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  workflowIdx: index('workflow_step_log_workflow_idx').on(table.workflowId),
+  stepNumberIdx: index('workflow_step_log_step_number_idx').on(table.stepNumber),
+  statusIdx: index('workflow_step_log_status_idx').on(table.status),
+  startedAtIdx: index('workflow_step_log_started_at_idx').on(table.startedAt),
+}));
+
+// Human intervention requests and resolutions
+export const humanInterventions = pgTable('human_intervention', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  workflowId: uuid('workflow_id').references(() => priorAuthWorkflows.id).notNull(),
+
+  // Intervention details
+  interventionType: varchar('intervention_type', { length: 50 }).notNull(),
+  // sms_code_needed, captcha_solve, portal_error, unexpected_ui, manual_review
+  priority: varchar('priority', { length: 20 }).default('medium'), // low, medium, high, urgent
+
+  // Request details
+  title: varchar('title', { length: 255 }).notNull(),
+  description: text('description').notNull(),
+  instructions: text('instructions'),
+  context: jsonb('context'), // Workflow context, current page state, etc.
+
+  // Visual aids
+  screenshotUrl: text('screenshot_url'),
+  browserSessionUrl: text('browser_session_url'), // Link to live Browserbase session
+
+  // Assignment and resolution
+  assignedTo: uuid('assigned_to').references(() => teamMembers.id),
+  assignedAt: timestamp('assigned_at'),
+
+  // Status tracking
+  status: varchar('status', { length: 20 }).notNull().default('pending'),
+  // pending, assigned, in_progress, resolved, escalated, cancelled
+
+  // Resolution details
+  resolvedAt: timestamp('resolved_at'),
+  resolution: text('resolution'),
+  resolutionType: varchar('resolution_type', { length: 50 }),
+  // completed_manually, provided_code, fixed_error, escalated_to_manual
+
+  // Timing and SLA
+  requestedAt: timestamp('requested_at').defaultNow().notNull(),
+  timeoutAt: timestamp('timeout_at'), // When to give up waiting
+  responseTime: integer('response_time'), // milliseconds from request to resolution
+
+  // Escalation
+  escalatedAt: timestamp('escalated_at'),
+  escalationReason: text('escalation_reason'),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('human_intervention_org_idx').on(table.organizationId),
+  workflowIdx: index('human_intervention_workflow_idx').on(table.workflowId),
+  statusIdx: index('human_intervention_status_idx').on(table.status),
+  priorityIdx: index('human_intervention_priority_idx').on(table.priority),
+  assignedToIdx: index('human_intervention_assigned_to_idx').on(table.assignedTo),
+  timeoutIdx: index('human_intervention_timeout_idx').on(table.timeoutAt),
+}));
+
 export type FhirResource = InferSelectModel<typeof fhirResources>;
 export type NewFhirResource = InferInsertModel<typeof fhirResources>;
 export type EhrSyncJob = InferSelectModel<typeof ehrSyncJobs>;
@@ -7546,4 +7964,18 @@ export type EhrWebhookEvent = InferSelectModel<typeof ehrWebhookEvents>;
 export type NewEhrWebhookEvent = InferInsertModel<typeof ehrWebhookEvents>;
 export type CrossProviderAnalytics = InferSelectModel<typeof crossProviderAnalytics>;
 export type NewCrossProviderAnalytics = InferInsertModel<typeof crossProviderAnalytics>;
+
+// SMS Authentication and Portal Automation Types
+export type SmsAuthConfig = InferSelectModel<typeof smsAuthConfigs>;
+export type NewSmsAuthConfig = InferInsertModel<typeof smsAuthConfigs>;
+export type SmsAuthAttempt = InferSelectModel<typeof smsAuthAttempts>;
+export type NewSmsAuthAttempt = InferInsertModel<typeof smsAuthAttempts>;
+export type PortalSession = InferSelectModel<typeof portalSessions>;
+export type NewPortalSession = InferInsertModel<typeof portalSessions>;
+export type PriorAuthWorkflow = InferSelectModel<typeof priorAuthWorkflows>;
+export type NewPriorAuthWorkflow = InferInsertModel<typeof priorAuthWorkflows>;
+export type WorkflowStepLog = InferSelectModel<typeof workflowStepLogs>;
+export type NewWorkflowStepLog = InferInsertModel<typeof workflowStepLogs>;
+export type HumanIntervention = InferSelectModel<typeof humanInterventions>;
+export type NewHumanIntervention = InferInsertModel<typeof humanInterventions>;
 

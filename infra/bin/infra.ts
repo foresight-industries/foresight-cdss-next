@@ -22,6 +22,7 @@ import { ApplicationStack } from '../lib/stacks/application-stack';
 import { AppConfigStack } from '../lib/stacks/appconfig-stack';
 import { BackupStack } from '../lib/stacks/backup-stack';
 import { GrafanaStack } from '../lib/stacks/grafana-stack';
+import { AutomationLifecycleStack } from '../lib/stacks/automation-lifecycle-stack';
 
 const app = new cdk.App();
 
@@ -171,6 +172,13 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
   });
 
+  // Automation lifecycle management for cost optimization
+  const automationLifecycle = new AutomationLifecycleStack(app, `RCM-AutomationLifecycle-${envName}`, {
+    env,
+    bucketName: storage.documentsBucket.bucketName,
+    environment: envName as 'staging' | 'production',
+  });
+
   const monitoring = new MonitoringStack(app, `RCM-Monitoring-${envName}`, {
     env,
     stageName: envName,
@@ -224,11 +232,14 @@ for (const envName of ['staging', 'prod']) {
   monitoring.addDependency(queues);
   monitoring.addDependency(webhooks);
 
+  // Add dependencies for AutomationLifecycleStack
+  automationLifecycle.addDependency(storage); // Needs to access the S3 bucket
+
   // Add AWS Systems Manager Application Manager cost tracking tags to all stacks
   const allStacks = [
     database, storage, medicalInfra, alerting, elastiCache, queues, api, workflows, 
     security, documentProcessing, webhooks, appSync, cloudTrail, batch, application, 
-    appConfig, backup, grafana, monitoring
+    appConfig, backup, grafana, automationLifecycle, monitoring
   ];
   
   allStacks.forEach(stack => {
