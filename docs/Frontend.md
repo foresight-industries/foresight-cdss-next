@@ -187,114 +187,116 @@ useEffect(() => {
 }, [focusedIndex, selectedClaim, claims]);
 ```
 
-### Claim Detail Sheet
+### Claim Detail Modal
 
-Sliding panel component that opens from the right side of the claims list.
+Floating modal component that opens in the center-right of the viewport when a claim is selected. The modal takes up the majority of the viewport while respecting the sidebar area.
 
-**File:** `apps/web/src/components/claims/claim-detail-sheet.tsx`
+**File:** `apps/web/src/components/claims/claim-details.tsx`
+
+#### Design & Layout
+
+The modal uses a **Dialog** component positioned to:
+- Start from `256px + 2rem` from the left (after the sidebar)
+- Extend to within `1.5rem` of the right edge
+- Span from `1.5rem` below the top to `1.5rem` above the bottom
+- Include custom overlay that respects sidebar positioning
+- Feature rounded corners (`rounded-2xl`) and prominent shadow
+
+**Layout Priority:**
+1. **Header Section** (sticky): Navigation arrows, claim ID, status badge, action buttons
+2. **Needs Action Section** (top priority): Yellow-highlighted fields requiring attention
+3. **Patient/Payer Information**: Two-column compact layout
+4. **Codes Section**: Single-row layout with ICD-10, CPT/HCPCS, and Place of Service
+5. **Validation Results**: Compact card format
+6. **Chart Note**: Compact display with source highlighting
+7. **Timeline & Payments**: Side-by-side bottom layout
 
 #### Content Sections
 
-**1. Header**
+**1. Header (Sticky)**
+- Navigation arrows (Previous/Next claim)
 - Claim number and status badge
-- Patient name and date of birth
-- Quick action buttons (Submit, Resubmit, Close)
+- Charge amount and attempt number
+- Quick action buttons (Apply All Fixes, Submit & Listen, Resubmit, Close)
 
-**2. Patient & Insurance Information**
-- Demographics (name, DOB, MRN)
-- Insurance details (payer, policy number, group number)
-- Subscriber relationship
+**2. Needs Action Section** (Highest Priority)
+- Displayed prominently at the top in a yellow-bordered card
+- Shows fields requiring attention before submission
+- Includes confidence scores and validation badges
+- Two-column grid layout for field inputs
+- "Save & Continue" and "Add Note" action buttons
 
-**3. Provider & Service Details**
-- Rendering provider (NPI, name, specialty)
-- Service date and place of service
-- Encounter type (office visit, telemedicine, etc.)
+**3. Patient & Encounter + Payer & Coverage** (Two-Column Layout)
+- **Left Column - Patient & Encounter:**
+  - Patient name, encounter ID
+  - Provider name and state
+  - Date of service, visit type
+  - Displayed in a 2x3 grid for compactness
+- **Right Column - Payer & Coverage:**
+  - Payer name and member ID
+  - Eligibility notes in highlighted box
+  - Status information
 
-**4. Claim Lines (Procedure Details)**
-```typescript
-<Table>
-  <TableHeader>
-    <TableRow>
-      <TableHead>CPT Code</TableHead>
-      <TableHead>Description</TableHead>
-      <TableHead>Diagnosis Pointers</TableHead>
-      <TableHead>Units</TableHead>
-      <TableHead>Charge</TableHead>
-    </TableRow>
-  </TableHeader>
-  <TableBody>
-    {claimLines.map(line => (
-      <TableRow key={line.id}>
-        <TableCell>{line.cpt_code}</TableCell>
-        <TableCell>{line.description}</TableCell>
-        <TableCell>{line.diagnosis_pointers.join(', ')}</TableCell>
-        <TableCell>{line.units}</TableCell>
-        <TableCell>${line.charge_amount}</TableCell>
-      </TableRow>
-    ))}
-  </TableBody>
-</Table>
-```
+**4. Codes Section** (Single-Row Layout)
+- **Grid Layout (12 columns):**
+  - ICD-10 (2 cols): Diagnosis codes
+  - CPT/HCPCS (8 cols): Procedure codes with descriptions and charges
+  - Place of Service (2 cols): Service location code
+- All codes visible in one row for quick scanning
+- Additional HCPCS codes shown below if present
 
 **5. Validation Results**
-- Confidence scores by field
-- Validation warnings and errors
-- AI suggestions with confidence levels
-- Rule-based check results
+- Compact card format with color-coded backgrounds
+- Icons indicating pass/warning/error states
+- Direct integration of validation header within each result
+- Clear, concise messaging
 
-**6. Validation Errors** (for claims needing review)
-```typescript
-{claim.status === 'needs_review' && validationErrors?.length > 0 && (
-  <Alert variant="warning">
-    <AlertTriangle className="h-4 w-4" />
-    <AlertTitle>Validation Issues</AlertTitle>
-    <AlertDescription>
-      <ul className="list-disc pl-4 space-y-1">
-        {validationErrors.map(error => (
-          <li key={error.id}>
-            <span className="font-medium">{error.field}:</span> {error.message}
-          </li>
-        ))}
-      </ul>
-    </AlertDescription>
-  </Alert>
-)}
-```
+**6. Chart Note**
+- Rounded card layout with light background
+- Source highlighting toggle (show/hide AI extraction sources)
+- Compact display with attending provider
+- Yellow highlighting for key medical terms when sources enabled
 
-**Note:** Clearinghouse integration planned but not yet implemented in backend.
+**7. Timeline & Audit + Payments** (Side-by-Side)
+- **Left Column - Timeline:**
+  - Most recent 3 state history entries
+  - Timestamp with date and time
+  - Status label and notes
+- **Right Column - Payments:**
+  - Claim total prominently displayed
+  - Total paid and balance calculations
+  - Recent payment history (top 2)
+  - "Add Payment" button for authorized users
 
-**7. State History Timeline**
-Complete audit trail of status changes:
-- Timestamp
-- Actor (user or system)
-- Status transition
-- Notes and details
+**8. Additional Sections**
+- Clearinghouse errors (for rejected claims)
+- Clearinghouse warnings
+- Payer response details with CARC/RARC codes
+- AI suggestions section
+- Attachments list
 
-**8. Action Buttons**
+#### User Experience Improvements
 
-Dynamic button states based on claim status:
-```typescript
-// Submit button
-<Button
-  onClick={() => handleSubmit(claim.id)}
-  disabled={
-    claim.status !== 'ready_to_submit' || 
-    submittingClaims.has(claim.id)
-  }
->
-  {submittingClaims.has(claim.id) ? 'Submitting...' : 'Submit & Listen'}
-</Button>
+**Space Efficiency:**
+- All sections use rounded cards with consistent padding
+- Color-coded backgrounds for visual hierarchy
+- Compact two-column layouts where appropriate
+- Single-row code display reduces scrolling
 
-// Resubmit button (for rejected/denied claims)
-<Button
-  onClick={() => handleResubmit(claim.id)}
-  disabled={!['rejected', 'denied'].includes(claim.status)}
->
-  Resubmit Corrected
-</Button>
-```
+**Visual Design:**
+- Floating modal with prominent shadow effect
+- Rounded corners (`rounded-2xl`) for modern look
+- Custom overlay starting after sidebar (left: 256px)
+- Responsive grid layouts adapt to available space
 
-**Note:** Full submission workflow with resubmit logic planned for future implementation.
+**Navigation:**
+- Previous/Next arrows in header for quick claim switching
+- Close button (X) in top-right corner
+- Escape key closes modal and restores focus
+- Keyboard navigation works seamlessly with modal open
+
+**Priority-Based Layout:**
+The "Needs Action" section is moved to the top to ensure users immediately see what requires attention before reviewing other claim details. This reduces cognitive load and speeds up the review process.
 
 ### Claim Submission Workflow
 
@@ -896,25 +898,27 @@ const updateMutation = useMutation({
       </Table>
     </DataGrid>
     
-    <ClaimDetailSheet 
+    <ClaimDetailModal 
       claim={selectedClaim}
       open={!!selectedClaim}
-      onOpenChange={setSelectedClaim}
+      onClose={() => setSelectedClaim(null)}
     >
-      <SheetHeader>
-        <ClaimStatusBadge />
+      <DialogHeader>
+        <NavigationControls />
+        <ClaimIdentifier />
         <ActionButtons />
-      </SheetHeader>
+      </DialogHeader>
       
-      <SheetContent>
-        <PatientInfoSection />
-        <ProviderInfoSection />
-        <ClaimLinesTable />
-        <ValidationSection />
-        <ClearinghouseErrorsSection />
-        <StateHistoryTimeline />
-      </SheetContent>
-    </ClaimDetailSheet>
+      <ScrollableContent>
+        <NeedsActionSection /> {/* Top priority */}
+        <PatientPayerGrid /> {/* Two columns */}
+        <CodesSection /> {/* Single row layout */}
+        <ValidationResults />
+        <ChartNote />
+        <TimelinePaymentsGrid /> {/* Two columns */}
+        <AdditionalSections />
+      </ScrollableContent>
+    </ClaimDetailModal>
   </ClaimsWorkbench>
 </Page>
 ```
