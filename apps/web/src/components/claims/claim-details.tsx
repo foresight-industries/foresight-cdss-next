@@ -202,7 +202,7 @@ export const ClaimDetailSheet: FC<ClaimDetailSheetProps> = ({
       )}
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent 
-          className="fixed left-[calc(256px+2rem)] top-6 right-6 bottom-6 max-w-none h-auto p-0 flex flex-col rounded-2xl shadow-2xl z-50"
+          className="!fixed !left-[calc(256px+2rem)] !top-6 !right-6 !bottom-6 !max-w-none !w-auto !h-auto p-0 !flex !flex-col rounded-2xl shadow-2xl z-50 !transform-none"
           onPointerDownOutside={(e) => e.preventDefault()}
         >
         <div className="flex-shrink-0 sticky top-0 bg-background z-10 border-b">
