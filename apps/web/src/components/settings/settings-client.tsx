@@ -27,6 +27,7 @@ import {
   Plus,
   Trash2,
   X,
+  FileText,
 } from "lucide-react";
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,6 +54,7 @@ import {
   SecurityTab,
   UserManagementTab,
   GeneralTab,
+  PriorAuthDocumentsTab,
 } from './tabs';
 
 interface SettingsSection {
@@ -285,6 +287,12 @@ const settingsSections: SettingsSection[] = [
     title: "Payer Configuration",
     icon: CreditCard,
     description: "Manage insurance payer configurations",
+  },
+  {
+    id: "prior-auth-documents",
+    title: "Prior Auth Documents",
+    icon: FileText,
+    description: "Configure default documents for PA submissions",
   },
   {
     id: "field-mappings",
@@ -1717,6 +1725,23 @@ function SettingsPageContent({
             }}
             onToggleSpecialRule={handleToggleSpecialRule}
           />
+        );
+      case "prior-auth-documents":
+        if (organizationLoading) {
+          return <div className="flex items-center justify-center py-8">Loading organization...</div>;
+        }
+        if (!organizationId) {
+          return <div className="flex items-center justify-center py-8">Organization not found</div>;
+        }
+        return teamSlug ? (
+          <PriorAuthDocumentsTab
+            organizationId={organizationId}
+            teamSlug={teamSlug}
+          />
+        ) : (
+          <div className="p-4 text-center text-muted-foreground">
+            Team slug is required to manage Prior Authorization documents.
+          </div>
         );
       case "ehr":
         return <EHRTab />;

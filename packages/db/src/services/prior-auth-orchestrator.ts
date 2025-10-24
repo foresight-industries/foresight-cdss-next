@@ -5,6 +5,8 @@ import {
   payers,
   payerPortalCredentials,
   smsAuthConfigs,
+  documents as documentsTable,
+  organizationPaSettings,
 } from '../schema';
 import { StagehandAutomation, StagehandConfig } from './stagehand-automation';
 import { PortalSessionManager } from './portal-session';
@@ -96,8 +98,15 @@ export class PriorAuthOrchestrator {
       // Prepare form data by merging request data with prior auth data
       const formData = await this.prepareFormData(priorAuth, request.formData || {});
 
-      // Validate documents
-      const documents = await this.validateDocuments(request.documents || []);
+      // Prepare documents by combining request documents with organization defaults
+      const documentsToSubmit = await this.prepareDocumentsForSubmission(
+        request.documents || [],
+        request.organizationId,
+        priorAuth.payerId
+      );
+
+      // Validate combined documents
+      const documents = await this.validateDocuments(documentsToSubmit);
 
       // Start automation workflow
       const automationResult = await this.automation.submitPriorAuth(
@@ -491,19 +500,389 @@ export class PriorAuthOrchestrator {
     };
   }
 
+  private async prepareDocumentsForSubmission(
+    requestDocuments: string[],
+    organizationId: string,
+    payerId: string
+  ): Promise<string[]> {
+    try {
+      // Get organization default documents
+      const defaultDocs = await this.getOrganizationDefaultDocuments(organizationId, payerId);
+
+      // Combine request documents with default documents (avoid duplicates)
+      const allDocuments = [...new Set([...requestDocuments, ...defaultDocs])];
+
+      console.log(
+        `Document preparation: Request docs: ${requestDocuments.length}, ` +
+        `Default docs: ${defaultDocs.length}, Combined: ${allDocuments.length}`
+      );
+
+      return allDocuments;
+    } catch (error) {
+      console.error('Error preparing documents for submission:', error);
+      // Fall back to just request documents if default document retrieval fails
+      return requestDocuments;
+    }
+  }
+
+  private async getOrganizationDefaultDocuments(
+    organizationId: string,
+    payerId?: string
+  ): Promise<string[]> {
+    try {
+      // Get organization PA settings
+      const settings = await db
+        .select()
+        .from(organizationPaSettings)
+        .where(
+          and(
+            eq(organizationPaSettings.organizationId, organizationId),
+            eq(organizationPaSettings.isActive, true)
+          )
+        )
+        .limit(1);
+
+      if (settings.length === 0) {
+        console.log(`No PA settings found for organization: ${organizationId}`);
+        return [];
+      }
+
+      const orgSettings = settings[0];
+
+      // Check if auto-attach is enabled
+      if (!orgSettings.autoAttachEnabled) {
+        console.log(`Auto-attach disabled for organization: ${organizationId}`);
+        return [];
+      }
+
+      let defaultDocuments: string[] = [];
+
+      // 1. Check for payer-specific settings first (if payerId provided)
+      if (payerId && orgSettings.payerSpecificSettings) {
+        const payerSettings = (orgSettings.payerSpecificSettings as any)[payerId];
+        if (payerSettings) {
+          // Use payer-specific auto-attach setting if available
+          if (payerSettings.autoAttachEnabled === false) {
+            console.log(`Auto-attach disabled for payer ${payerId} in organization: ${organizationId}`);
+            return [];
+          }
+
+          // Use payer-specific default documents
+          if (payerSettings.defaultDocuments && Array.isArray(payerSettings.defaultDocuments)) {
+            defaultDocuments = payerSettings.defaultDocuments;
+            console.log(`Using payer-specific default documents for ${payerId}: ${defaultDocuments.length} documents`);
+          }
+        }
+      }
+
+      // 2. Fall back to organization-wide default documents if no payer-specific docs
+      if (defaultDocuments.length === 0 && orgSettings.defaultDocuments) {
+        defaultDocuments = orgSettings.defaultDocuments as string[];
+        console.log(`Using organization-wide default documents: ${defaultDocuments.length} documents`);
+      }
+
+      // 3. Check document categories for "prior_auth" if no direct defaults
+      if (defaultDocuments.length === 0 && orgSettings.documentCategories) {
+        const categories = orgSettings.documentCategories as Record<string, string[]>;
+        if (categories.prior_auth && Array.isArray(categories.prior_auth)) {
+          defaultDocuments = categories.prior_auth;
+          console.log(`Using prior_auth category documents: ${defaultDocuments.length} documents`);
+        }
+      }
+
+      // Validate that all default documents are valid UUIDs or S3 keys
+      const validatedDefaults = defaultDocuments.filter(doc => {
+        const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(doc);
+        const isValidS3Key = typeof doc === 'string' && doc.length > 0;
+        
+        if (!isValidUuid && !isValidS3Key) {
+          console.warn(`Invalid document identifier in default documents: ${doc}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validatedDefaults.length !== defaultDocuments.length) {
+        console.warn(
+          `Filtered out ${defaultDocuments.length - validatedDefaults.length} invalid default documents`
+        );
+      }
+
+      return validatedDefaults;
+
+    } catch (error) {
+      console.error('Error retrieving organization default documents:', error);
+      return [];
+    }
+  }
+
   private async validateDocuments(documents: string[]): Promise<string[]> {
     const validatedDocs: string[] = [];
-
-    for (const doc of documents) {
-      // TODO: Implement document validation
-      // - Check file exists
-      // - Check file size
-      // - Check file format
-      // - Scan for PHI compliance
-      validatedDocs.push(doc);
+    
+    if (!documents || documents.length === 0) {
+      return validatedDocs;
     }
 
+    // Import AWS SDK and PHI utilities dynamically to avoid bundling issues
+    const { S3Client, HeadObjectCommand, GetObjectCommand } = await import('@aws-sdk/client-s3');
+    const { ComprehendMedicalClient, DetectPHICommand } = await import('@aws-sdk/client-comprehendmedical');
+
+    const s3Client = new S3Client({ region: process.env.AWS_REGION ?? 'us-east-1' });
+    const comprehendClient = new ComprehendMedicalClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
+    
+    const bucketName = process.env.DOCUMENTS_BUCKET_NAME;
+    if (!bucketName) {
+      throw new Error('DOCUMENTS_BUCKET_NAME environment variable not configured');
+    }
+
+    // Define validation constants
+    const ALLOWED_FILE_TYPES = new Set([
+      'application/pdf',
+      'image/jpeg',
+      'image/jpg', 
+      'image/png',
+      'image/heic',
+      'text/plain',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ]);
+    const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+    const MIN_FILE_SIZE = 100; // 100 bytes
+
+    for (const docPath of documents) {
+      try {
+        // Parse document path - could be S3 key or document ID
+        let s3Key: string;
+        let documentRecord = null;
+
+        // Check if it's a UUID (document ID) or S3 key
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(docPath)) {
+          // It's a document ID, look up the S3 key
+          const docs = await db
+            .select()
+            .from(documentsTable)
+            .where(eq(documentsTable.uploadId, docPath))
+            .limit(1);
+          
+          if (docs.length === 0) {
+            console.warn(`Document not found in database: ${docPath}`);
+            continue;
+          }
+          
+          documentRecord = docs[0];
+          s3Key = documentRecord.s3Key;
+        } else {
+          // Assume it's an S3 key
+          s3Key = docPath;
+        }
+
+        // 1. Check if file exists in S3
+        let fileMetadata;
+        try {
+          const headCommand = new HeadObjectCommand({
+            Bucket: bucketName,
+            Key: s3Key,
+          });
+          fileMetadata = await s3Client.send(headCommand);
+        } catch (error: any) {
+          if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+            console.warn(`Document not found in S3: ${s3Key}`);
+            continue;
+          }
+          throw error;
+        }
+
+        // 2. Check file size
+        const fileSize = fileMetadata.ContentLength || 0;
+        if (fileSize < MIN_FILE_SIZE) {
+          console.warn(`Document too small (${fileSize} bytes): ${s3Key}`);
+          continue;
+        }
+        
+        if (fileSize > MAX_FILE_SIZE) {
+          console.warn(`Document too large (${fileSize} bytes): ${s3Key}`);
+          continue;
+        }
+
+        // 3. Check file format
+        const contentType = fileMetadata.ContentType || '';
+        if (!ALLOWED_FILE_TYPES.has(contentType)) {
+          console.warn(`Unsupported file type (${contentType}): ${s3Key}`);
+          continue;
+        }
+
+        // 4. PHI Compliance Scanning for text-based files
+        if (contentType === 'text/plain' || contentType.includes('document')) {
+          try {
+            // Get file content for text analysis
+            const getCommand = new GetObjectCommand({
+              Bucket: bucketName,
+              Key: s3Key,
+            });
+            
+            const response = await s3Client.send(getCommand);
+            const fileContent = await this.streamToString(response.Body);
+            
+            // Limit text analysis to first 10KB for performance
+            const textToAnalyze = fileContent.substring(0, 10240);
+            
+            // Use AWS Comprehend Medical to detect PHI
+            if (textToAnalyze.trim().length > 0) {
+              const phiDetection = new DetectPHICommand({
+                Text: textToAnalyze,
+              });
+              
+              const phiResult = await comprehendClient.send(phiDetection);
+              
+              // Check for high-risk PHI entities
+              const highRiskPHI = phiResult.Entities?.filter(entity => 
+                entity.Category === 'PROTECTED_HEALTH_INFORMATION' && 
+                (entity.Score || 0) > 0.8
+              ) || [];
+              
+              if (highRiskPHI.length > 0) {
+                console.warn(`High-risk PHI detected in document: ${s3Key}`);
+                // Still include document but log for audit
+              }
+            }
+            
+            // Basic PHI pattern detection as backup
+            try {
+              const phiPatterns = [
+                /\b\d{3}-?\d{2}-?\d{4}\b/g, // SSN patterns
+                /\b[A-Z]{1,2}\d{8,10}\b/g, // Medical record numbers
+                /\b\d{1,2}\/\d{1,2}\/\d{2,4}\b/g, // Date patterns
+                /\b\d{3}-?\d{3}-?\d{4}\b/g, // Phone patterns
+              ];
+              
+              let phiMatches = 0;
+              for (const pattern of phiPatterns) {
+                const matches = textToAnalyze.match(pattern);
+                if (matches) {
+                  phiMatches += matches.length;
+                }
+              }
+              
+              if (phiMatches > 3) {
+                console.warn(`Multiple PHI patterns detected (${phiMatches} matches) in document: ${s3Key}`);
+              }
+            } catch (phiError) {
+              console.warn(`PHI pattern detection failed for ${s3Key}:`, phiError);
+            }
+          } catch (textAnalysisError) {
+            console.warn(`Text analysis failed for ${s3Key}:`, textAnalysisError);
+            // Continue with document validation even if PHI scan fails
+          }
+        }
+
+        // 5. Additional format-specific validations
+        if (contentType === 'application/pdf') {
+          // Basic PDF validation - check for PDF magic number
+          try {
+            const getCommand = new GetObjectCommand({
+              Bucket: bucketName,
+              Key: s3Key,
+              Range: 'bytes=0-7',  // First 8 bytes for PDF header
+            });
+            
+            const response = await s3Client.send(getCommand);
+            const headerBytes = await this.streamToBuffer(response.Body);
+            const headerString = headerBytes.toString('ascii', 0, 4);
+            
+            if (headerString !== '%PDF') {
+              console.warn(`Invalid PDF format: ${s3Key}`);
+              continue;
+            }
+          } catch (pdfError) {
+            console.warn(`PDF validation failed for ${s3Key}:`, pdfError);
+          }
+        }
+
+        // 6. Check file age (optional security measure)
+        const lastModified = fileMetadata.LastModified;
+        if (lastModified) {
+          const fileAge = Date.now() - lastModified.getTime();
+          const maxAgeMs = 90 * 24 * 60 * 60 * 1000; // 90 days
+          
+          if (fileAge > maxAgeMs) {
+            console.warn(`Document older than 90 days: ${s3Key}`);
+            // Still include but log for review
+          }
+        }
+
+        // 7. Virus scanning placeholder
+        // In production, integrate with AWS GuardDuty Malware Protection or similar
+        const virusScanPassed = await this.performVirusScan(s3Key, bucketName);
+        if (!virusScanPassed) {
+          console.warn(`Virus scan failed for: ${s3Key}`);
+          continue;
+        }
+
+        // Document passed all validations
+        validatedDocs.push(docPath);
+        
+        console.log(`Document validated successfully: ${s3Key} (${fileSize} bytes, ${contentType})`);
+
+      } catch (error) {
+        console.error(`Error validating document ${docPath}:`, error);
+        // Skip invalid documents but continue processing others
+        continue;
+      }
+    }
+
+    console.log(`Document validation completed: ${validatedDocs.length}/${documents.length} documents passed validation`);
     return validatedDocs;
+  }
+
+  private async streamToString(stream: any): Promise<string> {
+    if (!stream) return '';
+    
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks).toString('utf-8');
+  }
+
+  private async streamToBuffer(stream: any): Promise<Buffer> {
+    if (!stream) return Buffer.alloc(0);
+    
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+
+  private async performVirusScan(s3Key: string, bucketName: string): Promise<boolean> {
+    // Placeholder for virus scanning integration
+    // In production, this would integrate with:
+    // - AWS GuardDuty Malware Protection
+    // - ClamAV
+    // - Or other enterprise virus scanning solutions
+    
+    try {
+      // Basic file extension check as minimal security measure
+      const suspiciousExtensions = ['.exe', '.bat', '.cmd', '.com', '.scr', '.vbs', '.js'];
+      const lowercaseKey = s3Key.toLowerCase();
+      
+      for (const ext of suspiciousExtensions) {
+        if (lowercaseKey.endsWith(ext)) {
+          console.warn(`Suspicious file extension detected: ${s3Key}`);
+          return false;
+        }
+      }
+      
+      // TODO: Integrate with actual virus scanning service
+      // For now, assume all files pass virus scan
+      return true;
+      
+    } catch (error) {
+      console.error(`Virus scan error for ${s3Key}:`, error);
+      // Fail closed - reject file if virus scan fails
+      return false;
+    }
   }
 
   private async updatePriorAuthStatus(
@@ -613,3 +992,131 @@ export function createPriorAuthOrchestrator(): PriorAuthOrchestrator {
 }
 
 export const priorAuthOrchestrator = createPriorAuthOrchestrator();
+
+// Organization PA Settings Management Functions
+export class OrganizationPaSettingsService {
+  async getSettings(organizationId: string): Promise<any> {
+    const settings = await db
+      .select()
+      .from(organizationPaSettings)
+      .where(eq(organizationPaSettings.organizationId, organizationId))
+      .limit(1);
+
+    return settings.length > 0 ? settings[0] : null;
+  }
+
+  async createOrUpdateSettings(
+    organizationId: string,
+    settingsData: {
+      defaultDocuments?: string[];
+      autoAttachEnabled?: boolean;
+      documentCategories?: Record<string, string[]>;
+      payerSpecificSettings?: Record<string, any>;
+      description?: string;
+      createdBy?: string;
+      updatedBy?: string;
+    }
+  ): Promise<any> {
+    // Check if settings already exist
+    const existingSettings = await this.getSettings(organizationId);
+
+    if (existingSettings) {
+      // Update existing settings
+      const updatedSettings = await db
+        .update(organizationPaSettings)
+        .set({
+          ...settingsData,
+          updatedAt: new Date(),
+        })
+        .where(eq(organizationPaSettings.organizationId, organizationId))
+        .returning();
+
+      return updatedSettings[0];
+    } else {
+      // Create new settings
+      const newSettings = await db
+        .insert(organizationPaSettings)
+        .values({
+          organizationId,
+          ...settingsData,
+        })
+        .returning();
+
+      return newSettings[0];
+    }
+  }
+
+  async updateDefaultDocuments(
+    organizationId: string,
+    documents: string[],
+    updatedBy?: string
+  ): Promise<void> {
+    await this.createOrUpdateSettings(organizationId, {
+      defaultDocuments: documents,
+      updatedBy,
+    });
+  }
+
+  async updatePayerSpecificSettings(
+    organizationId: string,
+    payerId: string,
+    payerSettings: {
+      defaultDocuments?: string[];
+      autoAttachEnabled?: boolean;
+      documentCategories?: Record<string, string[]>;
+    },
+    updatedBy?: string
+  ): Promise<void> {
+    const currentSettings = await this.getSettings(organizationId);
+    const existingPayerSettings = currentSettings?.payerSpecificSettings || {};
+
+    await this.createOrUpdateSettings(organizationId, {
+      payerSpecificSettings: {
+        ...existingPayerSettings,
+        [payerId]: payerSettings,
+      },
+      updatedBy,
+    });
+  }
+
+  async updateDocumentCategories(
+    organizationId: string,
+    categories: Record<string, string[]>,
+    updatedBy?: string
+  ): Promise<void> {
+    await this.createOrUpdateSettings(organizationId, {
+      documentCategories: categories,
+      updatedBy,
+    });
+  }
+
+  async setAutoAttachEnabled(
+    organizationId: string,
+    enabled: boolean,
+    updatedBy?: string
+  ): Promise<void> {
+    await this.createOrUpdateSettings(organizationId, {
+      autoAttachEnabled: enabled,
+      updatedBy,
+    });
+  }
+
+  async deleteSettings(organizationId: string): Promise<void> {
+    await db
+      .update(organizationPaSettings)
+      .set({
+        isActive: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(organizationPaSettings.organizationId, organizationId));
+  }
+
+  async getAllActiveSettings(): Promise<any[]> {
+    return await db
+      .select()
+      .from(organizationPaSettings)
+      .where(eq(organizationPaSettings.isActive, true));
+  }
+}
+
+export const organizationPaSettingsService = new OrganizationPaSettingsService();

@@ -283,6 +283,41 @@ export const organizations = pgTable('organization', {
   slugIdx: index('organization_slug_idx').on(table.slug),
 }));
 
+// Organization Prior Auth Settings
+export const organizationPaSettings = pgTable('organization_pa_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  
+  // Default documents for PA submissions
+  defaultDocuments: jsonb('default_documents').$type<string[]>().default([]),
+  autoAttachEnabled: boolean('auto_attach_enabled').default(true).notNull(),
+  
+  // Document categories for different submission types
+  documentCategories: jsonb('document_categories').$type<Record<string, string[]>>().default({}),
+  
+  // Settings for different payers (override defaults per payer)
+  payerSpecificSettings: jsonb('payer_specific_settings').$type<Record<string, {
+    defaultDocuments?: string[];
+    autoAttachEnabled?: boolean;
+    documentCategories?: Record<string, string[]>;
+  }>>().default({}),
+  
+  // Metadata
+  description: text('description'),
+  isActive: boolean('is_active').default(true).notNull(),
+  
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  organizationIdx: index('organization_pa_settings_org_idx').on(table.organizationId),
+  isActiveIdx: index('organization_pa_settings_active_idx').on(table.isActive),
+  // One settings record per organization
+  organizationUnique: unique('organization_pa_settings_org_unique').on(table.organizationId),
+}));
+
 // Team members (users within organizations)
 export const teamMembers = pgTable('team_member', {
   id: uuid('id').primaryKey().defaultRandom(),

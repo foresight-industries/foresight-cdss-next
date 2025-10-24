@@ -742,18 +742,113 @@ export class StagehandAutomation {
     return workflows.length > 0 ? workflows[0] : null;
   }
 
+  private async getWorkflowType(stepLogId: string): Promise<string> {
+    try {
+      const result = await db
+        .select({ workflowType: priorAuthWorkflows.workflowType })
+        .from(workflowStepLogs)
+        .leftJoin(priorAuthWorkflows, eq(workflowStepLogs.workflowId, priorAuthWorkflows.id))
+        .where(eq(workflowStepLogs.id, stepLogId))
+        .limit(1);
+      
+      return result[0]?.workflowType || 'unknown';
+    } catch (error) {
+      console.warn('Failed to get workflow type:', error);
+      return 'unknown';
+    }
+  }
+
   private async saveStepScreenshot(stepLogId: string, screenshot: Buffer): Promise<string> {
-    // TODO: Save to cloud storage (S3, etc.)
-    const screenshotUrl = `https://screenshots.example.com/${stepLogId}.png`;
+    try {
+      // Generate unique filename with timestamp and organized structure
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const workflowType = await this.getWorkflowType(stepLogId);
+      const filename = `automation/screenshots/workflows/${workflowType}/${stepLogId}/${timestamp}.png`;
+      
+      // S3 upload configuration - use existing bucket with automation prefix
+      const bucketName = process.env.S3_BUCKET_NAME;
+      
+      if (!bucketName) {
+        console.warn('No S3 bucket configured for screenshots, skipping upload');
+        return '';
+      }
 
-    await db
-      .update(workflowStepLogs)
-      .set({
-        screenshotUrls: [screenshotUrl],
-      })
-      .where(eq(workflowStepLogs.id, stepLogId));
+      // Upload to S3
+      const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+      const s3Client = new S3Client({
+        region: process.env.AWS_REGION || 'us-east-1',
+      });
 
-    return screenshotUrl;
+      const uploadParams = {
+        Bucket: bucketName,
+        Key: filename,
+        Body: screenshot,
+        ContentType: 'image/png',
+        ContentEncoding: 'base64',
+        Metadata: {
+          'step-log-id': stepLogId,
+          'timestamp': timestamp,
+          'automation-type': 'stagehand-screenshot',
+        },
+        // Optional: Set expiration for cost management
+        Expires: new Date(Date.now() + (90 * 24 * 60 * 60 * 1000)), // 90 days
+      };
+
+      await s3Client.send(new PutObjectCommand(uploadParams));
+
+      // Generate the S3 URL
+      const region = process.env.AWS_REGION || 'us-east-1';
+      const screenshotUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${filename}`;
+
+      // Update the step log with the screenshot URL
+      const existingStepLog = await db
+        .select({ screenshotUrls: workflowStepLogs.screenshotUrls })
+        .from(workflowStepLogs)
+        .where(eq(workflowStepLogs.id, stepLogId))
+        .limit(1);
+
+      // Append to existing URLs or create new array
+      const existingUrls = existingStepLog[0]?.screenshotUrls as string[] || [];
+      const updatedUrls = [...existingUrls, screenshotUrl];
+
+      await db
+        .update(workflowStepLogs)
+        .set({
+          screenshotUrls: updatedUrls,
+        })
+        .where(eq(workflowStepLogs.id, stepLogId));
+
+      console.log(`Screenshot saved to S3: ${screenshotUrl}`);
+      return screenshotUrl;
+
+    } catch (error) {
+      console.error('Failed to save screenshot to S3:', error);
+      
+      // Fallback: Save as base64 in database for debugging
+      try {
+        const base64Screenshot = screenshot.toString('base64');
+        const fallbackUrl = `data:image/png;base64,${base64Screenshot}`;
+        
+        // Only store if screenshot is reasonably small (< 1MB base64)
+        if (base64Screenshot.length < 1000000) {
+          await db
+            .update(workflowStepLogs)
+            .set({
+              screenshotUrls: [fallbackUrl],
+            })
+            .where(eq(workflowStepLogs.id, stepLogId));
+          
+          console.log('Screenshot saved as base64 fallback due to S3 error');
+          return fallbackUrl;
+        } else {
+          console.warn('Screenshot too large for base64 fallback, skipping');
+        }
+      } catch (fallbackError) {
+        console.error('Fallback screenshot save also failed:', fallbackError);
+      }
+
+      return '';
+    }
   }
 
   async uploadDocuments(
