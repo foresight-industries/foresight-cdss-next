@@ -16,6 +16,10 @@
       "types": "./dist/validation.d.ts",
       "default": "./dist/validation.js"
     },
+    "./services": {
+      "types": "./dist/services.d.ts",
+      "default": "./dist/services.js"
+    },
     "./services/twilio-sms": {
       "types": "./dist/services/twilio-sms.d.ts",
       "default": "./dist/services/twilio-sms.js"
