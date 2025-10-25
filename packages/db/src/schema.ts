@@ -63,6 +63,19 @@ export const priorAuthStatusEnum = pgEnum('prior_auth_status', [
   'pending', 'approved', 'denied', 'expired', 'cancelled'
 ]);
 
+export const medicalSpecialtyEnum = pgEnum('medical_specialty', [
+  'WEIGHT_LOSS', 'CARDIOLOGY', 'ONCOLOGY', 'GASTROENTEROLOGY', 'ENDOCRINOLOGY',
+  'DERMATOLOGY', 'ORTHOPEDICS', 'NEUROLOGY', 'PSYCHIATRY', 'RHEUMATOLOGY',
+  'PULMONOLOGY', 'UROLOGY', 'OPHTHALMOLOGY', 'OTOLARYNGOLOGY', 'RADIOLOGY',
+  'PATHOLOGY', 'ANESTHESIOLOGY', 'EMERGENCY_MEDICINE', 'FAMILY_MEDICINE',
+  'INTERNAL_MEDICINE', 'PEDIATRICS', 'OBSTETRICS_GYNECOLOGY', 'GENERAL_SURGERY',
+  'PLASTIC_SURGERY', 'INTERVENTIONAL_RADIOLOGY', 'PAIN_MANAGEMENT', 'OTHER'
+]);
+
+export const workflowComplexityEnum = pgEnum('workflow_complexity', [
+  'SIMPLE', 'MODERATE', 'COMPLEX', 'HIGHLY_COMPLEX'
+]);
+
 export const documentTypeEnum = pgEnum('document_type', [
   'medical_record', 'insurance_card', 'id_verification', 'prior_auth',
   'appeal_document', 'correspondence', 'claim_attachment', 'other'
@@ -8296,8 +8309,73 @@ export type EhrSyncJob = InferSelectModel<typeof ehrSyncJobs>;
 export type NewEhrSyncJob = InferInsertModel<typeof ehrSyncJobs>;
 export type EhrWebhookEvent = InferSelectModel<typeof ehrWebhookEvents>;
 export type NewEhrWebhookEvent = InferInsertModel<typeof ehrWebhookEvents>;
+
+// Medical Specialties Configuration Tables
+export const medicalSpecialties = pgTable('medical_specialty', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  code: text('code').notNull().unique(),
+  specialty: medicalSpecialtyEnum('specialty').notNull(),
+  complexity: workflowComplexityEnum('complexity').default('MODERATE'),
+  workflowConfig: json('workflow_config').$type<{
+    necessityCriteria: Record<string, string[]>;
+    requiredDocuments: string[];
+    autoApprovalThresholds: Record<string, number>;
+    specializedValidations: string[];
+    timeoutMinutes: number;
+    requiresManualReview: boolean;
+  }>(),
+  isActive: boolean('is_active').default(true),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const priorAuthSpecialtyConfigs = pgTable('prior_auth_specialty_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  specialtyId: uuid('specialty_id').references(() => medicalSpecialties.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id),
+  workflowOverrides: json('workflow_overrides').$type<{
+    necessityCriteria?: Record<string, string[]>;
+    requiredDocuments?: string[];
+    autoApprovalThresholds?: Record<string, number>;
+    timeoutMinutes?: number;
+    requiresManualReview?: boolean;
+    customValidationRules?: string[];
+  }>(),
+  isActive: boolean('is_active').default(true),
+  priority: integer('priority').default(0),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  uniqueOrgSpecialtyPayer: unique().on(table.organizationId, table.specialtyId, table.payerId),
+}));
+
+export const workflowSpecialtyClassifications = pgTable('workflow_specialty_classification', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id).notNull(),
+  classifiedSpecialty: medicalSpecialtyEnum('classified_specialty').notNull(),
+  confidence: decimal('confidence', { precision: 5, scale: 4 }).notNull(),
+  classificationMethod: text('classification_method').notNull(),
+  diagnosisCodes: json('diagnosis_codes').$type<string[]>(),
+  procedureCodes: json('procedure_codes').$type<string[]>(),
+  keywordMatches: json('keyword_matches').$type<string[]>(),
+  manualOverride: boolean('manual_override').default(false),
+  overrideReason: text('override_reason'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 export type CrossProviderAnalytics = InferSelectModel<typeof crossProviderAnalytics>;
 export type NewCrossProviderAnalytics = InferInsertModel<typeof crossProviderAnalytics>;
+
+// Medical Specialty Types
+export type MedicalSpecialty = InferSelectModel<typeof medicalSpecialties>;
+export type NewMedicalSpecialty = InferInsertModel<typeof medicalSpecialties>;
+export type PriorAuthSpecialtyConfig = InferSelectModel<typeof priorAuthSpecialtyConfigs>;
+export type NewPriorAuthSpecialtyConfig = InferInsertModel<typeof priorAuthSpecialtyConfigs>;
+export type WorkflowSpecialtyClassification = InferSelectModel<typeof workflowSpecialtyClassifications>;
+export type NewWorkflowSpecialtyClassification = InferInsertModel<typeof workflowSpecialtyClassifications>;
 
 // SMS Authentication and Portal Automation Types
 export type SmsAuthConfig = InferSelectModel<typeof smsAuthConfigs>;

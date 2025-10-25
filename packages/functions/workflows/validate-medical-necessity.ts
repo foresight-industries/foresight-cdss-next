@@ -1,9 +1,10 @@
-import { 
-  ComprehendMedicalClient, 
-  DetectEntitiesV2Command,
-  InferICD10CMCommand
+import {
+  ComprehendMedicalClient,
+  DetectEntitiesV2Command
 } from '@aws-sdk/client-comprehendmedical';
-import { RDSDataClient, ExecuteStatementCommand } from '@aws-sdk/client-rds-data';
+import { BaseSpecialtyWorkflowService, PriorAuthData } from '../../db/src/services/specialties/base-specialty-workflow';
+import { WeightLossWorkflowService } from '../../db/src/services/specialties/weight-loss-workflow';
+import { InternalMedicineWorkflowService } from '../../db/src/services/specialties/internal-medicine-workflow';
 
 interface MedicalNecessityCheck {
   criterion: string;
@@ -43,12 +44,17 @@ interface MedicalNecessityResult {
     physician_justification: string;
   };
   recommendations: string[];
+  // Additional fields for workflow integration
+  specialty_validation_result?: any;
+  approval_probability?: number;
+  required_documents?: string[];
+  auto_approval_eligible?: boolean;
+  workflow_recommendation?: string;
 }
 
-const comprehendMedical = new ComprehendMedicalClient({ 
-  region: process.env.COMPREHEND_MEDICAL_REGION || 'us-east-1' 
+const comprehendMedical = new ComprehendMedicalClient({
+  region: process.env.COMPREHEND_MEDICAL_REGION || 'us-east-1'
 });
-const rdsClient = new RDSDataClient({ region: process.env.COMPREHEND_MEDICAL_REGION || 'us-east-1' });
 
 // Medical necessity criteria for common procedures/treatments
 const MEDICAL_NECESSITY_CRITERIA = {
@@ -85,36 +91,88 @@ const MEDICAL_NECESSITY_CRITERIA = {
 };
 
 export const handler = async (event: any): Promise<MedicalNecessityResult> => {
-  console.log('Validating medical necessity:', JSON.stringify(event, null, 2));
+  console.log('Validating medical necessity with specialty workflow:', JSON.stringify(event, null, 2));
 
   try {
-    const { 
-      priorAuthId, 
+    const {
+      priorAuthId,
       document_text,
       extracted_codes = {},
       service_code,
-      diagnosis_code 
+      diagnosis_code,
+      specialty = 'INTERNAL_MEDICINE',
+      specialtyConfig = {},
+      workflowConfig = {},
+      organizationId,
+      payerId,
+      procedureCodes = [],
+      diagnosisCodes = [],
+      clinicalRationale = document_text,
+      patientAge = 0,
+      patientGender = '',
+      urgency = 'ROUTINE',
+      priorTreatments = [],
+      supportingDocuments = []
     } = event;
 
     if (!document_text || document_text.trim().length < 20) {
       return createMinimalResult(priorAuthId, 'Insufficient documentation for medical necessity evaluation');
     }
 
-    // Step 1: Extract medical entities and analyze clinical context
-    console.log('Extracting medical entities for necessity analysis...');
+    // Step 1: Create specialty-specific workflow service
+    let workflowService: BaseSpecialtyWorkflowService;
+
+    if (specialty === 'WEIGHT_LOSS') {
+      workflowService = new WeightLossWorkflowService();
+    } else if (specialty === 'INTERNAL_MEDICINE') {
+      workflowService = new InternalMedicineWorkflowService();
+    } else {
+      // Use internal medicine as default for unknown specialties
+      workflowService = new InternalMedicineWorkflowService();
+    }
+
+    // Step 2: Prepare prior auth data for specialty service
+    const priorAuthData: PriorAuthData = {
+      diagnosisCodes: diagnosisCodes.length > 0 ? diagnosisCodes : (diagnosis_code ? [diagnosis_code] : []),
+      procedureCodes: procedureCodes.length > 0 ? procedureCodes : (service_code ? [service_code] : []),
+      clinicalRationale: clinicalRationale || document_text,
+      patientAge: patientAge || 0,
+      patientGender: patientGender || '',
+      urgency: urgency as 'ROUTINE' | 'URGENT' | 'EMERGENT',
+      priorTreatments: priorTreatments || [],
+      supportingDocuments: supportingDocuments || [],
+      organizationId: organizationId || '',
+      payerId: payerId || '',
+      // Additional fields for backward compatibility
+      document_text,
+      extracted_codes,
+      service_code,
+      diagnosis_code
+    };
+
+    // Step 3: Process with specialty-specific workflow
+    console.log('Processing with specialty-specific workflow service...');
+    const specialtyResult = await workflowService.processWorkflow(priorAuthData);
+
+    // Step 4: Extract medical entities for additional analysis (maintaining existing functionality)
+    console.log('Extracting medical entities for enhanced analysis...');
     const entitiesResponse = await comprehendMedical.send(new DetectEntitiesV2Command({
       Text: document_text
     }));
 
     const medicalEntities = entitiesResponse.Entities || [];
 
-    // Step 2: Determine procedure category for necessity criteria
+    // Step 5: Combine specialty-specific validation with existing medical necessity checks
     const procedureCategory = await determineProcedureCategory(service_code, document_text);
-    const applicableCriteria = MEDICAL_NECESSITY_CRITERIA[procedureCategory] || MEDICAL_NECESSITY_CRITERIA['SURGICAL_PROCEDURE'];
+    const fallbackCriteria = MEDICAL_NECESSITY_CRITERIA[procedureCategory] || MEDICAL_NECESSITY_CRITERIA['SURGICAL_PROCEDURE'];
 
-    // Step 3: Evaluate each medical necessity criterion
+    // Get specialty-specific criteria from workflow config or fall back to generic
+    const applicableCriteria = workflowConfig?.necessityCriteria ?
+      Object.values(workflowConfig.necessityCriteria).flat() :
+      fallbackCriteria;
+
     const necessityChecks: MedicalNecessityCheck[] = [];
-    
+
     for (const criterion of applicableCriteria) {
       const check = await evaluateNecessityCriterion(
         criterion,
@@ -126,31 +184,28 @@ export const handler = async (event: any): Promise<MedicalNecessityResult> => {
       necessityChecks.push(check);
     }
 
-    // Step 4: Analyze treatment alternatives and prior treatments
+    // Step 6: Enhanced analysis using existing functions
     const alternativeTreatments = await analyzeAlternativeTreatments(
       document_text,
       medicalEntities,
       diagnosis_code
     );
 
-    // Step 5: Assess clinical documentation quality
     const supportingDocumentation = await assessDocumentationQuality(
       document_text,
       medicalEntities
     );
 
-    // Step 6: Identify risk factors and urgency indicators
     const riskFactors = await identifyRiskFactors(document_text, medicalEntities);
 
-    // Step 7: Fetch relevant treatment guidelines
     const treatmentGuidelines = await fetchTreatmentGuidelines(
       diagnosis_code,
       service_code,
       procedureCategory
     );
 
-    // Step 8: Calculate overall medical necessity score
-    const overallScore = calculateMedicalNecessityScore(
+    // Step 7: Combine specialty workflow score with traditional scoring
+    const traditionalScore = calculateMedicalNecessityScore(
       necessityChecks,
       alternativeTreatments,
       supportingDocumentation,
@@ -158,32 +213,53 @@ export const handler = async (event: any): Promise<MedicalNecessityResult> => {
       treatmentGuidelines
     );
 
-    // Step 9: Generate recommendations
-    const recommendations = generateRecommendations(
+    // Weight the specialty-specific score more heavily
+    const combinedScore = Math.round((specialtyResult.score * 0.7) + (traditionalScore * 0.3));
+
+    // Step 8: Enhanced recommendations combining both approaches
+    const baseRecommendations = generateRecommendations(
       necessityChecks,
       alternativeTreatments,
       supportingDocumentation,
-      overallScore
+      combinedScore
     );
+
+    const enhancedRecommendations = [
+      ...baseRecommendations,
+      ...specialtyResult.reasons,
+      `Specialty: ${specialty}`,
+      `Recommended Action: ${specialtyResult.recommendedAction}`,
+      ...(specialtyResult.missingRequirements.length > 0 ?
+        [`Missing Requirements: ${specialtyResult.missingRequirements.join(', ')}`] : [])
+    ];
 
     const result: MedicalNecessityResult = {
       priorAuthId,
-      overall_medical_necessity_score: overallScore,
-      meets_medical_necessity: overallScore >= 70, // 70% threshold for approval
+      overall_medical_necessity_score: combinedScore,
+      meets_medical_necessity: specialtyResult.isValid && combinedScore >= 70,
       necessity_checks: necessityChecks,
       treatment_guidelines: treatmentGuidelines,
       risk_factors: riskFactors,
       alternative_treatments: alternativeTreatments,
       supporting_documentation: supportingDocumentation,
-      recommendations
+      recommendations: enhancedRecommendations,
+      // Additional fields for workflow integration
+      specialty_validation_result: specialtyResult,
+      approval_probability: await workflowService.calculateApprovalProbability(priorAuthData),
+      required_documents: workflowService.getRequiredDocuments(priorAuthData),
+      auto_approval_eligible: specialtyResult.autoApproval,
+      workflow_recommendation: specialtyResult.recommendedAction
     };
 
-    console.log('Medical necessity validation completed:', {
+    console.log('Enhanced medical necessity validation completed:', {
       priorAuthId,
-      overallScore,
+      specialty,
+      combinedScore,
+      specialtyScore: specialtyResult.score,
+      traditionalScore,
       meetsCriteria: result.meets_medical_necessity,
-      checksCount: necessityChecks.length,
-      guidelinesFound: treatmentGuidelines.length
+      recommendedAction: specialtyResult.recommendedAction,
+      autoApprovalEligible: specialtyResult.autoApproval
     });
 
     return result;
@@ -222,7 +298,7 @@ async function determineProcedureCategory(serviceCode: string, documentText: str
   if (cptCode >= 10000 && cptCode <= 69999) return 'SURGICAL_PROCEDURE';
   if (cptCode >= 99200 && cptCode <= 99499) return 'SPECIALIST_CONSULTATION';
   if (cptCode >= 97000 && cptCode <= 97799) return 'PHYSICAL_THERAPY';
-  
+
   return 'SURGICAL_PROCEDURE';
 }
 
@@ -243,11 +319,11 @@ async function evaluateNecessityCriterion(
     case 'Clinical signs and symptoms support need for imaging':
     case 'Patient condition poses significant health risk without intervention':
       // Look for symptom and condition entities
-      const symptoms = medicalEntities.filter(e => 
-        e.Category === 'MEDICAL_CONDITION' && 
+      const symptoms = medicalEntities.filter(e =>
+        e.Category === 'MEDICAL_CONDITION' &&
         (e.Type === 'DX_NAME' || e.Traits?.some((t: any) => t.Name === 'SYMPTOM'))
       );
-      
+
       if (symptoms.length > 0) {
         meetsCriterion = true;
         confidence = Math.min(symptoms.length * 25, 95);
@@ -262,7 +338,7 @@ async function evaluateNecessityCriterion(
       // Look for evidence of prior treatments
       const treatmentKeywords = ['previous', 'prior', 'failed', 'unsuccessful', 'tried', 'attempted', 'conservative', 'medication', 'therapy'];
       const foundTreatments = treatmentKeywords.filter(keyword => text.includes(keyword));
-      
+
       if (foundTreatments.length >= 2) {
         meetsCriterion = true;
         confidence = Math.min(foundTreatments.length * 20, 90);
@@ -286,7 +362,7 @@ async function evaluateNecessityCriterion(
       // Look for functional assessment language
       const functionalKeywords = ['difficulty', 'unable', 'limitation', 'impaired', 'restricted', 'pain', 'mobility'];
       const foundLimitations = functionalKeywords.filter(keyword => text.includes(keyword));
-      
+
       if (foundLimitations.length >= 2) {
         meetsCriterion = true;
         confidence = Math.min(foundLimitations.length * 15, 85);
@@ -329,8 +405,8 @@ async function analyzeAlternativeTreatments(
   const insufficient: string[] = [];
 
   // Look for medications and treatments in entities
-  const treatments = medicalEntities.filter(e => 
-    e.Category === 'MEDICATION' || 
+  const treatments = medicalEntities.filter(e =>
+    e.Category === 'MEDICATION' ||
     e.Category === 'TREATMENT' ||
     e.Type === 'PROCEDURE_NAME'
   );
@@ -338,19 +414,19 @@ async function analyzeAlternativeTreatments(
   // Analyze text for treatment outcomes
   for (const treatment of treatments) {
     const treatmentText = treatment.Text.toLowerCase();
-    
-    if (text.includes(`${treatmentText} failed`) || 
+
+    if (text.includes(`${treatmentText} failed`) ||
         text.includes(`unsuccessful ${treatmentText}`) ||
         text.includes(`ineffective ${treatmentText}`)) {
       triedAndFailed.push(treatment.Text);
     }
-    
-    if (text.includes(`contraindicated`) || 
+
+    if (text.includes(`contraindicated`) ||
         text.includes(`allergic to ${treatmentText}`) ||
         text.includes(`cannot tolerate ${treatmentText}`)) {
       contraindicated.push(treatment.Text);
     }
-    
+
     if (text.includes(`insufficient`) || text.includes(`inadequate`)) {
       insufficient.push(treatment.Text);
     }
@@ -387,7 +463,7 @@ async function assessDocumentationQuality(
   if (entityCount > 10) qualityScore += 10;
 
   // Look for diagnostic evidence
-  const diagnosticEntities = medicalEntities.filter(e => 
+  const diagnosticEntities = medicalEntities.filter(e =>
     e.Category === 'TEST_TREATMENT_PROCEDURE' ||
     e.Type === 'TEST_NAME'
   );
@@ -395,7 +471,7 @@ async function assessDocumentationQuality(
   if (diagnosticEvidence.length > 0) qualityScore += 20;
 
   // Look for treatment history
-  const treatmentEntities = medicalEntities.filter(e => 
+  const treatmentEntities = medicalEntities.filter(e =>
     e.Category === 'TREATMENT' || e.Category === 'MEDICATION'
   );
   treatmentHistory.push(...treatmentEntities.map(e => e.Text));
@@ -403,7 +479,7 @@ async function assessDocumentationQuality(
 
   // Look for physician justification
   const text = documentText.toLowerCase();
-  if (text.includes('medically necessary') || 
+  if (text.includes('medically necessary') ||
       text.includes('clinically indicated') ||
       text.includes('physician recommends')) {
     qualityScore += 15;
@@ -502,7 +578,7 @@ function calculateMedicalNecessityScore(
   // Criteria checks (40% of total score)
   const criteriaWeight = 0.4;
   const metCriteria = necessityChecks.filter(c => c.meets_criterion);
-  const criteriaScore = metCriteria.length > 0 ? 
+  const criteriaScore = metCriteria.length > 0 ?
     (metCriteria.reduce((sum, c) => sum + c.confidence, 0) / metCriteria.length) : 0;
   totalScore += criteriaScore * criteriaWeight;
 
@@ -512,13 +588,13 @@ function calculateMedicalNecessityScore(
 
   // Alternative treatments (20% of total score)
   const altWeight = 0.2;
-  const altScore = (alternativeTreatments.tried_and_failed.length * 30) + 
+  const altScore = (alternativeTreatments.tried_and_failed.length * 30) +
                    (alternativeTreatments.contraindicated.length * 25);
   totalScore += Math.min(altScore, 100) * altWeight;
 
   // Risk factors and urgency (10% of total score)
   const riskWeight = 0.1;
-  const riskScore = (riskFactors.severity_indicators.length * 20) + 
+  const riskScore = (riskFactors.severity_indicators.length * 20) +
                     (riskFactors.urgency_indicators.length * 30);
   totalScore += Math.min(riskScore, 100) * riskWeight;
 

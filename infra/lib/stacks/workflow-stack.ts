@@ -251,6 +251,23 @@ export class WorkflowStack extends cdk.Stack {
       },
     });
 
+    // Specialty Classification Function
+    const classifySpecialty = new lambdaNodejs.NodejsFunction(this, 'ClassifySpecialtyFn', {
+      functionName: `rcm-classify-specialty-${props.stageName}`,
+      entry: '../packages/functions/workflows/classify-specialty.ts',
+      handler: 'handler',
+      runtime: lambda.Runtime.NODEJS_22_X,
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 512,
+      environment: paEnvironment,
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node22',
+        externalModules: ['@aws-sdk/*'],
+      },
+    });
+
     // IAM permissions for AWS Comprehend Medical
     const comprehendMedicalPolicy = new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
@@ -286,7 +303,7 @@ export class WorkflowStack extends cdk.Stack {
 
     // Grant AWS Comprehend Medical permissions to PA functions
     [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
-     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial].forEach(fn => {
+     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial, classifySpecialty].forEach(fn => {
       fn.addToRolePolicy(comprehendMedicalPolicy);
     });
 
@@ -363,7 +380,24 @@ export class WorkflowStack extends cdk.Stack {
 
     const mainWorkflowChain = stepfunctions.Chain.start(parallelValidation).next(submissionChoice);
 
-    // Enhanced Prior Authorization Workflow with AWS Comprehend Medical
+    // Create specialty-specific workflow branches
+    const weightLossWorkflowBranch = new stepfunctionsTasks.LambdaInvoke(this, 'WeightLossValidation', {
+      lambdaFunction: validateMedicalNecessity,
+      inputPath: '$',
+      outputPath: '$.Payload',
+      comment: 'Weight loss specialty-specific validation using dynamic configuration',
+    })
+    .next(mainWorkflowChain);
+
+    const genericWorkflowBranch = new stepfunctionsTasks.LambdaInvoke(this, 'GenericValidation', {
+      lambdaFunction: validateMedicalNecessity,
+      inputPath: '$',
+      outputPath: '$.Payload',
+      comment: 'Generic medical validation for non-specialized workflows',
+    })
+    .next(mainWorkflowChain);
+
+    // Enhanced Prior Authorization Workflow with Specialty Classification and Dynamic Branching
     const priorAuthWorkflow = new stepfunctions.StateMachine(this, 'PriorAuthWorkflow', {
       stateMachineName: `rcm-prior-auth-${props.stageName}`,
       definition: 
@@ -381,7 +415,15 @@ export class WorkflowStack extends cdk.Stack {
           })
         )
         .next(
-          // Step 2: Check for validation issues and auto-correct if possible
+          // Step 2: Classify Medical Specialty
+          new stepfunctionsTasks.LambdaInvoke(this, 'ClassifySpecialtyStep', {
+            lambdaFunction: classifySpecialty,
+            outputPath: '$.Payload',
+            comment: 'Classify medical specialty and load dynamic configuration',
+          })
+        )
+        .next(
+          // Step 3: Check for validation issues and auto-correct if possible
           new stepfunctions.Choice(this, 'HasValidationIssues?')
             .when(
               stepfunctions.Condition.and(
@@ -407,6 +449,7 @@ export class WorkflowStack extends cdk.Stack {
                       messageBody: stepfunctions.TaskInput.fromObject({
                         'priorAuthId.$': '$.priorAuthId',
                         'issues.$': '$.remaining_issues',
+                        'specialty.$': '$.specialty',
                         'reason': 'Validation issues require manual review',
                         'timestamp.$': '$$.State.EnteredTime'
                       }),
@@ -414,18 +457,60 @@ export class WorkflowStack extends cdk.Stack {
                     .next(new stepfunctions.Succeed(this, 'SentToManualReview'))
                   )
                   .otherwise(
-                    new stepfunctions.Pass(this, 'ValidationCorrected', {
-                      comment: 'All validation issues auto-corrected'
-                    })
-                    .next(mainWorkflowChain)
+                    // Continue to specialty routing
+                    new stepfunctions.Choice(this, 'SpecialtyRouter')
+                      .when(
+                        stepfunctions.Condition.stringEquals('$.specialty', 'WEIGHT_LOSS'),
+                        weightLossWorkflowBranch
+                      )
+                      .when(
+                        stepfunctions.Condition.or(
+                          stepfunctions.Condition.stringEquals('$.specialty', 'CARDIOLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'ONCOLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'GASTROENTEROLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'ENDOCRINOLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'DERMATOLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'ORTHOPEDICS'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'NEUROLOGY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'PSYCHIATRY'),
+                          stepfunctions.Condition.stringEquals('$.specialty', 'RHEUMATOLOGY')
+                        ),
+                        // Future specialty-specific workflows will be added here
+                        genericWorkflowBranch
+                      )
+                      .otherwise(
+                        // Default to generic workflow for unrecognized specialties
+                        genericWorkflowBranch
+                      )
                   )
               )
             )
             .otherwise(
-              new stepfunctions.Pass(this, 'NoValidationIssues', {
-                comment: 'PA passed initial validation'
-              })
-              .next(mainWorkflowChain)
+              // No validation issues - proceed to specialty routing
+              new stepfunctions.Choice(this, 'SpecialtyRouterNoIssues')
+                .when(
+                  stepfunctions.Condition.stringEquals('$.specialty', 'WEIGHT_LOSS'),
+                  weightLossWorkflowBranch
+                )
+                .when(
+                  stepfunctions.Condition.or(
+                    stepfunctions.Condition.stringEquals('$.specialty', 'CARDIOLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'ONCOLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'GASTROENTEROLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'ENDOCRINOLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'DERMATOLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'ORTHOPEDICS'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'NEUROLOGY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'PSYCHIATRY'),
+                    stepfunctions.Condition.stringEquals('$.specialty', 'RHEUMATOLOGY')
+                  ),
+                  // Future specialty-specific workflows will be added here
+                  genericWorkflowBranch
+                )
+                .otherwise(
+                  // Default to generic workflow for unrecognized specialties
+                  genericWorkflowBranch
+                )
             )
         ),
       tracingEnabled: true,
@@ -569,7 +654,7 @@ export class WorkflowStack extends cdk.Stack {
     
     // Grant database access to PA functions
     [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
-     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial].forEach(fn => {
+     autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial, classifySpecialty].forEach(fn => {
       props.database.grantDataApiAccess(fn);
     });
   }
