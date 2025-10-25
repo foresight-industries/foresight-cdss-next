@@ -12,6 +12,7 @@ interface DocumentProcessingStackProps extends cdk.StackProps {
   stageName: string;
   documentsBucketName: string;
   database: rds.DatabaseCluster;
+  codeSigningConfigArn?: string;
 }
 
 export class DocumentProcessingStack extends cdk.Stack {
@@ -80,6 +81,15 @@ export class DocumentProcessingStack extends cdk.Stack {
       },
     });
 
+    // Import code signing configuration if provided
+    const codeSigningConfig = props.codeSigningConfigArn
+      ? lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+          this,
+          'ImportedCodeSigningConfig',
+          props.codeSigningConfigArn
+        )
+      : undefined;
+
     // Function props for both Lambda functions
     const functionProps = {
       runtime: lambda.Runtime.NODEJS_22_X,
@@ -112,6 +122,7 @@ export class DocumentProcessingStack extends cdk.Stack {
       entry: '../packages/functions/document-processor/index.ts',
       handler: 'handler',
       role: documentProcessorRole,
+      codeSigningConfig,
       bundling: {
         minify: true,
         sourceMap: false,
@@ -135,6 +146,7 @@ export class DocumentProcessingStack extends cdk.Stack {
       entry: '../packages/functions/document-processor/completion.ts',
       handler: 'handler',
       role: textractCompletionRole,
+      codeSigningConfig,
       bundling: {
         minify: true,
         sourceMap: false,
@@ -159,6 +171,7 @@ export class DocumentProcessingStack extends cdk.Stack {
       handler: 'handler',
       role: insuranceCardProcessorRole,
       timeout: cdk.Duration.minutes(5), // Shorter timeout for synchronous processing
+      codeSigningConfig,
       bundling: {
         minify: true,
         sourceMap: false,
@@ -330,7 +343,7 @@ export class DocumentProcessingStack extends cdk.Stack {
     const validationFailuresMetric = new cdk.aws_cloudwatch.Metric({
       metricName: 'ValidationFailures',
       namespace: 'RCM/DocumentProcessing',
-      statistic: cdk.aws_cloudwatch.Statistic.SUM,
+      statistic: cdk.aws_cloudwatch.Stats.SUM,
       period: cdk.Duration.minutes(5),
     });
 
@@ -343,9 +356,9 @@ export class DocumentProcessingStack extends cdk.Stack {
 
     // Custom metric for low confidence extractions
     const lowConfidenceMetric = new cdk.aws_cloudwatch.Metric({
-      metricName: 'LowConfidenceExtractions', 
+      metricName: 'LowConfidenceExtractions',
       namespace: 'RCM/DocumentProcessing',
-      statistic: cdk.aws_cloudwatch.Statistic.SUM,
+      statistic: cdk.aws_cloudwatch.Stats.SUM,
       period: cdk.Duration.minutes(5),
     });
 
@@ -355,6 +368,16 @@ export class DocumentProcessingStack extends cdk.Stack {
       evaluationPeriods: 3,
       alarmDescription: 'High number of low confidence document extractions - may indicate quality issues',
     });
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      cdk.Tags.of(this.documentProcessorFunction).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(this.documentProcessorFunction).add('ComplianceLevel', 'HIPAA-SOC2');
+      cdk.Tags.of(this.textractCompletionFunction).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(this.textractCompletionFunction).add('ComplianceLevel', 'HIPAA-SOC2');
+      cdk.Tags.of(this.insuranceCardProcessorFunction).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(this.insuranceCardProcessorFunction).add('ComplianceLevel', 'HIPAA-SOC2');
+    }
 
     // Outputs
     new cdk.CfnOutput(this, 'TextractRoleArn', {

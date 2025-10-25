@@ -23,6 +23,8 @@ import { AppConfigStack } from '../lib/stacks/appconfig-stack';
 import { BackupStack } from '../lib/stacks/backup-stack';
 import { GrafanaStack } from '../lib/stacks/grafana-stack';
 import { AutomationLifecycleStack } from '../lib/stacks/automation-lifecycle-stack';
+import { CodeSigningStack } from '../lib/security/code-signing-stack';
+import { SharedLayerStack } from '../lib/stacks/shared-layer-stack';
 
 const app = new cdk.App();
 
@@ -36,6 +38,19 @@ for (const envName of ['staging', 'prod']) {
     region: 'us-east-1',
   };
 
+  // Shared dependencies layer for Lambda functions
+  const sharedLayer = new SharedLayerStack(app, `RCM-SharedLayer-${envName}`, {
+    env,
+    stageName: envName,
+  });
+
+  // Code signing infrastructure for enterprise-grade security and HIPAA compliance
+  const codeSigning = new CodeSigningStack(app, `RCM-CodeSigning-${envName}`, {
+    env,
+    stageName: envName,
+    securityAlertEmail: 'ops@have-foresight.com',
+  });
+
   const database = new DatabaseStack(app, `RCM-Database-${envName}`, {
     env,
     stageName: envName,
@@ -45,6 +60,7 @@ for (const envName of ['staging', 'prod']) {
       logRetention: envName === 'prod' ? 30 : 7,
       enableDeletionProtection: envName === 'prod', // Only enable for prod during staging recreation
     },
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   const storage = new StorageStack(app, `RCM-Storage-${envName}`, {
@@ -83,6 +99,7 @@ for (const envName of ['staging', 'prod']) {
     database: database.cluster,
     documentsBucket: storage.documentsBucket,
     alertTopicArn: alerting.alarmTopic.topicArn,
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   const api = new ApiStack(app, `RCM-API-${envName}`, {
@@ -92,6 +109,7 @@ for (const envName of ['staging', 'prod']) {
     documentsBucket: storage.documentsBucket,
     cacheStack: medicalInfra.cacheStack,
     medicalDataStack: medicalInfra.medicalDataStack,
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   const workflows = new WorkflowStack(app, `RCM-Workflows-${envName}`, {
@@ -112,6 +130,7 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
     documentsBucketName: cdk.Fn.importValue(`RCM-DocumentsBucket-${envName}`),
     database: database.cluster,
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   // Enhanced webhook system
@@ -119,6 +138,7 @@ for (const envName of ['staging', 'prod']) {
     env,
     stageName: envName as 'staging' | 'prod',
     database: database.cluster,
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   // AppSync GraphQL API for real-time data sync
@@ -127,6 +147,7 @@ for (const envName of ['staging', 'prod']) {
     stageName: envName,
     databaseCluster: database.cluster,
     databaseSecret: database.cluster.secret!,
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   // CloudTrail for audit logging and HIPAA compliance
@@ -193,6 +214,14 @@ for (const envName of ['staging', 'prod']) {
   });
 
   // Add dependencies
+  // Code signing stack dependencies - must deploy first
+  database.addDependency(codeSigning);
+  queues.addDependency(codeSigning);
+  api.addDependency(codeSigning);
+  documentProcessing.addDependency(codeSigning);
+  webhooks.addDependency(codeSigning);
+  appSync.addDependency(codeSigning);
+
   alerting.addDependency(database);
   elastiCache.addDependency(database);
   elastiCache.addDependency(alerting);
@@ -217,7 +246,7 @@ for (const envName of ['staging', 'prod']) {
   // Batch jobs can use ElastiCache for distributed locks and query caching
   batch.addDependency(elastiCache);
   // CloudTrail has no dependencies as it's account-wide infrastructure
-  
+
   // New stack dependencies
   // Application stack has no dependencies - it's organizational only
   // AppConfig has no dependencies - it's configuration management
@@ -225,7 +254,7 @@ for (const envName of ['staging', 'prod']) {
   backup.addDependency(storage);
   backup.addDependency(alerting); // For SNS notifications
   grafana.addDependency(alerting); // For monitoring integration
-  
+
   // Note: Removed documentProcessing.addDependency(storage) to avoid cyclic dependency
   // The S3 event notifications below will create the necessary dependency automatically
   monitoring.addDependency(api);
@@ -237,14 +266,14 @@ for (const envName of ['staging', 'prod']) {
 
   // Add AWS Systems Manager Application Manager cost tracking tags to all stacks
   const allStacks = [
-    database, storage, medicalInfra, alerting, elastiCache, queues, api, workflows, 
-    security, documentProcessing, webhooks, appSync, cloudTrail, batch, application, 
+    sharedLayer, codeSigning, database, storage, medicalInfra, alerting, elastiCache, queues, api, workflows,
+    security, documentProcessing, webhooks, appSync, cloudTrail, batch, application,
     appConfig, backup, grafana, automationLifecycle, monitoring
   ];
-  
-  allStacks.forEach(stack => {
+
+  for (const stack of allStacks) {
     cdk.Tags.of(stack).add('AppManagerCFNStackKey', `foresight-rcm-${envName}`);
-  });
+  }
 
   // Configure S3 event notifications after both stacks are created
   // This avoids cyclic dependencies between storage and document processing

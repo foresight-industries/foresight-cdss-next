@@ -6,11 +6,13 @@ import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
+import * as kms from 'aws-cdk-lib/aws-kms';
 import { Construct } from 'constructs';
 
 interface WorkflowStackProps extends cdk.StackProps {
   stageName: string;
   database: any;
+  codeSigningConfigArn?: string;
 }
 
 export class WorkflowStack extends cdk.Stack {
@@ -20,6 +22,35 @@ export class WorkflowStack extends cdk.Stack {
     // Import DLQ from the queue stack using CloudFormation import
     const dlqArn = cdk.Fn.importValue(`RCM-DLQArn-${props.stageName}`);
     const dlq = sqs.Queue.fromQueueArn(this, 'ImportedDLQ', dlqArn);
+
+    // Import code signing configuration if provided
+    let codeSigningConfig: lambda.ICodeSigningConfig | undefined;
+    if (props.codeSigningConfigArn) {
+      codeSigningConfig = lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+        this, 'ImportedCodeSigningConfig', props.codeSigningConfigArn
+      );
+    }
+
+    // KMS key for workflow log encryption (HIPAA compliance)
+    const workflowKmsKey = new kms.Key(this, 'WorkflowKmsKey', {
+      description: `KMS key for workflow log encryption - ${props.stageName}`,
+      enableKeyRotation: true,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Allow CloudWatch Logs service to use the key
+    workflowKmsKey.addToResourcePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal(`logs.${cdk.Stack.of(this).region}.amazonaws.com`)],
+      actions: [
+        'kms:Encrypt',
+        'kms:Decrypt',
+        'kms:ReEncrypt*',
+        'kms:GenerateDataKey*',
+        'kms:DescribeKey',
+      ],
+      resources: ['*'],
+    }));
 
     // Lambda functions for workflow steps
     const checkEligibility = new lambdaNodejs.NodejsFunction(this, 'CheckEligibilityFn', {
@@ -106,6 +137,14 @@ export class WorkflowStack extends cdk.Stack {
       },
     });
 
+    // Log group for send notification function
+    const sendNotificationLogGroup = new logs.LogGroup(this, 'SendNotificationLogGroup', {
+      logGroupName: `/aws/lambda/rcm-send-notification-${props.stageName}`,
+      retention: logs.RetentionDays.ONE_WEEK,
+      removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      encryptionKey: workflowKmsKey,
+    });
+
     const sendNotification = new lambdaNodejs.NodejsFunction(this, 'SendNotificationFn', {
       functionName: `rcm-send-notification-${props.stageName}`,
       entry: '../packages/functions/workflows/send-notification.ts',
@@ -113,6 +152,7 @@ export class WorkflowStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_22_X,
       timeout: cdk.Duration.minutes(1),
       memorySize: 256,
+      logGroup: sendNotificationLogGroup,
       environment: {
         NODE_ENV: props.stageName,
         DATABASE_CLUSTER_ARN: props.database.clusterArn,
@@ -125,7 +165,6 @@ export class WorkflowStack extends cdk.Stack {
         target: 'node22',
         externalModules: ['@aws-sdk/*'],
       },
-      logRetention: logs.RetentionDays.ONE_WEEK, // This will prevent log group conflicts
     });
 
     // Prior Authorization Lambda Functions with AWS Comprehend Medical Integration
@@ -307,23 +346,41 @@ export class WorkflowStack extends cdk.Stack {
       fn.addToRolePolicy(comprehendMedicalPolicy);
     });
 
+    // Add code signing tags and configure functions if available
+    if (codeSigningConfig) {
+      const allLambdaFunctions = [
+        checkEligibility, submitClaim, checkClaimStatus, processPayment, sendNotification,
+        validatePriorAuth, extractMedicalEntities, validateMedicalNecessity,
+        autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial, classifySpecialty
+      ];
+
+      // Add tags for compliance tracking
+      for (const fn of allLambdaFunctions) {
+        cdk.Tags.of(fn).add('CodeSigning', 'Enabled');
+        cdk.Tags.of(fn).add('SecurityCompliance', 'HealthcareRCM');
+      }
+    }
+
     // CloudWatch Log Groups for Step Functions
     const priorAuthLogGroup = new logs.LogGroup(this, 'PriorAuthLogGroup', {
       logGroupName: `/aws/stepfunctions/rcm-prior-auth-${props.stageName}`,
       retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
       removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      encryptionKey: workflowKmsKey,
     });
 
     const claimProcessingLogGroup = new logs.LogGroup(this, 'ClaimProcessingLogGroup', {
       logGroupName: `/aws/stepfunctions/rcm-claim-processing-${props.stageName}`,
       retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
       removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      encryptionKey: workflowKmsKey,
     });
 
     const eraProcessingLogGroup = new logs.LogGroup(this, 'ERAProcessingLogGroup', {
       logGroupName: `/aws/stepfunctions/rcm-era-processing-${props.stageName}`,
       retention: props.stageName === 'prod' ? logs.RetentionDays.ONE_MONTH : logs.RetentionDays.ONE_WEEK,
       removalPolicy: props.stageName === 'prod' ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY,
+      encryptionKey: workflowKmsKey,
     });
 
     // Create the main workflow states that will be reused

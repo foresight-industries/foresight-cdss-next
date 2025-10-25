@@ -31,6 +31,7 @@ interface AppSyncStackProps extends cdk.StackProps {
   databaseCluster: rds.DatabaseCluster;
   databaseSecret: secretsmanager.ISecret;
   alertTopicArn?: string;
+  codeSigningConfigArn?: string;
 }
 
 export class AppSyncStack extends cdk.Stack {
@@ -205,6 +206,15 @@ export class AppSyncStack extends cdk.Stack {
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
+    // Import code signing configuration if provided
+    const codeSigningConfig = props.codeSigningConfigArn
+      ? lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+          this,
+          'ImportedCodeSigningConfig',
+          props.codeSigningConfigArn
+        )
+      : undefined;
+
     // Create Lambda function to handle AppSync errors and send to DLQ
     const appsyncErrorHandler = new lambdaNodejs.NodejsFunction(this, 'AppSyncErrorHandler', {
       functionName: `rcm-appsync-error-handler-${props.stageName}`,
@@ -219,6 +229,7 @@ export class AppSyncStack extends cdk.Stack {
         ALERT_TOPIC_ARN: props.alertTopicArn ?? '',
         STAGE_NAME: props.stageName,
       },
+      codeSigningConfig,
     });
 
     // Grant permissions for the error handler
@@ -247,6 +258,7 @@ export class AppSyncStack extends cdk.Stack {
         ALERT_TOPIC_ARN: props.alertTopicArn ?? '',
         STAGE_NAME: props.stageName,
       },
+      codeSigningConfig,
     });
 
     // Add SQS triggers for DLQ processors
@@ -276,6 +288,14 @@ export class AppSyncStack extends cdk.Stack {
           resources: ['*'],
         })
       );
+    }
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      cdk.Tags.of(appsyncErrorHandler).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(appsyncErrorHandler).add('ComplianceLevel', 'HIPAA-SOC2');
+      cdk.Tags.of(appsyncDlqProcessor).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(appsyncDlqProcessor).add('ComplianceLevel', 'HIPAA-SOC2');
     }
 
     // Outputs for EventApi

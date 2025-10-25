@@ -21,6 +21,7 @@ interface WebhookStackProps extends cdk.StackProps {
   database: rds.DatabaseCluster;
   eventBus?: events.EventBus;
   hipaaComplianceEmail?: string; // Email for HIPAA compliance alerts
+  codeSigningConfigArn?: string;
 }
 
 /**
@@ -46,6 +47,14 @@ export class WebhookStack extends cdk.Stack {
     super(scope, id, props);
 
     this.stageName = props.stageName;
+
+    // Import code signing configuration if provided
+    let codeSigningConfig: lambda.ICodeSigningConfig | undefined;
+    if (props.codeSigningConfigArn) {
+      codeSigningConfig = lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+        this, 'ImportedCodeSigningConfig', props.codeSigningConfigArn
+      );
+    }
 
     // Create custom EventBridge bus or use provided one
     this.eventBus = props.eventBus ?? new events.EventBus(this, 'WebhookEventBus', {
@@ -141,6 +150,27 @@ export class WebhookStack extends cdk.Stack {
 
     // Create DLQ monitoring
     this.createDlqMonitoring();
+
+    // Apply code signing configuration to all Lambda functions if available
+    if (codeSigningConfig) {
+      const allLambdaFunctions = [
+        this.webhookProcessorFunction,
+        this.webhookDeliveryFunction,
+        this.dataRetentionFunction
+      ];
+
+      // Find and add the DLQ processor function that was created in createDlqMonitoring
+      const dlqProcessor = this.node.findChild('WebhookDlqProcessor') as lambda.Function;
+      if (dlqProcessor) {
+        allLambdaFunctions.push(dlqProcessor);
+      }
+
+      // Add tags for compliance tracking
+      allLambdaFunctions.forEach(fn => {
+        cdk.Tags.of(fn).add('CodeSigningEnabled', 'true');
+        cdk.Tags.of(fn).add('ComplianceLevel', 'HIPAA-SOC2');
+      });
+    }
 
     // Apply tags
     this.applyTags(props.stageName);

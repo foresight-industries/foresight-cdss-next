@@ -17,6 +17,7 @@ interface DatabaseStackProps extends cdk.StackProps {
     logRetention: number;
     enableDeletionProtection: boolean;
   };
+  codeSigningConfigArn?: string;
 }
 
 export class DatabaseStack extends cdk.Stack {
@@ -219,6 +220,15 @@ export class DatabaseStack extends cdk.Stack {
       });
     }
 
+    // Import code signing configuration if provided
+    const codeSigningConfig = props.codeSigningConfigArn
+      ? lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+          this,
+          'ImportedCodeSigningConfig',
+          props.codeSigningConfigArn
+        )
+      : undefined;
+
     // Database Log Processor Lambda
     const dbLogProcessor = new lambdaNodejs.NodejsFunction(this, 'DbLogProcessor', {
       entry: './lib/functions/db-log-processor.ts',
@@ -231,6 +241,7 @@ export class DatabaseStack extends cdk.Stack {
       bundling: {
         externalModules: ['@aws-sdk/client-cloudwatch'],
       },
+      codeSigningConfig,
     });
 
     // Grant CloudWatch permissions to the log processor
@@ -264,6 +275,12 @@ export class DatabaseStack extends cdk.Stack {
       action: 'lambda:InvokeFunction',
       sourceArn: dbLogGroup.logGroupArn,
     });
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      cdk.Tags.of(dbLogProcessor).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(dbLogProcessor).add('ComplianceLevel', 'HIPAA-SOC2');
+    }
 
     // Outputs for other stacks and .env files
     new cdk.CfnOutput(this, 'ClusterArn', {

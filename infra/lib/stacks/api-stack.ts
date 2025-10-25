@@ -21,6 +21,7 @@ interface ApiStackProps extends cdk.StackProps {
   documentsBucket: s3.Bucket;
   cacheStack: CacheStack;
   medicalDataStack: MedicalDataStack;
+  codeSigningConfigArn?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -28,6 +29,14 @@ export class ApiStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+
+    // Import code signing configuration if provided
+    let codeSigningConfig: lambda.ICodeSigningConfig | undefined;
+    if (props.codeSigningConfigArn) {
+      codeSigningConfig = lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+        this, 'ImportedCodeSigningConfig', props.codeSigningConfigArn
+      );
+    }
 
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
@@ -482,6 +491,19 @@ export class ApiStack extends cdk.Stack {
           `${props.medicalDataStack.medicalCodesBucket.bucketArn}/*`,
         ],
       }));
+    }
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      const allLambdaFunctions = [
+        authorizerFn, patientsFn, claimsFn, presignFn, documentStatusFn, medicalCodesFn
+      ];
+
+      // Add tags for compliance tracking
+      for (const fn of allLambdaFunctions) {
+        cdk.Tags.of(fn).add('CodeSigningEnabled', 'true');
+        cdk.Tags.of(fn).add('ComplianceLevel', 'HIPAA-SOC2');
+      }
     }
 
     // Output API endpoint

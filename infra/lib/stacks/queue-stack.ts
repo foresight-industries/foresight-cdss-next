@@ -11,6 +11,7 @@ interface QueueStackProps extends cdk.StackProps {
   database: any;
   documentsBucket: any;
   alertTopicArn: string;
+  codeSigningConfigArn?: string;
 }
 
 export class QueueStack extends cdk.Stack {
@@ -36,6 +37,15 @@ export class QueueStack extends cdk.Stack {
       retentionPeriod: cdk.Duration.days(14),
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
+
+    // Import code signing configuration if provided
+    const codeSigningConfig = props.codeSigningConfigArn
+      ? lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+          this,
+          'ImportedCodeSigningConfig',
+          props.codeSigningConfigArn
+        )
+      : undefined;
 
     // Claims Processing Queue (FIFO for ordering)
     this.claimsQueue = new sqs.Queue(this, 'ClaimsQueue', {
@@ -81,6 +91,7 @@ export class QueueStack extends cdk.Stack {
         target: 'node22',
         externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
+      codeSigningConfig,
       // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 10 } : {}),
     });
 
@@ -117,6 +128,7 @@ export class QueueStack extends cdk.Stack {
         target: 'node22',
         externalModules: ['@aws-sdk/*'], // Keep aws-sdk v2 in bundle for compatibility
       },
+      codeSigningConfig,
       // ...(props.stageName === 'prod' ? { reservedConcurrentExecutions: 20 } : {}),
     });
 
@@ -144,6 +156,7 @@ export class QueueStack extends cdk.Stack {
       bundling: {
         externalModules: ['@aws-sdk/client-sns', '@aws-sdk/client-cloudwatch'],
       },
+      codeSigningConfig,
     });
 
     // Grant SNS and CloudWatch permissions to DLQ processor
@@ -163,6 +176,16 @@ export class QueueStack extends cdk.Stack {
         batchSize: 10,
       })
     );
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      cdk.Tags.of(claimsProcessor).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(claimsProcessor).add('ComplianceLevel', 'HIPAA-SOC2');
+      cdk.Tags.of(eligibilityChecker).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(eligibilityChecker).add('ComplianceLevel', 'HIPAA-SOC2');
+      cdk.Tags.of(dlqProcessor).add('CodeSigningEnabled', 'true');
+      cdk.Tags.of(dlqProcessor).add('ComplianceLevel', 'HIPAA-SOC2');
+    }
 
     // Outputs
     new cdk.CfnOutput(this, 'ClaimsQueueUrl', {
