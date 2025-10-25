@@ -25,6 +25,8 @@ import { GrafanaStack } from '../lib/stacks/grafana-stack';
 import { AutomationLifecycleStack } from '../lib/stacks/automation-lifecycle-stack';
 import { CodeSigningStack } from '../lib/security/code-signing-stack';
 import { SharedLayerStack } from '../lib/stacks/shared-layer-stack';
+import { ConfigStack } from '../lib/stacks/config-stack';
+import { SecurityHubStack } from '../lib/stacks/security-hub-stack';
 
 const app = new cdk.App();
 
@@ -213,6 +215,22 @@ for (const envName of ['staging', 'prod']) {
     webhookQueue: webhooks.webhookQueue,
   });
 
+  // AWS Config for continuous HIPAA compliance monitoring
+  const config = new ConfigStack(app, `RCM-Config-${envName}`, {
+    env,
+    stageName: envName,
+    complianceEmail: 'ops@have-foresight.com',
+    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
+  });
+
+  // AWS Security Hub for centralized security findings and compliance dashboard
+  const securityHub = new SecurityHubStack(app, `RCM-SecurityHub-${envName}`, {
+    env,
+    stageName: envName,
+    securityEmail: 'ops@have-foresight.com',
+    configTopicArn: config.configTopic.topicArn,
+  });
+
   // Add dependencies
   // Code signing stack dependencies - must deploy first
   database.addDependency(codeSigning);
@@ -221,6 +239,7 @@ for (const envName of ['staging', 'prod']) {
   documentProcessing.addDependency(codeSigning);
   webhooks.addDependency(codeSigning);
   appSync.addDependency(codeSigning);
+  config.addDependency(codeSigning);
 
   alerting.addDependency(database);
   elastiCache.addDependency(database);
@@ -264,11 +283,14 @@ for (const envName of ['staging', 'prod']) {
   // Add dependencies for AutomationLifecycleStack
   automationLifecycle.addDependency(storage); // Needs to access the S3 bucket
 
+  // Security Hub dependency - must deploy after Config to integrate properly
+  securityHub.addDependency(config);
+
   // Add AWS Systems Manager Application Manager cost tracking tags to all stacks
   const allStacks = [
     sharedLayer, codeSigning, database, storage, medicalInfra, alerting, elastiCache, queues, api, workflows,
     security, documentProcessing, webhooks, appSync, cloudTrail, batch, application,
-    appConfig, backup, grafana, automationLifecycle, monitoring
+    appConfig, backup, grafana, automationLifecycle, monitoring, config, securityHub
   ];
 
   for (const stack of allStacks) {
