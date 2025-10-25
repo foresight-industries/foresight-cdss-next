@@ -119,8 +119,8 @@ export async function POST(req: Request) {
     console.error('🔄 FALLBACK: Error processing Twilio SMS webhook:', error);
 
     // Critical alert - both primary and fallback failed
-    await logCriticalWebhookIssue('FALLBACK_PROCESSING_ERROR', { 
-      error: error instanceof Error ? error.message : 'Unknown error' 
+    await logCriticalWebhookIssue('FALLBACK_PROCESSING_ERROR', {
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
 
     // Return 200 to prevent infinite Twilio retries
@@ -144,6 +144,7 @@ async function validateTwilioSignature(
 ): Promise<boolean> {
   try {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
+
     if (!authToken) return false;
 
     const params = new URLSearchParams();

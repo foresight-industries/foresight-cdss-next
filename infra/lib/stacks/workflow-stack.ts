@@ -129,7 +129,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     // Prior Authorization Lambda Functions with AWS Comprehend Medical Integration
-    
+
     // Common environment variables for PA functions
     const paEnvironment = {
       NODE_ENV: props.stageName,
@@ -302,7 +302,7 @@ export class WorkflowStack extends cdk.Stack {
     });
 
     // Grant AWS Comprehend Medical permissions to PA functions
-    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
+    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity,
      autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial, classifySpecialty].forEach(fn => {
       fn.addToRolePolicy(comprehendMedicalPolicy);
     });
@@ -400,7 +400,7 @@ export class WorkflowStack extends cdk.Stack {
     // Enhanced Prior Authorization Workflow with Specialty Classification and Dynamic Branching
     const priorAuthWorkflow = new stepfunctions.StateMachine(this, 'PriorAuthWorkflow', {
       stateMachineName: `rcm-prior-auth-${props.stageName}`,
-      definition: 
+      definitionBody: stepfunctions.DefinitionBody.fromChainable(
         // Step 1: Initial Validation and Medical Entity Extraction
         new stepfunctionsTasks.LambdaInvoke(this, 'ValidatePriorAuthStep', {
           lambdaFunction: validatePriorAuth,
@@ -430,7 +430,7 @@ export class WorkflowStack extends cdk.Stack {
                 stepfunctions.Condition.isPresent('$.validation_issues'),
                 stepfunctions.Condition.numberGreaterThan('$.validation_issues_count', 0)
               ),
-              // Auto-correct high confidence issues, flag others for manual review
+              // Autocorrect high confidence issues, flag others for manual review
               new stepfunctionsTasks.LambdaInvoke(this, 'AutoCorrectStep', {
                 lambdaFunction: autoCorrectPriorAuth,
                 outputPath: '$.Payload',
@@ -513,6 +513,7 @@ export class WorkflowStack extends cdk.Stack {
                 )
             )
         ),
+      ),
       tracingEnabled: true,
       logs: {
         destination: priorAuthLogGroup,
@@ -524,7 +525,8 @@ export class WorkflowStack extends cdk.Stack {
     // Claim Processing Workflow
     const claimProcessingWorkflow = new stepfunctions.StateMachine(this, 'ClaimProcessingWorkflow', {
       stateMachineName: `rcm-claim-processing-${props.stageName}`,
-      definition: new stepfunctionsTasks.LambdaInvoke(this, 'ValidateClaim', {
+      definitionBody: stepfunctions.DefinitionBody.fromChainable(
+        new stepfunctionsTasks.LambdaInvoke(this, 'ValidateClaim', {
         lambdaFunction: checkEligibility,
         outputPath: '$.Payload',
       })
@@ -584,6 +586,7 @@ export class WorkflowStack extends cdk.Stack {
               })
             )
         ),
+      ),
       tracingEnabled: true,
       logs: {
         destination: claimProcessingLogGroup,
@@ -596,7 +599,7 @@ export class WorkflowStack extends cdk.Stack {
     const eraProcessingWorkflow = new stepfunctions.Map(this, 'ProcessERALines', {
       maxConcurrency: 10,
       itemsPath: '$.lineItems',
-    }).iterator(
+    }).itemProcessor(
       new stepfunctionsTasks.LambdaInvoke(this, 'ProcessLineItem', {
         lambdaFunction: processPayment,
       }).next(
@@ -618,7 +621,7 @@ export class WorkflowStack extends cdk.Stack {
 
     const eraWorkflow = new stepfunctions.StateMachine(this, 'ERAWorkflow', {
       stateMachineName: `rcm-era-processing-${props.stageName}`,
-      definition: eraProcessingWorkflow,
+      definitionBody: stepfunctions.DefinitionBody.fromChainable(eraProcessingWorkflow),
       tracingEnabled: true,
       logs: {
         destination: eraProcessingLogGroup,
@@ -651,9 +654,9 @@ export class WorkflowStack extends cdk.Stack {
     props.database.grantDataApiAccess(submitClaim);
     props.database.grantDataApiAccess(checkClaimStatus);
     props.database.grantDataApiAccess(processPayment);
-    
+
     // Grant database access to PA functions
-    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity, 
+    [validatePriorAuth, extractMedicalEntities, validateMedicalNecessity,
      autoCorrectPriorAuth, submitPriorAuth, analyzeDenialReason, autoRetryDenial, classifySpecialty].forEach(fn => {
       props.database.grantDataApiAccess(fn);
     });

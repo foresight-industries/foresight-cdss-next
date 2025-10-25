@@ -1,7 +1,7 @@
-import { Context } from 'aws-lambda';
+import type { Context } from 'aws-lambda';
 import { db } from '@foresight-cdss-next/db';
 import { medicalSpecialties, workflowSpecialtyClassifications } from '@foresight-cdss-next/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 interface ClassifySpecialtyEvent {
   priorAuthId: string;

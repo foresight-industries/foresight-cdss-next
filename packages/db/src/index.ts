@@ -12,3 +12,4 @@ export * from './services/bot-avoidance';
 export * from './services/portal-automation-config';
 export * from './services/portal-session';
 export * from './services/workflow-integration';
+export * from './services/claims-workflow-integration';

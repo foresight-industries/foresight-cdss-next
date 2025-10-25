@@ -676,6 +676,39 @@ export const claims = pgTable('claim', {
   claimNumberIdx: index('claim_claim_number_idx').on(table.claimNumber),
 }));
 
+// Claims specialty workflow configurations
+export const claimsSpecialtyConfigs = pgTable('claims_specialty_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  specialty: varchar('specialty', { length: 100 }).notNull(), // e.g., 'RADIOLOGY', 'SURGERY', 'CARDIOLOGY'
+  payerId: uuid('payer_id').references(() => payers.id), // Optional - if null, applies to all payers
+  
+  // Workflow configuration overrides
+  workflowOverrides: jsonb('workflow_overrides'), // Specialty-specific validation rules, bundling rules, etc.
+  
+  // Processing settings
+  autoSubmissionThreshold: decimal('auto_submission_threshold', { precision: 3, scale: 2 }).default('0.80'),
+  requiresManualReview: boolean('requires_manual_review').default(false),
+  expectedProcessingDays: integer('expected_processing_days').default(14),
+  
+  // Status and metadata
+  isActive: boolean('is_active').default(true),
+  priority: integer('priority').default(0), // Higher priority configs override lower priority ones
+  
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdBy: uuid('created_by').references(() => teamMembers.id),
+  updatedBy: uuid('updated_by').references(() => teamMembers.id),
+}, (table) => ({
+  orgSpecialtyIdx: index('claims_specialty_config_org_specialty_idx').on(table.organizationId, table.specialty),
+  payerSpecialtyIdx: index('claims_specialty_config_payer_specialty_idx').on(table.payerId, table.specialty),
+  activeIdx: index('claims_specialty_config_active_idx').on(table.isActive),
+  priorityIdx: index('claims_specialty_config_priority_idx').on(table.priority),
+  // Unique constraint for org+specialty+payer combination
+  uniqueConfig: unique('claims_specialty_config_unique').on(table.organizationId, table.specialty, table.payerId),
+}));
+
 // ============================================================================
 // TYPE EXPORTS
 // ============================================================================
@@ -949,6 +982,9 @@ export type NewClaim = InferInsertModel<typeof claims>;
 
 export type ClaimLine = InferSelectModel<typeof claimLines>;
 export type NewClaimLine = InferInsertModel<typeof claimLines>;
+
+export type ClaimsSpecialtyConfig = InferSelectModel<typeof claimsSpecialtyConfigs>;
+export type NewClaimsSpecialtyConfig = InferInsertModel<typeof claimsSpecialtyConfigs>;
 
 export type Document = InferSelectModel<typeof documents>;
 export type NewDocument = InferInsertModel<typeof documents>;
