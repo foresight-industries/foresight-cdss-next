@@ -190,7 +190,7 @@ export class TwilioSMSService {
       console.warn('Failed to retrieve key from AWS Secrets Manager, falling back to environment variables:', error);
       
       // Fallback to environment variables for local development
-      const envKey = process.env.TWILIO_ENCRYPTION_KEY || process.env.MASTER_ENCRYPTION_KEY;
+      const envKey = process.env.TWILIO_ENCRYPTION_KEY || process.env.AUDIT_ENCRYPTION_KEY;
       
       if (!envKey) {
         throw new Error(

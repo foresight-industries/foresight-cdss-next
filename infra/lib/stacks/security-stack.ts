@@ -426,7 +426,10 @@ export class SecurityStack extends cdk.Stack {
             resources: ['*'],
             conditions: {
               ArnEquals: {
-                'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/credential-operations`,
+                'kms:EncryptionContext:aws:logs:arn': [
+                  `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/credential-operations`,
+                  `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/twilio-sms-operations`,
+                ],
               },
             },
           }),
@@ -493,22 +496,34 @@ export class SecurityStack extends cdk.Stack {
     // TWILIO SMS ENCRYPTION SECRET
     // ============================================================================
 
-    // Generate a cryptographically secure 256-bit encryption key for Twilio SMS
-    const twilioEncryptionKey = randomBytes(32).toString('base64');
+    // Twilio SMS Encryption Secret - conditional creation
+    let twilioEncryptionSecret: secretsmanager.ISecret;
+    
+    if (props.stageName === 'staging') {
+      // Generate a cryptographically secure 256-bit encryption key for Twilio SMS
+      const twilioEncryptionKey = randomBytes(32).toString('base64');
 
-    // Twilio SMS Encryption Secret
-    const twilioEncryptionSecret = new secretsmanager.Secret(this, 'TwilioEncryptionSecret', {
-      secretName: `foresight-cdss/twilio-encryption-key`,
-      description: 'Encryption key for Twilio SMS OTP codes - HIPAA compliant',
-      secretStringValue: cdk.SecretValue.unsafePlainText(JSON.stringify({
-        encryptionKey: twilioEncryptionKey,
-        createdAt: new Date().toISOString(),
-        purpose: 'twilio-sms-otp-encryption',
-        keyVersion: 'v1',
-        stage: props.stageName
-      })),
-      encryptionKey: credentialEncryptionKey,
-    });
+      // Create new secret for staging
+      twilioEncryptionSecret = new secretsmanager.Secret(this, 'TwilioEncryptionSecret', {
+        secretName: `foresight-cdss/twilio-encryption-key`,
+        description: 'Encryption key for Twilio SMS OTP codes - HIPAA compliant',
+        secretStringValue: cdk.SecretValue.unsafePlainText(JSON.stringify({
+          encryptionKey: twilioEncryptionKey,
+          createdAt: new Date().toISOString(),
+          purpose: 'twilio-sms-otp-encryption',
+          keyVersion: 'v1',
+          stage: props.stageName
+        })),
+        encryptionKey: credentialEncryptionKey,
+      });
+    } else {
+      // Reference existing secret for production
+      twilioEncryptionSecret = secretsmanager.Secret.fromSecretNameV2(
+        this,
+        'TwilioEncryptionSecret',
+        'foresight-cdss/twilio-encryption-key'
+      );
+    }
 
     // Add tags for compliance and management
     cdk.Tags.of(twilioEncryptionSecret).add('Service', 'foresight-cdss');
