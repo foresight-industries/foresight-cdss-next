@@ -1,0 +1,39 @@
+{
+  "aws:cdk:enable-path-metadata": false,
+  "aws:cdk:enable-asset-metadata": false,
+  "@aws-cdk/core:enableStackNameDuplicates": true,
+  "@aws-cdk/core:stackRelativeExports": true,
+  "@aws-cdk/aws-lambda:recognizeVersionProps": true,
+  "@aws-cdk/aws-cloudfront:defaultSecurityPolicyTLSv1.2_2021": true,
+  "@aws-cdk/aws-rds:lowercaseDbIdentifier": true,
+  "@aws-cdk/aws-efs:defaultEncryptionAtRest": true,
+  "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+  "@aws-cdk/aws-cloudformation:useTransformPartition": true,
+  "@aws-cdk/aws-s3:createDefaultLoggingPolicy": true,
+  "@aws-cdk/aws-sns:restrictPublishPolicyStatements": true,
+  "@aws-cdk/aws-s3:serverAccessLogsUseBucketPolicy": true,
+  "@aws-cdk/aws-apigateway:disableCloudWatchRole": true,
+  "@aws-cdk/aws-rds:databaseProxyUniqueResourceName": true,
+  "@aws-cdk/aws-logs:logGroupUseArn": true,
+  "@aws-cdk/aws-batch:ec2ServiceRole": true,
+  
+  "localstack": {
+    "endpoint": "https://localhost.localstack.cloud:4566",
+    "region": "us-east-1",
+    "accountId": "000000000000",
+    "skipMetadata": true,
+    "skipVersionCheck": true,
+    "enableDnsServer": true,
+    "lambdaTimeout": 900,
+    "bootstrapBucketName": "cdk-localstack-bootstrap-000000000000-us-east-1"
+  },
+  
+  "healthcare-rcm-local": {
+    "enableComplianceMode": true,
+    "encryptionAtRest": true,
+    "auditLogging": true,
+    "dataRetentionDays": 2555,
+    "enableCodeSigning": true,
+    "hipaaCompliance": true
+  }
+}
