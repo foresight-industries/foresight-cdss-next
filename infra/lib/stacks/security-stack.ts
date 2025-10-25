@@ -6,7 +6,9 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
+import { randomBytes } from 'node:crypto';
 
 interface SecurityStackProps extends cdk.StackProps {
   stageName: string;
@@ -424,7 +426,10 @@ export class SecurityStack extends cdk.Stack {
             resources: ['*'],
             conditions: {
               ArnEquals: {
-                'kms:EncryptionContext:aws:logs:arn': `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/credential-operations`,
+                'kms:EncryptionContext:aws:logs:arn': [
+                  `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/credential-operations`,
+                  `arn:aws:logs:${this.region}:${this.account}:log-group:/aws/rcm/${props.stageName}/twilio-sms-operations`,
+                ],
               },
             },
           }),
@@ -487,6 +492,76 @@ export class SecurityStack extends cdk.Stack {
     // Grant the credential management role access to write to audit logs
     credentialAuditLogGroup.grantWrite(credentialManagementRole);
 
+    // ============================================================================
+    // TWILIO SMS ENCRYPTION SECRET
+    // ============================================================================
+
+    // Twilio SMS Encryption Secret - conditional creation
+    let twilioEncryptionSecret: secretsmanager.ISecret;
+    
+    if (props.stageName === 'staging') {
+      // Generate a cryptographically secure 256-bit encryption key for Twilio SMS
+      const twilioEncryptionKey = randomBytes(32).toString('base64');
+
+      // Create new secret for staging
+      twilioEncryptionSecret = new secretsmanager.Secret(this, 'TwilioEncryptionSecret', {
+        secretName: `foresight-cdss/twilio-encryption-key`,
+        description: 'Encryption key for Twilio SMS OTP codes - HIPAA compliant',
+        secretStringValue: cdk.SecretValue.unsafePlainText(JSON.stringify({
+          encryptionKey: twilioEncryptionKey,
+          createdAt: new Date().toISOString(),
+          purpose: 'twilio-sms-otp-encryption',
+          keyVersion: 'v1',
+          stage: props.stageName
+        })),
+        encryptionKey: credentialEncryptionKey,
+      });
+    } else {
+      // Reference existing secret for production
+      twilioEncryptionSecret = secretsmanager.Secret.fromSecretNameV2(
+        this,
+        'TwilioEncryptionSecret',
+        'foresight-cdss/twilio-encryption-key'
+      );
+    }
+
+    // Add tags for compliance and management
+    cdk.Tags.of(twilioEncryptionSecret).add('Service', 'foresight-cdss');
+    cdk.Tags.of(twilioEncryptionSecret).add('Purpose', 'twilio-encryption');
+    cdk.Tags.of(twilioEncryptionSecret).add('Environment', props.stageName);
+    cdk.Tags.of(twilioEncryptionSecret).add('Compliance', 'HIPAA');
+    cdk.Tags.of(twilioEncryptionSecret).add('DataClassification', 'Sensitive');
+
+    // Grant the credential management role access to the Twilio secret
+    twilioEncryptionSecret.grantRead(credentialManagementRole);
+    twilioEncryptionSecret.grantWrite(credentialManagementRole);
+
+    // Update the credential management role permissions to include Twilio secrets
+    credentialManagementRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        'secretsmanager:GetSecretValue',
+        'secretsmanager:DescribeSecret',
+      ],
+      resources: [twilioEncryptionSecret.secretArn],
+      conditions: {
+        StringEquals: {
+          'secretsmanager:ResourceTag/Service': 'foresight-cdss',
+          'secretsmanager:ResourceTag/Purpose': 'twilio-encryption',
+        },
+      },
+    }));
+
+    // CloudWatch Log Group specifically for Twilio SMS operations
+    const twilioAuditLogGroup = new logs.LogGroup(this, 'TwilioSMSAuditLogGroup', {
+      logGroupName: `/aws/rcm/${props.stageName}/twilio-sms-operations`,
+      retention: logs.RetentionDays.TEN_YEARS, // HIPAA requires long retention
+      encryptionKey: credentialEncryptionKey,
+    });
+
+    // Grant access to write Twilio SMS audit logs
+    twilioAuditLogGroup.grantWrite(credentialManagementRole);
+
     // Assign class properties for external access
     this.credentialEncryptionKey = credentialEncryptionKey;
     this.credentialManagementRole = credentialManagementRole;
@@ -514,12 +589,44 @@ export class SecurityStack extends cdk.Stack {
         width: 12,
         height: 6,
       }),
+      new cdk.aws_cloudwatch.GraphWidget({
+        title: 'Twilio SMS Operations',
+        left: [
+          new cdk.aws_cloudwatch.Metric({
+            namespace: 'AWS/Logs',
+            metricName: 'IncomingLogEvents',
+            dimensionsMap: {
+              LogGroupName: twilioAuditLogGroup.logGroupName,
+            },
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+        ],
+        width: 12,
+        height: 6,
+      }),
       new cdk.aws_cloudwatch.SingleValueWidget({
         title: 'Active Credentials',
         metrics: [
           new cdk.aws_cloudwatch.Metric({
             namespace: 'AWS/SecretsManager',
             metricName: 'SuccessfulRequestLatency',
+            statistic: 'SampleCount',
+            period: cdk.Duration.hours(24),
+          }),
+        ],
+        width: 6,
+        height: 6,
+      }),
+      new cdk.aws_cloudwatch.SingleValueWidget({
+        title: 'Twilio Secret Access',
+        metrics: [
+          new cdk.aws_cloudwatch.Metric({
+            namespace: 'AWS/SecretsManager',
+            metricName: 'SuccessfulRequestLatency',
+            dimensionsMap: {
+              SecretName: twilioEncryptionSecret.secretName,
+            },
             statistic: 'SampleCount',
             period: cdk.Duration.hours(24),
           }),
@@ -675,6 +782,25 @@ export class SecurityStack extends cdk.Stack {
       value: credentialAuditLogGroup.logGroupArn,
       exportName: `RCM-CredentialAuditLogGroupArn-${props.stageName}`,
       description: 'ARN of the CloudWatch log group for credential audit trail',
+    });
+
+    // Output Twilio SMS Infrastructure
+    new cdk.CfnOutput(this, 'TwilioEncryptionSecretArn', {
+      value: twilioEncryptionSecret.secretArn,
+      exportName: `RCM-TwilioEncryptionSecretArn-${props.stageName}`,
+      description: 'ARN of the Twilio SMS encryption secret',
+    });
+
+    new cdk.CfnOutput(this, 'TwilioEncryptionSecretName', {
+      value: twilioEncryptionSecret.secretName,
+      exportName: `RCM-TwilioEncryptionSecretName-${props.stageName}`,
+      description: 'Name of the Twilio SMS encryption secret',
+    });
+
+    new cdk.CfnOutput(this, 'TwilioAuditLogGroupArn', {
+      value: twilioAuditLogGroup.logGroupArn,
+      exportName: `RCM-TwilioAuditLogGroupArn-${props.stageName}`,
+      description: 'ARN of the CloudWatch log group for Twilio SMS audit trail',
     });
   }
 }

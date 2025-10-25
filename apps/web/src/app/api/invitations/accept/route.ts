@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, clerkClient as Clerk } from '@clerk/nextjs/server';
 import { createAuthenticatedDatabaseClient } from '@/lib/aws/database';
-import { teamMembers } from '@foresight-cdss-next/db/src/schema';
+import { teamMembers } from '@foresight-cdss-next/db/schema';
 import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {

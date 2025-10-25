@@ -16,12 +16,22 @@ import {
   jsonb,
   serial,
   bigint,
+  numeric,
   uniqueIndex,
   type PgTableWithColumns,
   foreignKey,
   check,
 } from 'drizzle-orm/pg-core';
-import { InferSelectModel, InferInsertModel, and, eq, gt, isNull, sql } from 'drizzle-orm';
+import {
+  InferSelectModel,
+  InferInsertModel,
+  and,
+  eq,
+  gt,
+  isNull,
+  lte,
+  gte,
+} from 'drizzle-orm';
 
 // ============================================================================
 // ENUMS
@@ -287,25 +297,25 @@ export const organizations = pgTable('organization', {
 export const organizationPaSettings = pgTable('organization_pa_settings', {
   id: uuid('id').primaryKey().defaultRandom(),
   organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
-  
+
   // Default documents for PA submissions
   defaultDocuments: jsonb('default_documents').$type<string[]>().default([]),
   autoAttachEnabled: boolean('auto_attach_enabled').default(true).notNull(),
-  
+
   // Document categories for different submission types
   documentCategories: jsonb('document_categories').$type<Record<string, string[]>>().default({}),
-  
+
   // Settings for different payers (override defaults per payer)
   payerSpecificSettings: jsonb('payer_specific_settings').$type<Record<string, {
     defaultDocuments?: string[];
     autoAttachEnabled?: boolean;
     documentCategories?: Record<string, string[]>;
   }>>().default({}),
-  
+
   // Metadata
   description: text('description'),
   isActive: boolean('is_active').default(true).notNull(),
-  
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -907,6 +917,10 @@ export const auditLogs = pgTable('audit_log', {
   containsPhi: boolean('contains_phi').default(false).notNull(),
   accessReason: text('access_reason'),
 
+  // Compliance fields
+  performedBy: text('performed_by'), // who performed the action (user, system, etc.)
+  metadata: json('metadata').$type<Record<string, any>>(), // compliance-specific metadata
+
   // Audit fields
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
@@ -1411,6 +1425,71 @@ export const batchJobItems = pgTable('batch_job_item', {
   itemTypeIdx: index('batch_job_item_item_type_idx').on(table.itemType),
   itemIdIdx: index('batch_job_item_item_id_idx').on(table.itemId),
   processingOrderIdx: index('batch_job_item_processing_order_idx').on(table.processingOrder),
+}));
+
+// Failed jobs for retry logic and circuit breaker patterns
+export const failedJobs = pgTable('failed_job', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+
+  // Job identification
+  jobType: varchar('job_type', { length: 50 }).notNull(), // prior_auth_submission, portal_login, sms_verification, etc
+  jobName: varchar('job_name', { length: 100 }).notNull(),
+  jobId: uuid('job_id'), // Reference to original job ID if applicable
+
+  // Failure details
+  failureReason: varchar('failure_reason', { length: 100 }).notNull(), // rate_limit, portal_changed, authentication_failed, etc
+  errorMessage: text('error_message').notNull(),
+  stackTrace: text('stack_trace'),
+  errorCode: varchar('error_code', { length: 20 }),
+
+  // Retry configuration
+  retryCount: integer('retry_count').default(0).notNull(),
+  maxRetries: integer('max_retries').default(3).notNull(),
+  nextRetryAt: timestamp('next_retry_at'),
+  retryDelay: integer('retry_delay_seconds').default(300).notNull(), // 5 minutes default
+  backoffMultiplier: numeric('backoff_multiplier', { precision: 3, scale: 2 }).default('2.0').notNull(),
+
+  // Circuit breaker fields
+  circuitBreakerState: varchar('circuit_breaker_state', { length: 20 }).default('closed').notNull(), // closed, open, half_open
+  failureThreshold: integer('failure_threshold').default(5).notNull(),
+  successThreshold: integer('success_threshold').default(2).notNull(),
+  timeoutThreshold: integer('timeout_threshold').default(30).notNull(), // seconds
+
+  // Context and debugging
+  jobPayload: json('job_payload'), // Original job parameters for retry
+  contextData: json('context_data'), // Additional context like portal state, session info
+  userAgent: text('user_agent'),
+  ipAddress: varchar('ip_address', { length: 45 }),
+
+  // Portal-specific tracking
+  payerId: uuid('payer_id'), // Optional reference to specific payer
+  portalUrl: text('portal_url'),
+  sessionId: varchar('session_id', { length: 100 }),
+
+  // Resolution tracking
+  isResolved: boolean('is_resolved').default(false).notNull(),
+  resolvedAt: timestamp('resolved_at'),
+  resolvedBy: uuid('resolved_by'), // User who resolved the issue
+  resolutionNotes: text('resolution_notes'),
+
+  // Meta fields
+  priority: varchar('priority', { length: 20 }).default('medium').notNull(), // low, medium, high, critical
+  tags: json('tags').$type<string[]>().default([]), // For categorization and filtering
+
+  // Audit fields
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('failed_job_org_idx').on(table.organizationId),
+  jobTypeIdx: index('failed_job_type_idx').on(table.jobType),
+  failureReasonIdx: index('failed_job_failure_reason_idx').on(table.failureReason),
+  retryAtIdx: index('failed_job_next_retry_at_idx').on(table.nextRetryAt),
+  circuitStateIdx: index('failed_job_circuit_breaker_state_idx').on(table.circuitBreakerState),
+  payerIdx: index('failed_job_payer_idx').on(table.payerId),
+  resolvedIdx: index('failed_job_resolved_idx').on(table.isResolved),
+  priorityIdx: index('failed_job_priority_idx').on(table.priority),
+  createdAtIdx: index('failed_job_created_at_idx').on(table.createdAt),
 }));
 
 // API keys for external integrations
@@ -2177,6 +2256,8 @@ export const paymentReconciliation = pgTable('payment_reconciliation', {
   dateIdx: index('payment_reconciliation_date_idx').on(table.reconciliationDate),
 }));
 
+export type NewFailedJob = InferSelectModel<typeof failedJobs>;
+
 export type EhrConnection = InferSelectModel<typeof ehrConnections>;
 export type NewEhrConnection = InferInsertModel<typeof ehrConnections>;
 
@@ -2639,10 +2720,9 @@ export const prescription = pgTable('prescription', {
   dosespotIdIdx: index('idx_prescription_dosespot_id').on(table.dosespotPrescriptionId),
   statusIdx: index('idx_prescription_status').on(table.status),
   prescribedDateIdx: index('idx_prescription_prescribed_date').on(table.prescribedDate),
-  quantityPositiveCheck: check('chk_prescription_quantity_positive', sql`quantity > 0`),
-  daysSupplyPositiveCheck: check('chk_prescription_days_supply_positive', sql`days_supply > 0`),
-  refillsValidCheck: check('chk_prescription_refills_valid', sql`refills_remaining >= 0 AND total_refills >= 0 AND
-  refills_remaining <= total_refills`),
+  quantityPositiveCheck: check('chk_prescription_quantity_positive', gt(table.quantity, 0)),
+  daysSupplyPositiveCheck: check('chk_prescription_days_supply_positive', gt(table.daysSupply, 0)),
+  refillsValidCheck: check('chk_prescription_refills_valid', and(gte(table.refillsRemaining, 0), gte(table.totalRefills, 0), lte(table.refillsRemaining, table.totalRefills))!),
 }));
 
 // Pharmacy network information
@@ -2694,9 +2774,8 @@ export const patientPharmacy = pgTable('patient_pharmacy', {
   uniquePreferredPharmacy: uniqueIndex('unique_preferred_pharmacy').on(table.patientId, table.medicationType),
   patientIdIdx: index('idx_patient_pharmacy_patient_id').on(table.patientId),
   dosespotIdIdx: index('idx_patient_pharmacy_dosespot_id').on(table.dosespotPharmacyId),
-  preferredIdx: index('idx_patient_pharmacy_preferred').on(table.patientId, table.isPreferred).where(sql`is_preferred =
-  true`),
-  activeIdx: index('idx_patient_pharmacy_active').on(table.patientId, table.isActive).where(sql`is_active = true`),
+  preferredIdx: index('idx_patient_pharmacy_preferred').on(table.patientId, table.isPreferred).where(eq(table.isPreferred, true)),
+  activeIdx: index('idx_patient_pharmacy_active').on(table.patientId, table.isActive).where(eq(table.isActive, true)),
   dosespotPharmacyIdFk: foreignKey({
     columns: [table.dosespotPharmacyId],
     foreignColumns: [pharmacyNetwork.dosespotPharmacyId],
@@ -2740,8 +2819,8 @@ export const prescriptionRefillHistory = pgTable('prescription_refill_history', 
 }, (table) => ({
   prescriptionIdIdx: index('idx_refill_history_prescription_id').on(table.prescriptionId),
   fillDateIdx: index('idx_refill_history_fill_date').on(table.fillDate),
-  quantityPositiveCheck: check('chk_refill_quantity_positive', sql`quantity_dispensed > 0`),
-  daysSupplyPositiveCheck: check('chk_refill_days_supply_positive', sql`days_supply > 0`),
+  quantityPositiveCheck: check('chk_refill_quantity_positive', gt(table.quantityDispensed, 0)),
+  daysSupplyPositiveCheck: check('chk_refill_days_supply_positive', gt(table.daysSupply, 0)),
 }));
 
 // Medication formulary cache
@@ -7743,6 +7822,13 @@ export const smsAuthAttempts = pgTable('sms_auth_attempt', {
   humanNotifiedAt: timestamp('human_notified_at'),
   humanResolvedAt: timestamp('human_resolved_at'),
 
+  // Additional fields for BAA compliance and audit
+  messageFrom: varchar('message_from', { length: 20 }), // Sender of the SMS (e.g., CoverMyMeds)
+  messageBody: text('message_body'), // Hashed/encrypted message body for audit
+  retrievedAt: timestamp('retrieved_at'), // When OTP was retrieved by automation
+  enteredBy: varchar('entered_by', { length: 100 }), // User who manually entered OTP
+  purpose: varchar('purpose', { length: 50 }).default('covermymeds_auth'), // Purpose of OTP
+
   createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
   configIdx: index('sms_auth_attempt_config_idx').on(table.smsConfigId),
@@ -7784,6 +7870,12 @@ export const portalSessions = pgTable('portal_session', {
   lastAutomationAction: varchar('last_automation_action', { length: 100 }),
   automationPaused: boolean('automation_paused').default(false),
   pauseReason: text('pause_reason'),
+
+  // Distributed locking
+  lockToken: uuid('lock_token'), // Unique token for the instance holding the lock
+  lockedBy: varchar('locked_by', { length: 100 }), // Instance/service ID that holds the lock
+  lockExpiresAt: timestamp('lock_expires_at'), // When the lock expires
+  lockAcquiredAt: timestamp('lock_acquired_at'), // When the lock was acquired
 
   // Session lifecycle
   isActive: boolean('is_active').default(true),
@@ -7956,6 +8048,248 @@ export const humanInterventions = pgTable('human_intervention', {
   timeoutIdx: index('human_intervention_timeout_idx').on(table.timeoutAt),
 }));
 
+// ============================================================================
+// PAYER-SPECIFIC PORTAL CONFIGURATION SYSTEM
+// ============================================================================
+
+// Portal automation configurations per payer/portal
+export const portalAutomationConfigs = pgTable('portal_automation_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference Configuration
+  organizationId: uuid('organization_id').references(() => organizations.id).notNull(),
+  payerId: uuid('payer_id').references(() => payers.id).notNull(),
+  portalName: varchar('portal_name', { length: 100 }).notNull(), // 'covermymeds', 'caremark', etc.
+  portalVersion: varchar('portal_version', { length: 20 }).default('latest'), // Track portal version changes
+
+  // Automation Behavior
+  automationEnabled: boolean('automation_enabled').default(true),
+  priority: integer('priority').default(5), // 1-10, higher = more priority
+  fallbackStrategy: varchar('fallback_strategy', { length: 30 }).default('human_intervention'),
+  // 'human_intervention', 'retry_later', 'abort', 'fallback_manual'
+
+  // Portal-Specific Selectors
+  selectors: json('selectors').$type<{
+    login: {
+      usernameField: string[];
+      passwordField: string[];
+      submitButton: string[];
+    };
+    navigation: {
+      dashboardIndicators: string[];
+      priorAuthSection: string[];
+      newRequestButton: string[];
+    };
+    forms: {
+      patientNameField: string[];
+      dobField: string[];
+      memberNumberField: string[];
+      drugNameField: string[];
+      prescriberField: string[];
+      submitButton: string[];
+    };
+    sms: {
+      codeInputField: string[];
+      verifyButton: string[];
+      resendButton: string[];
+      smsIndicators: string[];
+    };
+    success: {
+      confirmationIndicators: string[];
+      referenceNumberSelector: string[];
+      statusIndicators: string[];
+    };
+    errors: {
+      errorSelectors: string[];
+      warningSelectors: string[];
+      blockingErrors: string[];
+    };
+  }>().notNull(),
+
+  // Timing Configuration
+  timeouts: json('timeouts').$type<{
+    pageLoad: number; // milliseconds
+    elementWait: number;
+    formSubmission: number;
+    smsWait: number;
+    overallTask: number;
+  }>().default({
+    pageLoad: 30000,
+    elementWait: 10000,
+    formSubmission: 15000,
+    smsWait: 300000,
+    overallTask: 600000
+  }),
+
+  // Retry Strategy
+  retryConfig: json('retry_config').$type<{
+    maxAttempts: number;
+    backoffStrategy: 'linear' | 'exponential' | 'fixed';
+    baseDelayMs: number;
+    maxDelayMs: number;
+    retryableErrors: string[];
+    fatalErrors: string[];
+  }>().default({
+    maxAttempts: 3,
+    backoffStrategy: 'exponential',
+    baseDelayMs: 1000,
+    maxDelayMs: 30000,
+    retryableErrors: ['timeout', 'element_not_found', 'temporary_error'],
+    fatalErrors: ['invalid_credentials', 'account_locked', 'portal_maintenance']
+  }),
+
+  // Bot Detection Avoidance
+  botAvoidance: json('bot_avoidance').$type<{
+    enabled: boolean;
+    mouseMovements: boolean;
+    randomDelays: boolean;
+    delayRange: [number, number]; // [min, max] in milliseconds
+    userAgentRotation: boolean;
+    viewportVariation: boolean;
+    scrollingBehavior: boolean;
+    cookieManagement: boolean;
+    sessionPersistence: boolean;
+  }>().default({
+    enabled: true,
+    mouseMovements: true,
+    randomDelays: true,
+    delayRange: [500, 2000],
+    userAgentRotation: false,
+    viewportVariation: false,
+    scrollingBehavior: true,
+    cookieManagement: true,
+    sessionPersistence: true
+  }),
+
+  // Monitoring and Alerts
+  monitoring: json('monitoring').$type<{
+    successRateThreshold: number; // percentage below which to alert
+    alertWebhookUrl?: string;
+    slackChannel?: string;
+    emailNotifications: string[];
+    captureScreenshots: boolean;
+    logDetailLevel: 'minimal' | 'standard' | 'verbose';
+  }>().default({
+    successRateThreshold: 85,
+    emailNotifications: [],
+    captureScreenshots: true,
+    logDetailLevel: 'standard'
+  }),
+
+  // Validation Rules
+  validationRules: json('validation_rules').$type<{
+    requiredFields: string[];
+    fieldValidation: Record<string, {
+      pattern?: string;
+      minLength?: number;
+      maxLength?: number;
+      required?: boolean;
+    }>;
+    businessRules: {
+      allowDuplicateSubmissions: boolean;
+      requirePrescriberNPI: boolean;
+      validateInsuranceInfo: boolean;
+    };
+  }>().default({
+    requiredFields: ['patientName', 'dateOfBirth', 'drugName'],
+    fieldValidation: {},
+    businessRules: {
+      allowDuplicateSubmissions: false,
+      requirePrescriberNPI: true,
+      validateInsuranceInfo: true
+    }
+  }),
+
+  // Status and Versioning
+  isActive: boolean('is_active').default(true),
+  version: integer('version').default(1),
+  lastValidatedAt: timestamp('last_validated_at'),
+  validationStatus: varchar('validation_status', { length: 20 }).default('pending'),
+  // 'pending', 'validated', 'outdated', 'broken'
+
+  // Performance Metrics
+  avgSuccessRate: decimal('avg_success_rate', { precision: 5, scale: 2 }).default('0'),
+  avgProcessingTime: integer('avg_processing_time').default(0), // milliseconds
+  lastSuccessAt: timestamp('last_success_at'),
+  lastFailureAt: timestamp('last_failure_at'),
+  totalAttempts: integer('total_attempts').default(0),
+  totalSuccesses: integer('total_successes').default(0),
+
+  // Metadata
+  createdBy: uuid('created_by').references(() => userProfiles.id),
+  updatedBy: uuid('updated_by').references(() => userProfiles.id),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  orgIdx: index('portal_automation_config_org_idx').on(table.organizationId),
+  payerIdx: index('portal_automation_config_payer_idx').on(table.payerId),
+  portalIdx: index('portal_automation_config_portal_idx').on(table.portalName),
+  activeIdx: index('portal_automation_config_active_idx').on(table.isActive),
+  statusIdx: index('portal_automation_config_status_idx').on(table.validationStatus),
+  successRateIdx: index('portal_automation_config_success_rate_idx').on(table.avgSuccessRate),
+  uniqueOrgPayerPortal: unique('portal_automation_config_org_payer_portal_unique')
+    .on(table.organizationId, table.payerId, table.portalName),
+}));
+
+// Portal automation execution logs for monitoring and debugging
+export const portalAutomationLogs = pgTable('portal_automation_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+
+  // Reference Data
+  configId: uuid('config_id').references(() => portalAutomationConfigs.id).notNull(),
+  workflowId: uuid('workflow_id').references(() => priorAuthWorkflows.id),
+  sessionId: varchar('session_id', { length: 100 }), // Browserbase session ID
+  priorAuthId: uuid('prior_auth_id').references(() => priorAuths.id),
+
+  // Execution Context
+  executionId: uuid('execution_id').notNull(), // Group related log entries
+  step: varchar('step', { length: 50 }).notNull(), // 'login', 'navigate', 'fill_form', 'submit', etc.
+  action: varchar('action', { length: 50 }).notNull(), // 'click', 'type', 'wait', 'screenshot', etc.
+
+  // Execution Results
+  status: varchar('status', { length: 20 }).notNull(), // 'success', 'failed', 'warning', 'info'
+  message: text('message'),
+  errorCode: varchar('error_code', { length: 50 }),
+
+  // Technical Details
+  selector: varchar('selector', { length: 500 }), // CSS selector used
+  elementFound: boolean('element_found'),
+  waitTime: integer('wait_time'), // milliseconds waited
+  screenshot: varchar('screenshot', { length: 500 }), // S3 path to screenshot
+
+  // Performance Metrics
+  executionTime: integer('execution_time'), // milliseconds for this step
+  memoryUsage: integer('memory_usage'), // bytes
+
+  // Bot Detection Signals
+  botDetectionSignals: json('bot_detection_signals').$type<{
+    captchaDetected?: boolean;
+    rateLimitHit?: boolean;
+    suspiciousRedirect?: boolean;
+    accountFlagged?: boolean;
+    humanVerificationRequired?: boolean;
+    ipBlocked?: boolean;
+  }>(),
+
+  // Browser Context
+  browserInfo: json('browser_info').$type<{
+    userAgent: string;
+    viewport: { width: number; height: number };
+    cookies: number; // count
+    localStorage: number; // count
+  }>(),
+
+  // Metadata
+  timestamp: timestamp('timestamp').defaultNow().notNull(),
+}, (table) => ({
+  configIdx: index('portal_automation_log_config_idx').on(table.configId),
+  workflowIdx: index('portal_automation_log_workflow_idx').on(table.workflowId),
+  executionIdx: index('portal_automation_log_execution_idx').on(table.executionId),
+  statusIdx: index('portal_automation_log_status_idx').on(table.status),
+  timestampIdx: index('portal_automation_log_timestamp_idx').on(table.timestamp),
+  stepIdx: index('portal_automation_log_step_idx').on(table.step),
+}));
+
 export type FhirResource = InferSelectModel<typeof fhirResources>;
 export type NewFhirResource = InferInsertModel<typeof fhirResources>;
 export type EhrSyncJob = InferSelectModel<typeof ehrSyncJobs>;
@@ -7978,4 +8312,8 @@ export type WorkflowStepLog = InferSelectModel<typeof workflowStepLogs>;
 export type NewWorkflowStepLog = InferInsertModel<typeof workflowStepLogs>;
 export type HumanIntervention = InferSelectModel<typeof humanInterventions>;
 export type NewHumanIntervention = InferInsertModel<typeof humanInterventions>;
+export type PortalAutomationConfig = InferSelectModel<typeof portalAutomationConfigs>;
+export type NewPortalAutomationConfig = InferInsertModel<typeof portalAutomationConfigs>;
+export type PortalAutomationLog = InferSelectModel<typeof portalAutomationLogs>;
+export type NewPortalAutomationLog = InferInsertModel<typeof portalAutomationLogs>;
 

@@ -5,7 +5,7 @@ import Redis, { Cluster } from 'ioredis';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import { cptCodeMaster, icd10CodeMaster, codeCrosswalk, hotCodesCache } from '@foresight-cdss-next/db/src/schema';
+import { cptCodeMaster, icd10CodeMaster, codeCrosswalk, hotCodesCache } from '@foresight-cdss-next/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 interface CptCode {
@@ -89,7 +89,7 @@ class MedicalCodeCacheService {
       if (process.env.REDIS_DB_URL) {
         const isClusterMode = process.env.REDIS_CLUSTER_MODE === 'true' || process.env.NODE_ENV === 'production';
         const password = process.env.REDIS_DB_PASSWORD;
-        
+
         // Get Redis CA certificate for TLS connections
         let caCert: string | undefined;
         if (process.env.REDIS_CA_SECRET_ARN) {

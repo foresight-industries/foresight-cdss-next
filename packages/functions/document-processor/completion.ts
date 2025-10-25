@@ -9,7 +9,7 @@ import {
 } from '@aws-sdk/client-textract';
 import { RDSDataClient } from '@aws-sdk/client-rds-data';
 import { drizzle } from 'drizzle-orm/aws-data-api/pg';
-import { documents } from '@foresight-cdss-next/db/src/schema';
+import { documents } from '@foresight-cdss-next/db/schema';
 import { eq } from 'drizzle-orm';
 
 const textractClient = new TextractClient({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -143,7 +143,7 @@ export const handler: SQSHandler = async (event: SQSEvent) => {
 
       console.log(`Successfully processed document ${documentId}`);
       // Success - no failure to report
-      
+
     } catch (error) {
       console.error('Error processing Textract completion:', error);
       // Return failure to retry the message

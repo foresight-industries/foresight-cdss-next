@@ -46,6 +46,7 @@
     "dev": "turbo dev",
     "test": "turbo test",
     "test:watch": "turbo test:watch",
+    "test:browserbase": "tsx tests/integration/browserbase.test.ts",
     "lint": "turbo lint",
     "lint:fix": "turbo lint:fix",
     "check-types": "turbo check-types",
@@ -68,6 +69,9 @@
   ],
   "packageManager": "yarn@4.10.3",
   "dependencies": {
-    "aws-amplify": "^6.15.7"
+    "@browserbasehq/stagehand": "^2.5.2",
+    "aws-amplify": "^6.15.7",
+    "playwright": "^1.56.1",
+    "zod": "^4.1.12"
   }
 }
