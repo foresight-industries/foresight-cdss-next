@@ -8,7 +8,7 @@ import * as apigateway from 'aws-cdk-lib/aws-apigatewayv2';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface MonitoringStackProps extends cdk.StackProps {
   stageName: string;

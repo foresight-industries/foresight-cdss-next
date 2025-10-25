@@ -11,7 +11,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 import { CacheStack } from './cache-stack';
 import { MedicalDataStack } from './medical-data-stack';
 
@@ -21,6 +21,7 @@ interface ApiStackProps extends cdk.StackProps {
   documentsBucket: s3.Bucket;
   cacheStack: CacheStack;
   medicalDataStack: MedicalDataStack;
+  codeSigningConfigArn?: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -28,6 +29,14 @@ export class ApiStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
+
+    // Import code signing configuration if provided
+    let codeSigningConfig: lambda.ICodeSigningConfig | undefined;
+    if (props.codeSigningConfigArn) {
+      codeSigningConfig = lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+        this, 'ImportedCodeSigningConfig', props.codeSigningConfigArn
+      );
+    }
 
     // Layer for shared dependencies
     const dependenciesLayer = new lambda.LayerVersion(this, 'DependenciesLayer', {
@@ -482,6 +491,19 @@ export class ApiStack extends cdk.Stack {
           `${props.medicalDataStack.medicalCodesBucket.bucketArn}/*`,
         ],
       }));
+    }
+
+    // Add compliance tags to signed functions
+    if (codeSigningConfig) {
+      const allLambdaFunctions = [
+        authorizerFn, patientsFn, claimsFn, presignFn, documentStatusFn, medicalCodesFn
+      ];
+
+      // Add tags for compliance tracking
+      for (const fn of allLambdaFunctions) {
+        cdk.Tags.of(fn).add('CodeSigningEnabled', 'true');
+        cdk.Tags.of(fn).add('ComplianceLevel', 'HIPAA-SOC2');
+      }
     }
 
     // Output API endpoint

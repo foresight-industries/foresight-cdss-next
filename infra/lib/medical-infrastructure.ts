@@ -1,5 +1,5 @@
-import { Stack, StackProps, Tags, CfnOutput } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import { Stack, type StackProps, Tags, CfnOutput } from 'aws-cdk-lib';
+import type { Construct } from 'constructs';
 import { CacheStack } from './stacks/cache-stack';
 import { MedicalDataStack } from './stacks/medical-data-stack';
 import { ComprehendMedicalStack } from './stacks/comprehend-medical-stack';

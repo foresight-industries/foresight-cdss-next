@@ -6,6 +6,9 @@ import {
   auditLogs,
   portalAutomationConfigs,
   humanInterventions,
+  medicalSpecialties,
+  priorAuthSpecialtyConfigs,
+  workflowSpecialtyClassifications,
   NewFailedJob,
   NewHumanIntervention
 } from '../schema';
@@ -13,6 +16,9 @@ import { portalAutomationConfigService } from './portal-automation-config';
 import { PortalSessionManager } from './portal-session';
 import { twilioSMSService } from './twilio-sms';
 import { botAvoidanceService, BrowserInstance } from './bot-avoidance';
+import { BaseSpecialtyWorkflowService } from './specialties/base-specialty-workflow';
+import { WeightLossWorkflowService } from './specialties/weight-loss-workflow';
+import { InternalMedicineWorkflowService } from './specialties/internal-medicine-workflow';
 import { randomUUID } from 'node:crypto';
 
 // Enhanced error classification
@@ -107,6 +113,445 @@ export class WorkflowIntegrationService {
       apiKey: process.env.BROWSERBASE_API_KEY || '',
       projectId: process.env.BROWSERBASE_PROJECT_ID || ''
     });
+  }
+
+  /**
+   * Get specialty-specific workflow configuration
+   */
+  async loadSpecialtyWorkflowConfig(
+    specialty: string,
+    organizationId: string,
+    payerId?: string
+  ): Promise<any> {
+    try {
+      // Get base specialty config
+      const baseSpecialty = await db
+        .select()
+        .from(medicalSpecialties)
+        .where(eq(medicalSpecialties.code, specialty))
+        .limit(1);
+
+      if (!baseSpecialty.length) {
+        return null;
+      }
+
+      // Get organization/payer specific overrides
+      let overrides = null;
+      if (payerId) {
+        const payerOverrides = await db
+          .select()
+          .from(priorAuthSpecialtyConfigs)
+          .where(
+            and(
+              eq(priorAuthSpecialtyConfigs.organizationId, organizationId),
+              eq(priorAuthSpecialtyConfigs.specialtyId, baseSpecialty[0].id),
+              eq(priorAuthSpecialtyConfigs.payerId, payerId),
+              eq(priorAuthSpecialtyConfigs.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (payerOverrides.length > 0) {
+          overrides = payerOverrides[0];
+        }
+      }
+
+      // If no payer-specific config, try organization-only config
+      if (!overrides) {
+        const orgOverrides = await db
+          .select()
+          .from(priorAuthSpecialtyConfigs)
+          .where(
+            and(
+              eq(priorAuthSpecialtyConfigs.organizationId, organizationId),
+              eq(priorAuthSpecialtyConfigs.specialtyId, baseSpecialty[0].id),
+              eq(priorAuthSpecialtyConfigs.isActive, true)
+            )
+          )
+          .limit(1);
+
+        if (orgOverrides.length > 0) {
+          overrides = orgOverrides[0];
+        }
+      }
+
+      // Merge configs
+      const mergedConfig = {
+        ...baseSpecialty[0].workflowConfig,
+        ...(overrides?.workflowOverrides || {})
+      };
+
+      return {
+        specialtyConfig: baseSpecialty[0],
+        overrides,
+        mergedConfig
+      };
+
+    } catch (error) {
+      console.error(`Error loading specialty config for ${specialty}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Create specialty-specific workflow service instance
+   */
+  createSpecialtyWorkflowService(
+    specialty: string,
+    workflowConfig?: any
+  ): BaseSpecialtyWorkflowService {
+    switch (specialty) {
+      case 'WEIGHT_LOSS':
+        return new WeightLossWorkflowService();
+      case 'INTERNAL_MEDICINE':
+        return new InternalMedicineWorkflowService();
+      default:
+        return new InternalMedicineWorkflowService(); // Default to internal medicine for unknown specialties
+    }
+  }
+
+  /**
+   * Save specialty classification for prior auth
+   */
+  async saveSpecialtyClassification(
+    priorAuthId: string,
+    specialty: string,
+    confidence: number,
+    classificationMethod: string,
+    diagnosisCodes: string[] = [],
+    procedureCodes: string[] = [],
+    keywordMatches: string[] = [],
+    manualOverride: boolean = false,
+    overrideReason?: string
+  ): Promise<string> {
+    try {
+      const [classification] = await db
+        .insert(workflowSpecialtyClassifications)
+        .values({
+          priorAuthId,
+          classifiedSpecialty: specialty as any,
+          confidence: confidence.toString(),
+          classificationMethod,
+          diagnosisCodes,
+          procedureCodes,
+          keywordMatches,
+          manualOverride,
+          overrideReason
+        })
+        .returning({ id: workflowSpecialtyClassifications.id });
+
+      return classification.id;
+    } catch (error) {
+      console.error('Error saving specialty classification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get specialty classification for prior auth
+   */
+  async getSpecialtyClassification(priorAuthId: string): Promise<any> {
+    try {
+      const classifications = await db
+        .select()
+        .from(workflowSpecialtyClassifications)
+        .where(eq(workflowSpecialtyClassifications.priorAuthId, priorAuthId))
+        .orderBy(workflowSpecialtyClassifications.createdAt)
+        .limit(1);
+
+      return classifications.length > 0 ? classifications[0] : null;
+    } catch (error) {
+      console.error('Error getting specialty classification:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Enhanced workflow orchestration with specialty support
+   */
+  async orchestrateSpecialtyAwareWorkflow(
+    request: WorkflowPARequest & {
+      specialty?: string;
+      specialtyConfig?: any;
+      workflowConfig?: any;
+      classificationMethod?: string;
+      classificationConfidence?: number;
+    }
+  ): Promise<WorkflowOrchestrationResult> {
+    const startTime = Date.now();
+    const executionId = randomUUID();
+
+    const result: WorkflowOrchestrationResult = {
+      success: false,
+      priorAuthId: request.priorAuthId,
+      status: 'pending',
+      workflowId: `WF_${Date.now()}`,
+      executionId,
+      humanInterventionRequired: false,
+      nextSteps: [],
+      metadata: {
+        submissionMethod: 'browserbase_portal',
+        automationLevel: request.automationLevel,
+        processingTime: 0,
+        retryCount: 0,
+        auditTrail: [],
+        ...(request.specialty && { specialtyWorkflow: true, specialty: request.specialty })
+      } as any
+    };
+
+    try {
+      // Step 1: Load or determine specialty configuration
+      let specialtyConfig = request.specialtyConfig;
+      if (!specialtyConfig && request.specialty) {
+        const loadedConfig = await this.loadSpecialtyWorkflowConfig(
+          request.specialty,
+          request.organizationId,
+          request.payerId
+        );
+        specialtyConfig = loadedConfig?.mergedConfig;
+      }
+
+      // Step 2: Create specialty-specific workflow service
+      const workflowService = request.specialty ? 
+        this.createSpecialtyWorkflowService(request.specialty, specialtyConfig) :
+        new InternalMedicineWorkflowService();
+
+      // Step 3: Save specialty classification if provided
+      if (request.specialty && request.classificationMethod) {
+        await this.saveSpecialtyClassification(
+          request.priorAuthId,
+          request.specialty,
+          request.classificationConfidence || 0.8,
+          request.classificationMethod,
+          request.formData.diagnosisCode ? [request.formData.diagnosisCode] : [],
+          request.formData.procedureCode ? [request.formData.procedureCode] : []
+        );
+      }
+
+      // Step 4: Validate workflow requirements using specialty service
+      if (request.specialty && specialtyConfig) {
+        const priorAuthData = {
+          diagnosisCodes: request.formData.diagnosisCode ? [request.formData.diagnosisCode] : [],
+          procedureCodes: request.formData.procedureCode ? [request.formData.procedureCode] : [],
+          clinicalRationale: request.formData.clinicalRationale,
+          patientAge: 0, // Would need to calculate from DOB
+          patientGender: '',
+          urgency: (request.formData.priority === 'stat' ? 'EMERGENT' : 
+                   request.formData.priority === 'urgent' ? 'URGENT' : 'ROUTINE') as 'EMERGENT' | 'URGENT' | 'ROUTINE',
+          priorTreatments: [],
+          supportingDocuments: [],
+          organizationId: request.organizationId,
+          payerId: request.payerId
+        };
+
+        // Load dynamic configuration if not already loaded
+        if (specialtyConfig) {
+          await workflowService.loadSpecialtyConfig(request.organizationId, request.payerId);
+        }
+
+        // Validate specialty-specific requirements
+        const validationResult = await workflowService.processWorkflow(priorAuthData);
+        
+        // Add specialty validation to result metadata
+        (result.metadata as any).specialtyValidation = {
+          score: validationResult.score,
+          isValid: validationResult.isValid,
+          recommendedAction: validationResult.recommendedAction,
+          autoApprovalEligible: validationResult.autoApproval,
+          missingRequirements: validationResult.missingRequirements,
+          reasons: validationResult.reasons
+        };
+
+        // If specialty validation recommends manual review, set intervention flag
+        if (validationResult.recommendedAction === 'MANUAL_REVIEW' || 
+            validationResult.recommendedAction === 'REQUEST_ADDITIONAL_INFO') {
+          result.humanInterventionRequired = true;
+          result.status = 'requires_intervention';
+          result.nextSteps = [
+            'Review specialty-specific requirements',
+            ...(validationResult.missingRequirements.length > 0 ? 
+              [`Provide missing requirements: ${validationResult.missingRequirements.join(', ')}`] : []),
+            'Complete manual submission with enhanced documentation'
+          ];
+
+          await this.logAuditEvent(request.priorAuthId, 'specialty_validation_intervention', {
+            specialty: request.specialty,
+            validationResult,
+            executionId
+          });
+
+          return result;
+        }
+
+        // If specialty validation fails, set as failed
+        if (validationResult.recommendedAction === 'DENY') {
+          result.status = 'failed';
+          result.error = 'Specialty validation failed - does not meet medical necessity criteria';
+          result.nextSteps = [
+            'Review clinical documentation',
+            'Address validation concerns',
+            'Consider resubmission with additional supporting evidence'
+          ];
+
+          await this.updatePriorAuthStatus(request.priorAuthId, {
+            status: 'denied'
+          });
+
+          return result;
+        }
+      }
+
+      // Step 5: Continue with standard portal automation workflow
+      const standardResult = await this.orchestratePortalAutomation(request);
+
+      // Merge specialty-aware enhancements with standard result
+      return {
+        ...standardResult,
+        metadata: {
+          ...standardResult.metadata,
+          ...result.metadata
+        }
+      };
+
+    } catch (error) {
+      console.error('Specialty-aware workflow orchestration error:', error);
+
+      result.status = 'failed';
+      result.error = error instanceof Error ? error.message : 'Unknown error';
+      result.nextSteps = [
+        'Review specialty configuration',
+        'Check workflow service initialization',
+        'Retry with standard workflow'
+      ];
+
+      await this.logAuditEvent(request.priorAuthId, 'specialty_workflow_failed', {
+        executionId,
+        error: result.error,
+        specialty: request.specialty,
+        processingTime: Date.now() - startTime
+      });
+
+      return result;
+    } finally {
+      result.metadata.processingTime = Date.now() - startTime;
+    }
+  }
+
+  /**
+   * Get workflow recommendations based on specialty and historical data
+   */
+  async getWorkflowRecommendations(
+    organizationId: string,
+    payerId: string,
+    specialty?: string
+  ): Promise<{
+    recommendedAutomationLevel: string;
+    successRate: number;
+    avgProcessingTime: number;
+    commonIssues: string[];
+    recommendations: string[];
+  }> {
+    try {
+      // This would analyze historical data to provide recommendations
+      // For now, return basic recommendations based on specialty
+      const recommendations = {
+        recommendedAutomationLevel: 'human_in_loop',
+        successRate: 85,
+        avgProcessingTime: 300000, // 5 minutes
+        commonIssues: [] as string[],
+        recommendations: [] as string[]
+      };
+
+      if (specialty === 'WEIGHT_LOSS') {
+        recommendations.recommendedAutomationLevel = 'manual_review_required';
+        recommendations.successRate = 70;
+        recommendations.commonIssues = [
+          'BMI documentation requirements',
+          'Psychological evaluation requirements',
+          'Diet history documentation'
+        ];
+        recommendations.recommendations = [
+          'Ensure BMI documentation is complete',
+          'Include psychological evaluation reports',
+          'Document 6-month supervised diet history',
+          'Provide cardiac clearance documentation'
+        ];
+      }
+
+      return recommendations;
+    } catch (error) {
+      console.error('Error getting workflow recommendations:', error);
+      return {
+        recommendedAutomationLevel: 'human_in_loop',
+        successRate: 50,
+        avgProcessingTime: 600000,
+        commonIssues: ['Configuration not available'],
+        recommendations: ['Manual review recommended']
+      };
+    }
+  }
+
+  /**
+   * Update specialty configuration
+   */
+  async updateSpecialtyConfiguration(
+    organizationId: string,
+    specialtyId: string,
+    payerId: string,
+    workflowOverrides: any
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if configuration exists
+      const existing = await db
+        .select()
+        .from(priorAuthSpecialtyConfigs)
+        .where(
+          and(
+            eq(priorAuthSpecialtyConfigs.organizationId, organizationId),
+            eq(priorAuthSpecialtyConfigs.specialtyId, specialtyId),
+            eq(priorAuthSpecialtyConfigs.payerId, payerId)
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        // Update existing
+        await db
+          .update(priorAuthSpecialtyConfigs)
+          .set({
+            workflowOverrides,
+            updatedAt: new Date()
+          })
+          .where(eq(priorAuthSpecialtyConfigs.id, existing[0].id));
+      } else {
+        // Create new
+        await db
+          .insert(priorAuthSpecialtyConfigs)
+          .values({
+            organizationId,
+            specialtyId,
+            payerId,
+            workflowOverrides,
+            isActive: true,
+            priority: 0
+          });
+      }
+
+      await this.logAuditEvent(`${organizationId}-${specialtyId}`, 'specialty_config_updated', {
+        organizationId,
+        specialtyId,
+        payerId,
+        workflowOverrides
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating specialty configuration:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**

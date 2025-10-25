@@ -1,4 +1,4 @@
-import { Handler } from 'aws-lambda';
+import type { Handler } from 'aws-lambda';
 import { SQSClient, SendMessageCommand } from '@aws-sdk/client-sqs';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 
@@ -45,7 +45,7 @@ export const handler: Handler = async (event: ErrorEvent) => {
   try {
     // Determine which DLQ to use based on API type
     const dlqUrl = event.apiType === 'GRAPHQL' ? APPSYNC_DLQ_URL : EVENT_API_DLQ_URL;
-    
+
     // Enrich error event with additional metadata
     const enrichedEvent = {
       ...event,
@@ -77,10 +77,10 @@ export const handler: Handler = async (event: ErrorEvent) => {
     };
   } catch (error) {
     console.error('Failed to process API error:', error);
-    
+
     // Log to CloudWatch for debugging
     console.error('Original event:', JSON.stringify(event, null, 2));
-    
+
     throw error;
   }
 };
@@ -144,7 +144,7 @@ async function sendAlert(errorEvent: any): Promise<void> {
   };
 
   const subject = `🚨 ${errorEvent.severity} Healthcare RCM API Error - ${STAGE_NAME}`;
-  
+
   const command = new PublishCommand({
     TopicArn: ALERT_TOPIC_ARN,
     Subject: subject,
@@ -213,7 +213,7 @@ function determineSeverity(errors: AppSyncError[]): 'LOW' | 'MEDIUM' | 'HIGH' | 
 
 function checkForPatientData(event: ErrorEvent): boolean {
   const eventString = JSON.stringify(event).toLowerCase();
-  
+
   // Check for patient-related operations
   const patientKeywords = [
     'patient',
@@ -250,7 +250,7 @@ function isHipaaRelevant(event: ErrorEvent): boolean {
   const operation = event.operation?.toLowerCase();
   const paths = event.errors.flatMap(error => error.path || []).map(p => p.toString().toLowerCase());
 
-  return healthcareOperations.some(op => 
+  return healthcareOperations.some(op =>
     operation?.includes(op) || paths.some(path => path.includes(op))
   );
 }

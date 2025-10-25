@@ -3,7 +3,7 @@ import * as appconfig from 'aws-cdk-lib/aws-appconfig';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 import { join } from 'node:path';
 
 interface AppConfigStackProps extends cdk.StackProps {

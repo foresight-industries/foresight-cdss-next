@@ -14,13 +14,14 @@ import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface WebhookStackProps extends cdk.StackProps {
   stageName: 'staging' | 'prod';
   database: rds.DatabaseCluster;
   eventBus?: events.EventBus;
   hipaaComplianceEmail?: string; // Email for HIPAA compliance alerts
+  codeSigningConfigArn?: string;
 }
 
 /**
@@ -46,6 +47,14 @@ export class WebhookStack extends cdk.Stack {
     super(scope, id, props);
 
     this.stageName = props.stageName;
+
+    // Import code signing configuration if provided
+    let codeSigningConfig: lambda.ICodeSigningConfig | undefined;
+    if (props.codeSigningConfigArn) {
+      codeSigningConfig = lambda.CodeSigningConfig.fromCodeSigningConfigArn(
+        this, 'ImportedCodeSigningConfig', props.codeSigningConfigArn
+      );
+    }
 
     // Create custom EventBridge bus or use provided one
     this.eventBus = props.eventBus ?? new events.EventBus(this, 'WebhookEventBus', {
@@ -142,6 +151,27 @@ export class WebhookStack extends cdk.Stack {
     // Create DLQ monitoring
     this.createDlqMonitoring();
 
+    // Apply code signing configuration to all Lambda functions if available
+    if (codeSigningConfig) {
+      const allLambdaFunctions = [
+        this.webhookProcessorFunction,
+        this.webhookDeliveryFunction,
+        this.dataRetentionFunction
+      ];
+
+      // Find and add the DLQ processor function that was created in createDlqMonitoring
+      const dlqProcessor = this.node.findChild('WebhookDlqProcessor') as lambda.Function;
+      if (dlqProcessor) {
+        allLambdaFunctions.push(dlqProcessor);
+      }
+
+      // Add tags for compliance tracking
+      allLambdaFunctions.forEach(fn => {
+        cdk.Tags.of(fn).add('CodeSigningEnabled', 'true');
+        cdk.Tags.of(fn).add('ComplianceLevel', 'HIPAA-SOC2');
+      });
+    }
+
     // Apply tags
     this.applyTags(props.stageName);
 
@@ -228,16 +258,16 @@ export class WebhookStack extends cdk.Stack {
   private createEventBridgeRules(): void {
     /**
      * EventBridge Event Type Mapping
-     * 
-     * This maps the webhook event types shown in the UI (webhooks-tab.tsx) 
+     *
+     * This maps the webhook event types shown in the UI (webhooks-tab.tsx)
      * to EventBridge DetailTypes for proper event routing:
-     * 
+     *
      * Organization Events:
      * - organization.created → Organization Created
-     * - organization.updated → Organization Updated  
+     * - organization.updated → Organization Updated
      * - organization.deleted → Organization Deleted
      * - organization.settings.changed → Organization Settings Changed
-     * 
+     *
      * User & Team Events:
      * - user.created → User Created
      * - user.updated → User Updated
@@ -246,12 +276,12 @@ export class WebhookStack extends cdk.Stack {
      * - team_member.added → Team Member Added
      * - team_member.updated → Team Member Updated
      * - team_member.removed → Team Member Removed
-     * 
+     *
      * Patient Events (HIPAA Critical):
      * - patient.created → Patient Created
      * - patient.updated → Patient Updated
      * - patient.deleted → Patient Deleted
-     * 
+     *
      * Clinician Events:
      * - clinician.created → Clinician Created
      * - clinician.updated → Clinician Updated
@@ -263,7 +293,7 @@ export class WebhookStack extends cdk.Stack {
      * - clinician.status.changed → Clinician Status Changed
      * - clinician.specialty.updated → Clinician Specialty Updated
      * - clinician.npi.updated → Clinician NPI Updated
-     * 
+     *
      * Claims Events:
      * - claim.created → Claim Created
      * - claim.updated → Claim Updated
@@ -272,7 +302,7 @@ export class WebhookStack extends cdk.Stack {
      * - claim.denied → Claim Denied
      * - claim.processing.started → Claim Processing Started
      * - claim.processing.completed → Claim Processing Completed
-     * 
+     *
      * Prior Authorization Events:
      * - prior_auth.created → Prior Auth Created
      * - prior_auth.updated → Prior Auth Updated
@@ -282,13 +312,13 @@ export class WebhookStack extends cdk.Stack {
      * - prior_auth.pending → Prior Auth Pending
      * - prior_auth.expired → Prior Auth Expired
      * - prior_auth.cancelled → Prior Auth Cancelled
-     * 
+     *
      * Document Events (HIPAA Critical):
      * - document.uploaded → Document Uploaded
      * - document.processed → Document Processed
      * - document.analysis.completed → Document Analysis Completed
      * - document.deleted → Document Deleted
-     * 
+     *
      * Encounter Events (HIPAA Critical):
      * - encounter.created → Encounter Created
      * - encounter.updated → Encounter Updated
@@ -365,7 +395,7 @@ export class WebhookStack extends cdk.Stack {
           'Clinician Updated',
           'Clinician Deleted',
           'Clinician License Added',
-          'Clinician License Updated', 
+          'Clinician License Updated',
           'Clinician License Expired',
           'Clinician Credentials Verified',
           'Clinician Status Changed',

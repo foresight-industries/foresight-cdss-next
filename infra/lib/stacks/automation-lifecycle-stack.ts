@@ -3,7 +3,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as cr from 'aws-cdk-lib/custom-resources';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 export interface AutomationLifecycleStackProps extends cdk.StackProps {
   bucketName: string;
@@ -36,7 +36,7 @@ export class AutomationLifecycleStack extends cdk.Stack {
         id: 'AutomationScreenshotsLifecycle',
         enabled: true,
         prefix: 'automation/screenshots/',
-        
+
         // Cost optimization through storage class transitions
         transitions: [
           {
@@ -52,16 +52,16 @@ export class AutomationLifecycleStack extends cdk.Stack {
             transitionAfter: cdk.Duration.days(365), // Deep archive after 1 year ($0.00099/GB)
           },
         ],
-        
+
         // Automatic cleanup - must be greater than last transition (365 days)
         expiration: cdk.Duration.days(props.environment === 'production' ? 2555 : 730), // 7 years prod, 2 years staging
       },
-      
+
       {
         id: 'AutomationLogsLifecycle',
         enabled: true,
         prefix: 'automation/logs/',
-        
+
         transitions: [
           {
             storageClass: s3.StorageClass.INFREQUENT_ACCESS,
@@ -72,24 +72,24 @@ export class AutomationLifecycleStack extends cdk.Stack {
             transitionAfter: cdk.Duration.days(180), // Logs transition slower
           },
         ],
-        
+
         expiration: cdk.Duration.days(props.environment === 'production' ? 2555 : 365), // Must be greater than last transition (180 days)
       },
-      
+
       {
         id: 'AutomationTempFilesLifecycle',
         enabled: true,
         prefix: 'automation/temp/',
-        
+
         // Clean up temp files quickly
         expiration: cdk.Duration.days(7),
       },
-      
+
       {
         id: 'IncompleteMultipartUploadsCleanup',
         enabled: true,
         prefix: 'automation/',
-        
+
         // Clean up failed uploads
         abortIncompleteMultipartUploadAfter: cdk.Duration.days(1),
       },
@@ -150,7 +150,7 @@ export class AutomationLifecycleStack extends cdk.Stack {
                     StorageClass: mapStorageClass(t.storageClass),
                   }))
                   .filter(t => t.Days > 0); // Ensure positive days
-                
+
                 if (validTransitions.length > 0) {
                   ruleConfig.Transitions = validTransitions;
                 }
@@ -175,7 +175,7 @@ export class AutomationLifecycleStack extends cdk.Stack {
               }
 
               return ruleConfig;
-            }).filter(rule => 
+            }).filter(rule =>
               // Only include rules that have at least one action
               rule.Transitions || rule.Expiration || rule.AbortIncompleteMultipartUpload
             ),
@@ -211,7 +211,7 @@ export class AutomationLifecycleStack extends cdk.Stack {
                     StorageClass: mapStorageClass(t.storageClass),
                   }))
                   .filter(t => t.Days > 0); // Ensure positive days
-                
+
                 if (validTransitions.length > 0) {
                   ruleConfig.Transitions = validTransitions;
                 }
@@ -236,7 +236,7 @@ export class AutomationLifecycleStack extends cdk.Stack {
               }
 
               return ruleConfig;
-            }).filter(rule => 
+            }).filter(rule =>
               // Only include rules that have at least one action
               rule.Transitions || rule.Expiration || rule.AbortIncompleteMultipartUpload
             ),

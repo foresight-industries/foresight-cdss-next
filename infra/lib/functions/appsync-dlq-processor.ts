@@ -1,4 +1,4 @@
-import { SQSHandler, SQSRecord } from 'aws-lambda';
+import type { SQSHandler, SQSRecord } from 'aws-lambda';
 import { SNSClient, PublishCommand } from '@aws-sdk/client-sns';
 import { CloudWatchClient, PutMetricDataCommand, StandardUnit } from '@aws-sdk/client-cloudwatch';
 

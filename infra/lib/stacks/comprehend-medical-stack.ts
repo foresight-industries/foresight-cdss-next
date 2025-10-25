@@ -1,5 +1,5 @@
-import { Stack, StackProps, CfnOutput, Duration } from 'aws-cdk-lib';
-import { Construct } from 'constructs';
+import { Stack, type StackProps, CfnOutput, Duration } from 'aws-cdk-lib';
+import type { Construct } from 'constructs';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as events from 'aws-cdk-lib/aws-events';

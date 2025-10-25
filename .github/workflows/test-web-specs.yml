@@ -2,13 +2,13 @@ name: Test Web Specs
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, staging ]
     paths:
       - 'apps/web/**'
       - 'packages/**'
       - '.github/workflows/test-web-specs.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main, staging ]
     paths:
       - 'apps/web/**'
       - 'packages/**'
@@ -74,12 +74,10 @@ jobs:
             apps/web/test-results/
           retention-days: 7
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        if: always()
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
         with:
+          token: ${{ secrets.CODECOV_TOKEN }}
           directory: apps/web/coverage/
           flags: web-specs
           name: web-specs-coverage
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -5,7 +5,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cloudwatchActions from 'aws-cdk-lib/aws-cloudwatch-actions';
 import * as sns from 'aws-cdk-lib/aws-sns';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface ElastiCacheStackProps extends cdk.StackProps {
   stageName: string;
