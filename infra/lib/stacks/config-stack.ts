@@ -110,7 +110,7 @@ export class ConfigStack extends cdk.Stack {
     const configDeliveryChannel = new config.CfnDeliveryChannel(this, 'ConfigDeliveryChannel', {
       name: `rcm-config-delivery-${props.stageName}`,
       s3BucketName: this.configBucket.bucketName,
-      s3KeyPrefix: `config/${props.stageName}/`,
+      s3KeyPrefix: `config/${props.stageName}`,
       s3KmsKeyArn: configKmsKey.keyArn,
       snsTopicArn: this.configTopic.topicArn,
       configSnapshotDeliveryProperties: {
@@ -135,12 +135,11 @@ export class ConfigStack extends cdk.Stack {
     // Healthcare-specific Config rules
     const healthcareRules = this.createHealthcareComplianceRules();
 
-    // Dependencies
-    configDeliveryChannel.addDependency(configRecorder);
-
-    // All Config rules must depend on the Configuration Recorder being active
+    // Dependencies - Let AWS Config handle the internal dependencies between Recorder and Delivery Channel
+    // Both Config rules depend on both the Recorder and Delivery Channel being active
     for (const rule of [...hipaaRules, ...healthcareRules]) {
       rule.node.addDependency(configRecorder);
+      rule.node.addDependency(configDeliveryChannel);
     }
 
     // Outputs
