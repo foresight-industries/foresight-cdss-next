@@ -1,6 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as resourcegroups from 'aws-cdk-lib/aws-resourcegroups';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface ApplicationStackProps extends cdk.StackProps {
   stageName: string;

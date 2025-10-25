@@ -220,7 +220,6 @@ for (const envName of ['staging', 'prod']) {
     env,
     stageName: envName,
     complianceEmail: 'ops@have-foresight.com',
-    codeSigningConfigArn: codeSigning.codeSigningConfig.codeSigningConfigArn,
   });
 
   // AWS Security Hub for centralized security findings and compliance dashboard

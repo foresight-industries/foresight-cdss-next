@@ -3,7 +3,7 @@ import * as grafana from 'aws-cdk-lib/aws-grafana';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface GrafanaStackProps extends cdk.StackProps {
   stageName: string;

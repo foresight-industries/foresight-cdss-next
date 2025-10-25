@@ -6,7 +6,7 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 export interface SecurityHubStackProps extends cdk.StackProps {
   stageName: string;

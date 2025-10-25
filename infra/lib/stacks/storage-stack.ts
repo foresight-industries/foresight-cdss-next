@@ -1,7 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as kms from 'aws-cdk-lib/aws-kms';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 
 interface StorageStackProps extends cdk.StackProps {
   stageName: string;

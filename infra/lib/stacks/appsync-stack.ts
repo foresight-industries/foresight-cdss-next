@@ -9,7 +9,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as certmanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as iam from 'aws-cdk-lib/aws-iam';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 import { join } from 'node:path';
 import * as appsync from 'aws-cdk-lib/aws-appsync';
 import { AppSyncAuthorizationType } from 'aws-cdk-lib/aws-appsync';

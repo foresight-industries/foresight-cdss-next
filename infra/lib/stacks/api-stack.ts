@@ -11,7 +11,7 @@ import * as rds from 'aws-cdk-lib/aws-rds';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as secretsManager from 'aws-cdk-lib/aws-secretsmanager';
 import * as logs from 'aws-cdk-lib/aws-logs';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 import { CacheStack } from './cache-stack';
 import { MedicalDataStack } from './medical-data-stack';
 

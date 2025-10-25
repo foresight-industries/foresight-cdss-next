@@ -7,7 +7,7 @@ import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
-import { Construct } from 'constructs';
+import type { Construct } from 'constructs';
 import { randomBytes } from 'node:crypto';
 
 interface SecurityStackProps extends cdk.StackProps {
@@ -498,7 +498,7 @@ export class SecurityStack extends cdk.Stack {
 
     // Twilio SMS Encryption Secret - conditional creation
     let twilioEncryptionSecret: secretsmanager.ISecret;
-    
+
     if (props.stageName === 'staging') {
       // Generate a cryptographically secure 256-bit encryption key for Twilio SMS
       const twilioEncryptionKey = randomBytes(32).toString('base64');
